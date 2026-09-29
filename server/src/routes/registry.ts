@@ -3,6 +3,7 @@ import type { Registry } from '../application/registry.js';
 import { route } from '../contracts/routes.js';
 import { page, pageResult } from '../application/pagination.js';
 import { rows, type Database } from '../db/connection.js';
+import { searchRegistry } from '../application/registry-search.js';
 import { ensure } from '../application/errors.js';
 export function registryRoutes(app: FastifyInstance, db: Database, registry: Registry) {
   route(app, 'GET', '/api/categories', async (req) => {
@@ -17,15 +18,13 @@ export function registryRoutes(app: FastifyInstance, db: Database, registry: Reg
   for (const kind of ['field-sets', 'fields'] as const) {
     route(app, 'GET', `/api/${kind}`, async (req) => {
       const { limit, offset } = page(req.query);
-      const table = kind === 'fields' ? 'field_definitions' : 'field_sets';
-      const description = kind === 'fields' ? 'description' : 'eligibility';
-      const params: unknown[] = [req.query.q ?? '', limit + 1, offset];
-      const category = kind === 'field-sets' && req.query.categoryId ? 'and category_id=$4' : '';
-      if (category) params.push(req.query.categoryId);
-      const ids = await rows<{ id: string }>(
+      const ids = await searchRegistry(
         db,
-        `select id from bt.${table} where ($1='' or to_tsvector('simple',name || ' ' || ${description}) @@ plainto_tsquery('simple',$1) or strpos(lower(id),lower($1))>0 or strpos(lower(array_to_string(keywords,' ')),lower($1))>0) ${category} order by id limit $2 offset $3`,
-        params,
+        kind,
+        [req.query.q ?? ''],
+        req.query.categoryId,
+        limit + 1,
+        offset,
       );
       return pageResult(
         ids.map(({ id }) => (kind === 'fields' ? registry.fields.get(id) : registry.sets.get(id))),

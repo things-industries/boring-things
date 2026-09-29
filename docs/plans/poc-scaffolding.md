@@ -324,7 +324,12 @@ Section heuristic, implemented in one frontend helper:
 
 ### 2. Progressive import and discovery
 
-- Implement immediate skeleton creation, persisted import states, source extraction, candidate confirmation, the two registry tools, mapping and progressive transactional persistence.
+Implemented locally (29 September). OpenAI provider approved through `OPENAI_API_KEY`/`OPENAI_MODEL` configuration. Source uploads, persisted selection/retry, validated registry mapping, Thing SSE and cited discovery are available. Discovery saves reference notes linking to manuals/model pages; remote document downloads remain outside this slice. Extracted facts and import states persist across restarts; interrupted jobs require retry.
+
+Validation: recorded synthetic extraction/mapping plus fixtures for Z-number, van dependencies, combined policy, unknown fields, multi-Thing confirmation, invalid IDs, tool limits and retry. Integration/browser checks cover owner isolation, source sharing, user edits, discovery deduplication, SSE reconnect and restart recovery. `scripts/smoke-import.ts` runs a live synthetic check and records usage in `test-results/import-smoke.json`. Physical camera capture and live Logto redirect checks remain manual.
+
+- Implement import of things from unstructured source data powered by AI (take photo, choose photo from camera roll, paste something, or upload file)
+- Implement immediate skeleton thing creation, persisted import states, source extraction, candidate confirmation, the two registry tools, mapping and progressive transactional persistence.
 - Add Thing SSE, reconnect snapshots, and bounded discovery of manuals/model data, maintenance suggestions and purchasables.
 - Preserve extracted content and unmatched facts; enforce tool/time limits and retry-safe results.
 - Use small recorded fixtures plus a live smoke run: Z-number, van inclusion, combined policy, unknown field, two Things from one source, and failed-job retry.

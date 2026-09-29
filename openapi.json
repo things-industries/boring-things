@@ -2127,7 +2127,9 @@
                     "format": "binary"
                   }
                 },
-                "required": ["file"]
+                "required": [
+                  "file"
+                ]
               }
             }
           }
@@ -2764,7 +2766,10 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["open", "resolved"]
+              "enum": [
+                "open",
+                "resolved"
+              ]
             }
           }
         ]
@@ -3205,7 +3210,12 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["suggested", "scheduled", "completed", "dismissed"]
+              "enum": [
+                "suggested",
+                "scheduled",
+                "completed",
+                "dismissed"
+              ]
             }
           },
           {
@@ -3662,7 +3672,11 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["consumable", "accessory", "upgrade"]
+              "enum": [
+                "consumable",
+                "accessory",
+                "upgrade"
+              ]
             }
           }
         ]
@@ -3975,6 +3989,531 @@
           }
         ]
       }
+    },
+    "/api/things:import": {
+      "post": {
+        "operationId": "startImport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportAccepted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportStart"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/imports/{id}": {
+      "get": {
+        "operationId": "getImport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Import"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/imports/{id}:confirm": {
+      "post": {
+        "operationId": "confirmImport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Import"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportConfirmation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/imports/{id}:retry": {
+      "post": {
+        "operationId": "retryImport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Import"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/things/{thingId}/stream": {
+      "get": {
+        "operationId": "streamThing",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "thingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full masked Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3997,7 +4536,10 @@
             "type": "integer"
           }
         },
-        "required": ["message", "statusCode"]
+        "required": [
+          "message",
+          "statusCode"
+        ]
       },
       "Money": {
         "type": "object",
@@ -4011,10 +4553,17 @@
           "currency": {
             "type": "string",
             "pattern": "^[A-Z]{3}$",
-            "enum": ["GBP", "EUR", "USD"]
+            "enum": [
+              "GBP",
+              "EUR",
+              "USD"
+            ]
           }
         },
-        "required": ["amountMinor", "currency"]
+        "required": [
+          "amountMinor",
+          "currency"
+        ]
       },
       "Value": {
         "oneOf": [
@@ -4040,7 +4589,9 @@
           {
             "type": "string",
             "nullable": true,
-            "enum": [null]
+            "enum": [
+              null
+            ]
           }
         ]
       },
@@ -4089,11 +4640,20 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["string", "number", "integer", "boolean", "object"]
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "object"
+            ]
           },
           "format": {
             "type": "string",
-            "enum": ["date", "date-time"]
+            "enum": [
+              "date",
+              "date-time"
+            ]
           },
           "enum": {
             "type": "array",
@@ -4132,7 +4692,9 @@
             "type": "boolean"
           }
         },
-        "required": ["type"]
+        "required": [
+          "type"
+        ]
       },
       "FieldDefinition": {
         "type": "object",
@@ -4174,7 +4736,15 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"]
+        "required": [
+          "id",
+          "name",
+          "description",
+          "keywords",
+          "schema",
+          "uiHint",
+          "sensitive"
+        ]
       },
       "Field": {
         "type": "object",
@@ -4223,7 +4793,10 @@
           },
           "origin": {
             "type": "string",
-            "enum": ["user", "import"],
+            "enum": [
+              "user",
+              "import"
+            ],
             "nullable": true
           },
           "sourceRefs": {
@@ -4373,7 +4946,10 @@
           },
           "origin": {
             "type": "string",
-            "enum": ["user", "import"]
+            "enum": [
+              "user",
+              "import"
+            ]
           },
           "sourceRefs": {
             "type": "array",
@@ -4383,7 +4959,12 @@
           },
           "valueType": {
             "type": "string",
-            "enum": ["string", "number", "boolean", "money"]
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "money"
+            ]
           }
         },
         "required": [
@@ -4424,7 +5005,15 @@
             "type": "integer"
           }
         },
-        "required": ["id", "name", "description", "icon", "defaultImage", "sortOrder", "thingCount"]
+        "required": [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "defaultImage",
+          "sortOrder",
+          "thingCount"
+        ]
       },
       "Profile": {
         "type": "object",
@@ -4441,7 +5030,11 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "displayName", "samplesAdded"]
+        "required": [
+          "id",
+          "displayName",
+          "samplesAdded"
+        ]
       },
       "Config": {
         "type": "object",
@@ -4467,6 +5060,9 @@
           },
           "sampleDataEnabled": {
             "type": "boolean"
+          },
+          "importEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -4475,7 +5071,8 @@
           "apiResource",
           "maxUploadBytes",
           "supportedMediaTypes",
-          "sampleDataEnabled"
+          "sampleDataEnabled",
+          "importEnabled"
         ]
       },
       "Tag": {
@@ -4490,7 +5087,10 @@
             "type": "string"
           }
         },
-        "required": ["id", "name"]
+        "required": [
+          "id",
+          "name"
+        ]
       },
       "TagInput": {
         "type": "object",
@@ -4502,7 +5102,9 @@
             "maxLength": 80
           }
         },
-        "required": ["name"]
+        "required": [
+          "name"
+        ]
       },
       "ThingSummary": {
         "type": "object",
@@ -4662,6 +5264,69 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "import": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "attachmentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "thingId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "extracting",
+                  "awaiting_selection",
+                  "mapping",
+                  "discovering",
+                  "complete",
+                  "incomplete",
+                  "failed"
+                ]
+              },
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ImportCandidate"
+                }
+              },
+              "thingIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "error": {
+                "type": "string",
+                "nullable": true
+              },
+              "usage": {
+                "$ref": "#/components/schemas/ImportUsage"
+              }
+            },
+            "required": [
+              "id",
+              "attachmentId",
+              "thingId",
+              "status",
+              "candidates",
+              "thingIds",
+              "error",
+              "usage"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -4701,7 +5366,11 @@
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": ["fieldSetId", "fieldId", "value"]
+        "required": [
+          "fieldSetId",
+          "fieldId",
+          "value"
+        ]
       },
       "UndefinedPatch": {
         "type": "object",
@@ -4723,7 +5392,11 @@
             "type": "boolean"
           }
         },
-        "required": ["label", "value", "sensitive"]
+        "required": [
+          "label",
+          "value",
+          "sensitive"
+        ]
       },
       "ThingCreate": {
         "type": "object",
@@ -4791,7 +5464,10 @@
             "nullable": true
           }
         },
-        "required": ["name", "categoryId"]
+        "required": [
+          "name",
+          "categoryId"
+        ]
       },
       "ThingPatch": {
         "type": "object",
@@ -4871,7 +5547,9 @@
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": ["value"]
+        "required": [
+          "value"
+        ]
       },
       "Attachment": {
         "type": "object",
@@ -4936,7 +5614,10 @@
           },
           "status": {
             "type": "string",
-            "enum": ["open", "resolved"]
+            "enum": [
+              "open",
+              "resolved"
+            ]
           },
           "resolvedAt": {
             "type": "string",
@@ -4947,7 +5628,15 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"]
+        "required": [
+          "id",
+          "thingId",
+          "title",
+          "description",
+          "status",
+          "resolvedAt",
+          "isSample"
+        ]
       },
       "IssueInput": {
         "type": "object",
@@ -4968,10 +5657,16 @@
           },
           "status": {
             "type": "string",
-            "enum": ["open", "resolved"]
+            "enum": [
+              "open",
+              "resolved"
+            ]
           }
         },
-        "required": ["thingId", "title"]
+        "required": [
+          "thingId",
+          "title"
+        ]
       },
       "IssuePatch": {
         "type": "object",
@@ -4988,7 +5683,10 @@
           },
           "status": {
             "type": "string",
-            "enum": ["open", "resolved"]
+            "enum": [
+              "open",
+              "resolved"
+            ]
           }
         }
       },
@@ -5017,7 +5715,12 @@
           },
           "status": {
             "type": "string",
-            "enum": ["suggested", "scheduled", "completed", "dismissed"]
+            "enum": [
+              "suggested",
+              "scheduled",
+              "completed",
+              "dismissed"
+            ]
           },
           "startsAt": {
             "type": "string",
@@ -5076,7 +5779,12 @@
           },
           "status": {
             "type": "string",
-            "enum": ["suggested", "scheduled", "completed", "dismissed"]
+            "enum": [
+              "suggested",
+              "scheduled",
+              "completed",
+              "dismissed"
+            ]
           },
           "startsAt": {
             "type": "string",
@@ -5084,7 +5792,10 @@
             "nullable": true
           }
         },
-        "required": ["thingId", "title"]
+        "required": [
+          "thingId",
+          "title"
+        ]
       },
       "EventPatch": {
         "type": "object",
@@ -5106,7 +5817,12 @@
           },
           "status": {
             "type": "string",
-            "enum": ["suggested", "scheduled", "completed", "dismissed"]
+            "enum": [
+              "suggested",
+              "scheduled",
+              "completed",
+              "dismissed"
+            ]
           },
           "startsAt": {
             "type": "string",
@@ -5129,7 +5845,11 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["consumable", "accessory", "upgrade"]
+            "enum": [
+              "consumable",
+              "accessory",
+              "upgrade"
+            ]
           },
           "name": {
             "type": "string"
@@ -5153,7 +5873,9 @@
               {
                 "type": "string",
                 "nullable": true,
-                "enum": [null]
+                "enum": [
+                  null
+                ]
               }
             ]
           },
@@ -5204,7 +5926,10 @@
           },
           "role": {
             "type": "string",
-            "enum": ["user", "assistant"]
+            "enum": [
+              "user",
+              "assistant"
+            ]
           },
           "text": {
             "type": "string"
@@ -5224,7 +5949,12 @@
           },
           "status": {
             "type": "string",
-            "enum": ["queued", "processing", "complete", "failed"]
+            "enum": [
+              "queued",
+              "processing",
+              "complete",
+              "failed"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -5263,7 +5993,11 @@
             }
           }
         },
-        "required": ["id", "thingId", "messages"]
+        "required": [
+          "id",
+          "thingId",
+          "messages"
+        ]
       },
       "ConversationInput": {
         "type": "object",
@@ -5291,7 +6025,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "FieldSetList": {
         "type": "object",
@@ -5308,7 +6045,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "FieldDefinitionList": {
         "type": "object",
@@ -5325,7 +6065,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "ThingSummaryList": {
         "type": "object",
@@ -5342,7 +6085,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "TagList": {
         "type": "object",
@@ -5359,7 +6105,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "AttachmentList": {
         "type": "object",
@@ -5376,7 +6125,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "IssueList": {
         "type": "object",
@@ -5393,7 +6145,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "EventList": {
         "type": "object",
@@ -5410,7 +6165,10 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
       },
       "PurchasableList": {
         "type": "object",
@@ -5427,7 +6185,225 @@
             "nullable": true
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "ImportCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "categoryId"
+        ]
+      },
+      "ImportUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "inputTokens": {
+            "type": "integer"
+          },
+          "outputTokens": {
+            "type": "integer"
+          },
+          "cachedTokens": {
+            "type": "integer"
+          },
+          "elapsedMs": {
+            "type": "integer"
+          },
+          "toolCalls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "resultCount": {
+                  "type": "integer"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "resultCount",
+                "truncated"
+              ]
+            }
+          }
+        },
+        "required": [
+          "model",
+          "inputTokens",
+          "outputTokens",
+          "cachedTokens",
+          "elapsedMs",
+          "toolCalls"
+        ]
+      },
+      "Import": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attachmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thingId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_selection",
+              "mapping",
+              "discovering",
+              "complete",
+              "incomplete",
+              "failed"
+            ]
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportCandidate"
+            }
+          },
+          "thingIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "usage": {
+            "$ref": "#/components/schemas/ImportUsage"
+          }
+        },
+        "required": [
+          "id",
+          "attachmentId",
+          "thingId",
+          "status",
+          "candidates",
+          "thingIds",
+          "error",
+          "usage"
+        ]
+      },
+      "ImportStart": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attachmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "attachmentId"
+        ]
+      },
+      "ImportAccepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "importId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_selection",
+              "mapping",
+              "discovering",
+              "complete",
+              "incomplete",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "importId",
+          "thingId",
+          "status"
+        ]
+      },
+      "ImportConfirmation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "selections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "candidateId": {
+                  "type": "string"
+                },
+                "targetThingId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "candidateId",
+                "targetThingId"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 10
+          }
+        },
+        "required": [
+          "selections"
+        ]
       }
     }
   }

@@ -90,6 +90,8 @@ export function route<B = unknown>(
     url: path
       .replace(/\{(\w+)\}/g, ':$1')
       .replace(':id:reveal-field', ':id([^:]+)::reveal-field')
+      .replace(/:id:(confirm|retry)/g, ':id([^:]+)::$1')
+      .replace(':import', '::import')
       .replace(':seed-samples', '::seed-samples'),
     schema: refs(schema) as Record<string, unknown>,
     handler,

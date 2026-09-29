@@ -35,6 +35,9 @@
       <a [routerLink]="['/things', event.thingId]">{{ event.title }}</a>
     </h3>
     <p>{{ event.description }}</p>
+    @for (source of event.sourceRefs; track $index) {
+      @if (source.url) { <a [href]="source.url" target="_blank" rel="noopener noreferrer">Source</a> }
+    }
     @if (event.startsAt) {
       <p class="date">{{ event.startsAt | date: 'medium' }}</p>
     }

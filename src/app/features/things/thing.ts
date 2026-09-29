@@ -1,9 +1,12 @@
+import { ImportPanel } from './import-panel';
+import { watchThing } from '../../core/api/thing-stream';
+import { Auth } from '../../core/services/auth.service';
 import { ThingSkeleton } from './thing-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { back, open, uploadFile, addTag } from '../../core/app-icons';
 import { apiData } from '../../core/api/api-client';
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -22,6 +25,7 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
   selector: 'bt-thing',
   imports: [
     ThingSkeleton,
+    ImportPanel,
     FormsModule,
     RouterLink,
     FieldEditor,
@@ -34,6 +38,14 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
   styleUrl: './thing.scss',
 })
 export class ThingPage implements OnDestroy {
+  private auth = inject(Auth);
+  private stream?: AbortController;
+  processing = computed(() =>
+    ['queued', 'extracting', 'mapping', 'discovering', 'awaiting_selection'].includes(
+      this.thing()?.import?.status ?? '',
+    ),
+  );
+  streamFailed = signal(false);
   readonly api = inject(Api);
   readonly config = inject(CONFIG);
   private route = inject(ActivatedRoute);
@@ -69,7 +81,12 @@ export class ThingPage implements OnDestroy {
   private localCache = new WeakMap<Schema['UndefinedField'], Schema['Field']>();
   private standaloneCache: Schema['Field'] | null = null;
   constructor() {
+    effect(() => {
+      if (!this.auth.signedIn()) this.stream?.abort();
+    });
     this.subscription = this.route.paramMap.subscribe((params) => {
+      this.stream?.abort();
+      this.stream = undefined;
       this.id = params.get('id') ?? '';
       this.isNew.set(!this.id);
       this.thing.set(null);
@@ -82,6 +99,7 @@ export class ThingPage implements OnDestroy {
     });
   }
   ngOnDestroy() {
+    this.stream?.abort();
     this.subscription.unsubscribe();
     if (this.imageUrl()) URL.revokeObjectURL(this.imageUrl());
   }
@@ -130,11 +148,59 @@ export class ThingPage implements OnDestroy {
         this.events.set(events);
         this.purchasables.set(purchases);
         await this.loadImage();
+        if (!this.stream) this.startStream(id);
       }
     } catch (e) {
       this.error.set(errorCode(e));
     } finally {
       if (id === this.id) this.loaded.set(true);
+    }
+  }
+  private startStream(id: string) {
+    const controller = new AbortController();
+    this.stream = controller;
+    void watchThing(
+      this.api.client,
+      id,
+      controller.signal,
+      (snapshot) => {
+        if (id !== this.id || controller.signal.aborted) return;
+        this.streamFailed.set(false);
+        if (snapshot.revision <= (this.thing()?.revision ?? -1)) return;
+        const previous = this.thing();
+        this.thing.set(snapshot);
+        if (previous?.name !== snapshot.name) this.name = snapshot.name;
+        if (previous?.categoryId !== snapshot.categoryId) this.categoryId = snapshot.categoryId;
+        if (previous?.description !== snapshot.description) this.description = snapshot.description;
+        void this.loadRelated(id, snapshot.revision);
+      },
+      () => this.streamFailed.set(true),
+    );
+  }
+  importChanged(job: Schema['Import']) {
+    this.thing.update((thing) => (thing ? { ...thing, import: job } : thing));
+  }
+  private async loadRelated(id: string, revision: number) {
+    try {
+      const [attachments, events, purchases] = await Promise.all([
+        this.api.all((query) =>
+          this.api.client.GET('/api/attachments', { params: { query: { ...query, thingId: id } } }),
+        ),
+        this.api.all((query) =>
+          this.api.client.GET('/api/events', { params: { query: { ...query, thingId: id } } }),
+        ),
+        this.api.all((query) =>
+          this.api.client.GET('/api/purchasables', {
+            params: { query: { ...query, thingId: id } },
+          }),
+        ),
+      ]);
+      if (id !== this.id || revision !== this.thing()?.revision) return;
+      this.attachments.set(attachments);
+      this.events.set(events);
+      this.purchasables.set(purchases);
+    } catch (e) {
+      if (id === this.id) this.error.set(errorCode(e));
     }
   }
   async loadImage() {
@@ -157,7 +223,7 @@ export class ThingPage implements OnDestroy {
     );
   }
   async perform(fn: () => Promise<void>) {
-    if (this.busy()) return;
+    if (this.busy() || this.processing()) return;
     this.busy.set(true);
     this.error.set(null);
     try {
@@ -310,6 +376,18 @@ export class ThingPage implements OnDestroy {
       await this.load();
     });
     input.value = '';
+  }
+  async extractAttachment(attachmentId: string) {
+    await this.perform(async () => {
+      const accepted = await this.api.client
+        .POST('/api/things:import', { body: { attachmentId, thingId: this.id } })
+        .then(apiData);
+      this.importChanged(
+        await this.api.client
+          .GET('/api/imports/{id}', { params: { path: { id: accepted.importId } } })
+          .then(apiData),
+      );
+    });
   }
   async loadLibrary() {
     await this.perform(async () => {

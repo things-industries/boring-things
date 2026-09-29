@@ -15,9 +15,10 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
 - `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`.
 - `app/core/services/`: application-wide authentication, route guard and API services.
+- `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
 - `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it.
 - `app/features/dashboard/`: Things, filters, sample-data action and activity overview.
-- `app/features/things/`: manual creation, details, field edits, pins, tags and attachments.
+- `app/features/things/`: manual creation, details, field edits, pins, tags and attachments; `import-panel.*` handles uploads, confirmation and retry.
 - `app/features/login/`: sign-in and setup-pending screen.
 - `app/components/`: reusable field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.

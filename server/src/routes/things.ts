@@ -6,6 +6,7 @@ import { route } from '../contracts/routes.js';
 import { page, pageResult } from '../application/pagination.js';
 import { rows, transaction } from '../db/connection.js';
 import { detail, writeThing } from '../application/things.js';
+import { assertEditable } from '../db/imports.js';
 import { ownedThing } from '../db/things.js';
 import { revealValue } from '../application/thing-data.js';
 export function thingRoutes(app: FastifyInstance, db: pg.Pool, registry: Registry) {
@@ -51,6 +52,7 @@ export function thingRoutes(app: FastifyInstance, db: pg.Pool, registry: Registr
   route(app, 'DELETE', '/api/things/{id}', async (req, reply) => {
     await transaction(db, async (tx) => {
       await ownedThing(tx, req.ownerId, req.params.id, true);
+      await assertEditable(tx, req.ownerId, req.params.id);
       await tx.query('delete from bt.things where id=$1 and owner_id=$2', [
         req.params.id,
         req.ownerId,

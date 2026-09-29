@@ -31,7 +31,7 @@ Ports are isolated from Supabase's defaults to avoid other local projects. `pnpm
 
 Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, including `CI=true pnpm dev` and `CI=true pnpm check`.
 
-## Step 1
+## Implemented
 
 - Logto sign-in/sign-out, JWT signature/issuer/audience/expiry validation, local profile creation and owner-scoped access.
 - Authored OpenAPI contract, generated TypeScript types and runtime request validation.
@@ -41,7 +41,23 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Issue/Event endpoints, purchasable reads, and conversation/message persistence. No message generation endpoint yet.
 - Optional **Add sample data** action. It creates four sample Things with labelled issues, events and purchasables once per owner. Merchant actions are disabled for sample suggestions.
 
-The first AI work will extract and define Things. Import processing, SSE, chat, generated maintenance/product suggestions and hosted deployment are deferred. Activity data currently supports UI exploration.
+## AI imports
+
+Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`, apply `pnpm db:migrate`, and restart the API. The model must support Responses API image/PDF inputs, structured outputs, function calls and web search. Missing AI configuration disables import controls; manual editing remains available.
+
+The **Add a thing** screen offers **Import with AI**: take/choose a photo, upload a supported file or paste text. Manual entry is available below. The source is stored privately, sent to OpenAI, and linked to an immediate skeleton Thing. Multiple detected Things pause for selection; each can create a Thing or add details to an owned record. Selected sets appear with empty fields before validated value groups arrive. Unknown facts remain custom fields. The original source and extracted content remain stored. Review extracted values.
+
+On an existing Thing, **Add details from a source** starts another import. Uploading under **Documents & photos** stores and links the file; choose **Extract details** on that attachment to import its values into the Thing. Existing user values are preserved.
+
+- Registry search uses bounded Postgres text/identifier queries, includes mandatory dependencies and one hop of alongside suggestions. The model receives search results, never a whole-registry prompt.
+- Mapping accepts retrieved IDs, validates category, field membership and schemas, and preserves user values and clears. Records are read-only during processing. Retries reuse persisted targets and discovery results.
+- Discovery searches using public manufacturer/model identifiers only. It stores cited manual/model **reference notes**, suggested maintenance and supported merchant links. It does not download remote PDFs or populate prices. Unsupported suggestions stay absent; discovery failure leaves imported fields available with retry.
+- Authenticated fetch SSE delivers masked snapshots after commits. Navigation/logout aborts the stream; reconnect fetches persisted state with a refreshed token. Streams renew within 55 seconds and use revision ordering.
+- One in-process runner consumes persisted jobs. Restart marks interrupted work failed and retryable; queued work resumes. Run one API process per database. This is not a distributed queue.
+- Limits: 10 candidates per source, 100 facts per candidate, 200,000 characters of model-extracted text; value groups contain up to 20 facts. Sources remain subject to the configured upload limit. Oversized/invalid extraction fails without deleting the source.
+- `GET /api/imports/{id}` reports status, candidates, results, sanitized errors and cumulative model/token/tool/elapsed-time metrics. Full extraction is retained in `bt.imports.extraction`, omitted from ordinary API/SSE responses because it can contain secrets.
+
+Chat, section grouping, assistant execution, sharing and hosted deployment remain planned in step 3 and subsequent work.
 
 ## Fields and privacy
 
@@ -72,7 +88,7 @@ The `bt` schema is not exposed to Supabase browser roles. Fastify is the applica
 
 Blobs live under `.data/blobs` by default, with random storage keys and restricted filesystem permissions. Uploads accept PDF, JPEG, PNG, WebP and UTF-8 text up to 20 MiB. File headers are checked against the declared media type. Downloads require bearer authentication and use `Content-Disposition: attachment`. Blob cleanup after metadata deletion can leave an orphan if the filesystem fails; no automatic orphan collector exists yet.
 
-Lists accept `limit` and opaque offset cursors. They reapply owner scope on each page; paging while records change can shift results. Thing edits lock the row and patch specified values. The application is single-process; no queue or SSE runs in step 1.
+Lists accept `limit` and opaque offset cursors. They reapply owner scope on each page; paging while records change can shift results. Thing edits lock the row and patch specified values. The application and persisted import runner are single-process.
 
 ## Configuration
 
@@ -85,6 +101,13 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `BLOB_DIRECTORY`     | Local blob directory; default `.data/blobs`                 |
 | `MAX_UPLOAD_BYTES`   | Upload limit; default 20971520                              |
 | `ENABLE_SAMPLE_DATA` | Enables the authenticated sample-data action; default false |
+| `OPENAI_API_KEY` | Server-only OpenAI credential |
+| `OPENAI_MODEL` | Configurable model; required for imports |
+| `IMPORT_TIMEOUT_MS` | Extraction/mapping attempt deadline; default 180000 |
+| `IMPORT_TOOL_ROUNDS` | Registry tool-call budget per candidate; default 4 |
+| `DISCOVERY_TIMEOUT_MS` | Discovery deadline per candidate; default 90000 |
+| `DISCOVERY_SEARCH_CALLS` | Web tool-call budget per discovery; default 3 |
+| `AI_MAX_OUTPUT_TOKENS` | Output token limit per provider response; default 12000 |
 | `HOST`, `PORT`       | API bind address; default `127.0.0.1:3000`                  |
 
 One tenant can supply identities to both local and production environments. Database records and files remain environment-specific. The API returns public auth configuration to the frontend at startup, so Logto settings do not require rebuilding Angular.
@@ -100,3 +123,11 @@ pnpm test:integration            # requires local Supabase and a built frontend
 Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed. Screenshots are saved under ignored `test-results/`.
 
 `pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. Production hosting and operating configuration are separate work.
+
+### Import verification
+
+`server/test/fixtures/imports.ts` contains synthetic failure/retry fixtures. `server/test/fixtures/import-recording.json` records extraction/mapping from a live synthetic run with `gpt-5.6-sol`; it is a regression example, not a quality benchmark. Integration/browser checks cover progressive fields, multi-Thing confirmation, owner isolation, shared sources, retry, discovery deduplication, restart recovery and SSE reconnect.
+
+Run `node --import tsx --env-file=.env scripts/smoke-import.ts` for a **paid live** check using the configured model and synthetic hob/van/policy data. It creates and removes a temporary local database and blob directory; it does not change application records. Its trace and usage report are saved under ignored `test-results/import-smoke.json`. Live Logto redirects and physical-device camera capture require separate manual checks.
+
+Provider implementation references: [file inputs](https://developers.openai.com/api/docs/guides/file-inputs), [function calling](https://developers.openai.com/api/docs/guides/function-calling), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [web search](https://developers.openai.com/api/docs/guides/tools-web-search).

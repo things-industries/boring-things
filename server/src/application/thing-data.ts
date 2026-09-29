@@ -19,6 +19,15 @@ export function patchData(
   registry: Registry,
 ): ThingData {
   const data = structuredClone(original);
+  const edited = new Set(data.userEdited ?? []);
+  for (const key of ['name', 'categoryId', 'description'] as const)
+    if (patch[key] !== undefined) edited.add(key);
+  for (const v of patch.values ?? []) edited.add(`${v.fieldSetId ?? ''}:${v.fieldId}`);
+  for (const id of patch.removeUndefinedFieldIds ?? []) edited.add(`local:${id}`);
+  for (const f of patch.undefinedFields ?? []) if (f.id) edited.add(`local:${f.id}`);
+  for (const id of patch.removeFieldSetIds ?? []) edited.add(`set:${id}`);
+  if (patch.pinnedFields) edited.add('pins');
+  if (edited.size) data.userEdited = [...edited];
   const removed = new Set(patch.removeFieldSetIds ?? []);
   for (const id of removed) ensure(data.setIds.includes(id), 'Cannot remove an unselected set');
   const roots = data.setIds.filter(

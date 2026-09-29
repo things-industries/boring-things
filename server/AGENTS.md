@@ -14,6 +14,8 @@ Paths below are relative to `server/` unless stated otherwise.
 - `src/routes/`: Things, registry, tags, attachments, activity and conversations.
 - `src/application/`: Thing workflows, registry validation, field transformations, pagination, errors and sample data.
 - `src/db/connection.ts`: pool, transactions and row mapping; `src/db/things.ts`: Thing persistence; `src/db/registry-seed.ts`: authored definitions.
+- `src/application/imports.ts`: persisted runner; `db/imports.ts`: owner-scoped targets, states and confirmation; `application/import-mapping.ts`: validation and edit preservation.
+- `src/providers/ai.ts`: OpenAI Responses adapter; `application/discovery.ts`: cited discovery persistence; `routes/imports.ts`: import API and SSE.
 - `src/providers/blobs.ts`: `BlobStorage` boundary and local filesystem adapter.
 - Root `shared/api.ts`: generated HTTP types; root `shared/model.ts`: aliases and stored Thing shapes.
 - `test/*.test.ts`: Node unit tests; `test/integration/`: database and browser integration checks.
@@ -60,15 +62,15 @@ Keep HTTP concerns in routes, business rules in application modules, SQL in data
 - Keep sample owned data in the opt-in sample workflow. Seeds must not overwrite user data.
 - Hosted connection, pooling and storage configuration require a deployment decision; do not copy settings from another application.
 
-## Future AI work
+## AI imports and subsequent assistant work
 
-Read root `docs/plans/poc-scaffolding.md` when implementing imports, discovery, streams or assistant execution. These capabilities are not implemented in the foundation.
+Read root `docs/plans/poc-scaffolding.md` when implementing imports, discovery, streams or assistant execution. Imports, discovery and Thing SSE are implemented. Chat execution remains planned.
 
 - Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
 - Several detected Things require user confirmation under the import plan. Retries must reuse persisted work without duplicating Things or overwriting user edits.
-- Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. The current server is single-process and has no queue or SSE runner.
+- Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. The current server uses one persisted import runner per database and revisioned Thing SSE.
 
 ## Validation
 

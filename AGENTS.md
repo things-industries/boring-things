@@ -1,6 +1,6 @@
 # Boring Things agent guide
 
-Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing and private attachments. AI extraction, discovery and assistant execution are subsequent work.
+Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing, private attachments, progressive AI imports and cited discovery. Assistant execution is subsequent work.
 
 ## Read when relevant
 
@@ -83,4 +83,4 @@ pnpm db:stop             # Stop local Supabase, preserving data
 - Preserve unknown values, provenance and user edits. Identifiers are strings; absence is distinct from `false`, `0` and empty text.
 - Tags currently organise an owner's Things. Household sharing is future work and requires an explicit access model.
 - Activity and purchasable samples must stay labelled; sample merchant actions stay disabled.
-- Do not describe planned AI, SSE, queues, checkout, repair booking or hosted deployment as available. For work in those areas, read the scoped plan and confirm the requested slice.
+- AI imports and Thing SSE are implemented with a single-process persisted runner. Do not describe assistant execution, distributed queues, checkout, repair booking or hosted deployment as available. For work in those areas, read the scoped plan and confirm the requested slice.

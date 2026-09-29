@@ -136,5 +136,8 @@ test('masked fields require reveal; category changes preserve sensitivity, prove
   assert.equal(data.undefinedFields[0].sensitive, true);
   assert.equal(data.undefinedFields[0].sourceRefs[0].quote, 'PIN 0042');
   assert.deepEqual(data.pins, [{ undefinedFieldId: data.undefinedFields[0].id }]);
-  assert.ok(!JSON.stringify(projectData(data, registry)).includes('0042'));
+  const masked = projectData(data, registry).undefinedFields[0];
+  assert.equal(masked.value, null);
+  assert.equal(masked.masked, true);
+  assert.deepEqual(masked.sourceRefs, []);
 });

@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import { emptyData, type Schema, type ThingPatch } from '../../../shared/model.js';
 import { rows, transaction, type Database } from '../db/connection.js';
+import { thingImport, assertEditable } from '../db/imports.js';
 import { ownedThing, relatedIds } from '../db/things.js';
 import { ensure } from './errors.js';
 import { patchData, projectData } from './thing-data.js';
@@ -14,7 +15,12 @@ export async function detail(
 ): Promise<Schema['Thing']> {
   const thing = await ownedThing(db, owner, id);
   const { data, ownerId: _ownerId, ...summary } = thing;
-  return { ...summary, ...projectData(data, registry), ...(await relatedIds(db, owner, id)) };
+  return {
+    ...summary,
+    import: await thingImport(db, owner, id),
+    ...projectData(data, registry),
+    ...(await relatedIds(db, owner, id)),
+  };
 }
 export async function writeThing(
   pool: pg.Pool,
@@ -25,6 +31,7 @@ export async function writeThing(
 ) {
   return transaction(pool, async (db) => {
     let thing = id ? await ownedThing(db, owner, id, true) : undefined;
+    if (thing) await assertEditable(db, owner, thing.id);
     const category = input.categoryId ?? thing?.categoryId;
     ensure(
       category && (await db.query('select id from bt.categories where id=$1', [category])).rowCount,

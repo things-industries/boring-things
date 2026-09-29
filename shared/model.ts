@@ -18,6 +18,7 @@ export interface LocalField extends StoredValue {
   sensitive: boolean;
 }
 export interface ThingData {
+  userEdited?: string[];
   setIds: string[];
   values: Record<string, Record<string, StoredValue>>;
   standalone: Record<string, StoredValue>;

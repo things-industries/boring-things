@@ -21,6 +21,11 @@ import { tagRoutes } from './routes/tags.js';
 import { attachmentRoutes } from './routes/attachments.js';
 import { activityRoutes } from './routes/activity.js';
 import { conversationRoutes } from './routes/conversations.js';
+import { OpenAiImports } from './providers/ai.js';
+import type { ImportAi } from './application/import-types.js';
+import { ImportRunner } from './application/imports.js';
+import { ThingChanges } from './application/streams.js';
+import { importRoutes } from './routes/imports.js';
 export async function buildApp(
   options: {
     config?: Config;
@@ -28,6 +33,7 @@ export async function buildApp(
     blobs?: BlobStorage;
     verifyIdentity?: VerifyIdentity;
     logger?: boolean;
+    importAi?: ImportAi;
   } = {},
 ) {
   const config = options.config ?? readConfig();
@@ -90,8 +96,24 @@ export async function buildApp(
     maxUploadBytes: config.maxUploadBytes,
     supportedMediaTypes: config.supportedMediaTypes,
     sampleDataEnabled: config.sampleDataEnabled,
+    importEnabled: !!(options.importAi || (config.openaiApiKey && config.openaiModel)),
   }));
   const registry = await loadRegistry(pool);
+  const blobs = options.blobs ?? new LocalBlobs(config.blobDirectory);
+  const ai =
+    options.importAi ??
+    (config.openaiApiKey && config.openaiModel
+      ? new OpenAiImports(
+          config.openaiApiKey,
+          config.openaiModel,
+          config.aiMaxOutputTokens,
+          config.discoverySearchCalls,
+        )
+      : undefined);
+  const changes = new ThingChanges();
+  const runner = new ImportRunner(pool, registry, blobs, ai, config, changes);
+  app.addHook('onReady', () => runner.start());
+  app.addHook('preClose', () => runner.stop());
   await app.register(async (api) => {
     installAuth(api, pool, options.verifyIdentity ?? logtoVerifier(config));
     await api.register(multipart, {
@@ -102,10 +124,15 @@ export async function buildApp(
       ensure(config.sampleDataEnabled, 'Sample data is disabled', 404);
       return seedSamples(pool, req.ownerId, registry);
     });
+    api.addHook('onResponse', async (req, reply) => {
+      if (req.ownerId && req.method !== 'GET' && reply.statusCode < 400)
+        changes.publish(req.ownerId);
+    });
+    importRoutes(api, pool, registry, runner, changes, !!ai);
     registryRoutes(api, pool, registry);
     thingRoutes(api, pool, registry);
     tagRoutes(api, pool);
-    attachmentRoutes(api, pool, options.blobs ?? new LocalBlobs(config.blobDirectory), config);
+    attachmentRoutes(api, pool, blobs, config);
     activityRoutes(api, pool);
     conversationRoutes(api, pool);
   });

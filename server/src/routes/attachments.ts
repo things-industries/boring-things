@@ -6,6 +6,7 @@ import { route } from '../contracts/routes.js';
 import { rows, transaction, type Database } from '../db/connection.js';
 import { ensure } from '../application/errors.js';
 import { page, pageResult } from '../application/pagination.js';
+import { assertEditable } from '../db/imports.js';
 import { ownedThing, bumpThing } from '../db/things.js';
 import type { BlobStorage } from '../providers/blobs.js';
 import type { Config } from '../config.js';
@@ -138,6 +139,7 @@ export function attachmentRoutes(
       await transaction(db, async (tx) => {
         await attachment(tx, req.ownerId, req.params.id, true);
         await ownedThing(tx, req.ownerId, req.params.thingId, true);
+        await assertEditable(tx, req.ownerId, req.params.thingId);
         if (method === 'PUT')
           await tx.query(
             'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',

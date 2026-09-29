@@ -1,0 +1,37 @@
+@use 'tokens';
+.import-panel {
+  margin-bottom: tokens.space(5);
+}
+.upload-options {
+  display: grid;
+  gap: tokens.space(3);
+  margin-bottom: tokens.space(3);
+}
+label {
+  display: grid;
+  gap: tokens.space(2);
+  margin-block: tokens.space(3);
+}
+a {
+  display: inline-block;
+  margin-right: tokens.space(3);
+}
+input[type='file'] {
+  max-width: 100%;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.upload-options label {
+  padding: tokens.space(3);
+  border: 1px solid tokens.color(border);
+  border-radius: tokens.radius(control);
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .upload-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
