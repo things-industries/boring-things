@@ -1,0 +1,37 @@
+@use 'tokens';
+.activity-card {
+  border: 1px solid tokens.color(border);
+  border-radius: 14px;
+  background: tokens.color(surface);
+  padding: 23px;
+}
+.activity-card p {
+  font-size: 13px;
+}
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: tokens.space(2);
+  align-items: center;
+}
+.date {
+  font-weight: 600;
+  color: tokens.color(primary) !important;
+}
+.compact-label {
+  font-size: 11px;
+}
+.compact-label input {
+  font-size: 12px;
+}
+@media (max-width: 650px) {
+  .activity-card {
+    padding: tokens.space(4);
+  }
+  .activity-card h3 {
+    font-size: 14px;
+  }
+  .activity-card p {
+    font-size: 12px;
+  }
+}

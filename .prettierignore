@@ -1,0 +1,7 @@
+node_modules
+dist
+shared/api.ts
+pnpm-lock.yaml
+supabase/config.toml
+docs/requirements
+docs/meeting-notes

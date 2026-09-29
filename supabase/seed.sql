@@ -1,0 +1,1 @@
+-- The typed registry seed is applied with pnpm db:seed after migrations.

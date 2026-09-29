@@ -1,0 +1,11 @@
+<header class="app-header">
+  <a routerLink="/" class="brand"><span class="brand-mark">b.</span>{{ 'appName' | term }}</a>
+  @if (auth.signedIn()) {
+    <nav>
+      <a routerLink="/">{{ 'things' | term }}</a
+      ><button class="quiet" (click)="auth.signOut()">Sign out</button>
+    </nav>
+  }
+</header>
+<main><router-outlet /></main>
+<footer>A little less life admin.</footer>

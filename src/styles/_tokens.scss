@@ -1,0 +1,113 @@
+@use 'sass:map';
+$colors: (
+  'text': #242722,
+  'primary': #254d3d,
+  'text-muted': #70776b,
+  'border': #e1e5dc,
+  'background': #f7f8f3,
+  'surface': #fff,
+  'primary-contrast': #fff,
+  'surface-contrast': #242722,
+  'danger': #893f2f,
+  'danger-contrast': #fff,
+  'text-placeholder': #909785,
+  'surface-subtle': #edf0e7,
+  'surface-subtle-contrast': #242722,
+  'skeleton': #e1e5dc,
+  'text-input': #333d2b,
+  'text-label': #59634e,
+  'text-chip': #5c6654,
+  'empty-contrast': #627954,
+  'badge-contrast': #657457,
+  'text-back': #67785c,
+  'artwork-label-contrast': #68725e,
+  'text-card-arrow': #687e5c,
+  'vehicle-art-contrast': #6b8893,
+  'text-field-label': #6c7465,
+  'thing-art-contrast': #728761,
+  'text-eyebrow': #738264,
+  'thing-detail-art-contrast': #788969,
+  'text-sample': #797b74,
+  'text-login-example': #7a846f,
+  'insurance-art-contrast': #827696,
+  'sensitive-contrast': #8e7b51,
+  'warning-contrast': #98692e,
+  'destructive': #a05543,
+  'membership-art-contrast': #a2875d,
+  'border-sample': #c2c7ba,
+  'border-upload': #c5d1b8,
+  'border-input': #dce2d5,
+  'brand': #ddebce,
+  'thing-detail-art': #e4ecdb,
+  'vehicle-art': #e4edf0,
+  'empty': #e5eddc,
+  'insurance-art': #e7e6f2,
+  'thing-art': #e8eedf,
+  'sample-banner': #ecf0e3,
+  'notice': #edf0e6,
+  'border-field': #edf0e8,
+  'hint': #edf1e5,
+  'badge': #edf2e8,
+  'border-error': #efc9ba,
+  'upload': #f1f4ea,
+  'membership-art': #f3e8d9,
+  'sensitive': #f3f0e7,
+  'warning': #fbebd6,
+  'error': #fff0e9,
+  'artwork-label': #ffffff99,
+  'brand-contrast': #242722,
+  'background-contrast': #242722,
+  'sample-banner-contrast': #242722,
+  'notice-contrast': #70776b,
+  'hint-contrast': #242722,
+  'upload-contrast': #242722,
+  'error-contrast': #893f2f,
+  'destructive-contrast': #fff,
+);
+$spaces: (
+  0: 0,
+  1: 4px,
+  2: 8px,
+  3: 12px,
+  4: 16px,
+  5: 20px,
+  6: 24px,
+  7: 32px,
+  8: 40px,
+  9: 48px,
+  10: 64px,
+);
+$radii: (
+  control: 9px,
+  card: 16px,
+  pill: 999px,
+);
+@function color($name) {
+  @if not map.has-key($colors, $name) {
+    @error 'Unknown color: #{$name}';
+  }
+  @return var(--color-#{$name});
+}
+@function space($name) {
+  @if not map.has-key($spaces, $name) {
+    @error 'Unknown space: #{$name}';
+  }
+  @return var(--space-#{$name});
+}
+@function radius($name) {
+  @if not map.has-key($radii, $name) {
+    @error 'Unknown radius: #{$name}';
+  }
+  @return var(--radius-#{$name});
+}
+@mixin properties {
+  @each $name, $value in $colors {
+    --color-#{$name}: #{$value};
+  }
+  @each $name, $value in $spaces {
+    --space-#{$name}: #{$value};
+  }
+  @each $name, $value in $radii {
+    --radius-#{$name}: #{$value};
+  }
+}

@@ -1,0 +1,38 @@
+@use 'sass:map';
+$roles: (
+  display: (
+    size: 42px,
+    weight: 650,
+  ),
+  title: (
+    size: 20px,
+    weight: 650,
+  ),
+  heading: (
+    size: 16px,
+    weight: 650,
+  ),
+  body: (
+    size: 15px,
+    weight: 400,
+  ),
+  caption: (
+    size: 12px,
+    weight: 400,
+  ),
+  eyebrow: (
+    size: 10px,
+    weight: 700,
+  ),
+);
+@mixin role($name) {
+  @if not map.has-key($roles, $name) {
+    @error 'Unknown typography role: #{$name}';
+  }
+  $role: map.get($roles, $name);
+  font-size: map.get($role, size);
+  font-weight: map.get($role, weight);
+}
+@mixin tabular-numerals {
+  font-variant-numeric: tabular-nums;
+}

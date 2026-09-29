@@ -4,6 +4,17 @@ Build a local framework for login, progressive Thing creation from text/photos/d
 
 Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../requirements/roadmap/MILESTONES.md), [29 September notes](../meeting-notes/2026-09-29%20data%20model.md), and the field-set review. Decisions below supersede earlier category/field proposals for this scaffold.
 
+## Confirmed implementation scope (29 September)
+
+- Step 1 uses one Logto Cloud tenant as the identity source for local development and production. Pause for user setup before validating live login.
+- Author initial registry seeds from this plan; use a museum membership example.
+- Sensitive fields are masked by default. Normal detail responses omit their values and source quotes; an owner-authorized reveal action returns the value with `Cache-Control: private, no-store`. This is display/access control, not encrypted vault storage.
+- Issues, events and purchasables use labelled sample data for UI work. Real extraction and reasoning initially focus on defining Things. Activity/product discovery and assistant execution remain deferred pending further instruction.
+- The initial field subset supports strings, numbers, integers, booleans, enums, dates, bounds and patterns. Money uses integer minor units and GBP/EUR/USD. `null` clears a value.
+- Step 1 includes manual creation, set selection, every empty field, tags and attachments. Sections remain one per set until the later grouping work.
+- A Thing can select a linked image attachment as its image. Category artwork is the fallback.
+- Uploads initially accept PDF, JPEG, PNG, WebP and UTF-8 plain text, up to a configurable 20 MiB.
+
 ## Boundaries and decisions
 
 - TypeScript, Angular frontend in `src/`, Fastify backend in `server/`, authored OpenAPI generating client/server types. Interpret the technology doc's “AngularJS” as Angular for this scaffold.
@@ -313,7 +324,12 @@ Section heuristic, implemented in one frontend helper:
 
 ### 2. Progressive import and discovery
 
-- Implement immediate skeleton creation, persisted import states, source extraction, candidate confirmation, the two registry tools, mapping and progressive transactional persistence.
+Implemented locally (29 September). OpenAI provider approved through `OPENAI_API_KEY`/`OPENAI_MODEL` configuration. Source uploads, persisted selection/retry, validated registry mapping, Thing SSE and cited discovery are available. Discovery saves reference notes linking to manuals/model pages; remote document downloads remain outside this slice. Extracted facts and import states persist across restarts; interrupted jobs require retry.
+
+Validation: recorded synthetic extraction/mapping plus fixtures for Z-number, van dependencies, combined policy, unknown fields, multi-Thing confirmation, invalid IDs, tool limits and retry. Integration/browser checks cover owner isolation, source sharing, user edits, discovery deduplication, SSE reconnect and restart recovery. `scripts/smoke-import.ts` runs a live synthetic check and records usage in `test-results/import-smoke.json`. Physical camera capture and live Logto redirect checks remain manual.
+
+- Implement import of things from unstructured source data powered by AI (take photo, choose photo from camera roll, paste something, or upload file)
+- Implement immediate skeleton thing creation, persisted import states, source extraction, candidate confirmation, the two registry tools, mapping and progressive transactional persistence.
 - Add Thing SSE, reconnect snapshots, and bounded discovery of manuals/model data, maintenance suggestions and purchasables.
 - Preserve extracted content and unmatched facts; enforce tool/time limits and retry-safe results.
 - Use small recorded fixtures plus a live smoke run: Z-number, van inclusion, combined policy, unknown field, two Things from one source, and failed-job retry.

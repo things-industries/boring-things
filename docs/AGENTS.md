@@ -6,27 +6,33 @@ Boring Things is an AI that helps people track and manage life administration ac
 
 Polished planning, research and settled decisions are organized into:
 
-- `product/PRODUCT.md`: **What is the problem we're solving?**
+- `requirements/product/PRODUCT.md`: **What is the problem we're solving?**
   Problem, personas, use cases, feature roadmap, compliance expectations.
 
-- `marketing/MARKETING.md`: **How do we find and connect with customers?**
+- `requirements/marketing/MARKETING.md`: **How do we find and connect with customers?**
   Goals, brand direction, channels, key messages, campaign ideas.
 
-- `commercial/COMMERCIAL.md`: **How does it make money?**
+- `requirements/commercial/COMMERCIAL.md`: **How does it make money?**
   Competitors, market framing, opportunity, revenue model, operating costs, risks.
 
-- `technology/TECHNOLOGY.md`: **How does it work?**
+- `requirements/technology/TECHNOLOGY.md`: **How does it work?**
   Stack decisions, architecture, data domain, integrations, delivery plan.
 
 The following are used as working documents and are more freely updated.
 
-- `research/sources.md`: citable sources and stats used across docs.
-- `research/open-questions.md`: unresolved research and decision questions.
-- `research/assumptions.md`: explicit assumptions that still need validation.
-- `roadmap/MILESTONES.md`: staged execution plan.
+- `requirements/research/sources.md`: citable sources and stats used across docs.
+- `requirements/research/assumptions.md`: explicit assumptions and unresolved questions that still need validation.
+- `requirements/roadmap/MILESTONES.md`: staged execution plan.
+- `meeting-notes/`: dated discussion records; preserve their historical context.
+- `plans/`: scoped implementation plans. `plans/poc-scaffolding.md` records confirmed scaffold decisions and subsequent work.
+- `setup/`: operational setup instructions, including Logto.
+
+Paths above are relative to `docs/`. Root `README.md` describes implemented behaviour and local commands. Requirements express product intent; plans can contain unimplemented work. Do not present a proposal as a delivered capability. For the scaffold, confirmed plan decisions refine earlier requirements, including the use of Angular and Logto.
 
 ## Writing conventions
 
 - Organize by sections
-- Keep claims evidence-backed; add source links to `research/sources.md`.
+- Keep research claims evidence-backed; add source links to `requirements/research/sources.md`. Label assumptions and inference.
 - Prefer concise bullets over long narrative blocks.
+- Update paths and command examples against the repository. Avoid duplicating code conventions from the root, frontend and backend agent guides.
+- Use synthetic or redacted examples for private records, documents and identifiers. Keep credentials out of setup instructions and screenshots.

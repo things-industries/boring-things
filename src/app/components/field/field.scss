@@ -1,0 +1,77 @@
+@use 'tokens';
+.field-row {
+  border-top: 1px solid tokens.color(border-field);
+  padding: 17px 0;
+}
+.field-row:first-child {
+  margin-top: 6px;
+}
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
+  font-size: 12px;
+  color: tokens.color(text-field-label);
+  margin-bottom: 7px;
+}
+.sensitive-note {
+  font-size: 9px;
+  background: tokens.color(sensitive);
+  color: tokens.color(sensitive-contrast);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.field-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: tokens.space(2);
+  min-height: 30px;
+}
+.field-display > span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.placeholder {
+  font-size: 13px;
+  font-style: italic;
+}
+.field-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.field-edit {
+  display: flex;
+  gap: tokens.space(2);
+  flex-wrap: wrap;
+}
+.field-edit > input,
+.field-edit > select {
+  flex: 1;
+  min-width: 160px;
+}
+.money-input {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+.money-input select {
+  width: 90px;
+}
+@media (max-width: 900px) {
+  .field-display {
+    align-items: start;
+    flex-direction: column;
+  }
+  .field-actions {
+    align-self: flex-end;
+  }
+}
+@media (max-width: 650px) {
+  .field-display {
+    flex-direction: row;
+    align-items: center;
+  }
+}

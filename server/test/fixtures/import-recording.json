@@ -1,0 +1,292 @@
+{
+  "recordedAt": "2026-09-29",
+  "model": "gpt-5.6-sol",
+  "source": "Synthetic test document. Three separate Things. Kitchen hob: manufacturer Neff, E-Nr T58TS6BN0/01, Z-Nr 0015, installer reference ABC-12. Cargo van: payload 1200 kg. Combined home insurance policy: buildings sum insured GBP 400000; contents sum insured GBP 50000.",
+  "extraction": {
+    "text": "Synthetic test document. Three separate Things.\n1. Kitchen hob: manufacturer Neff, E-Nr T58TS6BN0/01, Z-Nr 0015, installer reference ABC-12.\n2. Cargo van: payload 1200 kg.\n3. Combined home insurance policy: buildings sum insured GBP 400000; contents sum insured GBP 50000.",
+    "candidates": [
+      {
+        "id": "c1",
+        "name": "Neff kitchen hob T58TS6BN0/01",
+        "categoryId": "appliances",
+        "terms": [
+          "kitchen hob",
+          "Neff",
+          "T58TS6BN0/01"
+        ],
+        "facts": [
+          {
+            "id": "f1",
+            "label": "Thing type",
+            "value": "Kitchen hob",
+            "quote": "Kitchen hob",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f2",
+            "label": "Manufacturer",
+            "value": "Neff",
+            "quote": "manufacturer Neff",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f3",
+            "label": "E-Nr",
+            "value": "T58TS6BN0/01",
+            "quote": "E-Nr T58TS6BN0/01",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f4",
+            "label": "Z-Nr",
+            "value": "0015",
+            "quote": "Z-Nr 0015",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f5",
+            "label": "Installer reference",
+            "value": "ABC-12",
+            "quote": "installer reference ABC-12",
+            "page": null,
+            "sensitive": false
+          }
+        ]
+      },
+      {
+        "id": "c2",
+        "name": "Cargo van",
+        "categoryId": "vehicles",
+        "terms": [
+          "cargo van"
+        ],
+        "facts": [
+          {
+            "id": "f6",
+            "label": "Vehicle type",
+            "value": "Cargo van",
+            "quote": "Cargo van",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f7",
+            "label": "Payload",
+            "value": "1200 kg",
+            "quote": "payload 1200 kg",
+            "page": null,
+            "sensitive": false
+          }
+        ]
+      },
+      {
+        "id": "c3",
+        "name": "Combined home insurance policy",
+        "categoryId": "insurance",
+        "terms": [
+          "combined home insurance policy",
+          "buildings insurance",
+          "contents insurance"
+        ],
+        "facts": [
+          {
+            "id": "f8",
+            "label": "Policy type",
+            "value": "Combined home insurance policy",
+            "quote": "Combined home insurance policy",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f9",
+            "label": "Buildings sum insured",
+            "value": {
+              "amountMinor": 40000000,
+              "currency": "GBP"
+            },
+            "quote": "buildings sum insured GBP 400000",
+            "page": null,
+            "sensitive": false
+          },
+          {
+            "id": "f10",
+            "label": "Contents sum insured",
+            "value": {
+              "amountMinor": 5000000,
+              "currency": "GBP"
+            },
+            "quote": "contents sum insured GBP 50000",
+            "page": null,
+            "sensitive": false
+          }
+        ]
+      }
+    ]
+  },
+  "mapping": [
+    {
+      "candidate": "candidate-1",
+      "result": {
+        "kind": "sets",
+        "setIds": [
+          "appliances.neff",
+          "appliances.appliance"
+        ]
+      }
+    },
+    {
+      "candidate": "candidate-1",
+      "result": {
+        "kind": "values",
+        "values": [
+          {
+            "factId": "fact-2",
+            "fieldSetId": "appliances.appliance",
+            "fieldId": "common.manufacturer",
+            "value": "Neff",
+            "pin": true
+          },
+          {
+            "factId": "fact-3",
+            "fieldSetId": "appliances.neff",
+            "fieldId": "appliances.eNumber",
+            "value": "T58TS6BN0/01",
+            "pin": true
+          },
+          {
+            "factId": "fact-4",
+            "fieldSetId": "appliances.neff",
+            "fieldId": "appliances.zNumber",
+            "value": "0015",
+            "pin": true
+          }
+        ]
+      }
+    },
+    {
+      "candidate": "candidate-2",
+      "result": {
+        "kind": "sets",
+        "setIds": [
+          "vehicles.van",
+          "vehicles.vehicle"
+        ]
+      }
+    },
+    {
+      "candidate": "candidate-2",
+      "result": {
+        "kind": "values",
+        "values": [
+          {
+            "factId": "fact-2",
+            "fieldSetId": "vehicles.van",
+            "fieldId": "vehicles.payloadKg",
+            "value": 1200,
+            "pin": true
+          }
+        ]
+      }
+    },
+    {
+      "candidate": "candidate-3",
+      "result": {
+        "kind": "sets",
+        "setIds": [
+          "insurance.combined"
+        ]
+      }
+    },
+    {
+      "candidate": "candidate-3",
+      "result": {
+        "kind": "values",
+        "values": [
+          {
+            "factId": "fact-2",
+            "fieldSetId": "insurance.buildings",
+            "fieldId": "insurance.sumInsured",
+            "value": {
+              "amountMinor": 40000000,
+              "currency": "GBP"
+            },
+            "pin": true
+          },
+          {
+            "factId": "fact-3",
+            "fieldSetId": "insurance.contents",
+            "fieldId": "insurance.sumInsured",
+            "value": {
+              "amountMinor": 5000000,
+              "currency": "GBP"
+            },
+            "pin": true
+          }
+        ]
+      }
+    }
+  ],
+  "usage": {
+    "model": "gpt-5.6-sol",
+    "inputTokens": 43591,
+    "outputTokens": 5420,
+    "cachedTokens": 8617,
+    "elapsedMs": 89397,
+    "toolCalls": [
+      {
+        "name": "search_field_sets",
+        "resultCount": 2,
+        "truncated": false
+      },
+      {
+        "name": "search_fields",
+        "resultCount": 0,
+        "truncated": false
+      },
+      {
+        "name": "search_field_sets",
+        "resultCount": 2,
+        "truncated": false
+      },
+      {
+        "name": "search_fields",
+        "resultCount": 0,
+        "truncated": false
+      },
+      {
+        "name": "search_field_sets",
+        "resultCount": 4,
+        "truncated": false
+      },
+      {
+        "name": "search_fields",
+        "resultCount": 5,
+        "truncated": false
+      },
+      {
+        "name": "web_search",
+        "resultCount": 23,
+        "truncated": false
+      },
+      {
+        "name": "web_search",
+        "resultCount": 23,
+        "truncated": false
+      },
+      {
+        "name": "web_search",
+        "resultCount": 23,
+        "truncated": false
+      },
+      {
+        "name": "web_search",
+        "resultCount": 23,
+        "truncated": false
+      }
+    ]
+  }
+}

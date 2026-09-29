@@ -1,0 +1,45 @@
+@if (code()) {
+  <p class="error" role="alert">
+    @switch (code()) {
+      @case ('auth-failed') {
+        Sign-in could not be completed. Please try again.
+      }
+      @case ('unauthorized') {
+        Your session has expired. Please sign in again.
+      }
+      @case ('invalid-value') {
+        Check the values and selected records, then try again.
+      }
+      @case ('conflict') {
+        This change conflicts with an existing or linked record.
+      }
+      @case ('not-found') {
+        This record is unavailable.
+      }
+      @case ('too-large') {
+        File exceeds the upload limit.
+      }
+      @case ('unsupported-file') {
+        This file type is not supported, or its contents do not match its type.
+      }
+      @case ('boolean-required') {
+        Choose Yes or No.
+      }
+      @case ('invalid-money') {
+        Use an amount with up to two decimal places.
+      }
+      @case ('money-too-large') {
+        Amount is too large.
+      }
+      @case ('number-required') {
+        Enter a number.
+      }
+      @case ('date-required') {
+        Enter a valid date and time.
+      }
+      @default {
+        Something went wrong. Please try again.
+      }
+    }
+  </p>
+}

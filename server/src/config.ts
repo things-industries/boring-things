@@ -1,0 +1,47 @@
+export interface Config {
+  openaiApiKey: string;
+  openaiModel: string;
+  importTimeoutMs: number;
+  importToolRounds: number;
+  discoveryTimeoutMs: number;
+  discoverySearchCalls: number;
+  aiMaxOutputTokens: number;
+  port: number;
+  host: string;
+  databaseUrl: string;
+  blobDirectory: string;
+  logtoEndpoint: string;
+  logtoAppId: string;
+  apiResource: string;
+  maxUploadBytes: number;
+  supportedMediaTypes: string[];
+  sampleDataEnabled: boolean;
+}
+export function readConfig(): Config {
+  return {
+    openaiApiKey: process.env.OPENAI_API_KEY ?? '',
+    openaiModel: process.env.OPENAI_MODEL ?? '',
+    importTimeoutMs: positive('IMPORT_TIMEOUT_MS', 180000),
+    importToolRounds: positive('IMPORT_TOOL_ROUNDS', 4),
+    discoveryTimeoutMs: positive('DISCOVERY_TIMEOUT_MS', 90000),
+    discoverySearchCalls: positive('DISCOVERY_SEARCH_CALLS', 3),
+    aiMaxOutputTokens: positive('AI_MAX_OUTPUT_TOKENS', 12000),
+    port: Number(process.env.PORT ?? 3000),
+    host: process.env.HOST ?? '127.0.0.1',
+    databaseUrl:
+      process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
+    blobDirectory: process.env.BLOB_DIRECTORY ?? '.data/blobs',
+    logtoEndpoint: process.env.LOGTO_ENDPOINT ?? '',
+    logtoAppId: process.env.LOGTO_APP_ID ?? '',
+    apiResource: process.env.LOGTO_API_RESOURCE ?? 'https://api.boring-things.local',
+    maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 20971520),
+    supportedMediaTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'text/plain'],
+    sampleDataEnabled: process.env.ENABLE_SAMPLE_DATA === 'true',
+  };
+}
+
+function positive(name: string, fallback: number) {
+  const n = Number(process.env[name] ?? fallback);
+  if (!Number.isSafeInteger(n) || n < 1) throw new Error(`Invalid ${name}`);
+  return n;
+}
