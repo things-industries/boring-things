@@ -30,7 +30,7 @@ Boring things aims to:
 - **Families**
   Adults with children at home, large footprint of appliances, household utilities, insurance, and shared subscriptions.  Juggling work with childcare and a complex schedule.
 
-- **Vulnerable and carers**
+- **Vulnerable and carers** (secondary)
   Elderly or vulnerable adults who are overwhelmed with the complexity and volume of things that make up modern life. Want to retain their independence, reduce worries and avoid imposing on family members or carers.
 
 
@@ -51,7 +51,7 @@ Bradley sees an ad for an exhibition at the Design Museum and cannot remember wh
 
 Daisy notices that her oven clock is flashing and displaying the wrong time. She asks Boring Things how to set the time and gets a brief, to-the-point set of instructions based on the official manual that Boring Things has already found and stored. John keeps being told by family to use Face ID on his phone, wants to do it, but cannot work out how. He asks Boring Things and is told why it is not working for him: the model of iPhone he has does not support Face ID, so the option simply is not available. Other versions of this use case include pairing a remote with a television, resetting a router, finding the right descaling steps for a coffee machine, or working out which replacement battery a doorbell camera needs.
 
-### Acting quickly in an emergency (preparedness)
+### Acting quickly in an emergency (problem-solving)
 
 Priya’s boiler stops working on a cold evening and she needs help without first hunting through cupboards and inboxes. Boring Things can tell her the boiler model, when it was installed, when it was last serviced, whether it is still under warranty, and which engineer serviced it most recently, so she can decide whether to call that engineer, the manufacturer, or her landlord. The same pattern applies to a leaking washing machine, or a car that will not start.
 
@@ -133,32 +133,22 @@ See the `UI Inspiration` folder for ideas for specific components
     - If not logged in, full screen login/register experience
 - **Things section**
     - **Things Dashboard/home view**:
-        - Header:
-            - Avatar for user (access to account page), welcome message (Hi, Andrew) and settings/menu icon (hamburger-icon)
-        - Active issues:
-            - Title ("Replace Microwave"), current summary ("Warranty investigation"), and call to action ("Continue chat").  Tap to activate CTA.
+        - Active issues
         - Upcoming events (next 7 days)
-            - Relative date (today, tomorrow, in 2 days etc), Thing ("Dishwasher"), Event ("Bosch service visit").  Tap to load Thing.
-            - Link to go to timeline
         - Categories of thing with number of things in each
-            - Tap to list all things in that category in a Thing list view
         - Insights
-            - Monthly cost, potential savings (link to )
         - Chat UI
-            - "Ask something..."
     - **Add new thing**:
-        - Step 1 view: What category of thing is it? (type/select with suggest)
-        - Step 2 view: Choose take photo, upload from photos, upload from files, type something
-        - Step 3 view: Data input as appropriate
-        - Step 4 view: Progress feedback, then a preview of the data extraction with option to trigger reassessment of things that aren't right, or type a correction prompt.
-        - Redirect to thing view
+        - Take photo, upload, type, forward email, or connect a service
+        - Thing is created as a skeleton and populated as data is discovered
     - **Thing view**:
-        - Image (uploaded asset or category default image)
+        - Image (uploaded asset or default image for tag)
         - Name and type of thing ("David's car", "Toyota Yaris XP210")
         - Current issues
         - Metadata (most important visible, expandable to show remainder)
-        - Documents
+        - Attachments (Documents / photos)
         - Upgrade/replace/sell offers
+        - Acessory/consumable offers
         - Cost analysis (purchase cost, recurring costs, payment frequency)
         - Related things
         - Upcoming events (link to timeline)
@@ -181,7 +171,6 @@ See the `UI Inspiration` folder for ideas for specific components
     - **Cost analysis**
     - **Recurring costs**
     - **Offers / opportunities**
-        - TODO
 
 
 ## Security and compliance expectations
