@@ -1,0 +1,50 @@
+@use 'tokens';
+.login-panel {
+  max-width: 760px;
+  padding: 70px 30px 60px;
+  margin: auto;
+}
+.login-panel h1 {
+  font-size: 62px;
+  line-height: 1.13;
+  letter-spacing: -3px;
+  margin: tokens.space(5) 0 25px;
+}
+.login-panel > p {
+  max-width: 490px;
+  font-size: 17px;
+  margin-bottom: 28px;
+}
+.login-examples {
+  display: flex;
+  gap: 26px;
+  margin-top: 50px;
+  color: tokens.color(text-login-example);
+  font-size: 13px;
+}
+.login-panel > button {
+  min-width: 260px;
+  justify-content: space-between;
+}
+.login-panel .notice {
+  font-size: 14px;
+}
+@media (max-width: 650px) {
+  .login-panel {
+    padding: tokens.space(8) tokens.space(2);
+  }
+  .login-panel h1 {
+    font-size: 46px;
+    letter-spacing: -2px;
+  }
+  .login-panel > p {
+    font-size: 15px;
+  }
+  .login-examples {
+    gap: tokens.space(4);
+    font-size: 11px;
+  }
+  .login-panel > button {
+    width: 100%;
+  }
+}

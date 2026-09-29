@@ -1,0 +1,12 @@
+@use 'mixins';
+@use 'tokens';
+.skeleton-heading {
+  @include mixins.skeleton;
+  height: 100px;
+  margin-bottom: tokens.space(6);
+}
+.skeleton-row {
+  @include mixins.skeleton;
+  height: 48px;
+  margin-bottom: tokens.space(4);
+}

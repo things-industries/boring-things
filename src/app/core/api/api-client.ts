@@ -1,10 +1,10 @@
+import { ApiError } from '../../utils/error.util';
+import type { ApiAuth } from '../../interfaces/api.interface';
+import { APP_CONFIG } from '../app.config';
 import createClient, { type ClientOptions } from 'openapi-fetch';
-import type { paths } from '../../../shared/api';
+import type { paths } from '../../../../shared/api';
 
-export function createApiClient(
-  auth?: { token: () => Promise<string | undefined>; onUnauthorized: () => void },
-  options: ClientOptions = {},
-) {
+export function createApiClient(auth?: ApiAuth, options: ClientOptions = {}) {
   const client = createClient<paths>({ cache: 'no-store', ...options });
   client.use({
     async onRequest({ request }) {
@@ -15,7 +15,8 @@ export function createApiClient(
       if (response.ok) return response;
       if (response.status === 401) auth?.onUnauthorized();
       const problem: unknown = await response.json().catch(() => null);
-      throw new Error(
+      throw new ApiError(
+        response.status,
         problem &&
           typeof problem === 'object' &&
           'message' in problem &&
@@ -43,7 +44,7 @@ export async function allPages<T>(
   const result: T[] = [];
   let cursor: string | undefined;
   do {
-    const page = apiData(await load({ limit: 100, cursor }));
+    const page = apiData(await load({ limit: APP_CONFIG.apiPageSize, cursor }));
     result.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);

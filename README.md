@@ -55,14 +55,15 @@ Removing a populated section or changing category preserves values, provenance a
 
 ## Storage and architecture
 
-- `src/`: Angular app, manual editor, dashboard and sample activity cards.
+- `src/app/`: Angular shell, lazy feature pages, shared components and services; see `src/AGENTS.md`.
+- `src/styles/`: Sass tokens, typography, mixins and shared styles; see `src/styles/CHEATSHEET.md`.
 - `server/src/application/`: registry validation, field edits and Thing workflows.
 - `server/src/db/`: database access and typed registry seeds.
 - `server/src/providers/blobs.ts`: storage interface and filesystem implementation.
 - `server/src/plugins/auth.ts`: Logto verification and local-user mapping.
 - `server/src/contracts/`: runtime schemas drawn from `openapi.json`.
 - `shared/api.ts`: generated contract types; do not edit by hand.
-- `src/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
+- `src/app/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
 - `supabase/migrations/`: SQL migrations.
 
 Run `pnpm api:generate` after changing `openapi.json`; `pnpm api:check` detects stale types. Angular requests use typed client methods with `params` and `body`, so paths, query parameters, request bodies and responses follow the contract. Binary fields generate as `Blob` for multipart uploads and downloads.

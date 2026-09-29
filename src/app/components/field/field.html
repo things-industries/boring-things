@@ -1,0 +1,102 @@
+<div class="field-row">
+  <div class="field-label">
+    <span>{{ field.name }}</span>
+    @if (field.sensitive) {
+      <span class="sensitive-note">Sensitive</span>
+    }
+  </div>
+  @if (!editing()) {
+    <div class="field-display">
+      <span [class.placeholder]="visibleValue() === null && !field.masked">
+        @let value = visibleValue();
+        @if (field.masked && !revealed()) {
+          ••••••••
+        } @else if (value === null) {
+          Add a value
+        } @else if (value === true) {
+          Yes
+        } @else if (value === false) {
+          No
+        } @else if (value === '') {
+          Empty text
+        } @else {
+          {{ formattedValue() }}
+        }
+      </span>
+      <div class="field-actions">
+        @if (field.masked) {
+          <button class="quiet small" [disabled]="busy() || disabled" (click)="toggleReveal()">
+            {{ revealed() ? 'Hide' : 'Reveal' }}
+          </button>
+        }
+        <button class="quiet small" [disabled]="disabled" (click)="edit()">
+          {{ field.value === null && !field.masked ? 'Add' : 'Edit' }}</button
+        ><button
+          class="quiet small"
+          [attr.aria-label]="(pinned ? 'Unpin ' : 'Pin ') + field.name"
+          [disabled]="disabled"
+          (click)="pin.emit()"
+        >
+          <ng-icon [name]="pinned ? 'pinnedField' : 'pinField'" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  } @else {
+    <form class="field-edit" (ngSubmit)="save()">
+      @if (field.uiHint === 'money') {
+        <div class="money-input">
+          <select name="currency" [(ngModel)]="currency" aria-label="Currency">
+            <option>GBP</option>
+            <option>EUR</option>
+            <option>USD</option></select
+          ><input
+            name="value"
+            [(ngModel)]="draft"
+            inputmode="decimal"
+            [attr.aria-label]="field.name"
+            placeholder="0.00"
+          />
+        </div>
+      } @else if (field.schema.type === 'boolean') {
+        <select name="value" [(ngModel)]="draft" [attr.aria-label]="field.name">
+          <option value="">Choose…</option>
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      } @else if (field.schema.enum) {
+        <select name="value" [(ngModel)]="draft" [attr.aria-label]="field.name">
+          <option value="">Choose…</option>
+          @for (option of field.schema.enum; track option) {
+            <option [value]="option">{{ option }}</option>
+          }
+        </select>
+      } @else {
+        <input
+          name="value"
+          [(ngModel)]="draft"
+          [type]="inputType()"
+          [attr.aria-label]="field.name"
+          autocomplete="off"
+          [attr.maxlength]="field.schema.maxLength ?? null"
+        />
+      }
+      <div class="field-actions">
+        <button class="small" type="submit" [disabled]="busy() || disabled">Save</button
+        ><button class="quiet small" type="button" (click)="cancel()">Cancel</button>
+        @if (field.value !== null || field.masked) {
+          <button
+            class="quiet small"
+            type="button"
+            [disabled]="disabled"
+            (click)="valueChange.emit(null); cancel()"
+          >
+            Clear
+          </button>
+        }
+      </div>
+    </form>
+  }
+  @if (error()) {
+    <bt-error-message [code]="error()" />
+  }
+</div>

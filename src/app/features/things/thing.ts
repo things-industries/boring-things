@@ -1,16 +1,37 @@
-import { apiData } from '../core/api/api-client';
+import { ThingSkeleton } from './thing-skeleton';
+import { TermPipe } from '../../pipes/term.pipe';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { back, open, uploadFile, addTag } from '../../core/app-icons';
+import { apiData } from '../../core/api/api-client';
 import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import type { Schema, Pin, Value } from '../../shared/model';
-import { Api, CONFIG, errorText } from '../app-services';
-import { FieldEditor } from '../components/field';
-import { Activity, type ActivityAction } from '../components/activity';
+import type { Schema, Pin, Value } from '../../../../shared/model';
+import { Api } from '../../core/services/api.service';
+import { CONFIG } from '../../core/runtime-config';
+import { UiError } from '../../utils/error.util';
+import { errorCode } from '../../utils/error.util';
+import type { UiErrorCode } from '../../interfaces/error.interface';
+import { ErrorMessage } from '../../components/error-message/error-message';
+import { FieldEditor } from '../../components/field/field';
+import { Activity } from '../../components/activity/activity';
+import type { ActivityAction } from '../../interfaces/activity.interface';
 @Component({
+  viewProviders: [provideIcons({ open, uploadFile, addTag, back })],
   selector: 'bt-thing',
-  imports: [FormsModule, RouterLink, FieldEditor, Activity],
+  imports: [
+    ThingSkeleton,
+    FormsModule,
+    RouterLink,
+    FieldEditor,
+    Activity,
+    ErrorMessage,
+    NgIcon,
+    TermPipe,
+  ],
   templateUrl: './thing.html',
+  styleUrl: './thing.scss',
 })
 export class ThingPage implements OnDestroy {
   readonly api = inject(Api);
@@ -29,7 +50,7 @@ export class ThingPage implements OnDestroy {
   events = signal<Schema['Event'][]>([]);
   purchasables = signal<Schema['Purchasable'][]>([]);
   busy = signal(false);
-  error = signal('');
+  error = signal<UiErrorCode | null>(null);
   imageUrl = signal('');
   deleting = signal(false);
   isNew = signal(true);
@@ -66,7 +87,7 @@ export class ThingPage implements OnDestroy {
   }
   async load() {
     const id = this.id;
-    this.error.set('');
+    this.error.set(null);
     try {
       const [categories, sets, fields, tags] = await Promise.all([
         this.api.all((query) => this.api.client.GET('/api/categories', { params: { query } })),
@@ -111,7 +132,7 @@ export class ThingPage implements OnDestroy {
         await this.loadImage();
       }
     } catch (e) {
-      this.error.set(errorText(e));
+      this.error.set(errorCode(e));
     } finally {
       if (id === this.id) this.loaded.set(true);
     }
@@ -138,11 +159,11 @@ export class ThingPage implements OnDestroy {
   async perform(fn: () => Promise<void>) {
     if (this.busy()) return;
     this.busy.set(true);
-    this.error.set('');
+    this.error.set(null);
     try {
       await fn();
     } catch (e) {
-      this.error.set(errorText(e));
+      this.error.set(errorCode(e));
     } finally {
       this.busy.set(false);
     }
@@ -272,7 +293,7 @@ export class ThingPage implements OnDestroy {
     const file = input.files?.[0];
     if (!file) return;
     await this.perform(async () => {
-      if (file.size > this.config.maxUploadBytes) throw new Error('File exceeds the upload limit');
+      if (file.size > this.config.maxUploadBytes) throw new UiError('too-large');
       const attachment = await this.api.client
         .POST('/api/attachments', {
           body: { file },

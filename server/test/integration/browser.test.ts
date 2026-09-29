@@ -108,6 +108,12 @@ test('browser manual-Thing workflow and JWT verification', { timeout: 90000 }, a
     await expect(page.getByRole('heading', { name: 'Your things', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Add sample data' }).click();
     await expect(page.getByRole('heading', { name: 'Kitchen hob', exact: true })).toBeVisible();
+    const vehicleArt = page.locator('.thing-art[data-category="vehicles"]');
+    const applianceArt = page.locator('.thing-art[data-category="appliances"]');
+    assert.notEqual(
+      await vehicleArt.evaluate((element) => getComputedStyle(element).backgroundColor),
+      await applianceArt.evaluate((element) => getComputedStyle(element).backgroundColor),
+    );
     await mkdir('test-results', { recursive: true });
     await page.screenshot({ path: 'test-results/dashboard.png', fullPage: true });
     await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
@@ -133,6 +139,9 @@ test('browser manual-Thing workflow and JWT verification', { timeout: 90000 }, a
       .filter({ has: page.getByRole('heading', { name: 'Buildings cover', exact: true }) });
     const sum = buildings.locator('bt-field').filter({ hasText: 'Sum insured' });
     await sum.getByRole('button', { name: 'Add', exact: true }).click();
+    await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('1.234');
+    await sum.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(sum.getByRole('alert')).toHaveText('Use an amount with up to two decimal places.');
     await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('500000');
     await sum.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(sum).toContainText('£500,000.00');
