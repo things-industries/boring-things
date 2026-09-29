@@ -42,6 +42,7 @@ export interface DiscoveryItem {
 export interface Discovery {
   items: DiscoveryItem[];
   sources: string[];
+  identity?: { name: string; sourceUrl: string } | null;
 }
 export type Usage = Schema['ImportUsage'];
 export interface AiContext {

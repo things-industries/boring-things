@@ -6,6 +6,26 @@ import { activeStatuses, blankUsage } from '../application/import-types.js';
 import { ensure } from '../application/errors.js';
 import { rows, transaction, type Database } from './connection.js';
 import { ownedThing, bumpThing } from './things.js';
+import { candidateModel, importedName } from '../application/import-naming.js';
+
+export async function availableImportName(
+  db: Database,
+  owner: string,
+  id: string | null,
+  name: string,
+  model?: string,
+) {
+  const existing = await rows<{ name: string }>(
+    db,
+    'select name from bt.things where owner_id=$1 and ($2::uuid is null or id<>$2) and starts_with(lower(name),lower($3))',
+    [owner, id, name.trim().slice(0, 140)],
+  );
+  return importedName(
+    name,
+    model,
+    existing.map((thing) => thing.name),
+  );
+}
 
 export interface ImportRow {
   id: string;
@@ -169,18 +189,21 @@ export async function allocateTargets(
       id = job.skeletonId;
       skeletonAvailable = false;
     }
+    const name = isNew
+      ? await availableImportName(db, job.ownerId, id, candidate.name, candidateModel(candidate))
+      : candidate.name;
     if (!id) {
       const [thing] = await rows<{ id: string }>(
         db,
         'insert into bt.things(owner_id,category_id,name,data) values($1,$2,$3,$4) returning id',
-        [job.ownerId, candidate.categoryId, candidate.name, JSON.stringify(emptyData())],
+        [job.ownerId, candidate.categoryId, name, JSON.stringify(emptyData())],
       );
       id = thing.id;
     }
     if (isNew) {
       const current = await ownedThing(db, job.ownerId, id, true);
       await db.query('update bt.things set name=$1,category_id=$2 where id=$3 and owner_id=$4', [
-        current.data.userEdited?.includes('name') ? current.name : candidate.name,
+        current.data.userEdited?.includes('name') ? current.name : name,
         current.data.userEdited?.includes('categoryId') ? current.categoryId : candidate.categoryId,
         id,
         job.ownerId,

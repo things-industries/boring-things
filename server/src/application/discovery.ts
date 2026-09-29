@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 import type { BlobStorage } from '../providers/blobs.js';
 import type { Discovery } from './import-types.js';
 import type { ImportRow, Target } from '../db/imports.js';
+import { availableImportName } from '../db/imports.js';
+import {
+  downloadPdf,
+  type DocumentDownload,
+  type DocumentOptions,
+} from '../providers/documents.js';
 import { ensure } from './errors.js';
 import { rows, transaction } from '../db/connection.js';
 import { ownedThing, bumpThing } from '../db/things.js';
@@ -25,6 +31,8 @@ export async function persistDiscovery(
   job: ImportRow,
   target: Target,
   discovery: Discovery,
+  options: DocumentOptions,
+  download: DocumentDownload = downloadPdf,
 ) {
   ensure(
     Array.isArray(discovery.items) &&
@@ -32,6 +40,37 @@ export async function persistDiscovery(
       Array.isArray(discovery.sources),
     'Invalid discovery',
   );
+  if (discovery.identity) {
+    const { name, sourceUrl } = discovery.identity;
+    ensure(
+      typeof name === 'string' &&
+        name.trim().length > 0 &&
+        name.length <= 200 &&
+        publicUrl(sourceUrl) &&
+        discovery.sources.includes(sourceUrl),
+      'Uncited identity',
+    );
+    await transaction(pool, async (db) => {
+      options.signal.throwIfAborted();
+      const thing = await ownedThing(db, job.ownerId, target.thingId, true);
+      if (!target.isNew || thing.data.userEdited?.includes('name')) return;
+      const values = [
+        ...Object.entries(thing.data.standalone),
+        ...Object.values(thing.data.values).flatMap(Object.entries),
+      ];
+      const model = values.find(
+        ([id, value]) =>
+          ['appliances.eNumber', 'common.model'].includes(id) && typeof value.value === 'string',
+      )?.[1].value as string | undefined;
+      const chosen = await availableImportName(db, job.ownerId, thing.id, name, model);
+      await db.query(
+        'update bt.things set name=$1,revision=revision+1 where id=$2 and owner_id=$3',
+        [chosen, thing.id, job.ownerId],
+      );
+    });
+  }
+  let failed = false;
+  let references = 0;
   for (const item of discovery.items) {
     ensure(
       ['reference', 'maintenance', 'consumable', 'accessory', 'upgrade'].includes(item.kind) &&
@@ -55,31 +94,55 @@ export async function persistDiscovery(
         'Product requires a merchant page',
       );
     const key = createHash('sha256')
-      .update(`${job.id}:${target.candidateId}:${item.kind}:${item.url}:${item.title}`)
+      .update(
+        `${job.id}:${target.candidateId}:${item.kind}:${item.url}:${item.kind === 'reference' ? '' : item.title}`,
+      )
       .digest('hex');
     const refs = JSON.stringify([{ url: item.sourceUrl }]);
     let blob: string | undefined;
     let used = false;
     try {
-      const content = Buffer.from(
-        `${item.title}\n${item.description}\n\nSource: ${item.sourceUrl}\nReference: ${item.url}\n`,
-      );
-      if (item.kind === 'reference') blob = await blobs.put(content);
+      options.signal.throwIfAborted();
+      let content: Buffer | null = null;
+      if (item.kind === 'reference') {
+        if (++references > 3) continue;
+        const [existing] = await rows<{ id: string }>(
+          pool,
+          'select id from bt.attachments where import_key=$1 and owner_id=$2',
+          [key, job.ownerId],
+        );
+        if (!existing) {
+          content = await download(item.url, options);
+          // HTML support pages remain citations; they are never manufactured into text files.
+          if (!content) continue;
+          options.signal.throwIfAborted();
+          blob = await blobs.put(content);
+        }
+      }
       await transaction(pool, async (db) => {
+        options.signal.throwIfAborted();
         await ownedThing(db, job.ownerId, target.thingId, true);
         if (item.kind === 'reference') {
-          const inserted = await rows<{ id: string }>(
-            db,
-            "insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key) values($1,$2,'text/plain',$3,$4,$5,$6) on conflict(import_key) do nothing returning id",
-            [
-              job.ownerId,
-              `${item.title.replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 150)}.txt`,
-              content.length,
-              blob,
-              item.url,
-              key,
-            ],
-          );
+          const inserted = blob
+            ? await rows<{ id: string }>(
+                db,
+                "insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key) values($1,$2,'application/pdf',$3,$4,$5,$6) on conflict(import_key) do nothing returning id",
+                [
+                  job.ownerId,
+                  `${
+                    item.title
+                      .replace(/[^\p{L}\p{N} ._-]/gu, '')
+                      .replace(/\.pdf$/i, '')
+                      .trim()
+                      .slice(0, 150) || 'Document'
+                  }.pdf`,
+                  content!.length,
+                  blob,
+                  item.url,
+                  key,
+                ],
+              )
+            : [];
           used = inserted.length > 0;
           const [file] = inserted.length
             ? inserted
@@ -114,10 +177,12 @@ export async function persistDiscovery(
         }
         await bumpThing(db, job.ownerId, target.thingId);
       });
-    } catch (e) {
+    } catch {
       if (blob) await blobs.remove(blob);
-      throw e;
+      failed = true;
+      continue;
     }
     if (blob && !used) await blobs.remove(blob);
   }
+  ensure(!failed, 'Discovery download failed');
 }

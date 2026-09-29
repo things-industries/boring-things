@@ -8,9 +8,12 @@ import { apiData } from '../../core/api/api-client';
 import { errorCode, UiError } from '../../utils/error.util';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../../components/error-message/error-message';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { takePhoto, choosePhoto, uploadFile } from '../../core/app-icons';
 @Component({
   selector: 'bt-import-panel',
-  imports: [FormsModule, RouterLink, ErrorMessage],
+  imports: [FormsModule, RouterLink, ErrorMessage, NgIcon],
+  viewProviders: [provideIcons({ takePhoto, choosePhoto, uploadFile })],
   templateUrl: './import-panel.html',
   styleUrl: './import-panel.scss',
 })

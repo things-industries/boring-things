@@ -381,10 +381,29 @@ test('discovery persists cited resources once and preserves edits on repeated wr
     ],
   };
   const blobs = new LocalBlobs(directory);
-  await persistDiscovery(pool, blobs, job, target, discovery);
+  const options = { maxBytes: 4096, signal: new AbortController().signal };
+  const pdf = Buffer.from('%PDF-1.7\nSynthetic manual\n%%EOF');
+  let downloads = 0;
+  const download = async () => {
+    downloads++;
+    return pdf;
+  };
+  await persistDiscovery(pool, blobs, job, target, discovery, options, download);
   const event = (await request('GET', `/events?thingId=${accepted.thingId}`)).json().items[0];
   await request('PATCH', `/events/${event.id}`, { status: 'dismissed' });
-  await persistDiscovery(pool, blobs, job, target, discovery);
+  await persistDiscovery(pool, blobs, job, target, discovery, options, download);
+  assert.equal(downloads, 1);
+  const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
+    Schema['AttachmentList']
+  >().items;
+  const manual = files.find((file) => file.mediaType === 'application/pdf')!;
+  assert.equal(manual.filename, 'Manual reference.pdf');
+  assert.equal(manual.sourceUrl, 'https://example.com/manual');
+  assert.deepEqual((await request('GET', `/attachments/${manual.id}/content`)).rawPayload, pdf);
+  assert.equal(
+    (await request('GET', `/attachments/${manual.id}/content`, undefined, 'bob')).statusCode,
+    404,
+  );
   assert.equal(
     (await request('GET', `/events?thingId=${accepted.thingId}`)).json().items.length,
     1,
@@ -400,9 +419,127 @@ test('discovery persists cited resources once and preserves edits on repeated wr
     2,
   );
   await assert.rejects(
-    persistDiscovery(pool, blobs, job, target, {
-      ...discovery,
-      items: [{ ...discovery.items[0], url: 'https://invented.example/source' }],
+    persistDiscovery(
+      pool,
+      blobs,
+      job,
+      target,
+      {
+        ...discovery,
+        items: [{ ...discovery.items[0], url: 'https://invented.example/source' }],
+      },
+      options,
+      download,
+    ),
+  );
+});
+
+test('discovered names use only owner collisions and preserve existing or edited names', async () => {
+  const { persistDiscovery } = await import('../../src/application/discovery.js');
+  const { ownedImport, targets } = await import('../../src/db/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs.js');
+  await create({ name: 'Bosch Oven' }, 'bob');
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await ownedImport(pool, owner, accepted.importId);
+  const [target] = await targets(pool, job);
+  const blobs = new LocalBlobs(directory);
+  const options = { maxBytes: 4096, signal: new AbortController().signal };
+  const discovery = {
+    identity: { name: 'Bosch Oven', sourceUrl: 'https://example.com/oven' },
+    items: [],
+    sources: ['https://example.com/oven'],
+  };
+  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  assert.equal((await request('GET', `/things/${target.thingId}`)).json().name, 'Bosch Oven');
+  await create({ name: 'Bosch Oven' });
+  assert.equal(
+    (
+      await request('PATCH', `/things/${target.thingId}`, {
+        values: [
+          { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'SYNTHETIC/01' },
+        ],
+      })
+    ).statusCode,
+    200,
+  );
+  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  assert.equal(
+    (await request('GET', `/things/${target.thingId}`)).json().name,
+    'Bosch Oven (SYNTHETIC/01)',
+  );
+  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  assert.equal(
+    (await request('GET', `/things/${target.thingId}`)).json().name,
+    'Bosch Oven (SYNTHETIC/01)',
+  );
+  await request('PATCH', `/things/${target.thingId}`, { name: 'Kitchen oven' });
+  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  assert.equal((await request('GET', `/things/${target.thingId}`)).json().name, 'Kitchen oven');
+  const existing = await create({ name: 'Existing oven', categoryId: 'appliances' });
+  const other = await start('neff', existing.id);
+  await wait(other.importId);
+  const otherJob = await ownedImport(pool, owner, other.importId);
+  const [otherTarget] = await targets(pool, otherJob);
+  await persistDiscovery(pool, blobs, otherJob, otherTarget, discovery, options);
+  assert.equal((await request('GET', `/things/${existing.id}`)).json().name, 'Existing oven');
+  await assert.rejects(
+    persistDiscovery(
+      pool,
+      blobs,
+      job,
+      target,
+      { ...discovery, identity: { name: 'Invented', sourceUrl: 'https://uncited.example/' } },
+      options,
+    ),
+  );
+});
+
+test('failed PDF downloads preserve other results and retries skip saved files; HTML creates no attachment', async () => {
+  const { persistDiscovery } = await import('../../src/application/discovery.js');
+  const { ownedImport, targets } = await import('../../src/db/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs.js');
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await ownedImport(pool, owner, accepted.importId);
+  const [target] = await targets(pool, job);
+  const blobs = new LocalBlobs(directory);
+  const options = { maxBytes: 4096, signal: new AbortController().signal };
+  const sources = [
+    'https://example.com/a.pdf',
+    'https://example.com/b.pdf',
+    'https://example.com/page',
+  ];
+  const discovery = {
+    sources,
+    items: sources.map((url, i) => ({
+      kind: 'reference' as const,
+      title: `Document ${i}`,
+      description: '',
+      url,
+      sourceUrl: url,
+    })),
+  };
+  const pdf = Buffer.from('%PDF-1.7\nSynthetic manual\n%%EOF');
+  const files = async () =>
+    (await request('GET', `/attachments?thingId=${target.thingId}`)).json<
+      Schema['AttachmentList']
+    >().items;
+  await assert.rejects(
+    persistDiscovery(pool, blobs, job, target, discovery, options, async (url) => {
+      if (url === sources[0]) throw new Error('download failed');
+      return url === sources[2] ? null : pdf;
     }),
   );
+  assert.equal((await files()).length, 2);
+  const fetched: string[] = [];
+  await persistDiscovery(pool, blobs, job, target, discovery, options, async (url) => {
+    fetched.push(url);
+    return url === sources[2] ? null : pdf;
+  });
+  assert.deepEqual(fetched, [sources[0], sources[2]]);
+  assert.equal((await files()).length, 3);
+  assert.equal((await files()).filter((file) => file.mediaType === 'application/pdf').length, 2);
 });

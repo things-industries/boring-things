@@ -214,7 +214,10 @@ export class ImportRunner {
                 'update bt.import_targets set discovery=$1 where import_id=$2 and candidate_id=$3',
                 [JSON.stringify(found), job.id, target.candidateId],
               );
-            await persistDiscovery(this.pool, this.blobs, job, target, found);
+            await persistDiscovery(this.pool, this.blobs, job, target, found, {
+              maxBytes: this.config.maxUploadBytes,
+              signal: discoverySignal,
+            });
           }
           await this.pool.query(
             'update bt.import_targets set discovered=true where import_id=$1 and candidate_id=$2',

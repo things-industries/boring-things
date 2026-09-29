@@ -16,19 +16,53 @@ a {
   display: inline-block;
   margin-right: tokens.space(3);
 }
-input[type='file'] {
-  max-width: 100%;
-}
-
 summary {
   cursor: pointer;
   font-weight: 600;
 }
-.upload-options label {
-  padding: tokens.space(3);
-  border: 1px solid tokens.color(border);
+.upload-options button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: tokens.space(3);
+  padding: tokens.space(5);
   border-radius: tokens.radius(control);
+  min-height: 72px;
   min-width: 0;
+}
+.upload-options ng-icon {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+}
+.import-progress {
+  height: tokens.space(2);
+  overflow: hidden;
+  border-radius: tokens.radius(pill);
+  background: tokens.color(surface-subtle);
+}
+.import-progress::after {
+  content: '';
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: tokens.color(primary);
+  border-radius: inherit;
+  animation: import-progress 1.6s ease-in-out infinite;
+}
+@keyframes import-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .import-progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
 }
 @media (min-width: 640px) {
   .upload-options {

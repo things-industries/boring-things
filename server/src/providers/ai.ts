@@ -58,6 +58,7 @@ const valuesSchema = object({
   ),
 });
 const discoverySchema = object({
+  identity: { anyOf: [object({ name: string, sourceUrl: string }), { type: 'null' }] },
   items: array(
     object({
       kind: {
@@ -95,7 +96,7 @@ interface Output {
   arguments?: string;
   call_id?: string;
   content?: { type: string; text?: string; annotations?: { type: string; url?: string }[] }[];
-  action?: { sources?: { url: string }[] };
+  action?: { url?: string; sources?: { url: string }[] };
 }
 interface Response {
   status: string;
@@ -209,7 +210,7 @@ export class OpenAiImports implements ImportAi {
           content: [
             {
               type: 'input_text',
-              text: `Transcribe the source and extract up to 10 distinct Things with up to 100 supported facts each. A combined buildings/contents policy is one Thing. A separate appliance and policy are two. Categories: ${categories.join(', ')}. Keep all readable source content in text, including content with no field match. Unknown category is other. Use sequential candidate/fact IDs. Each fact has a verbatim supporting quote (max 2000 characters), page number or null. Mark passwords, access codes and other secret facts sensitive. Do not put secrets in candidate names. Terms describe type, brand and model. Extract only supported facts; missing data stays absent.`,
+              text: `Transcribe the source and extract up to 10 distinct Things with up to 100 supported facts each. A combined buildings/contents policy is one Thing. A separate appliance and policy are two. Categories: ${categories.join(', ')}. Keep all readable source content in text, including content with no field match. Unknown category is other. Use sequential candidate/fact IDs. Each fact has a verbatim supporting quote (max 2000 characters), page number or null. Mark passwords, access codes and other secret facts sensitive. Do not put secrets in candidate names. Use a short everyday name: brand plus the supported product type, e.g. "Bosch Oven". Avoid model/serial numbers and generic "appliance" when a specific type is evident. Do not guess a product type from an unfamiliar model code; discovery can resolve it later. Extract manufacturer, model, E-number (including slash suffix), production/FD and serial/Z-number as separate facts when present. Never mistake a model identifier for a serial number. Terms describe type, brand and model. Extract only supported facts; missing data stays absent.`,
             },
             content,
           ],
@@ -257,7 +258,7 @@ export class OpenAiImports implements ImportAi {
       [
         {
           role: 'user',
-          content: `Find official manuals/model references and supported maintenance, consumables or upgrades for ${candidate.name}. Use at most ${this.searchCalls} web tool calls, including opening pages. Stop at that limit and answer from the retrieved evidence. Use public sources. Cite every recommendation and compatibility claim. Products need a retrieved merchant product page, not a manual/specification URL. Do not supply prices. If the model cannot be identified, return no recommendations.`,
+          content: `Identify the manufacturer and everyday product type for these public identifiers: ${candidate.name}. Prioritise the manufacturer's downloadable PDF user manual, installation instructions and specification sheets for this model. Search for model + manual PDF, open the official support page if needed, and retrieve the direct PDF URLs, including manufacturer document CDN links. A model-family manual is acceptable only when the source explicitly covers this model. Do not invent download URLs. Then find supported maintenance, consumables or upgrades if budget remains. Use at most ${this.searchCalls} web tool calls, including opening pages. Stop at that limit and answer from the retrieved evidence. Cite every identification, recommendation and compatibility claim. Products need a retrieved merchant product page. Do not supply prices. If the model cannot be identified, return no recommendations.`,
         },
       ],
       context,
@@ -270,6 +271,7 @@ export class OpenAiImports implements ImportAi {
     const sources = [
       ...new Set(
         result.output.flatMap((o) => [
+          ...(o.type === 'web_search_call' && o.action?.url ? [o.action.url] : []),
           ...(o.action?.sources?.map((s) => s.url) ?? []),
           ...(o.content?.flatMap(
             (c) =>
@@ -289,11 +291,11 @@ export class OpenAiImports implements ImportAi {
       'Discovery tool limit exceeded',
     );
     if (!sources.length) return { items: [], sources: [] };
-    const parsed = await this.structured<{ items: Discovery['items'] }>(
+    const parsed = await this.structured<Pick<Discovery, 'items' | 'identity'>>(
       [
         {
           role: 'user',
-          content: `Structure up to 8 supported recommendations from the search report. Every sourceUrl and url must be in the supplied retrieved URL list. Reference entries describe manuals or model pages. Maintenance must be supported by a cited manual/model source. Product compatibility must be supported; omit uncertain products. Product url must be a retrieved merchant product page, not a PDF, manual or support index. sourceUrl can be a supporting manual. Omit products without a merchant page. No prices. Report: ${this.text(result)}\nRetrieved URLs: ${JSON.stringify(sources)}`,
+          content: `Structure up to 8 supported recommendations from the search report. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a short brand + everyday product type name such as "Bosch Oven", with sourceUrl proving the identification; otherwise null. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs relevant to the identified model (manuals, installation guides, specification sheets). Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing model compatibility. Prefer official manufacturer documents. Maintenance must be supported by a cited manual/model source. Product compatibility must be supported; omit uncertain products. Product url must be a retrieved merchant product page, not a PDF, manual or support index. Omit products without a merchant page. No prices. Report: ${this.text(result)}\nRetrieved URLs: ${JSON.stringify(sources)}`,
         },
       ],
       discoverySchema,

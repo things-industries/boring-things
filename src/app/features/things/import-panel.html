@@ -5,7 +5,9 @@
   <p>Start with a photo, document or pasted text. Details are added as they are found.</p>
   } @if (error()) {
   <bt-error-message [code]="error()" />
-  } @if (job(); as current) {
+  } @if (job(); as current) { @if (active() && current.status !== 'awaiting_selection') {
+  <div class="import-progress" role="progressbar" aria-label="AI import in progress"></div>
+  }
   <div role="status" aria-live="polite">
     @switch (current.status) { @case ('queued') {
     <p>Import queued…</p>
@@ -14,7 +16,7 @@
     } @case ('mapping') {
     <p>Adding details… Fields appear as they are ready.</p>
     } @case ('discovering') {
-    <p>Finding model information and suggestions…</p>
+    <p>Finding manuals, model information and suggestions…</p>
     } @case ('awaiting_selection') {
     <h2>Which Things would you like to keep?</h2>
     } @case ('complete') {
@@ -60,31 +62,43 @@
       them.
     </p>
     <div class="upload-options">
-      <label class="secondary"
-        >Take photo<input
-          aria-label="Take photo"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="environment"
-          [disabled]="busy()"
-          (change)="file($event)"
-      /></label>
-      <label class="secondary"
-        >Choose photo<input
-          aria-label="Choose photo"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          [disabled]="busy()"
-          (change)="file($event)"
-      /></label>
-      <label class="secondary"
-        >Upload file<input
-          aria-label="Import file"
-          type="file"
-          [accept]="config.supportedMediaTypes.join(',')"
-          [disabled]="busy()"
-          (change)="file($event)"
-      /></label>
+      <button type="button" [disabled]="busy()" (click)="camera.click()">
+        <ng-icon name="takePhoto" aria-hidden="true" /> Take photo
+      </button>
+      <input
+        #camera
+        hidden
+        aria-label="Take photo"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        [disabled]="busy()"
+        (change)="file($event)"
+      />
+      <button type="button" [disabled]="busy()" (click)="photos.click()">
+        <ng-icon name="choosePhoto" aria-hidden="true" /> Choose photo
+      </button>
+      <input
+        #photos
+        hidden
+        aria-label="Choose photo"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        [disabled]="busy()"
+        (change)="file($event)"
+      />
+      <button type="button" [disabled]="busy()" (click)="document.click()">
+        <ng-icon name="uploadFile" aria-hidden="true" /> Upload file
+      </button>
+      <input
+        #document
+        hidden
+        aria-label="Import file"
+        type="file"
+        [accept]="config.supportedMediaTypes.join(',')"
+        [disabled]="busy()"
+        (change)="file($event)"
+      />
     </div>
     <small class="muted"
       >PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB</small

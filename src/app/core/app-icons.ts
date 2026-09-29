@@ -11,6 +11,8 @@ import {
   remixHomeLine,
   remixCarLine,
   remixTicketLine,
+  remixCameraLine,
+  remixImageLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftLine;
@@ -26,3 +28,5 @@ export const membershipExample = remixTicketLine;
 export const scheduleEvent = remixArrowRightLine;
 export const uploadFile = remixUploadLine;
 export const addTag = remixAddLine;
+export const takePhoto = remixCameraLine;
+export const choosePhoto = remixImageLine;

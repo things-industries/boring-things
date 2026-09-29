@@ -3,7 +3,9 @@
 <bt-error-message [code]="error()" />
 } @if (!loaded()) {
 <bt-thing-skeleton />
-} @else if (isNew() || thing()) {
+} @else if (isNew() || thing()) { @if (!isNew()) {
+<bt-import-panel [thingId]="id" [job]="thing()?.import ?? null" (changed)="importChanged($event)" />
+}
 <div class="detail-heading">
   <div class="detail-symbol" [attr.data-category]="categoryId">
     @if (imageUrl()) {
@@ -20,8 +22,9 @@
     }
   </div>
 </div>
-<bt-import-panel [thingId]="id" [job]="thing()?.import ?? null" (changed)="importChanged($event)" />
-@if (streamFailed()) {
+@if (isNew()) {
+<bt-import-panel />
+} @if (streamFailed()) {
 <p class="notice" role="status">Connection interrupted. Reconnecting to saved details…</p>
 }
 <fieldset class="editor-content" [disabled]="processing()">

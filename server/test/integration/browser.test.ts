@@ -122,7 +122,13 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(base);
       await expect(page.getByRole('heading', { name: 'Your things', exact: true })).toBeVisible();
+      await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
+      const sampleResponse = page.waitForResponse((response) =>
+        response.url().endsWith('/api/profile:seed-samples'),
+      );
       await page.getByRole('button', { name: 'Add sample data' }).click();
+      const seeded = await sampleResponse;
+      assert.equal(seeded.status(), 200, await seeded.text());
       await expect(page.getByRole('heading', { name: 'Kitchen hob', exact: true })).toBeVisible();
       const vehicleArt = page.locator('.thing-art[data-category="vehicles"]');
       const applianceArt = page.locator('.thing-art[data-category="appliances"]');
@@ -146,9 +152,15 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Import with AI', exact: true }),
       ).toBeVisible();
-      for (const label of ['Take photo', 'Choose photo', 'Import file', 'Paste text']) {
-        await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+      for (const label of ['Take photo', 'Choose photo', 'Upload file']) {
+        const button = page.getByRole('button', { name: label, exact: true });
+        await expect(button).toBeVisible();
+        await button.focus();
+        const chooser = page.waitForEvent('filechooser');
+        await page.keyboard.press('Enter');
+        await chooser;
       }
+      await expect(page.getByLabel('Paste text', { exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Enter details manually' })).toBeVisible();
       await page.screenshot({ path: 'test-results/add-thing-desktop.png', fullPage: true });
       await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Browser test policy');
@@ -193,10 +205,43 @@ test(
       await expect(contents.locator('bt-field').filter({ hasText: 'Sum insured' })).toContainText(
         'Add a value',
       );
+      let releaseImport!: () => void;
+      importAi.pause = new Promise((resolve) => {
+        releaseImport = resolve;
+      });
       await page.getByRole('button', { name: 'Extract details', exact: true }).click();
+      const progress = page.getByRole('progressbar', { name: 'AI import in progress' });
+      await expect(progress).toBeVisible();
+      assert.equal(await progress.getAttribute('aria-valuenow'), null);
+      await expect(
+        page.getByText('Adding details… Fields appear as they are ready.'),
+      ).toBeVisible();
+      assert.ok(
+        (await progress.boundingBox())!.y <
+          (await page
+            .getByRole('heading', { name: 'Browser test policy', exact: true })
+            .boundingBox())!.y,
+      );
+      assert.match(
+        await progress.evaluate((el) => getComputedStyle(el, '::after').animationName),
+        /import-progress$/,
+      );
+      await page.screenshot({ path: 'test-results/import-progress-desktop.png', fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.screenshot({ path: 'test-results/import-progress-mobile.png', fullPage: true });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      assert.equal(
+        await progress.evaluate((el) => getComputedStyle(el, '::after').animationName),
+        'none',
+      );
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.setViewportSize({ width: 1440, height: 1100 });
+      releaseImport();
+      importAi.pause = undefined;
       await expect(
         page.getByText('Import complete. Review the details below.', { exact: true }),
       ).toBeVisible();
+      await expect(progress).toHaveCount(0);
       await expect(sum).toContainText('£500,000.00');
       await expect(contents.locator('bt-field').filter({ hasText: 'Sum insured' })).toContainText(
         '£50,000.00',
@@ -222,6 +267,7 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Which Things would you like to keep?' }),
       ).toBeVisible();
+      await expect(progress).toHaveCount(0);
       await page.screenshot({ path: 'test-results/import-selection-mobile.png', fullPage: true });
       await page.getByRole('button', { name: 'Keep selected Things', exact: true }).click();
       await expect(
