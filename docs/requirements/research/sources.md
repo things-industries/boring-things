@@ -74,3 +74,4 @@
 - Supabase compute/pricing docs: https://supabase.com/docs/guides/platform/compute-add-ons
 - pgvector: https://pgxn.org/dist/vector/
 - TrueLayer Open Banking overview: https://docs.truelayer.com/docs/what-is-open-banking
+- WHATWG HTML Server-sent events: https://html.spec.whatwg.org/multipage/server-sent-events.html
