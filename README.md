@@ -21,6 +21,8 @@ Copy `.env.example` only on first setup; preserve an existing `.env`. Complete [
 
 - App: http://localhost:4200
 - API: http://127.0.0.1:3000/api
+- Swagger UI: http://localhost:4200/api/documentation
+- OpenAPI JSON: http://localhost:4200/api/documentation/json
 - Health: http://127.0.0.1:3000/health
 - Supabase Studio: http://127.0.0.1:55423 (select the `bt` schema)
 - Postgres: `127.0.0.1:55432`
@@ -60,7 +62,10 @@ Removing a populated section or changing category preserves values, provenance a
 - `server/src/plugins/auth.ts`: Logto verification and local-user mapping.
 - `server/src/contracts/`: runtime schemas drawn from `openapi.json`.
 - `shared/api.ts`: generated contract types; do not edit by hand.
+- `src/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
 - `supabase/migrations/`: SQL migrations.
+
+Run `pnpm api:generate` after changing `openapi.json`; `pnpm api:check` detects stale types. Angular requests use typed client methods with `params` and `body`, so paths, query parameters, request bodies and responses follow the contract. Binary fields generate as `Blob` for multipart uploads and downloads.
 
 The `bt` schema is not exposed to Supabase browser roles. Fastify is the application access boundary; relationship constraints also prevent cross-owner links. Frontend code contains no database credentials or service keys.
 

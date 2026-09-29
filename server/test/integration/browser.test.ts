@@ -150,6 +150,11 @@ test('browser manual-Thing workflow and JWT verification', { timeout: 90000 }, a
       buffer: Buffer.from('Sample policy source'),
     });
     await expect(page.getByRole('button', { name: 'policy.txt', exact: false })).toBeVisible();
+    const downloadReady = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'policy.txt', exact: false }).click();
+    const download = await downloadReady;
+    assert.equal(download.suggestedFilename(), 'policy.txt');
+    assert.equal(await readFile((await download.path())!, 'utf8'), 'Sample policy source');
     await page.getByLabel('New tag', { exact: true }).fill('Paperwork');
     await page.locator('form.inline-form').getByRole('button').click();
     await expect(page.getByRole('button', { name: 'Paperwork', exact: true })).toBeVisible();

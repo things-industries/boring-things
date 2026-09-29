@@ -5,6 +5,7 @@ import { Auth, CONFIG, authenticated } from './app-services';
 import { Dashboard } from './pages/dashboard';
 import { ThingPage } from './pages/thing';
 import { Login } from './pages/login';
+import { apiClient, apiData } from './core/api/api-client';
 @Component({
   selector: 'bt-root',
   imports: [RouterOutlet, RouterLink],
@@ -25,10 +26,10 @@ import { Login } from './pages/login';
 class App {
   readonly auth = inject(Auth);
 }
-fetch('/api/config')
-  .then(async (response) => {
-    if (!response.ok) throw new Error('The server is unavailable.');
-    const config = await response.json();
+apiClient
+  .GET('/api/config')
+  .then(apiData)
+  .then(async (config) => {
     await bootstrapApplication(App, {
       providers: [
         { provide: CONFIG, useValue: config },

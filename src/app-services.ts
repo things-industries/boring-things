@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { Router, type CanActivateFn } from '@angular/router';
 import LogtoClient from '@logto/browser';
 import type { Schema } from '../shared/model';
+import { allPages, apiData, createApiClient } from './core/api/api-client';
 export const CONFIG = new InjectionToken<Schema['Config']>('runtime configuration');
 export const errorText = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -58,53 +59,21 @@ export const authenticated: CanActivateFn = () =>
 export class Api {
   private auth = inject(Auth);
   private router = inject(Router);
-  async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-    const token = await this.auth.token();
-    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-    if (body !== undefined && !(body instanceof FormData))
-      headers['Content-Type'] = 'application/json';
-    const response = await fetch('/api' + path, {
-      method,
-      headers,
-      body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body),
-      cache: 'no-store',
-    });
-    if (!response.ok) {
-      const problem = await response.json().catch(() => ({ message: 'Request failed' }));
-      if (response.status === 401) {
-        this.auth.signedIn.set(false);
-        void this.router.navigate(['/login']);
-      }
-      throw new Error(problem.message);
-    }
-    if (response.status === 204) return undefined as T;
-    return response.json() as Promise<T>;
-  }
-  async all<T>(path: string): Promise<T[]> {
-    const result: T[] = [];
-    let cursor: string | null = null;
-    do {
-      const query: string =
-        path +
-        (path.includes('?') ? '&' : '?') +
-        'limit=100' +
-        (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
-      const page: { items: T[]; nextCursor: string | null } = await this.request<{
-        items: T[];
-        nextCursor: string | null;
-      }>(query);
-      result.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
-    return result;
-  }
+  readonly client = createApiClient({
+    token: () => this.auth.token(),
+    onUnauthorized: () => {
+      this.auth.signedIn.set(false);
+      void this.router.navigate(['/login']);
+    },
+  });
+  readonly all = allPages;
   async blob(id: string) {
-    const response = await fetch(`/api/attachments/${id}/content`, {
-      headers: { Authorization: `Bearer ${await this.auth.token()}` },
-      cache: 'no-store',
-    });
-    if (!response.ok) throw new Error('Could not download attachment');
-    return response.blob();
+    return this.client
+      .GET('/api/attachments/{id}/content', {
+        params: { path: { id } },
+        parseAs: 'blob',
+      })
+      .then(apiData);
   }
   async download(file: Schema['Attachment']) {
     const url = URL.createObjectURL(await this.blob(file.id));

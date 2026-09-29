@@ -2435,7 +2435,7 @@ export interface operations {
             content: {
                 "multipart/form-data": {
                     /** Format: binary */
-                    file: string;
+                    file: Blob;
                 };
             };
         };
@@ -2699,7 +2699,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/octet-stream": string;
+                    "application/octet-stream": Blob;
                 };
             };
             /** @description Request failed */

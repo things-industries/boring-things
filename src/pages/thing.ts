@@ -1,3 +1,4 @@
+import { apiData } from '../core/api/api-client';
 import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -5,7 +6,7 @@ import { Subscription } from 'rxjs';
 import type { Schema, Pin, Value } from '../../shared/model';
 import { Api, CONFIG, errorText } from '../app-services';
 import { FieldEditor } from '../components/field';
-import { Activity } from '../components/activity';
+import { Activity, type ActivityAction } from '../components/activity';
 @Component({
   selector: 'bt-thing',
   imports: [FormsModule, RouterLink, FieldEditor, Activity],
@@ -68,10 +69,10 @@ export class ThingPage implements OnDestroy {
     this.error.set('');
     try {
       const [categories, sets, fields, tags] = await Promise.all([
-        this.api.all<Schema['Category']>('/categories'),
-        this.api.all<Schema['FieldSet']>('/field-sets'),
-        this.api.all<Schema['FieldDefinition']>('/fields'),
-        this.api.all<Schema['Tag']>('/tags'),
+        this.api.all((query) => this.api.client.GET('/api/categories', { params: { query } })),
+        this.api.all((query) => this.api.client.GET('/api/field-sets', { params: { query } })),
+        this.api.all((query) => this.api.client.GET('/api/fields', { params: { query } })),
+        this.api.all((query) => this.api.client.GET('/api/tags', { params: { query } })),
       ]);
       if (id !== this.id) return;
       this.categories.set(categories);
@@ -80,11 +81,23 @@ export class ThingPage implements OnDestroy {
       this.tags.set(tags);
       if (id) {
         const [thing, attachments, issues, events, purchases] = await Promise.all([
-          this.api.request<Schema['Thing']>('/things/' + id),
-          this.api.all<Schema['Attachment']>('/attachments?thingId=' + id),
-          this.api.all<Schema['Issue']>('/issues?thingId=' + id),
-          this.api.all<Schema['Event']>('/events?thingId=' + id),
-          this.api.all<Schema['Purchasable']>('/purchasables?thingId=' + id),
+          this.api.client.GET('/api/things/{id}', { params: { path: { id } } }).then(apiData),
+          this.api.all((query) =>
+            this.api.client.GET('/api/attachments', {
+              params: { query: { ...query, thingId: id } },
+            }),
+          ),
+          this.api.all((query) =>
+            this.api.client.GET('/api/issues', { params: { query: { ...query, thingId: id } } }),
+          ),
+          this.api.all((query) =>
+            this.api.client.GET('/api/events', { params: { query: { ...query, thingId: id } } }),
+          ),
+          this.api.all((query) =>
+            this.api.client.GET('/api/purchasables', {
+              params: { query: { ...query, thingId: id } },
+            }),
+          ),
         ]);
         if (id !== this.id) return;
         this.thing.set(thing);
@@ -137,12 +150,16 @@ export class ThingPage implements OnDestroy {
   async saveBasics() {
     await this.perform(async () => {
       if (!this.id) {
-        const t = await this.api.request<Schema['Thing']>('/things', 'POST', {
-          name: this.name,
-          description: this.description,
-          categoryId: this.categoryId,
-          addFieldSetIds: this.selectedSet ? [this.selectedSet] : [],
-        });
+        const t = await this.api.client
+          .POST('/api/things', {
+            body: {
+              name: this.name,
+              description: this.description,
+              categoryId: this.categoryId,
+              addFieldSetIds: this.selectedSet ? [this.selectedSet] : [],
+            },
+          })
+          .then(apiData);
         await this.router.navigate(['/things', t.id]);
       } else
         await this.patch({
@@ -154,7 +171,9 @@ export class ThingPage implements OnDestroy {
   }
   async patch(patch: Schema['ThingPatch']) {
     const id = this.id;
-    const result = await this.api.request<Schema['Thing']>('/things/' + id, 'PATCH', patch);
+    const result = await this.api.client
+      .PATCH('/api/things/{id}', { params: { path: { id } }, body: patch })
+      .then(apiData);
     if (id === this.id) {
       this.thing.set(result);
       await this.loadImage();
@@ -240,7 +259,9 @@ export class ThingPage implements OnDestroy {
   async addTag() {
     if (!this.newTag.trim()) return;
     await this.perform(async () => {
-      const tag = await this.api.request<Schema['Tag']>('/tags', 'POST', { name: this.newTag });
+      const tag = await this.api.client
+        .POST('/api/tags', { body: { name: this.newTag } })
+        .then(apiData);
       this.tags.update((tags) => [...tags, tag]);
       await this.patch({ tagIds: [...(this.thing()?.tagIds ?? []), tag.id] });
       this.newTag = '';
@@ -252,10 +273,19 @@ export class ThingPage implements OnDestroy {
     if (!file) return;
     await this.perform(async () => {
       if (file.size > this.config.maxUploadBytes) throw new Error('File exceeds the upload limit');
-      const form = new FormData();
-      form.append('file', file);
-      const attachment = await this.api.request<Schema['Attachment']>('/attachments', 'POST', form);
-      await this.api.request(`/attachments/${attachment.id}/things/${this.id}`, 'PUT');
+      const attachment = await this.api.client
+        .POST('/api/attachments', {
+          body: { file },
+          bodySerializer(body) {
+            const form = new FormData();
+            form.append('file', body.file);
+            return form;
+          },
+        })
+        .then(apiData);
+      await this.api.client.PUT('/api/attachments/{id}/things/{thingId}', {
+        params: { path: { id: attachment.id, thingId: this.id } },
+      });
       await this.load();
     });
     input.value = '';
@@ -263,16 +293,20 @@ export class ThingPage implements OnDestroy {
   async loadLibrary() {
     await this.perform(async () => {
       this.library.set(
-        (await this.api.all<Schema['Attachment']>('/attachments')).filter(
-          (a) => !a.thingIds.includes(this.id),
-        ),
+        (
+          await this.api.all((query) =>
+            this.api.client.GET('/api/attachments', { params: { query } }),
+          )
+        ).filter((a) => !a.thingIds.includes(this.id)),
       );
     });
   }
   async link() {
     if (!this.linkId) return;
     await this.perform(async () => {
-      await this.api.request(`/attachments/${this.linkId}/things/${this.id}`, 'PUT');
+      await this.api.client.PUT('/api/attachments/{id}/things/{thingId}', {
+        params: { path: { id: this.linkId, thingId: this.id } },
+      });
       this.linkId = '';
       this.library.set([]);
       await this.load();
@@ -280,28 +314,39 @@ export class ThingPage implements OnDestroy {
   }
   async unlink(id: string) {
     await this.perform(async () => {
-      await this.api.request(`/attachments/${id}/things/${this.id}`, 'DELETE');
+      await this.api.client.DELETE('/api/attachments/{id}/things/{thingId}', {
+        params: { path: { id, thingId: this.id } },
+      });
       await this.load();
     });
   }
   async deleteFile(id: string) {
     await this.perform(async () => {
-      await this.api.request(`/attachments/${id}`, 'DELETE');
+      await this.api.client.DELETE('/api/attachments/{id}', { params: { path: { id } } });
       this.library.update((list) => list.filter((a) => a.id !== id));
     });
   }
   download(file: Schema['Attachment']) {
     void this.perform(() => this.api.download(file));
   }
-  activity(action: { kind: string; id: string; patch: Record<string, unknown> }) {
+  activity(action: ActivityAction) {
     void this.perform(async () => {
-      await this.api.request(`/${action.kind}/${action.id}`, 'PATCH', action.patch);
+      if (action.kind === 'issues')
+        await this.api.client.PATCH('/api/issues/{id}', {
+          params: { path: { id: action.id } },
+          body: action.patch,
+        });
+      else
+        await this.api.client.PATCH('/api/events/{id}', {
+          params: { path: { id: action.id } },
+          body: action.patch,
+        });
       await this.load();
     });
   }
   async remove() {
     await this.perform(async () => {
-      await this.api.request('/things/' + this.id, 'DELETE');
+      await this.api.client.DELETE('/api/things/{id}', { params: { path: { id: this.id } } });
       await this.router.navigate(['/']);
     });
   }

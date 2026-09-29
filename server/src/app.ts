@@ -1,9 +1,12 @@
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import type pg from 'pg';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createPool } from './db/connection.js';
 import { readConfig, type Config } from './config.js';
 import { installContracts, route } from './contracts/routes.js';
@@ -37,6 +40,12 @@ export async function buildApp(
   });
   if (!options.pool) app.addHook('onClose', () => pool.end());
   installContracts(app);
+  const specificationPath = fileURLToPath(new URL('../../openapi.json', import.meta.url));
+  await app.register(swagger, {
+    mode: 'static',
+    specification: { path: specificationPath, baseDir: dirname(specificationPath) },
+  });
+  await app.register(swaggerUi, { routePrefix: '/api/documentation' });
   app.setErrorHandler((error, req, reply) => {
     const e = error as Error & { code?: string; statusCode?: number; validation?: unknown };
     const status =

@@ -1,3 +1,4 @@
+import { apiData } from '../core/api/api-client';
 import {
   Component,
   EventEmitter,
@@ -146,13 +147,14 @@ export class FieldEditor implements OnChanges {
     this.busy.set(true);
     this.error.set('');
     try {
-      const result = await this.api.request<Schema['RevealResult']>(
-        `/things/${this.thingId}:reveal-field`,
-        'POST',
-        this.localId
-          ? { undefinedFieldId: this.localId }
-          : { fieldSetId: this.setId, fieldId: this.field.id },
-      );
+      const result = await this.api.client
+        .POST('/api/things/{id}:reveal-field', {
+          params: { path: { id: this.thingId } },
+          body: this.localId
+            ? { undefinedFieldId: this.localId }
+            : { fieldSetId: this.setId, fieldId: this.field.id },
+        })
+        .then(apiData);
       this.secret = result.value;
       this.revealed.set(true);
     } catch (e) {

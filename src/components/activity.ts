@@ -2,6 +2,10 @@ import { Component, input, output } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import type { Schema } from '../../shared/model';
+export type ActivityAction =
+  | { kind: 'issues'; id: string; patch: Schema['IssuePatch'] }
+  | { kind: 'events'; id: string; patch: Schema['EventPatch'] };
+
 @Component({
   selector: 'bt-activity',
   imports: [DatePipe, RouterLink],
@@ -73,7 +77,7 @@ export class Activity {
   issues = input<Schema['Issue'][]>([]);
   events = input<Schema['Event'][]>([]);
   busy = input(false);
-  action = output<{ kind: 'events' | 'issues'; id: string; patch: Record<string, unknown> }>();
+  action = output<ActivityAction>();
   schedule(id: string, date: string) {
     if (date && !Number.isNaN(new Date(date).valueOf()))
       this.action.emit({

@@ -1,9 +1,10 @@
+import { apiData } from '../core/api/api-client';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import type { Schema } from '../../shared/model';
 import { Api, CONFIG, errorText } from '../app-services';
-import { Activity } from '../components/activity';
+import { Activity, type ActivityAction } from '../components/activity';
 @Component({
   selector: 'bt-dashboard',
   imports: [FormsModule, RouterLink, Activity],
@@ -33,15 +34,19 @@ export class Dashboard {
     this.error.set('');
     try {
       const [categories, tags, issues, events, profile] = await Promise.all([
-        this.api.all<Schema['Category']>('/categories'),
-        this.api.all<Schema['Tag']>('/tags'),
-        this.api.request<Schema['IssueList']>('/issues?status=open&limit=3'),
-        this.api.request<Schema['EventList']>(
-          '/events?status=scheduled&from=' +
-            encodeURIComponent(new Date().toISOString()) +
-            '&limit=3',
-        ),
-        this.api.request<Schema['Profile']>('/profile'),
+        this.api.all((query) => this.api.client.GET('/api/categories', { params: { query } })),
+        this.api.all((query) => this.api.client.GET('/api/tags', { params: { query } })),
+        this.api.client
+          .GET('/api/issues', {
+            params: { query: { status: 'open', limit: 3 } },
+          })
+          .then(apiData),
+        this.api.client
+          .GET('/api/events', {
+            params: { query: { status: 'scheduled', from: new Date().toISOString(), limit: 3 } },
+          })
+          .then(apiData),
+        this.api.client.GET('/api/profile').then(apiData),
       ]);
       this.categories.set(categories);
       this.tags.set(tags);
@@ -60,11 +65,19 @@ export class Dashboard {
     this.busy.set(true);
     this.error.set('');
     try {
-      const query = new URLSearchParams({ q: this.q, limit: '24' });
-      if (this.categoryId) query.set('categoryId', this.categoryId);
-      if (this.tagId) query.set('tagId', this.tagId);
-      if (more && this.cursor()) query.set('cursor', this.cursor()!);
-      const result = await this.api.request<Schema['ThingSummaryList']>('/things?' + query);
+      const result = await this.api.client
+        .GET('/api/things', {
+          params: {
+            query: {
+              q: this.q,
+              limit: 24,
+              categoryId: this.categoryId || undefined,
+              tagId: this.tagId || undefined,
+              cursor: more ? (this.cursor() ?? undefined) : undefined,
+            },
+          },
+        })
+        .then(apiData);
       if (request === this.request) {
         this.things.set(more ? [...this.things(), ...result.items] : result.items);
         this.cursor.set(result.nextCursor);
@@ -85,7 +98,7 @@ export class Dashboard {
   async samples() {
     this.busy.set(true);
     try {
-      await this.api.request('/profile:seed-samples', 'POST');
+      await this.api.client.POST('/api/profile:seed-samples');
       await this.load();
     } catch (e) {
       this.error.set(errorText(e));
@@ -93,10 +106,19 @@ export class Dashboard {
       this.busy.set(false);
     }
   }
-  async activity(action: { kind: string; id: string; patch: Record<string, unknown> }) {
+  async activity(action: ActivityAction) {
     this.busy.set(true);
     try {
-      await this.api.request(`/${action.kind}/${action.id}`, 'PATCH', action.patch);
+      if (action.kind === 'issues')
+        await this.api.client.PATCH('/api/issues/{id}', {
+          params: { path: { id: action.id } },
+          body: action.patch,
+        });
+      else
+        await this.api.client.PATCH('/api/events/{id}', {
+          params: { path: { id: action.id } },
+          body: action.patch,
+        });
       await this.load();
     } catch (e) {
       this.error.set(errorText(e));
