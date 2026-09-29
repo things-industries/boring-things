@@ -1,0 +1,63 @@
+{
+  "name": "boring-things",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.12.0 <23 || >=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web 'pnpm dev:server' 'pnpm dev:web'",
+    "dev:server": "tsx watch --env-file-if-exists=.env server/src/index.ts",
+    "dev:web": "ng serve --proxy-config proxy.conf.json --host localhost --port 4200",
+    "build": "ng build && tsc -p server/tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/server/server/src/index.js",
+    "api:generate": "node --import tsx scripts/generate-api.ts",
+    "api:check": "node --import tsx scripts/generate-api.ts --check",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p server/tsconfig.json && ng build --configuration development",
+    "test": "node --import tsx --test server/test/*.test.ts",
+    "test:integration": "node --import tsx --env-file-if-exists=.env --test --test-concurrency=1 server/test/integration/*.test.ts",
+    "check": "pnpm api:check && pnpm lint && pnpm exec tsc --noEmit -p server/tsconfig.json && pnpm test && pnpm build",
+    "db:start": "supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor",
+    "db:stop": "supabase stop",
+    "db:migrate": "supabase migration up --local",
+    "db:seed": "node --import tsx --env-file-if-exists=.env scripts/seed.ts"
+  },
+  "dependencies": {
+    "@angular/common": "~21.2.24",
+    "@angular/compiler": "~21.2.24",
+    "@angular/core": "~21.2.24",
+    "@angular/forms": "~21.2.24",
+    "@angular/platform-browser": "~21.2.24",
+    "@angular/router": "~21.2.24",
+    "@fastify/multipart": "^9.0.0",
+    "@fastify/static": "^8.0.0",
+    "@logto/browser": "^3.0.14",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "fastify": "^5.0.0",
+    "jose": "^6.0.0",
+    "pg": "^8.16.0",
+    "rxjs": "~7.8.2",
+    "tslib": "^2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "~21.2.24",
+    "@angular/cli": "~21.2.24",
+    "@apidevtools/swagger-parser": "^12.0.0",
+    "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.15.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "openapi-typescript": "^7.0.0",
+    "prettier": "^3.9.9",
+    "supabase": "^2.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.0.0"
+  }
+}

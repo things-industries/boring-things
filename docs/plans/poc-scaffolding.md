@@ -4,6 +4,17 @@ Build a local framework for login, progressive Thing creation from text/photos/d
 
 Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../requirements/roadmap/MILESTONES.md), [29 September notes](../meeting-notes/2026-09-29%20data%20model.md), and the field-set review. Decisions below supersede earlier category/field proposals for this scaffold.
 
+## Confirmed implementation scope (29 September)
+
+- Step 1 uses one Logto Cloud tenant as the identity source for local development and production. Pause for user setup before validating live login.
+- Author initial registry seeds from this plan; use a museum membership example.
+- Sensitive fields are masked by default. Normal detail responses omit their values and source quotes; an owner-authorized reveal action returns the value with `Cache-Control: private, no-store`. This is display/access control, not encrypted vault storage.
+- Issues, events and purchasables use labelled sample data for UI work. Real extraction and reasoning initially focus on defining Things. Activity/product discovery and assistant execution remain deferred pending further instruction.
+- The initial field subset supports strings, numbers, integers, booleans, enums, dates, bounds and patterns. Money uses integer minor units and GBP/EUR/USD. `null` clears a value.
+- Step 1 includes manual creation, set selection, every empty field, tags and attachments. Sections remain one per set until the later grouping work.
+- A Thing can select a linked image attachment as its image. Category artwork is the fallback.
+- Uploads initially accept PDF, JPEG, PNG, WebP and UTF-8 plain text, up to a configurable 20 MiB.
+
 ## Boundaries and decisions
 
 - TypeScript, Angular frontend in `src/`, Fastify backend in `server/`, authored OpenAPI generating client/server types. Interpret the technology doc's “AngularJS” as Angular for this scaffold.
