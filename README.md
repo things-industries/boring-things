@@ -161,7 +161,7 @@ Provider implementation references: [file inputs](https://developers.openai.com/
 
 The chat API accepts `{ text, requestId }`. The model selects Event/Issue creation from the user request and conversation, asking a follow-up when ambiguous. One creation per message is enforced transactionally across both tools; retries reuse the saved result. Ownership, input validation, deadlines and read-before-write checks remain application rules. Intent recognition is model judgement.
 
-Frontend integration is pending: the existing composer still selects and sends `intent`, which the API rejects. Its intent type references also prevent an Angular build against the regenerated contract. Update the composer and retry payloads before running the browser demo below.
+The composer sends text and a request ID, including on retry. The assistant selects actions from the conversation; created Events and Issues appear as resource cards.
 
 `node --import tsx --env-file=.env scripts/smoke-import.ts --assistant` runs the **paid live** synthetic import, cited field answer, maintenance creation/scheduling and restart check. `node --import tsx --env-file=.env scripts/smoke-assistant-products.ts` checks product-focused discovery using a synthetic Miele dishwasher record. Both use temporary local databases and remove them afterwards. Reports go to ignored `test-results/assistant-smoke.json` and `test-results/assistant-products-smoke.json`.
 
