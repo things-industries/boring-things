@@ -28,7 +28,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/validators/`: form validators returning error keys.
 - `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.
 - `styles.scss`: global Sass entry point; imports only.
-- `styles/`: design system, grouped in one folder per style scope (`colors/`, `typography/`, `buttons/`, …), plus `_core.scss`, `_mixins.scss` and `CHEATSHEET.md`.
+- `styles/`: design system, one file per style scope (`_buttons.scss`, `_forms.scss`, …) or one folder when a scope needs several files (`colors/`, `typography/`), plus `_core.scss`, `_mixins.scss` and `CHEATSHEET.md`.
 - Root `shared/api.ts`: generated OpenAPI types. Root `shared/model.ts`: derived aliases and shared shapes. Import or derive API types instead of duplicating them.
 
 Keep feature-only components and data services beside their feature. Move code into `core/` when it is application-wide and singleton-like. Create shared directives, pipes or stores only when needed.
@@ -77,7 +77,7 @@ Keep feature-only components and data services beside their feature. Move code i
 - Check `styles/CHEATSHEET.md` before adding styles. Update it when shared roles or mixins change. The cheatsheet should be human readable and offer the array of color options a user can use.
 - each color should also have a dedicated css class for text and backgrounds eg .text-danger, .text-primary, .bg-primary etc for easy use in templates. prefer these in templates if no other styles are needed for the element, otherwise use color tokens in the created class.
 - Reuse semantic colour, spacing and radius tokens. Put page/component-only rules in its stylesheet.
-- Group shared styles by scope: each scope (colours, typography, buttons, icons, forms, …) has its own folder under `styles/`. A new scope gets a new folder; do not add scope rules to an unrelated file.
+- Group shared styles by scope (colours, typography, buttons, icons, forms, …). A scope that fits in one file is `styles/_<scope>.scss`; a scope that needs several files gets a folder, `styles/<scope>/`. Do not add scope rules to an unrelated file.
 - `styles/_core.scss` holds page structure and document-wide rules only (`:root` properties, `html`/`body`, box sizing, `[hidden]`, `.visually-hidden`).
 - The design system is the app's own. Name colours by hue and shade in `colors/_palette.scss` (`green-100`, `neutral-900`) and by purpose in `colors/_theme.scss` (`text-accent`, `border-strong`); theme roles point at palette shades. Do not name tokens after design-tool variables or reference the design tool in styles.
 - Import shared Sass with `@use 'tokens'`, `@use 'typography'` and `@use 'mixins'`; `src/styles` is on the Sass include path.

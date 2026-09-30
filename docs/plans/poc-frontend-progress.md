@@ -6,18 +6,18 @@ Status values: `Not started`, `In progress`, `Done`, `Blocked`.
 
 ## Stages
 
-| Stage                      | Status      | Notes                                                                                                                                                                                                                                                     |
-| -------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0. Design foundation       | Done        | Palette shade scales and semantic theme; type, spacing, radius, shadow, icon-size and size tokens; Inter; styles grouped in scope folders; utility and button classes; icon catalogue additions; mocks convention. Legacy roles mapped to palette shades. |
-| 1. Shell and navigation    | Not started |                                                                                                                                                                                                                                                           |
-| 2. Sign in                 | Not started |                                                                                                                                                                                                                                                           |
-| 3. Home                    | Not started |                                                                                                                                                                                                                                                           |
-| 4. Add Thing               | Not started |                                                                                                                                                                                                                                                           |
-| 5. Thing detail            | Not started |                                                                                                                                                                                                                                                           |
-| 6. View all details        | Not started |                                                                                                                                                                                                                                                           |
-| 7. Chat                    | Not started |                                                                                                                                                                                                                                                           |
-| 8. Things list and Profile | Not started |                                                                                                                                                                                                                                                           |
-| 9. Clean-up                | Not started |                                                                                                                                                                                                                                                           |
+| Stage                      | Status      | Notes                                                                                                                                                                                                                                             |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Design foundation       | Done        | Palette shade scales and semantic theme; type, spacing, radius, shadow, icon-size and size tokens; Inter; styles grouped by scope; utility and button classes; icon catalogue additions; mocks convention. Legacy roles mapped to palette shades. |
+| 1. Shell and navigation    | Not started |                                                                                                                                                                                                                                                   |
+| 2. Sign in                 | Not started |                                                                                                                                                                                                                                                   |
+| 3. Home                    | Not started |                                                                                                                                                                                                                                                   |
+| 4. Add Thing               | Not started |                                                                                                                                                                                                                                                   |
+| 5. Thing detail            | Not started |                                                                                                                                                                                                                                                   |
+| 6. View all details        | Not started |                                                                                                                                                                                                                                                   |
+| 7. Chat                    | Not started |                                                                                                                                                                                                                                                   |
+| 8. Things list and Profile | Not started |                                                                                                                                                                                                                                                   |
+| 9. Clean-up                | Not started |                                                                                                                                                                                                                                                   |
 
 ## Shared components and styles
 
@@ -28,10 +28,10 @@ Record each shared component, mixin or token group when added: name, path, first
 | Palette shade scales (neutral, green, blue, red, amber)                       | `src/styles/colors/_palette.scss`   | 0     |
 | Semantic colour theme                                                         | `src/styles/colors/_theme.scss`     | 0     |
 | `.text-*` and `.bg-*` utilities                                               | `src/styles/colors/_utilities.scss` | 0     |
-| Space, radius, shadow, icon-size and size tokens                              | `src/styles/tokens/_index.scss`     | 0     |
+| Space, radius, shadow, icon-size and size tokens                              | `src/styles/_tokens.scss`           | 0     |
 | Typography roles and `$font-family`                                           | `src/styles/typography/_index.scss` | 0     |
-| Button classes `.button-primary/secondary/accent/link`, sizes `.button-sm/lg` | `src/styles/buttons/_buttons.scss`  | 0     |
-| `.icon-sm/md/lg`                                                              | `src/styles/icons/_icons.scss`      | 0     |
+| Button classes `.button-primary/secondary/accent/link`, sizes `.button-sm/lg` | `src/styles/_buttons.scss`          | 0     |
+| `.icon-sm/md/lg`                                                              | `src/styles/_icons.scss`            | 0     |
 | Mixins `icon-size`, `list-row`, `key-value-row`                               | `src/styles/_mixins.scss`           | 0     |
 
 ## Mocks

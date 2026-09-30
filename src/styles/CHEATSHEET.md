@@ -4,23 +4,23 @@ The Boring Things design system. `styles.scss` emits the global stylesheet once.
 
 ## Layout
 
-One folder per style scope. A new scope gets a new folder.
+One file per style scope, or one folder when a scope needs several files.
 
 | Path                     | Contents                                                                                      | Emits CSS |
 | ------------------------ | --------------------------------------------------------------------------------------------- | --------- |
 | `_core.scss`             | Page structure: `:root` properties, `html`/`body`, box sizing, `[hidden]`, `.visually-hidden` | Yes       |
-| `tokens/`                | `tokens.*` functions and space, radius, shadow, icon-size and size maps                       | No        |
+| `_tokens.scss`           | `tokens.*` functions and space, radius, shadow, icon-size and size maps                       | No        |
 | `colors/_palette.scss`   | Shade scales                                                                                  | No        |
 | `colors/_theme.scss`     | Semantic colour roles                                                                         | No        |
 | `colors/_legacy.scss`    | Roles used by screens built before the current theme                                          | No        |
 | `colors/_utilities.scss` | `.text-*` and `.bg-*` classes                                                                 | Yes       |
 | `typography/_index.scss` | Type roles, `role()` mixin, `$font-family`                                                    | No        |
 | `typography/_base.scss`  | Headings, paragraphs, eyebrow                                                                 | Yes       |
-| `buttons/`               | Button classes                                                                                | Yes       |
-| `icons/`                 | `ng-icon` defaults and icon size classes                                                      | Yes       |
-| `forms/`                 | Labels, inputs, selects, textareas, details                                                   | Yes       |
-| `layout/`                | Page sections, grids, panels, empty states                                                    | Yes       |
-| `status/`                | Badges, chips, samples, errors, notices                                                       | Yes       |
+| `_buttons.scss`          | Button classes                                                                                | Yes       |
+| `_icons.scss`            | `ng-icon` defaults and icon size classes                                                      | Yes       |
+| `_forms.scss`            | Labels, inputs, selects, textareas, details                                                   | Yes       |
+| `_layout.scss`           | Page sections, grids, panels, empty states                                                    | Yes       |
+| `_status.scss`           | Badges, chips, samples, errors, notices                                                       | Yes       |
 | `_mixins.scss`           | Shared mixins                                                                                 | No        |
 
 Component styles use tokens only: no literal colours, font sizes, weights, spacing, radii, shadows or icon sizes.
