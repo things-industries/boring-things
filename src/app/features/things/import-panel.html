@@ -1,5 +1,5 @@
 @if (config.importEnabled) {
-  <section class="panel import-panel" aria-label="Import a Thing">
+  <section class="content-panel import-panel" aria-label="Import a Thing">
     @if (!thingId()) {
       <h2>Import with AI</h2>
       <p>Start with a photo, document or pasted text. Details are added as they are found.</p>
@@ -78,7 +78,7 @@
         <summary>
           {{ thingId() ? 'Add details from a source' : 'Start with a photo, file or text' }}
         </summary>
-        <p class="muted">
+        <p class="text-primary-muted">
           The source is sent to OpenAI to extract details. Review imported values before relying on
           them.
         </p>
@@ -121,7 +121,7 @@
             (change)="file($event)"
           />
         </div>
-        <small class="muted"
+        <small class="hint-text"
           >PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB</small
         >
         <label
@@ -134,8 +134,10 @@
     }
   </section>
 } @else if (!thingId()) {
-  <section class="panel import-panel" aria-label="Import a Thing">
+  <section class="content-panel import-panel" aria-label="Import a Thing">
     <h2>Import with AI</h2>
-    <p class="muted">AI import is currently unavailable. You can enter details manually below.</p>
+    <p class="text-primary-muted">
+      AI import is currently unavailable. You can enter details manually below.
+    </p>
   </section>
 }

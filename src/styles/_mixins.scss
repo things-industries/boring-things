@@ -3,6 +3,21 @@
   background: tokens.color(skeleton);
   border-radius: tokens.radius(control);
 }
+@mixin icon-size($name) {
+  --ng-icon__size: #{tokens.icon-size($name)};
+}
+@mixin list-row {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(3);
+  min-height: tokens.size(list-row);
+}
+@mixin key-value-row {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(3);
+  min-height: tokens.size(key-value-row);
+}
 @mixin visually-hidden {
   position: absolute;
   width: 1px;

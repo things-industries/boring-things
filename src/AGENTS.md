@@ -14,6 +14,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/runtime-config.ts`: typed injection token for server-supplied public configuration.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
 - `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`.
+- `app/core/mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
 - `app/core/services/`: application-wide authentication, route guard and API services.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
 - `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it.
@@ -27,7 +28,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/validators/`: form validators returning error keys.
 - `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.
 - `styles.scss`: global Sass entry point; imports only.
-- `styles/`: shared tokens, typography, mixins, base rules and `CHEATSHEET.md`.
+- `styles/`: design system, one file per style scope (`_buttons.scss`, `_forms.scss`, …) or one folder when a scope needs several files (`colors/`, `typography/`), plus `_core.scss`, `_mixins.scss` and `CHEATSHEET.md`.
 - Root `shared/api.ts`: generated OpenAPI types. Root `shared/model.ts`: derived aliases and shared shapes. Import or derive API types instead of duplicating them.
 
 Keep feature-only components and data services beside their feature. Move code into `core/` when it is application-wide and singleton-like. Create shared directives, pipes or stores only when needed.
@@ -75,9 +76,13 @@ Keep feature-only components and data services beside their feature. Move code i
 
 - Check `styles/CHEATSHEET.md` before adding styles. Update it when shared roles or mixins change. The cheatsheet should be human readable and offer the array of color options a user can use.
 - each color should also have a dedicated css class for text and backgrounds eg .text-danger, .text-primary, .bg-primary etc for easy use in templates. prefer these in templates if no other styles are needed for the element, otherwise use color tokens in the created class.
-- Reuse semantic colour, spacing and radius tokens. Keep shared rules in `styles/_core.scss`; put page/component-only rules in its stylesheet.
+- Reuse semantic colour, spacing and radius tokens. Put page/component-only rules in its stylesheet.
+- Group shared styles by scope (colours, typography, buttons, icons, forms, …). A scope that fits in one file is `styles/_<scope>.scss`; a scope that needs several files gets a folder, `styles/<scope>/`. Do not add scope rules to an unrelated file.
+- Global class names must be specific to their use (`.status-badge`, `.notice-banner`). Modifiers that only apply to one element or class are nested under it (`button { &.quiet {} }`) instead of standing alone as `.quiet` or `.small`.
+- `styles/_core.scss` holds page structure and document-wide rules only (`:root` properties, `html`/`body`, box sizing, `[hidden]`, `.visually-hidden`).
+- The design system is the app's own. Colours are palette shades named by hue (`green-100`, `neutral-900`) in `colors/_palette.scss`, and colour sets in `colors/_theme.scss`. Each set (`primary`, `accent`, …) has exactly four tokens: `<set>`, `<set>-muted`, `<set>-subtle` and `<set>-contrast`. Colour tokens never name where they are used (no `text-`, `border-`, `surface-` or `background-` tokens); the element picks the token. Do not name tokens after design-tool variables or reference the design tool in styles.
 - Import shared Sass with `@use 'tokens'`, `@use 'typography'` and `@use 'mixins'`; `src/styles` is on the Sass include path.
-- Read tokens through `tokens.color(...)`, `tokens.space(...)` and `tokens.radius(...)`. Unknown names fail compilation. Give fill roles a matching contrast role and use text roles for text.
+- Read tokens through `tokens.color(...)`, `tokens.space(...)`, `tokens.radius(...)`, `tokens.shadow(...)`, `tokens.icon-size(...)` and `tokens.size(...)`. Unknown names fail compilation. `tokens.color(...)` accepts set tokens and palette shades; prefer set tokens, and use a shade directly when no set token fits.
 - Typography roles use `@include typography.role(...)`. Use `typography.tabular-numerals` where figures should align.
 - Token, typography and mixin modules emit no CSS on import. Global base styles emit once through `styles.scss`.
 - Preserve Boring Things' visual identity when extending the shared style system.

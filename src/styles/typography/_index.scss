@@ -1,0 +1,75 @@
+@use 'sass:map';
+$font-family: 'Inter', system-ui, sans-serif;
+$roles: (
+  display: (
+    size: 32px,
+    weight: 700,
+    line-height: 1.15,
+    letter-spacing: -0.02em,
+  ),
+  title: (
+    size: 26px,
+    weight: 700,
+    line-height: 1.2,
+    letter-spacing: -0.01em,
+  ),
+  section: (
+    size: 17px,
+    weight: 700,
+    line-height: 1.3,
+    letter-spacing: 0,
+  ),
+  body: (
+    size: 14px,
+    weight: 400,
+    line-height: 1.45,
+    letter-spacing: 0,
+  ),
+  label: (
+    size: 12px,
+    weight: 500,
+    line-height: 1.35,
+    letter-spacing: 0,
+  ),
+  caption: (
+    size: 11px,
+    weight: 400,
+    line-height: 1.35,
+    letter-spacing: 0,
+  ),
+  micro: (
+    size: 9px,
+    weight: 600,
+    line-height: 1.2,
+    letter-spacing: 0.02em,
+  ),
+);
+// Roles used by screens built before the current type scale. Remove each once unused.
+$legacy-roles: (
+  heading: (
+    size: 16px,
+    weight: 650,
+    line-height: 1.2,
+    letter-spacing: 0,
+  ),
+  eyebrow: (
+    size: 10px,
+    weight: 700,
+    line-height: 1.2,
+    letter-spacing: 0,
+  ),
+);
+$all-roles: map.merge($legacy-roles, $roles);
+@mixin role($name) {
+  @if not map.has-key($all-roles, $name) {
+    @error 'Unknown typography role: #{$name}';
+  }
+  $role: map.get($all-roles, $name);
+  font-size: map.get($role, size);
+  font-weight: map.get($role, weight);
+  line-height: map.get($role, line-height);
+  letter-spacing: map.get($role, letter-spacing);
+}
+@mixin tabular-numerals {
+  font-variant-numeric: tabular-nums;
+}

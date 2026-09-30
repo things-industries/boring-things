@@ -1,71 +1,15 @@
 @use 'sass:map';
-$colors: (
-  'text': #242722,
-  'primary': #254d3d,
-  'text-muted': #70776b,
-  'border': #e1e5dc,
-  'background': #f7f8f3,
-  'surface': #fff,
-  'primary-contrast': #fff,
-  'surface-contrast': #242722,
-  'danger': #893f2f,
-  'danger-contrast': #fff,
-  'text-placeholder': #909785,
-  'surface-subtle': #edf0e7,
-  'surface-subtle-contrast': #242722,
-  'skeleton': #e1e5dc,
-  'text-input': #333d2b,
-  'text-label': #59634e,
-  'text-chip': #5c6654,
-  'empty-contrast': #627954,
-  'badge-contrast': #657457,
-  'text-back': #67785c,
-  'artwork-label-contrast': #68725e,
-  'text-card-arrow': #687e5c,
-  'vehicle-art-contrast': #6b8893,
-  'text-field-label': #6c7465,
-  'thing-art-contrast': #728761,
-  'text-eyebrow': #738264,
-  'thing-detail-art-contrast': #788969,
-  'text-sample': #797b74,
-  'text-login-example': #7a846f,
-  'insurance-art-contrast': #827696,
-  'sensitive-contrast': #8e7b51,
-  'warning-contrast': #98692e,
-  'destructive': #a05543,
-  'membership-art-contrast': #a2875d,
-  'border-sample': #c2c7ba,
-  'border-upload': #c5d1b8,
-  'border-input': #dce2d5,
-  'brand': #ddebce,
-  'thing-detail-art': #e4ecdb,
-  'vehicle-art': #e4edf0,
-  'empty': #e5eddc,
-  'insurance-art': #e7e6f2,
-  'thing-art': #e8eedf,
-  'sample-banner': #ecf0e3,
-  'notice': #edf0e6,
-  'border-field': #edf0e8,
-  'hint': #edf1e5,
-  'badge': #edf2e8,
-  'border-error': #efc9ba,
-  'upload': #f1f4ea,
-  'membership-art': #f3e8d9,
-  'sensitive': #f3f0e7,
-  'warning': #fbebd6,
-  'error': #fff0e9,
-  'artwork-label': #ffffff99,
-  'brand-contrast': #242722,
-  'background-contrast': #242722,
-  'sample-banner-contrast': #242722,
-  'notice-contrast': #70776b,
-  'hint-contrast': #242722,
-  'upload-contrast': #242722,
-  'error-contrast': #893f2f,
-  'destructive-contrast': #fff,
-);
+@use 'sass:meta';
+@use 'colors/palette';
+@use 'colors/theme';
+@use 'colors/legacy';
+
+$palette: palette.$palette;
+$theme: theme.$theme;
+$colors: map.merge(map.merge($palette, legacy.$legacy), $theme);
 $spaces: (
   0: 0,
+  half: 2px,
   1: 4px,
   2: 8px,
   3: 12px,
@@ -79,8 +23,27 @@ $spaces: (
 );
 $radii: (
   control: 9px,
-  card: 16px,
+  tile: 12px,
+  card: 18px,
+  sheet: 28px,
   pill: 999px,
+);
+$shadows: (
+  raised: 0 4px 4px rgb(0 0 0 / 25%),
+  floating: 0 4px 14px rgb(0 0 0 / 13%),
+  sheet: 0 -8px 24px rgb(0 0 0 / 8%),
+);
+$icon-sizes: (
+  sm: 16px,
+  md: 20px,
+  lg: 24px,
+);
+$sizes: (
+  control-sm: 32px,
+  control-md: 44px,
+  control-lg: 52px,
+  list-row: 58px,
+  key-value-row: 39px,
 );
 @function color($name) {
   @if not map.has-key($colors, $name) {
@@ -100,14 +63,50 @@ $radii: (
   }
   @return var(--radius-#{$name});
 }
+@function shadow($name) {
+  @if not map.has-key($shadows, $name) {
+    @error 'Unknown shadow: #{$name}';
+  }
+  @return var(--shadow-#{$name});
+}
+@function icon-size($name) {
+  @if not map.has-key($icon-sizes, $name) {
+    @error 'Unknown icon size: #{$name}';
+  }
+  @return var(--icon-size-#{$name});
+}
+@function size($name) {
+  @if not map.has-key($sizes, $name) {
+    @error 'Unknown size: #{$name}';
+  }
+  @return var(--size-#{$name});
+}
+@function -color-value($value) {
+  @if meta.type-of($value) == 'string' {
+    @return var(--color-#{$value});
+  }
+  @return $value;
+}
 @mixin properties {
-  @each $name, $value in $colors {
+  @each $name, $value in $palette {
     --color-#{$name}: #{$value};
+  }
+  @each $name, $value in map.merge(legacy.$legacy, $theme) {
+    --color-#{$name}: #{-color-value($value)};
   }
   @each $name, $value in $spaces {
     --space-#{$name}: #{$value};
   }
   @each $name, $value in $radii {
     --radius-#{$name}: #{$value};
+  }
+  @each $name, $value in $shadows {
+    --shadow-#{$name}: #{$value};
+  }
+  @each $name, $value in $icon-sizes {
+    --icon-size-#{$name}: #{$value};
+  }
+  @each $name, $value in $sizes {
+    --size-#{$name}: #{$value};
   }
 }
