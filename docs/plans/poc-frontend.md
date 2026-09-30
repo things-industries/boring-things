@@ -88,7 +88,7 @@ Three states of one page, driven by the Thing stream.
 - Thing chat starts with a Thing context card. Global chat shows Thing cards inline when referenced.
 - User bubbles with time; assistant text rendered as formatted text (headings, lists, emphasis).
 - Resource cards restyled: Thing card, field key/value card, saved-document card, Event/Issue/purchasable rows reuse list-row components.
-- Composer: pill input with contextual placeholder, attach button (inert), primary send button. No intent selector: messages send `intent: ANSWER` until the backend infers intent, so chat-created Events and Issues are unavailable in the meantime. Streaming, retry and failure states restyled.
+- Composer: pill input with contextual placeholder, attach button (inert), primary send button. Messages send text and a request ID; the backend infers requested actions from the conversation. Streaming, retry and failure states restyled.
 
 ### Things list, Timeline, Profile
 
@@ -242,7 +242,7 @@ Validation: `CI=true pnpm check`; browser test updated for the moved links; mobi
 
 - Thing chat and global chat on one component; context card, bubbles, rich text, resource cards, composer.
 - Add `marked` and `dompurify`; `bt-rich-text` renders sanitised Markdown.
-- Remove the intent selector.
+- Preserve the text-and-request-ID message contract for sends and retries.
 - Mocks: saved-document card.
 
 ### 8. Things list and Profile

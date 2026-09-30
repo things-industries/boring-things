@@ -52,7 +52,7 @@ export const chatFunctions = [
   ],
   [
     'create_event',
-    'Create one suggested maintenance Event only when the message intent is CREATE_EVENT. Never invent a date; the user schedules the card. Reuse completed writes on retry.',
+    'Create a suggested maintenance Event when the user requests it in the conversation and the task and Thing are clear. Ask a follow-up if ambiguous. Never invent a date; the user schedules the card. At most one Event or Issue creation per message. Reuse completed writes on retry.',
     object({
       thingId: id,
       title: { type: 'string', minLength: 1, maxLength: 200 },
@@ -61,7 +61,7 @@ export const chatFunctions = [
   ],
   [
     'create_issue',
-    'Create one open Issue only when the message intent is CREATE_ISSUE. Reuse completed writes on retry.',
+    'Create an open Issue when the user requests it in the conversation and the problem and Thing are clear. A troubleshooting question alone does not request an Issue. Ask a follow-up if ambiguous. At most one Event or Issue creation per message. Reuse completed writes on retry.',
     object({
       thingId: id,
       title: { type: 'string', minLength: 1, maxLength: 200 },

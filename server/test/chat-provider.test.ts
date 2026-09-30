@@ -4,7 +4,6 @@ import { OpenAiChat } from '../src/providers/chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 const task = {
   thingId: null,
-  intent: 'ANSWER' as const,
   messages: [{ role: 'USER' as const, content: 'Read the Thing' }],
   completedWrites: [],
 };
@@ -28,7 +27,12 @@ test('Responses streaming collects split frames, passes function results and rec
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
     assert.equal(body.stream, true);
-    assert.ok(body.tools.every((f: { name: string }) => !f.name.startsWith('create_')));
+    assert.deepEqual(
+      body.tools
+        .filter((f: { name: string }) => f.name.startsWith('create_'))
+        .map((f: { name: string }) => f.name),
+      ['create_event', 'create_issue'],
+    );
     requests++;
     if (requests === 1)
       return stream([

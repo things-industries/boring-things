@@ -70,7 +70,6 @@ try {
     headers,
     payload: {
       requestId: randomUUID(),
-      intent: 'ANSWER',
       text: 'Find a compatible detergent consumable for this model. Research products, verify compatibility from manufacturer evidence, and show a product card with a retrieved merchant link. Do not invent a price.',
     },
   });

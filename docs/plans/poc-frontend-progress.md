@@ -52,8 +52,8 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 
 | Issue | Label    | Stage | Status |
 | ----- | -------- | ----- | ------ |
-| #6    | Backend  | 5, 6  | Open   |
-| #7    | Backend  | 5     | Open   |
+| #6    | Backend  | 5, 6  | Closed |
+| #7    | Backend  | 5     | Closed |
 | #8    | Backend  | 3     | Open   |
 | #9    | Backend  | 3     | Open   |
 | #10   | Backend  | 3     | Open   |
@@ -61,7 +61,7 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 | #12   | Backend  | 5     | Open   |
 | #13   | Backend  | 5     | Open   |
 | #14   | Backend  | 7     | Open   |
-| #15   | Backend  | 7     | Open   |
+| #15   | Backend  | 7     | Closed |
 | #16   | Frontend | 2     | Open   |
 | #17   | Frontend | 2     | Open   |
 | #18   | Frontend | 3     | Open   |

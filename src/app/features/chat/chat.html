@@ -88,18 +88,6 @@
           required
         ></textarea>
       </label>
-      <label
-        >Action<select
-          aria-label="Action"
-          name="intent"
-          [(ngModel)]="intent"
-          [disabled]="busy() || inFlight()"
-        >
-          <option value="ANSWER">Ask a question</option>
-          <option value="CREATE_EVENT">Create maintenance event</option>
-          <option value="CREATE_ISSUE">Report issue</option>
-        </select></label
-      >
       <button type="submit" [disabled]="busy() || inFlight() || !text.trim()">Send</button>
     </form>
   } @else {

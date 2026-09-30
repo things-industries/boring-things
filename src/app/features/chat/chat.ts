@@ -36,7 +36,6 @@ export class ChatPage implements OnDestroy {
   );
   readonly thingId = this.route.snapshot.paramMap.get('id');
   text = '';
-  intent: Schema['MessageInput']['intent'] = 'ANSWER';
   // Keep the request ID through uncertain network outcomes as well as server failures.
   private pending: Schema['MessageInput'] | null = null;
   constructor() {
@@ -118,12 +117,10 @@ export class ChatPage implements OnDestroy {
         ? {
             text: user.text,
             requestId: retry.requestId,
-            intent: retry.intent ?? 'ANSWER',
           }
         : (this.pending ?? {
             text: this.text.trim(),
             requestId: crypto.randomUUID(),
-            intent: this.intent,
           });
     if (!input.text) return;
     this.pending = input;

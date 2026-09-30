@@ -249,11 +249,15 @@ test('van inclusion and independent buildings/contents values', async () => {
     if (source === 'van') assert.ok(thing.fieldSets.some((s) => s.id === 'vehicles.vehicle'));
     else {
       assert.deepEqual(
-        thing.fieldSets.find((s) => s.id === 'insurance.buildings')!.fields[0].value,
+        thing.fieldSets
+          .find((s) => s.id === 'insurance.buildings')!
+          .fields.find((field) => field.id === 'insurance.sumInsured')!.value,
         { amountMinor: 40000000, currency: 'GBP' },
       );
       assert.deepEqual(
-        thing.fieldSets.find((s) => s.id === 'insurance.contents')!.fields[0].value,
+        thing.fieldSets
+          .find((s) => s.id === 'insurance.contents')!
+          .fields.find((field) => field.id === 'insurance.sumInsured')!.value,
         { amountMinor: 5000000, currency: 'GBP' },
       );
     }
@@ -353,10 +357,10 @@ test('all-existing confirmation removes untouched skeleton and redirects to sele
 test('SSE reconnect sends persisted snapshots, updates after commit and masks sensitive fields', async () => {
   const thing = await create({
     categoryId: 'memberships',
-    addFieldSetIds: ['memberships.museum'],
+    addFieldSetIds: ['memberships.museum', 'memberships.access'],
     values: [
       {
-        fieldSetId: 'memberships.museum',
+        fieldSetId: 'memberships.access',
         fieldId: 'membership.accessPin',
         value: '123456',
       },

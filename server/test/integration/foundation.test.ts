@@ -90,23 +90,24 @@ test('all private routes require authentication and unknown tokens fail', async 
   assert.equal((await request('GET', '/things', undefined, 'bad')).statusCode, 401);
   assert.equal((await app.inject('/api/config')).statusCode, 200);
 });
-test('appliance purchase details persist through reseeding with registry icons', async () => {
+test('appliance ownership and warranty details persist through reseeding with registry icons', async () => {
   const values = [
-    { fieldId: 'appliances.purchaseDate', value: '2022-03-12' },
-    { fieldId: 'appliances.warrantyEnd', value: '2027-03-12' },
-    { fieldId: 'appliances.retailer', value: 'Example retailer' },
-  ].map((value) => ({ ...value, fieldSetId: 'appliances.appliance' }));
+    { fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn', value: '2022-03-12' },
+    { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds', value: '2027-03-12' },
+    { fieldSetId: 'appliances.ownership', fieldId: 'common.seller', value: 'Example retailer' },
+  ];
   const thing = await create({
     categoryId: 'appliances',
-    addFieldSetIds: ['appliances.bosch'],
+    addFieldSetIds: ['appliances.bosch', 'appliances.ownership', 'appliances.warranty'],
     values,
-    pinnedFields: [{ fieldSetId: 'appliances.appliance', fieldId: 'appliances.purchaseDate' }],
+    pinnedFields: [{ fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn' }],
   });
   await transaction(pool, seedRegistry);
   const saved = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
-  const appliance = saved.fieldSets.find((set) => set.id === 'appliances.appliance')!;
   for (const value of values) {
-    const field = appliance.fields.find((field) => field.id === value.fieldId)!;
+    const field = saved.fieldSets
+      .find((set) => set.id === value.fieldSetId)!
+      .fields.find((field) => field.id === value.fieldId)!;
     assert.equal(field.value, value.value);
     assert.ok(field.icon);
     const definition = (await request('GET', `/fields/${value.fieldId}`)).json();
@@ -119,13 +120,28 @@ test('appliance purchase details persist through reseeding with registry icons',
   assert.equal(invalid.statusCode, 422, invalid.body);
   assert.equal((await request('GET', `/things/${thing.id}`, undefined, 'bob')).statusCode, 404);
 });
+test('retired appliance labels discover the shared field definitions', async () => {
+  for (const [label, id] of [
+    ['Retailer', 'common.seller'],
+    ['Purchase date', 'common.acquiredOn'],
+    ['Warranty end', 'common.warrantyEnds'],
+  ]) {
+    const response = await request('GET', '/fields?q=' + encodeURIComponent(label));
+    assert.equal(response.statusCode, 200, response.body);
+    assert.ok(
+      response
+        .json<{ items: Schema['FieldDefinition'][] }>()
+        .items.some((field) => field.id === id),
+    );
+  }
+});
 test('isolation covers reads, edits, reveal, lists and relationships', async () => {
   const thing = await create({
     categoryId: 'memberships',
-    addFieldSetIds: ['memberships.museum'],
+    addFieldSetIds: ['memberships.museum', 'memberships.access'],
     values: [
       {
-        fieldSetId: 'memberships.museum',
+        fieldSetId: 'memberships.access',
         fieldId: 'membership.accessPin',
         value: '0098',
       },
@@ -138,7 +154,7 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
     [
       'POST',
       `/things/${thing.id}:reveal-field`,
-      { fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin' },
+      { fieldSetId: 'memberships.access', fieldId: 'membership.accessPin' },
     ],
   ] as const) {
     const response = await request(method, path, body, 'bob');
@@ -161,7 +177,7 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
   const body = (await request('GET', `/things/${thing.id}`)).body;
   assert.ok(!body.includes('0098'));
   const reveal = await request('POST', `/things/${thing.id}:reveal-field`, {
-    fieldSetId: 'memberships.museum',
+    fieldSetId: 'memberships.access',
     fieldId: 'membership.accessPin',
   });
   assert.equal(reveal.statusCode, 200, reveal.body);
@@ -211,15 +227,30 @@ test('concurrent field patches preserve each other and insurance values stay ind
   );
   edits.forEach((r) => assert.equal(r.statusCode, 200, r.body));
   const result = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
-  assert.deepEqual(result.fieldSets.find((s) => s.id === 'insurance.buildings')!.fields[0].value, {
-    amountMinor: 10000,
-    currency: 'GBP',
-  });
-  assert.deepEqual(result.fieldSets.find((s) => s.id === 'insurance.contents')!.fields[0].value, {
-    amountMinor: 20000,
-    currency: 'GBP',
-  });
-  assert.equal(result.fieldSets.find((s) => s.id === 'insurance.contents')!.fields[1].value, null);
+  assert.deepEqual(
+    result.fieldSets
+      .find((s) => s.id === 'insurance.buildings')!
+      .fields.find((field) => field.id === 'insurance.sumInsured')!.value,
+    {
+      amountMinor: 10000,
+      currency: 'GBP',
+    },
+  );
+  assert.deepEqual(
+    result.fieldSets
+      .find((s) => s.id === 'insurance.contents')!
+      .fields.find((field) => field.id === 'insurance.sumInsured')!.value,
+    {
+      amountMinor: 20000,
+      currency: 'GBP',
+    },
+  );
+  assert.equal(
+    result.fieldSets
+      .find((s) => s.id === 'insurance.contents')!
+      .fields.find((field) => field.id === 'insurance.excess')!.value,
+    null,
+  );
 });
 async function upload(content = 'manual', type = 'text/plain', owner = 'alice') {
   const boundary = 'test-boundary';
