@@ -72,7 +72,8 @@ Keep feature-only components and data services beside their feature. Move code i
 
 ## Styles and dates
 
-- Check `styles/CHEATSHEET.md` before adding styles. Update it when shared roles or mixins change.
+- Check `styles/CHEATSHEET.md` before adding styles. Update it when shared roles or mixins change. The cheatsheet should be human readable and offer the array of color options a user can use.
+- each  color should also have a dedicated css class for text and backgrounds eg .text-danger, .text-primary, .bg-primary etc for easy use in templates. prefer these in templates if no other styles are needed for the element, otherwise use color tokens in the created class.
 - Reuse semantic colour, spacing and radius tokens. Keep shared rules in `styles/_core.scss`; put page/component-only rules in its stylesheet.
 - Import shared Sass with `@use 'tokens'`, `@use 'typography'` and `@use 'mixins'`; `src/styles` is on the Sass include path.
 - Read tokens through `tokens.color(...)`, `tokens.space(...)` and `tokens.radius(...)`. Unknown names fail compilation. Give fill roles a matching contrast role and use text roles for text.
