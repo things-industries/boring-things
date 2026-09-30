@@ -7,7 +7,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import type { Page } from '@playwright/test';
 import { e2eBaseUrl, storageStatePath, viewports } from '../e2e/state.js';
-import { launchBrowser } from '../server/test/support/test-app.js';
+import { launchBrowser } from '../server/test/support/chromium.js';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -22,9 +22,8 @@ const { values, positionals } = parseArgs({
 if (values.help) {
   console.log(`Usage: pnpm screenshot [options] [route ...]
 
-Start the app first with pnpm e2e:serve. Routes are app paths such as / or /things/new, or full
-URLs. thing:<name> opens the sample Thing whose name starts with <name>, for example thing:kitchen.
-Defaults to /, /things/new, /chat and the first Thing.
+Start the app first with pnpm e2e:serve. Routes are app paths such as / or /things/new.
+Defaults to /, /things/new and /chat.
 
 Options:
   --signed-out         Open the routes without a session (shows the sign-in page)
@@ -52,30 +51,7 @@ if (!healthy) {
   process.exit(1);
 }
 const storageState = JSON.parse(await readFile(storageStatePath, 'utf8'));
-const token = JSON.parse(
-  storageState.origins[0].localStorage.find((item: { name: string }) =>
-    item.name.endsWith(':accessToken'),
-  ).value,
-);
-const authorization = 'Bearer ' + (Object.values(token)[0] as { token: string }).token;
-const things = (
-  (await (
-    await fetch(e2eBaseUrl + '/api/things?limit=100', { headers: { authorization } })
-  ).json()) as { items: { id: string; name: string }[] }
-).items;
-
-const routes = positionals.length
-  ? positionals
-  : ['/', '/things/new', '/chat', ...(things[0] ? ['/things/' + things[0].id] : [])];
-const resolve = (route: string) => {
-  if (/^https?:/.test(route)) return route;
-  if (!route.startsWith('thing:')) return e2eBaseUrl + (route.startsWith('/') ? '' : '/') + route;
-  const name = route.slice('thing:'.length).toLowerCase();
-  const thing = things.find((t) => t.name.toLowerCase().startsWith(name));
-  if (!thing)
-    throw new Error(`No Thing named ${name}. Things: ${things.map((t) => t.name).join(', ')}`);
-  return e2eBaseUrl + '/things/' + thing.id;
-};
+const routes = positionals.length ? positionals : ['/', '/things/new', '/chat'];
 
 await mkdir(values.out, { recursive: true });
 const browser = await launchBrowser();
@@ -100,7 +76,7 @@ try {
   });
 
   for (const route of routes) {
-    const url = resolve(route);
+    const url = new URL(route, e2eBaseUrl).toString();
     for (const name of selected) {
       problems.length = 0;
       await page.setViewportSize(viewports[name]);

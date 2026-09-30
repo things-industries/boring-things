@@ -7,11 +7,10 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { existsSync } from 'node:fs';
-import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readdir, readFile, mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { chromium, type Browser } from '@playwright/test';
-import { chromiumExecutable } from '../../../e2e/state.js';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
@@ -23,11 +22,16 @@ import { seedRegistry } from '../../src/db/registry-seed.js';
 const appId = 'browser-test';
 const subject = 'browser-alice';
 
-export async function launchBrowser(): Promise<Browser> {
-  return chromium.launch({ executablePath: chromiumExecutable() });
-}
-
-export async function startTestApp(options: { samples?: boolean; port?: number } = {}) {
+/**
+ * With storageStatePath, the signed-in browser state is written before the app accepts connections,
+ * so anything waiting on the port finds the state and sample data ready. It requires a fixed port.
+ */
+export async function startTestApp(
+  options: { samples?: boolean; port?: number; storageStatePath?: string } = {},
+) {
+  const port = options.port ?? 0;
+  if (options.storageStatePath && !port)
+    throw new Error('storageStatePath needs a fixed port for the browser origin');
   const url = new URL(
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
@@ -43,11 +47,7 @@ export async function startTestApp(options: { samples?: boolean; port?: number }
   };
   try {
     try {
-      // Supabase provides these roles; plain PostgreSQL needs them for the migrations' grants.
-      await admin.query(`do $$ begin
-        if not exists (select from pg_roles where rolname='anon') then create role anon nologin; end if;
-        if not exists (select from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
-      end $$`);
+      await admin.query('select 1');
     } catch (error) {
       if ((error as { code?: string }).code === 'ECONNREFUSED')
         throw new Error(
@@ -93,18 +93,27 @@ export async function startTestApp(options: { samples?: boolean; port?: number }
     const importAi = new FixtureAi();
     const chatAi = new FixtureChat();
     const app = await buildApp({ pool, config, importAi, chatAi });
-    const base = await app.listen({ host: '127.0.0.1', port: options.port ?? 0 });
     cleanup.push(() => app.close());
 
-    const expiresAt = Math.floor(Date.now() / 1000) + 12 * 3600;
-    const accessToken = await new SignJWT({})
-      .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
-      .setSubject(subject)
-      .setAudience(config.apiResource)
-      .setIssuer(issuer + '/oidc')
-      .setIssuedAt()
-      .setExpirationTime(expiresAt)
-      .sign(privateKey);
+    // Long enough for a reused e2e server; the key only exists for this process.
+    const expiresAt = Math.floor(Date.now() / 1000) + 30 * 24 * 3600;
+    const signToken = (
+      claims: {
+        audience?: string;
+        expiresIn?: string | number;
+        issuer?: string;
+        key?: Parameters<SignJWT['sign']>[0];
+      } = {},
+    ) =>
+      new SignJWT({})
+        .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+        .setSubject(subject)
+        .setAudience(claims.audience ?? config.apiResource)
+        .setIssuer(claims.issuer ?? issuer + '/oidc')
+        .setIssuedAt()
+        .setExpirationTime(claims.expiresIn ?? expiresAt)
+        .sign(claims.key ?? privateKey);
+    const accessToken = await signToken();
     const authorization = 'Bearer ' + accessToken;
     const profile = await app.inject({ url: '/api/profile', headers: { authorization } });
     if (profile.statusCode !== 200) throw new Error('Profile request failed: ' + profile.body);
@@ -119,11 +128,11 @@ export async function startTestApp(options: { samples?: boolean; port?: number }
 
     // A Logto session exists only in browsers given this state; the API still validates the signed
     // access token through JWKS.
-    const storageState = {
+    const storageStateFor = (origin: string) => ({
       cookies: [],
       origins: [
         {
-          origin: base,
+          origin,
           localStorage: [
             { name: `logto:${appId}:idToken`, value: 'test-session' },
             {
@@ -135,7 +144,16 @@ export async function startTestApp(options: { samples?: boolean; port?: number }
           ],
         },
       ],
-    };
+    });
+    if (options.storageStatePath) {
+      await mkdir(dirname(options.storageStatePath), { recursive: true });
+      await writeFile(
+        options.storageStatePath,
+        JSON.stringify(storageStateFor(`http://127.0.0.1:${port}`), null, 2),
+      );
+    }
+    const base = await app.listen({ host: '127.0.0.1', port });
+    const storageState = storageStateFor(base);
 
     return {
       base,
@@ -144,6 +162,8 @@ export async function startTestApp(options: { samples?: boolean; port?: number }
       config,
       importAi,
       chatAi,
+      issuer,
+      signToken,
       accessToken,
       authorization,
       storageState,

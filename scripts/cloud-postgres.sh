@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # Starts the machine's PostgreSQL cluster on the local Supabase port for sessions without Docker,
 # such as Claude Code cloud sessions. Browser checks and previews create their own databases in it.
+# It reconfigures the machine's cluster, so it only runs in a cloud session.
 set -euo pipefail
+
+if [[ "${CLAUDE_CODE_REMOTE:-}" != true ]]; then
+  echo "Only for Claude Code cloud sessions; run pnpm db:start instead" >&2
+  exit 1
+fi
 
 url=postgresql://postgres:postgres@127.0.0.1:55432/postgres
 if psql "$url" -qtAc 'select 1' >/dev/null 2>&1; then

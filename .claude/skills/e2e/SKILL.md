@@ -34,8 +34,8 @@ Import and chat use fixtures from `server/test/fixtures/`: pasted text `two` ret
 
 ```bash
 pnpm e2e:serve                         # run in the background; prints "E2E app ready"
-pnpm screenshot                        # /, /things/new, /chat and the first Thing
-pnpm screenshot / thing:kitchen        # chosen routes; thing:<name> opens a Thing by name prefix
+pnpm screenshot                        # /, /things/new and /chat
+pnpm screenshot / /things/new          # chosen routes
 pnpm screenshot --signed-out /         # sign-in page
 pnpm screenshot --viewport mobile --out <scratchpad>/shots /things/new
 pnpm screenshot --help
@@ -43,7 +43,7 @@ pnpm screenshot --help
 
 Screenshots are written to ignored `test-results/screenshots/<route>-<viewport>.png` unless `--out` is given. The agent cannot see a screenshot until it opens the PNG with the Read tool. Each output line lists the file, page title and final path; lines starting `!` report page errors, app console errors, HTTP 4xx/5xx responses and horizontal overflow, and make the command exit non-zero. Stop `pnpm e2e:serve` when done.
 
-For one-off clicks or form input, write a throwaway `.ts` script under `test-results/` (inside the repo, so it runs as ESM) that calls `launchBrowser()` from `server/test/support/test-app.ts` and opens a context with `storageState: 'test-results/e2e/storage-state.json'`, then run it with `node --import tsx`. Prefer adding a spec to `e2e/` when the flow is worth keeping.
+For one-off clicks or form input, write a throwaway `.ts` script under `test-results/` (inside the repo, so it runs as ESM) that calls `launchBrowser()` from `server/test/support/chromium.ts` and opens a context with `storageState: 'test-results/e2e/storage-state.json'`, then run it with `node --import tsx`. Prefer adding a spec to `e2e/` when the flow is worth keeping.
 
 ## 4. Report
 

@@ -176,7 +176,7 @@ pnpm test:e2e                    # Playwright e2e suite; needs PostgreSQL and a 
 
 Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed; `/opt/pw-browsers/chromium` is used when present and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides both. Screenshots are saved under ignored `test-results/`.
 
-`pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths. Playwright starts `pnpm e2e:serve`: the built app on port 4300 against a temporary database with sample data, fixture AI providers and a signed test session. Each test saves a full-page screenshot under `test-results/e2e/`; the HTML report is in `playwright-report/`. With `pnpm e2e:serve` running, `pnpm screenshot [route ...]` captures pages into `test-results/screenshots/` and reports page errors, failed requests and horizontal overflow; run `pnpm screenshot --help` for options. Where Docker is unavailable, such as cloud agent sessions, `./scripts/cloud-postgres.sh` starts the machine's PostgreSQL on port 55432 for e2e and integration checks.
+`pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 
 `pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. Production hosting and operating configuration are separate work.
 

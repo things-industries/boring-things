@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
-import { chromiumExecutable, e2eBaseUrl, storageStatePath, viewports } from './e2e/state.js';
+import { e2eBaseUrl, storageStatePath, viewports } from './e2e/state.js';
+import { chromiumExecutable } from './server/test/support/chromium.js';
 
 export default defineConfig({
   testDir: 'e2e',
