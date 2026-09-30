@@ -34,7 +34,8 @@ Keep feature-only components and data services beside their feature. Move code i
 
 ## Components and state
 
-- Use standalone components, separate `.ts`, `.html` and `.scss` files, and lazy page routes.
+- Use standalone components, separate `.ts`, `.html` and `.scss` files, and lazy page routes
+- Prefer Angular components select the element like `'app-button'` and not by Attribute selector `'[app-button]'`. Only use the attribute selector when the underlying element has to be rendered as a direct descendent or we would be using many of the element's native apis without much structural changes. 
 - Use `inject()` in field initialisers. Keep the shell focused on navigation and application layout.
 - Keep component state in local signals. Shared services own private writable signals and expose readonly views with `asReadonly()`.
 - No global store library is currently installed. Introduce a store only when shared state warrants it and the dependency is approved.
