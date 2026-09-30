@@ -253,12 +253,16 @@ export class OpenAiImports implements ImportAi {
       yield { kind: 'values', values: mapped.values };
     }
   }
-  async discover(candidate: Candidate, context: AiContext): Promise<Discovery> {
+  async discover(
+    candidate: Candidate,
+    context: AiContext,
+    focus: 'reference' | 'maintenance' | 'products' = 'reference',
+  ): Promise<Discovery> {
     const result = await this.response(
       [
         {
           role: 'user',
-          content: `Identify the manufacturer and everyday product type for these public identifiers: ${candidate.name}. Prioritise the manufacturer's downloadable PDF user manual, installation instructions and specification sheets for this model. Search for model + manual PDF, open the official support page if needed, and retrieve the direct PDF URLs, including manufacturer document CDN links. A model-family manual is acceptable only when the source explicitly covers this model. Do not invent download URLs. Then find supported maintenance, consumables or upgrades if budget remains. Use at most ${this.searchCalls} web tool calls, including opening pages. Stop at that limit and answer from the retrieved evidence. Cite every identification, recommendation and compatibility claim. Products need a retrieved merchant product page. Do not supply prices. If the model cannot be identified, return no recommendations.`,
+          content: `Research priority: ${focus === 'products' ? 'Find compatible consumables, accessories or upgrade products with retrieved merchant pages and model/source evidence. Spend the search budget on compatibility and merchant links; manuals are secondary.' : focus === 'maintenance' ? 'Find maintenance instructions supported by a manual for this model.' : 'Find downloadable manuals and model references.'} Identify the manufacturer and everyday product type for these public identifiers: ${candidate.name}. For reference research, prioritise the manufacturer's downloadable PDF user manual, installation instructions and specification sheets for this model. Search for model + manual PDF, open the official support page if needed, and retrieve the direct PDF URLs, including manufacturer document CDN links. A model-family manual is acceptable only when the source explicitly covers this model. Do not invent download URLs. Follow the research priority when allocating the budget; supported maintenance, consumables or upgrades may be included. Use at most ${this.searchCalls} web tool calls, including opening pages. Stop at that limit and answer from the retrieved evidence. Cite every identification, recommendation and compatibility claim. Products need a retrieved merchant product page. Do not supply prices. If the model cannot be identified, return no recommendations.`,
         },
       ],
       context,

@@ -4,6 +4,9 @@
     <h1>{{ 'things' | term }}</h1>
     <p>The details are here when you need them.</p>
   </div>
+  @if (config.chatEnabled) {
+    <a routerLink="/chat" class="button secondary">Ask the assistant</a>
+  }
   <a routerLink="/things/new" class="button"
     ><ng-icon name="addThing" aria-hidden="true" /> {{ 'addThing' | term }}</a
   >

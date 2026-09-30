@@ -28,8 +28,8 @@ export function publicUrl(value: string) {
 export async function persistDiscovery(
   pool: pg.Pool,
   blobs: BlobStorage,
-  job: ImportRow,
-  target: Target,
+  job: Pick<ImportRow, 'id' | 'ownerId'>,
+  target: Pick<Target, 'thingId' | 'candidateId' | 'isNew'>,
   discovery: Discovery,
   options: DocumentOptions,
   download: DocumentDownload = downloadPdf,

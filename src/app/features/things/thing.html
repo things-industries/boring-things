@@ -26,8 +26,32 @@
 <bt-import-panel />
 } @if (streamFailed()) {
 <p class="notice" role="status">Connection interrupted. Reconnecting to saved details…</p>
+} @if (!isNew() && config.chatEnabled) {
+<p>
+  <a class="button secondary" routerLink="/chat" [queryParams]="{ thingId: id }"
+    >Ask about this thing</a
+  >
+</p>
 }
 <fieldset class="editor-content" [disabled]="processing()">
+  @if (pinnedDetails().length) {
+  <section class="panel pinned-summary">
+    <h2>Pinned details</h2>
+    <dl>
+      @for (field of pinnedDetails(); track field.anchor) {
+      <div>
+        <dt><a [routerLink]="['/things', id]" [fragment]="field.anchor">{{ field.label }}</a></dt>
+        <dd>
+          @if (field.masked) { •••••••• } @else if (field.value === null) { Not recorded } @else if
+          (field.value === '') { Empty text } @else if (field.value === false) { No } @else if
+          (field.value === true) { Yes } @else { {{ formatValue(field.value) }} }
+        </dd>
+      </div>
+      }
+    </dl>
+  </section>
+  }
+
   <div class="detail-layout">
     <div>
       <section class="panel">
@@ -85,36 +109,37 @@
           </div>
         </form>
       </section>
-      @if (thing(); as t) { @for (set of t.fieldSets; track set.id) {
+      @if (thing(); as t) { @for (section of sections(); track section.id) {
       <section class="panel field-section">
         <div class="section-title">
-          <h2>{{ set.name }}</h2>
+          <h2>{{ section.name }}</h2>
           <button
             class="quiet small"
-            [disabled]="processing() || busy() || requiredSet(set.id)"
+            [disabled]="processing() || busy() || requiredSet(section.id)"
             [title]="
-                  requiredSet(set.id)
+                  requiredSet(section.id)
                     ? 'Required by another selected section'
                     : 'Populated fields will be kept as custom fields'
                 "
-            (click)="update({ removeFieldSetIds: [set.id] })"
+            (click)="update({ removeFieldSetIds: [section.id] })"
           >
             Remove section
           </button>
         </div>
-        @for (field of set.fields; track field.id) {
+        @for (set of section.sets; track set.id) { @for (field of set.fields; track field.id) {
         <bt-field
           [disabled]="processing() || busy()"
           [field]="field"
           [thingId]="id"
           [setId]="set.id"
+          [attr.id]="fieldAnchor(set.id, field.id)"
           [pinned]="pinned({ fieldSetId: set.id, fieldId: field.id })"
           (valueChange)="fieldValue(field, set.id, $event)"
           (pin)="pin({ fieldSetId: set.id, fieldId: field.id })"
         />
         } @if (!set.fields.length) {
         <p class="muted">Details are held in the included sections below.</p>
-        }
+        } }
       </section>
       } @if (t.standaloneFields.length) {
       <section class="panel">
@@ -124,6 +149,7 @@
           [disabled]="processing() || busy()"
           [field]="field"
           [thingId]="id"
+          [attr.id]="fieldAnchor(null, field.id)"
           [pinned]="pinned({ fieldSetId: null, fieldId: field.id })"
           (valueChange)="fieldValue(field, null, $event)"
           (pin)="pin({ fieldSetId: null, fieldId: field.id })"
@@ -139,6 +165,7 @@
           [field]="localField(field)"
           [thingId]="id"
           [localId]="field.id"
+          [attr.id]="'custom-' + field.id"
           [pinned]="pinned({ undefinedFieldId: field.id })"
           (valueChange)="localChange(field, $event)"
           (pin)="pin({ undefinedFieldId: field.id })"
@@ -211,8 +238,13 @@
       } @if (purchasables().length) {
       <section class="section">
         <h2>For this thing</h2>
+        @for (group of purchaseGroups(); track group.kind) {
+        <h3>
+          @switch (group.kind) { @case ('consumable') { Consumables } @case ('accessory') {
+          Accessories } @case ('upgrade') { Upgrades } }
+        </h3>
         <div class="purchase-grid">
-          @for (item of purchasables(); track item.id) {
+          @for (item of group.items; track item.id) {
           <article class="panel purchase">
             <div class="card-top">
               <span class="eyebrow">{{ item.kind }}</span>
@@ -234,6 +266,7 @@
           </article>
           }
         </div>
+        }
       </section>
       }
       <section class="delete-zone">

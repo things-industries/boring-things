@@ -139,3 +139,23 @@
   padding: 0;
   min-width: 0;
 }
+
+bt-field:target {
+  outline: 2px solid tokens.color('primary');
+  scroll-margin-top: 6rem;
+}
+
+.pinned-summary dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: tokens.space(5);
+}
+.pinned-summary dt {
+  color: tokens.color('text-muted');
+}
+.pinned-summary dd {
+  margin: tokens.space(1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.pinned-summary dl > div { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }

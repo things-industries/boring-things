@@ -10,14 +10,30 @@ export async function watchThing(
   receive: (thing: Schema['Thing']) => void,
   failed: () => void,
 ) {
-  let delay: number = APP_CONFIG.streamRetryMs;
-  while (!signal.aborted) {
-    try {
-      const result = await client.GET('/api/things/{thingId}/stream', {
+  return watchSse(
+    () =>
+      client.GET('/api/things/{thingId}/stream', {
         params: { path: { thingId: id } },
         parseAs: 'stream',
         signal,
-      });
+      }),
+    signal,
+    (event, data) => {
+      if (event === 'thing.snapshot') receive(data as Schema['Thing']);
+    },
+    failed,
+  );
+}
+export async function watchSse(
+  open: () => Promise<{ data?: ReadableStream<Uint8Array> | null }>,
+  signal: AbortSignal,
+  receive: (event: string, data: unknown) => void,
+  failed: () => void,
+) {
+  let delay: number = APP_CONFIG.streamRetryMs;
+  while (!signal.aborted) {
+    try {
+      const result = await open();
       if (!result.data) throw new Error('Missing stream');
       const reader = result.data.getReader();
       const decoder = new TextDecoder();
@@ -34,14 +50,16 @@ export async function watchThing(
             const frame = buffer.slice(0, end);
             buffer = buffer.slice(end + 2);
             const lines = frame.split('\n');
-            if (lines.includes('event: thing.snapshot')) {
-              const thing = JSON.parse(
-                lines
-                  .filter((l) => l.startsWith('data:'))
-                  .map((l) => l.slice(5).trimStart())
-                  .join('\n'),
-              ) as Schema['Thing'];
-              if (!signal.aborted) receive(thing);
+            const event = lines
+              .find((l) => l.startsWith('event:'))
+              ?.slice(6)
+              .trim();
+            const data = lines
+              .filter((l) => l.startsWith('data:'))
+              .map((l) => l.slice(5).trimStart())
+              .join('\n');
+            if (event && data) {
+              if (!signal.aborted) receive(event, JSON.parse(data));
               delay = APP_CONFIG.streamRetryMs;
             }
           }

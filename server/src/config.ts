@@ -1,4 +1,6 @@
 export interface Config {
+  chatTimeoutMs: number;
+  chatToolCalls: number;
   openaiApiKey: string;
   openaiModel: string;
   importTimeoutMs: number;
@@ -19,6 +21,8 @@ export interface Config {
 }
 export function readConfig(): Config {
   return {
+    chatTimeoutMs: positive('CHAT_TIMEOUT_MS', 180000),
+    chatToolCalls: positive('CHAT_TOOL_CALLS', 12),
     openaiApiKey: process.env.OPENAI_API_KEY ?? '',
     openaiModel: process.env.OPENAI_MODEL ?? '',
     importTimeoutMs: positive('IMPORT_TIMEOUT_MS', 180000),

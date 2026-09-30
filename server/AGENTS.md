@@ -62,10 +62,11 @@ Keep HTTP concerns in routes, business rules in application modules, SQL in data
 - Keep sample owned data in the opt-in sample workflow. Seeds must not overwrite user data.
 - Hosted connection, pooling and storage configuration require a deployment decision; do not copy settings from another application.
 
-## AI imports and subsequent assistant work
+## AI imports and assistant work
 
-Read root `docs/plans/poc-scaffolding.md` when implementing imports, discovery, streams or assistant execution. Imports, discovery and Thing SSE are implemented. Chat execution remains planned.
+Read root `docs/plans/poc-scaffolding.md` when implementing imports, discovery, streams or assistant execution. Imports, discovery, Thing/conversation SSE and assistant execution are implemented. `application/conversations.ts` owns the bounded tool workflow; `db/conversations.ts` owns message state and transactional write receipts; `providers/chat.ts` adapts streamed Responses calls. The import runner also consumes queued chat messages.
 
+- Enforce message intent before Event/Issue tools. Commit created records and tool receipts together; retain receipts on retry. Conversation history/resumption remains deferred.
 - Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.

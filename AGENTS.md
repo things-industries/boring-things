@@ -1,6 +1,6 @@
 # Boring Things agent guide
 
-Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing, private attachments, progressive AI imports and cited discovery. Assistant execution is subsequent work.
+Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing, private attachments, progressive AI imports, cited discovery and active assistant chat.
 
 ## Read when relevant
 
@@ -9,12 +9,6 @@ Boring Things helps people manage life administration around appliances, members
 - `src/AGENTS.md`: Front end. Angular structure and conventions.
 - `server/AGENTS.md`: Back end. Fastify, persistence, authentication and attachments.
 - `docs/AGENTS.md`: documentation structure and evidence conventions.
-
-### Plans currently in progress
-
-- `docs/plans/poc-scaffolding.md` current registry, import and assistant work. Its confirmed decisions refine the earlier requirements; planned modules and endpoints are not evidence of implementation. Other plans apply only to their named area. The technology requirements contain earlier proposals; check code and README for the current stack.  
-
-Remove references to plans above when they are complete or no longer relevant.
 
 ## Agent behaviour
 
@@ -83,4 +77,4 @@ pnpm db:stop             # Stop local Supabase, preserving data
 - Preserve unknown values, provenance and user edits. Identifiers are strings; absence is distinct from `false`, `0` and empty text.
 - Tags currently organise an owner's Things. Household sharing is future work and requires an explicit access model.
 - Activity and purchasable samples must stay labelled; sample merchant actions stay disabled.
-- AI imports and Thing SSE are implemented with a single-process persisted runner. Do not describe assistant execution, distributed queues, checkout, repair booking or hosted deployment as available. For work in those areas, read the scoped plan and confirm the requested slice.
+- Imports and assistant messages share a single-process persisted runner, with authenticated Thing/conversation SSE. Chat write tools require the matching message intent and atomic retry receipts. Do not describe distributed queues, checkout, repair booking, conversation history or hosted deployment as available. Read the scoped plan before extending these boundaries.

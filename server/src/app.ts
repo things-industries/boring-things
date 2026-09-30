@@ -21,6 +21,9 @@ import { tagRoutes } from './routes/tags.js';
 import { attachmentRoutes } from './routes/attachments.js';
 import { activityRoutes } from './routes/activity.js';
 import { conversationRoutes } from './routes/conversations.js';
+import { Assistant } from './application/conversations.js';
+import { OpenAiChat } from './providers/chat.js';
+import type { ChatAi } from './application/chat-types.js';
 import { OpenAiImports } from './providers/ai.js';
 import type { ImportAi } from './application/import-types.js';
 import { ImportRunner } from './application/imports.js';
@@ -34,6 +37,7 @@ export async function buildApp(
     verifyIdentity?: VerifyIdentity;
     logger?: boolean;
     importAi?: ImportAi;
+    chatAi?: ChatAi;
   } = {},
 ) {
   const config = options.config ?? readConfig();
@@ -96,6 +100,7 @@ export async function buildApp(
     maxUploadBytes: config.maxUploadBytes,
     supportedMediaTypes: config.supportedMediaTypes,
     sampleDataEnabled: config.sampleDataEnabled,
+    chatEnabled: !!(options.chatAi || (config.openaiApiKey && config.openaiModel)),
     importEnabled: !!(options.importAi || (config.openaiApiKey && config.openaiModel)),
   }));
   const registry = await loadRegistry(pool);
@@ -111,7 +116,18 @@ export async function buildApp(
         )
       : undefined);
   const changes = new ThingChanges();
-  const runner = new ImportRunner(pool, registry, blobs, ai, config, changes);
+  const chatAi =
+    options.chatAi ??
+    (config.openaiApiKey && config.openaiModel
+      ? new OpenAiChat(
+          config.openaiApiKey,
+          config.openaiModel,
+          config.aiMaxOutputTokens,
+          config.chatToolCalls,
+        )
+      : undefined);
+  const assistant = new Assistant(pool, registry, blobs, chatAi, ai, config, changes);
+  const runner = new ImportRunner(pool, registry, blobs, ai, config, changes, assistant);
   app.addHook('onReady', () => runner.start());
   app.addHook('preClose', () => runner.stop());
   await app.register(async (api) => {
@@ -134,7 +150,7 @@ export async function buildApp(
     tagRoutes(api, pool);
     attachmentRoutes(api, pool, blobs, config);
     activityRoutes(api, pool);
-    conversationRoutes(api, pool);
+    conversationRoutes(api, pool, runner, assistant, changes, !!chatAi);
   });
   const web = resolve('dist/web/browser');
   if (existsSync(web)) {

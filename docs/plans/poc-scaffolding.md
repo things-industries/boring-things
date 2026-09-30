@@ -9,7 +9,7 @@ Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../
 - Step 1 uses one Logto Cloud tenant as the identity source for local development and production. Pause for user setup before validating live login.
 - Author initial registry seeds from this plan; use a museum membership example.
 - Sensitive fields are masked by default. Normal detail responses omit their values and source quotes; an owner-authorized reveal action returns the value with `Cache-Control: private, no-store`. This is display/access control, not encrypted vault storage.
-- Issues, events and purchasables use labelled sample data for UI work. Real extraction and reasoning initially focus on defining Things. Activity/product discovery and assistant execution remain deferred pending further instruction.
+- Issues, events and purchasables use labelled sample data for UI work. Real extraction and reasoning initially focus on defining Things. Activity/product discovery was implemented in step 2; assistant execution is implemented in step 3.
 - The initial field subset supports strings, numbers, integers, booleans, enums, dates, bounds and patterns. Money uses integer minor units and GBP/EUR/USD. `null` clears a value.
 - Step 1 includes manual creation, set selection, every empty field, tags and attachments. Sections remain one per set until the later grouping work.
 - A Thing can select a linked image attachment as its image. Category artwork is the fallback.
@@ -337,10 +337,16 @@ Validation: recorded synthetic extraction/mapping plus fixtures for Z-number, va
 
 ### 3. Assistant, usable UI and handoff
 
+Implemented locally (29 September). Dashboard/Thing chat entry points create an active conversation with streamed answers, masked record reads, private attachment reads, focused discovery and typed resource cards. The message Action control selects answer/Event/Issue intent; application code enforces that intent before a write. Events start suggested and can be scheduled on the card. One persisted runner serves imports and messages. Request IDs, atomic write receipts, discovery receipts and interruption recovery prevent duplicate results on retry. Previous-chat browsing/resumption remains deferred.
+
+Field grouping collapses unbranched inclusion chains while preserving sibling/shared sections and field ownership. All fields and pins retain their edit targets. Purchasables are grouped by kind. Thing streams refresh chat-created Events and Issues.
+
+Validation: generated-contract check, lint, development/production types, unit tests and build; database integration checks for owner isolation, shared attachments, intent checks, deadlines, retry, discovery reuse, SSE and restart; desktop/mobile browser checks for cited cards, scheduling and Thing reload. Paid synthetic checks with `gpt-5.6-sol` verified import → cited Z-number answer → maintenance creation/scheduling → restart, plus three cited merchant links from a separate product-focused Miele query. The hob import returned no products. Reports are ignored local artifacts under `test-results/`; commands and limits are in README. Live Logto redirects and physical camera capture remain manual and were not repeated for this step.
+
 - Finish direct-to-Thing upload/confirmation flows, section grouping, all-field rendering, pinning, activity/purchasable cards and error recovery.
 - Implement dashboard/Thing chat entry points, grounded read/discovery tools, Event/Issue write tools, resource cards and streamed responses; no previous-chat resumption.
 - Add meaningful integration checks for inclusion/sibling grouping, shared attachments, user-edit preservation, duplicate-free retry, SSE reconnection/owner isolation, and chat-created Events appearing on the Thing.
 - Run generated-contract checks, lint, types, tests and build; use `CI=true` for Angular CLI and wrapper commands in the macOS sandbox.
 - Document startup, environment variables, seed editing, supported file limits and deferred features. Demo login → upload → progressively populated Thing → cited answer → scheduled maintenance → consumable/upgrade link → reload.
 
-Done means this flow runs locally against real AI and persists across restart. Hosted deployment, sharing, checkout, calendar sync and conversation history remain subsequent work.
+The local real-AI flow and restart persistence have been verified with synthetic data; live identity redirects remain a manual handoff check. Hosted deployment, sharing, checkout, calendar sync and conversation history remain subsequent work.

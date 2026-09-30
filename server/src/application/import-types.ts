@@ -56,7 +56,11 @@ export interface RegistryTools {
 export interface ImportAi {
   extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
   map(candidate: Candidate, tools: RegistryTools, context: AiContext): AsyncIterable<MappingStage>;
-  discover(candidate: Candidate, context: AiContext): Promise<Discovery>;
+  discover(
+    candidate: Candidate,
+    context: AiContext,
+    focus?: 'reference' | 'maintenance' | 'products',
+  ): Promise<Discovery>;
 }
 export const activeStatuses = [
   'queued',

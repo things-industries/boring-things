@@ -1,3 +1,5 @@
+import { formatFieldValue } from '../../utils/field.util';
+import { fieldSections, fieldAnchor } from '../../utils/sections.util';
 import { ImportPanel } from './import-panel';
 import { watchThing } from '../../core/api/thing-stream';
 import { Auth } from '../../core/services/auth.service';
@@ -6,7 +8,16 @@ import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { back, open, uploadFile, addTag } from '../../core/app-icons';
 import { apiData } from '../../core/api/api-client';
-import { Component, inject, signal, computed, effect, OnDestroy } from '@angular/core';
+import {
+  Component,
+  inject,
+  signal,
+  computed,
+  effect,
+  OnDestroy,
+  afterNextRender,
+  Injector,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -49,9 +60,48 @@ export class ThingPage implements OnDestroy {
   readonly api = inject(Api);
   readonly config = inject(CONFIG);
   private route = inject(ActivatedRoute);
+  private injector = inject(Injector);
   private router = inject(Router);
   private subscription: Subscription;
   thing = signal<Schema['Thing'] | null>(null);
+  sections = computed(() => fieldSections(this.thing()?.fieldSets ?? []));
+  fieldAnchor = fieldAnchor;
+  formatValue = formatFieldValue;
+  pinnedDetails = computed(() => {
+    const thing = this.thing();
+    if (!thing) return [];
+    return thing.pinnedFields.flatMap((pin) => {
+      if ('undefinedFieldId' in pin) {
+        const field = thing.undefinedFields.find((f) => f.id === pin.undefinedFieldId);
+        return field
+          ? [
+              {
+                label: field.label,
+                value: field.value,
+                masked: field.masked,
+                anchor: 'custom-' + field.id,
+              },
+            ]
+          : [];
+      }
+      const field = (
+        pin.fieldSetId
+          ? thing.fieldSets.find((s) => s.id === pin.fieldSetId)?.fields
+          : thing.standaloneFields
+      )?.find((f) => f.id === pin.fieldId);
+      return field
+        ? [
+            {
+              label: field.name,
+              value: field.value,
+              masked: field.masked,
+              anchor: fieldAnchor(pin.fieldSetId ?? null, field.id),
+            },
+          ]
+        : [];
+    });
+  });
+
   categories = signal<Schema['Category'][]>([]);
   sets = signal<Schema['FieldSet'][]>([]);
   fields = signal<Schema['FieldDefinition'][]>([]);
@@ -61,6 +111,11 @@ export class ThingPage implements OnDestroy {
   issues = signal<Schema['Issue'][]>([]);
   events = signal<Schema['Event'][]>([]);
   purchasables = signal<Schema['Purchasable'][]>([]);
+  purchaseGroups = computed(() =>
+    (['consumable', 'accessory', 'upgrade'] as const)
+      .map((kind) => ({ kind, items: this.purchasables().filter((item) => item.kind === kind) }))
+      .filter((group) => group.items.length),
+  );
   busy = signal(false);
   error = signal<UiErrorCode | null>(null);
   imageUrl = signal('');
@@ -149,6 +204,14 @@ export class ThingPage implements OnDestroy {
         this.purchasables.set(purchases);
         await this.loadImage();
         if (!this.stream) this.startStream(id);
+        afterNextRender(
+          () => {
+            const fragment = this.route.snapshot.fragment;
+            if (fragment && id === this.id)
+              document.getElementById(fragment)?.scrollIntoView({ block: 'center' });
+          },
+          { injector: this.injector },
+        );
       }
     } catch (e) {
       this.error.set(errorCode(e));
@@ -182,7 +245,7 @@ export class ThingPage implements OnDestroy {
   }
   private async loadRelated(id: string, revision: number) {
     try {
-      const [attachments, events, purchases] = await Promise.all([
+      const [attachments, events, purchases, issues] = await Promise.all([
         this.api.all((query) =>
           this.api.client.GET('/api/attachments', { params: { query: { ...query, thingId: id } } }),
         ),
@@ -194,11 +257,15 @@ export class ThingPage implements OnDestroy {
             params: { query: { ...query, thingId: id } },
           }),
         ),
+        this.api.all((query) =>
+          this.api.client.GET('/api/issues', { params: { query: { ...query, thingId: id } } }),
+        ),
       ]);
       if (id !== this.id || revision !== this.thing()?.revision) return;
       this.attachments.set(attachments);
       this.events.set(events);
       this.purchasables.set(purchases);
+      this.issues.set(issues);
     } catch (e) {
       if (id === this.id) this.error.set(errorCode(e));
     }

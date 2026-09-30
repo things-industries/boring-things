@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import type { Assistant } from './conversations.js';
 import type { Config } from '../config.js';
 import type { BlobStorage } from '../providers/blobs.js';
 import type { Registry } from './registry.js';
@@ -39,6 +40,7 @@ export class ImportRunner {
     private ai: ImportAi | undefined,
     private config: Config,
     private changes: ThingChanges,
+    private assistant?: Assistant,
   ) {}
   async start() {
     // A single runner owns this database. Interrupted attempts retain all committed work.
@@ -52,12 +54,13 @@ export class ImportRunner {
       );
       for (const job of interrupted) await touchImportThings(db, job);
     });
+    await this.assistant?.recover();
     this.timer = setInterval(() => this.wake(), 1000);
     this.timer.unref();
     this.wake();
   }
   wake() {
-    if (this.stopped || this.pending || !this.ai) return;
+    if (this.stopped || this.pending || (!this.ai && !this.assistant)) return;
     this.pending = this.drain()
       .catch(() => {
         /* Retry database availability on the next tick; never log private errors. */
@@ -74,12 +77,14 @@ export class ImportRunner {
   }
   private async drain() {
     while (!this.stopped) {
+      const chatted = await this.assistant?.next(this.abort.signal);
+      if (this.stopped) return;
       const [job] = await rows<ImportRow>(
         this.pool,
         "select * from bt.imports where status='queued' order by created_at,id limit 1",
       );
-      if (!job) return;
-      await this.run(job);
+      if (job && this.ai) await this.run(job);
+      else if (!chatted) return;
     }
   }
   private async status(job: ImportRow, status: ImportRow['status'], error: string | null = null) {

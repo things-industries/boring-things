@@ -4514,6 +4514,223 @@
           }
         }
       }
+    },
+    "/api/conversations/{id}/messages": {
+      "post": {
+        "operationId": "sendMessage",
+        "responses": {
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/conversations/{id}/stream": {
+      "get": {
+        "operationId": "streamConversation",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active conversation snapshots (conversation.snapshot) and text deltas (conversation.delta). Reconnect restores saved messages and current transient text; deltas include message ID and offset.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID."
+      }
     }
   },
   "components": {
@@ -5063,6 +5280,9 @@
           },
           "importEnabled": {
             "type": "boolean"
+          },
+          "chatEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -5072,7 +5292,8 @@
           "maxUploadBytes",
           "supportedMediaTypes",
           "sampleDataEnabled",
-          "importEnabled"
+          "importEnabled",
+          "chatEnabled"
         ]
       },
       "Tag": {
@@ -5937,8 +6158,7 @@
           "cards": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/ResourceCard"
             }
           },
           "sourceRefs": {
@@ -5959,6 +6179,26 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "usage": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportUsage"
+              }
+            ],
+            "nullable": true
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "create_event",
+              "create_issue"
+            ]
           }
         },
         "required": [
@@ -5970,7 +6210,8 @@
           "cards",
           "sourceRefs",
           "status",
-          "createdAt"
+          "createdAt",
+          "intent"
         ]
       },
       "Conversation": {
@@ -6403,6 +6644,211 @@
         },
         "required": [
           "selections"
+        ]
+      },
+      "ResourceCard": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "thing"
+                ]
+              },
+              "thingId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "thingId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "field"
+                ]
+              },
+              "thingId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "fieldSetId": {
+                "type": "string",
+                "nullable": true
+              },
+              "fieldId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "thingId",
+              "fieldSetId",
+              "fieldId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "attachment"
+                ]
+              },
+              "attachmentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "type",
+              "attachmentId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "issue"
+                ]
+              },
+              "issueId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "issueId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "event"
+                ]
+              },
+              "eventId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "eventId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "purchasable"
+                ]
+              },
+              "purchasableId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "purchasableId"
+            ]
+          }
+        ]
+      },
+      "MessageInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "create_event",
+              "create_issue"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "requestId",
+          "intent"
+        ]
+      },
+      "ConversationDelta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "offset",
+          "text"
         ]
       }
     }

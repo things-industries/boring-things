@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
@@ -70,7 +71,7 @@ test(
       }
       await transaction(pool, seedRegistry);
       const importAi = new FixtureAi();
-      app = await buildApp({ pool, config, importAi });
+      app = await buildApp({ pool, config, importAi, chatAi: new FixtureChat() });
       const base = await app.listen({ host: '127.0.0.1', port: 0 });
       const accessToken = await token();
       assert.equal(
@@ -146,7 +147,39 @@ test(
       await expect(pin).toContainText('0000');
       await pin.getByRole('button', { name: 'Hide', exact: true }).click();
       await expect(pin).not.toContainText('0000');
+      await pin.getByRole('button', { name: 'Pin Access PIN', exact: true }).click();
+      await expect(page.locator('.pinned-summary')).toContainText('Access PIN');
+      await expect(page.locator('.pinned-summary')).not.toContainText('0000');
       await page.screenshot({ path: 'test-results/membership.png', fullPage: true });
+      await page.getByRole('link', { name: 'Ask about this thing' }).click();
+      await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
+      await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
+      await page.getByLabel('Action', { exact: true }).selectOption('create_event');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Check the filter', exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.locator('.message-text').filter({ hasText: 'The saved details are ready.' }),
+      ).toHaveCount(1);
+      await page.getByLabel('Schedule for').fill('2026-10-01T09:00');
+      await page.getByRole('button', { name: 'Schedule', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
+      await page.screenshot({ path: 'test-results/chat-desktop.png', fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+        false,
+      );
+      await page.screenshot({ path: 'test-results/chat-mobile.png', fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 1100 });
+      await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Check the filter', exact: true }),
+      ).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
+
       await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
       await expect(
