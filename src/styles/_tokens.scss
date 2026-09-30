@@ -44,6 +44,8 @@ $sizes: (
   control-lg: 52px,
   list-row: 58px,
   key-value-row: 39px,
+  bottom-nav: 64px,
+  content-max: 480px,
 );
 @function color($name) {
   @if not map.has-key($colors, $name) {

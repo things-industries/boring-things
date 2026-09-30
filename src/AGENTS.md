@@ -9,7 +9,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `main.ts`: fetch public runtime configuration and bootstrap the application. Startup failure copy lives in `index.html`.
 - `app/app.config.ts`: application-wide providers and initialisation.
 - `app/app.routes.ts`: lazy page routes, authentication guards and page titles.
-- `app/app.ts`, `.html`, `.scss`: application shell and navigation. Keep feature behaviour out of the shell.
+- `app/app.ts`, `.html`, `.scss`: application shell: the centred page column and `bt-bottom-nav` on routes with `data: { bottomNav: true }`. Keep feature behaviour out of the shell.
 - `app/core/app.config.ts`: application constants such as page sizes and timeouts.
 - `app/core/runtime-config.ts`: typed injection token for server-supplied public configuration.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
@@ -23,7 +23,8 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/features/chat/`: active conversations, streamed text, retry and typed resource cards. New entry starts a new chat; no conversation history/resumption.
 - `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
 - `app/features/login/`: sign-in and setup-pending screen.
-- `app/components/`: reusable field editor, activity cards and error display.
+- `app/features/timeline/`, `app/features/profile/`: placeholder pages; Profile holds Sign out.
+- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`), `bt-placeholder-page` for destinations not built yet, field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.
 - `app/validators/`: form validators returning error keys.
 - `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.

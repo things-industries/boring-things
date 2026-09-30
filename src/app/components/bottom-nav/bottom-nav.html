@@ -1,0 +1,47 @@
+<nav class="bottom-nav" aria-label="Main">
+  <a
+    class="bottom-nav-item"
+    routerLink="/"
+    routerLinkActive="active"
+    [routerLinkActiveOptions]="{ exact: true }"
+    ariaCurrentWhenActive="page"
+    #home="routerLinkActive"
+  >
+    <ng-icon [name]="home.isActive ? 'navHomeActive' : 'navHome'" aria-hidden="true" />
+    <span>Home</span>
+  </a>
+  <a
+    class="bottom-nav-item"
+    routerLink="/things"
+    routerLinkActive="active"
+    [routerLinkActiveOptions]="{ exact: true }"
+    ariaCurrentWhenActive="page"
+    #things="routerLinkActive"
+  >
+    <ng-icon [name]="things.isActive ? 'navThingsActive' : 'navThings'" aria-hidden="true" />
+    <span>Things</span>
+  </a>
+  <a class="bottom-nav-add" routerLink="/things/new" [attr.aria-label]="'addThing' | term">
+    <ng-icon name="addThing" aria-hidden="true" />
+  </a>
+  <a
+    class="bottom-nav-item"
+    routerLink="/timeline"
+    routerLinkActive="active"
+    ariaCurrentWhenActive="page"
+    #timeline="routerLinkActive"
+  >
+    <ng-icon [name]="timeline.isActive ? 'navTimelineActive' : 'navTimeline'" aria-hidden="true" />
+    <span>{{ 'timeline' | term }}</span>
+  </a>
+  <a
+    class="bottom-nav-item"
+    routerLink="/chat"
+    routerLinkActive="active"
+    ariaCurrentWhenActive="page"
+    #ask="routerLinkActive"
+  >
+    <ng-icon [name]="ask.isActive ? 'navAskActive' : 'navAsk'" aria-hidden="true" />
+    <span>Ask</span>
+  </a>
+</nav>

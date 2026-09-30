@@ -2,7 +2,7 @@ import { isNewThing } from '../../utils/date.util';
 import { DashboardSkeleton } from './dashboard-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { addThing, open, searchThings } from '../../core/app-icons';
+import { addThing, open, openProfile, searchThings } from '../../core/app-icons';
 import { apiData } from '../../core/api/api-client';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -15,11 +15,21 @@ import { errorCode } from '../../utils/error.util';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { Activity } from '../../components/activity/activity';
+import { IconButton } from '../../components/icon-button/icon-button';
 import type { ActivityAction } from '../../interfaces/activity.interface';
 @Component({
-  viewProviders: [provideIcons({ addThing, open, searchThings })],
+  viewProviders: [provideIcons({ addThing, open, openProfile, searchThings })],
   selector: 'bt-dashboard',
-  imports: [DashboardSkeleton, FormsModule, RouterLink, Activity, ErrorMessage, NgIcon, TermPipe],
+  imports: [
+    DashboardSkeleton,
+    FormsModule,
+    RouterLink,
+    Activity,
+    ErrorMessage,
+    NgIcon,
+    TermPipe,
+    IconButton,
+  ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })

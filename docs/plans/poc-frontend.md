@@ -176,10 +176,41 @@ Each stage ends with `pnpm format`, `CI=true pnpm check`, relevant browser check
 
 ### 1. Shell and navigation
 
-- Remove header/footer shell; add `bt-bottom-nav` on Home, Things, Timeline; hide it on detail, add and chat routes.
-- `bt-top-bar`, `bt-icon-button`, `bt-placeholder-page`.
-- Routes: `/things`, `/things/:id/details`, `/things/:id/chat`, `/timeline`, `/profile`.
-- Centred max-width column for wider viewports.
+Shell:
+
+- `app.html` renders `<main class="app-main">` with the router outlet and, when the active route asks for it, `bt-bottom-nav`. Header, brand and footer are removed.
+- `.app-main` is a centred column capped at `tokens.size(content-max)` (480px) with `space(4)` side padding. Pages with the bottom nav get bottom padding for the nav height and the safe-area inset.
+- The bottom nav shows when the deepest active route has `data: { bottomNav: true }`: Home, Things and Timeline. Detail, add, details, chat, profile and login routes leave it out.
+
+Components (`src/app/components/<name>/`):
+
+- `bt-icon-button`: attribute component on `button` and `a` (`button[btIconButton]`, `a[btIconButton]`) so native semantics stay. Inputs: `icon` (catalogue SVG), `label` (accessible name, required), `variant` `surface` (`secondary-muted` fill) or `elevated` (white fill, `floating` shadow). 44px circle, `md` icon, visible focus.
+- `bt-top-bar`: three-column bar. Optional `back` link (router commands) rendered as an icon button with `backLabel` (default "Back"); centred `title` as the page `h1`; trailing content projected into the end slot. Stays in flow at the top of the page.
+- `bt-bottom-nav`: fixed to the bottom of the column. Links Home `/`, Things `/things`, Add `/things/new`, Timeline `/timeline`, Ask `/chat`. Items show an icon over a `caption` label; the active item uses the filled icon and `aria-current="page"`. Add is a raised `primary` circle with the plus icon and the accessible name "Add a thing".
+- `bt-placeholder-page`: `bt-top-bar` with optional back, an icon badge, a title and projected copy explaining the page is coming later.
+
+Routes:
+
+| Route                 | Page                                        | Bottom nav |
+| --------------------- | ------------------------------------------- | ---------- |
+| `/`                   | Dashboard (rebuilt as Home in stage 3)      | Yes        |
+| `/things`             | Dashboard (rebuilt as Things list, stage 8) | Yes        |
+| `/things/new`         | Thing page                                  | No         |
+| `/things/:id`         | Thing page                                  | No         |
+| `/things/:id/details` | Thing page (rebuilt in stage 6)             | No         |
+| `/things/:id/chat`    | Chat, Thing context from the route          | No         |
+| `/chat`               | Chat                                        | No         |
+| `/timeline`           | Placeholder (#19)                           | Yes        |
+| `/profile`            | Placeholder with Sign out                   | No         |
+
+Existing pages:
+
+- Dashboard heading drops its Ask and Add buttons (the bottom nav carries both) and gains a profile icon button linking to `/profile`.
+- Thing page replaces its back link with `bt-top-bar` (back to `/`). Its Ask link points at `/things/:id/chat`.
+- Chat replaces its heading and links with `bt-top-bar`: title "Assistant", back to the Thing when it has one, otherwise to `/`. The Thing context comes from the `:id` route parameter.
+- Sign out moves from the header to `/profile` until stage 8 rebuilds Profile.
+
+Validation: `CI=true pnpm check`; browser test updated for the moved links; mobile (390px) and desktop screenshots of Home, Timeline, Profile, Thing and Chat.
 
 ### 2. Sign in
 
