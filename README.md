@@ -37,7 +37,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Authored OpenAPI contract, generated TypeScript types and runtime request validation.
 - Category and field-set registry; mandatory dependencies, separate set-scoped values, inline edits and empty-field prompts.
 - Manual Thing creation/deletion, category correction, pins, tags and custom fields.
-- Top-level uploads, downloads, editable attachment metadata, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
+- Top-level uploads, downloads, attachment metadata APIs, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
 - Issue/Event endpoints, purchasable reads, and active multi-message chat with cited resource cards, streamed answers and persisted retry recovery.
 - Issue cards support optional freeform `statusText` and date-only `dueDate`, including a local-calendar countdown. Omitted patch fields are preserved; `null` clears them.
 - Events can use a date-only `startsOn` or an instant `startsAt`. Scheduling requires one; switching formats requires clearing the other. Event lists order by schedule, then ID, and accept `timeZone` (default UTC) for date-only ordering and inclusive date-range filtering. Date-only events remain upcoming throughout their local day.
@@ -80,7 +80,25 @@ Sharing, hosted deployment, checkout, repair booking, calendar sync and conversa
 
 ## Fields and privacy
 
-The Appliance field set includes purchase date, warranty end and retailer. Registry fields carry optional icon names rendered through the frontend Remix catalogue, with a generic fallback for missing or unknown icons and custom fields.
+The Appliance field set includes purchase date, warranty end and retailer. Registry fields carry optional semantic keys in `icon` (for example `fieldDate`). The existing field editor supports the new Appliance fields without client changes. Field icon rendering is available for frontend integration. Map the keys to `@ng-icons/remixicon` exports below, using `fieldDefault` for missing or unknown keys and custom fields.
+
+| API icon key                  | Remix export                |
+| ----------------------------- | --------------------------- |
+| `fieldDefault`, `fieldPolicy` | `remixFileListLine`         |
+| `fieldManufacturer`           | `remixBuildingLine`         |
+| `fieldModel`                  | `remixHashtag`              |
+| `fieldSerial`                 | `remixBarcodeLine`          |
+| `fieldDate`                   | `remixCalendarLine`         |
+| `fieldInsurance`              | `remixShieldCheckLine`      |
+| `fieldRetailer`               | `remixStore2Line`           |
+| `fieldVehicle`                | `remixCarLine`              |
+| `fieldSeats`                  | `remixGroupLine`            |
+| `fieldWeight`                 | `remixScalesLine`           |
+| `fieldMoney`                  | `remixMoneyPoundCircleLine` |
+| `fieldMembership`             | `remixTicketLine`           |
+| `fieldRenewal`                | `remixRefreshLine`          |
+| `fieldLevel`                  | `remixVipCrownLine`         |
+| `fieldAccessCode`             | `remixLockPasswordLine`     |
 
 Registry seeds are authored in `server/src/db/registry-seed.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
 
@@ -92,7 +110,7 @@ Removing a populated section or changing category preserves values, provenance a
 
 ## Attachment metadata
 
-Choose **Edit details** on an attachment to set its title, document type, publisher and original document date. A missing title displays the original filename; downloads retain that filename and the original bytes. Metadata edits apply to every Thing linked to the attachment.
+Attachment responses include `title`, `documentType`, `publisher`, `documentDate` and read-only `pageCount`. These values are nullable. The current frontend displays filenames; metadata display and editing are available for frontend integration. Downloads retain the original filename and bytes. Metadata edits apply to every Thing linked to the attachment.
 
 `PATCH /api/attachments/{id}` accepts partial updates to `title`, `documentType`, `publisher` and `documentDate`. Omitted values are preserved; `null` clears a value. `metadataSources` records per-property USER, IMPORT or DISCOVERY provenance. User edits, including explicit clears, survive automated extraction and retries. Imports fill missing metadata from the source; discovery saves cited document metadata. Raw extracted quotes stay out of metadata provenance responses.
 

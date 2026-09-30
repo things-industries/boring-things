@@ -13,7 +13,6 @@ import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
 import { seedRegistry } from '../../src/db/registry-seed.js';
-import { PDFDocument } from 'pdf-lib';
 
 test(
   'browser manual creation, AI import, attachment extraction and JWT verification',
@@ -317,9 +316,9 @@ test(
         mimeType: 'text/plain',
         buffer: Buffer.from('policy'),
       });
-      await expect(page.locator('.file-name').filter({ hasText: 'policy.txt' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'policy.txt', exact: false })).toBeVisible();
       const downloadReady = page.waitForEvent('download');
-      await page.locator('.file-name').filter({ hasText: 'policy.txt' }).click();
+      await page.getByRole('button', { name: 'policy.txt', exact: false }).click();
       const download = await downloadReady;
       assert.equal(download.suggestedFilename(), 'policy.txt');
       assert.equal(await readFile((await download.path())!, 'utf8'), 'policy');
@@ -424,28 +423,13 @@ test(
         page.locator('bt-field').filter({ hasText: 'Installer reference' }),
       ).toContainText('ABC-12');
       const purchaseDate = page.locator('bt-field').filter({ hasText: 'Purchase date' });
-      await expect(purchaseDate.locator('.field-label ng-icon svg')).toBeVisible();
       await purchaseDate.getByRole('button', { name: 'Add', exact: true }).click();
       await expect(purchaseDate.getByLabel('Purchase date')).toHaveAttribute('type', 'date');
       await purchaseDate.getByLabel('Purchase date').fill('2022-03-12');
       await purchaseDate.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(purchaseDate).toContainText('2022-03-12');
       await purchaseDate.getByRole('button', { name: 'Pin Purchase date', exact: true }).click();
-      const pinnedDateIcon = page
-        .locator('.pinned-summary dt')
-        .filter({ hasText: 'Purchase date' })
-        .locator('ng-icon svg');
-      await expect(pinnedDateIcon).toBeVisible();
-      assert.equal(
-        await pinnedDateIcon.innerHTML(),
-        await purchaseDate.locator('.field-label ng-icon svg').innerHTML(),
-      );
-      await expect(
-        page
-          .locator('bt-field')
-          .filter({ hasText: 'Installer reference' })
-          .locator('.field-label ng-icon svg'),
-      ).toBeVisible();
+      await expect(page.locator('.pinned-summary')).toContainText('Purchase date');
       await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
       await page.reload();
       await expect(purchaseDate).toContainText('2022-03-12');
@@ -465,54 +449,6 @@ test(
         path: 'test-results/import-complete-desktop.png',
         fullPage: true,
       });
-      const pdf = await PDFDocument.create();
-      pdf.addPage();
-      pdf.addPage();
-      const pdfBytes = Buffer.from(await pdf.save());
-      await page.getByLabel('Upload a file', { exact: false }).setInputFiles({
-        name: 'warranty.pdf',
-        mimeType: 'application/pdf',
-        buffer: pdfBytes,
-      });
-      const documentRow = page.locator('.attachment').filter({ hasText: '2 pages' });
-      await expect(documentRow).toContainText('PDF');
-      await page.setViewportSize({ width: 390, height: 844 });
-      await documentRow
-        .getByRole('button', { name: 'Edit details for warranty.pdf', exact: true })
-        .focus();
-      await page.keyboard.press('Enter');
-      await documentRow.getByLabel('Title', { exact: true }).fill('Oven warranty');
-      await documentRow.getByLabel('Document type').selectOption('RECEIPT');
-      await documentRow.getByLabel('Publisher').fill('Example retailer');
-      await documentRow.getByLabel('Document date').fill('2022-03-12');
-      await expect(documentRow).toContainText('Original file: warranty.pdf');
-      assert.equal(
-        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-        false,
-      );
-      await documentRow.screenshot({ path: 'test-results/attachment-edit-mobile.png' });
-      await documentRow.getByRole('button', { name: 'Save details', exact: true }).click();
-      await expect(documentRow.locator('.file-name')).toBeVisible();
-      await page.reload();
-      await expect(documentRow).toContainText('Example retailer');
-      await expect(documentRow).toContainText('12 Mar 2022');
-      await expect(documentRow).toContainText('Receipt');
-      const pdfDownloadReady = page.waitForEvent('download');
-      await documentRow.locator('.file-name').first().click();
-      const pdfDownload = await pdfDownloadReady;
-      assert.equal(pdfDownload.suggestedFilename(), 'warranty.pdf');
-      assert.deepEqual(await readFile((await pdfDownload.path())!), pdfBytes);
-      await documentRow.screenshot({ path: 'test-results/attachment-mobile.png' });
-      await page.setViewportSize({ width: 1440, height: 1100 });
-      await documentRow.screenshot({ path: 'test-results/attachment-desktop.png' });
-      await documentRow
-        .getByRole('button', { name: 'Edit details for Oven warranty', exact: true })
-        .click();
-      await documentRow.getByLabel('Title', { exact: true }).fill('');
-      await documentRow.getByLabel('Publisher').fill('');
-      await documentRow.getByRole('button', { name: 'Save details', exact: true }).click();
-      await expect(documentRow.locator('.file-name')).toBeVisible();
-      await expect(documentRow).not.toContainText('Example retailer');
       assert.deepEqual(errors, []);
       const fresh = await browser.newContext();
       const signedOut = await fresh.newPage();

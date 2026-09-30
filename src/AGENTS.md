@@ -68,7 +68,6 @@ Keep feature-only components and data services beside their feature. Move code i
 - Import Remix icons only in `app/core/app-icons.ts`. Export names describing their purpose, such as `pinField` and `uploadFile`.
 - Components register only their icons in `viewProviders: [provideIcons({ ... })]` and render them with `NgIcon`.
 - Prefer line variants; use fills for selected states. Decorative icons use `aria-hidden="true"`; icon-only controls need a label on the control.
-- Field icons returned by the registry use the named `fieldIcons` catalogue in `app/core/app-icons.ts`; resolve names through `fieldIconName` for a generic fallback. Render them through `NgIcon` with `aria-hidden="true"`.
 - Category icons returned by the registry are API content. UI controls use the icon catalogue.
 - Declare custom SVG icons in the catalogue using `currentColor`. Do not add another icon library.
 

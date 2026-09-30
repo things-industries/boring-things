@@ -647,7 +647,7 @@ export interface components {
             schema: components["schemas"]["FieldSchema"];
             uiHint: components["schemas"]["UiHintEnum"];
             sensitive: boolean;
-            /** @description Icon name from the client field icon catalogue. Missing, null or unrecognised names use the generic field icon. */
+            /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
         };
         /** @description A field definition with its current value, provenance and masking state. */
@@ -663,7 +663,7 @@ export interface components {
             masked: boolean;
             origin: components["schemas"]["FieldOriginEnum"] | null;
             sourceRefs: components["schemas"]["SourceRef"][];
-            /** @description Icon name from the client field icon catalogue. Missing, null or unrecognised names use the generic field icon. */
+            /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
         };
         /** @description Category-specific field group with required and suggested related sets. */

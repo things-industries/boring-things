@@ -2804,7 +2804,7 @@
             "type": ["string", "null"],
             "maxLength": 80,
             "pattern": "^[A-Za-z][A-Za-z0-9]*$",
-            "description": "Icon name from the client field icon catalogue. Missing, null or unrecognised names use the generic field icon."
+            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys."
           }
         },
         "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"],
@@ -2864,7 +2864,7 @@
             "type": ["string", "null"],
             "maxLength": 80,
             "pattern": "^[A-Za-z][A-Za-z0-9]*$",
-            "description": "Icon name from the client field icon catalogue. Missing, null or unrecognised names use the generic field icon."
+            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys."
           }
         },
         "required": [

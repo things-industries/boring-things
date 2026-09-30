@@ -49,7 +49,6 @@
           @for (field of pinnedDetails(); track field.anchor) {
             <div>
               <dt>
-                <ng-icon [name]="fieldIconName(field.icon)" aria-hidden="true" />
                 <a [routerLink]="['/things', id]" [fragment]="field.anchor">{{ field.label }}</a>
               </dt>
               <dd>
@@ -339,13 +338,8 @@
             @for (file of attachments(); track file.id) {
               <div class="attachment">
                 <button class="file-name quiet" (click)="download(file)">
-                  ↧ {{ file.title ?? file.filename }}</button
+                  ↧ {{ file.filename }}</button
                 ><span class="muted">{{ (file.byteSize / 1024).toFixed(1) }} KB</span>
-                <bt-attachment-metadata
-                  [file]="file"
-                  [disabled]="processing() || busy()"
-                  (changed)="attachmentChanged($event)"
-                />
                 @if (file.sourceUrl) {
                   <a [href]="file.sourceUrl" target="_blank" rel="noopener noreferrer"
                     >Open source</a
@@ -399,7 +393,7 @@
                 >Existing attachment<select [(ngModel)]="linkId">
                   <option value="">Choose…</option>
                   @for (file of library(); track file.id) {
-                    <option [value]="file.id">{{ file.title ?? file.filename }}</option>
+                    <option [value]="file.id">{{ file.filename }}</option>
                   }
                 </select></label
               ><button class="secondary small" [disabled]="!linkId || busy()" (click)="link()">
@@ -410,7 +404,7 @@
                 @for (file of library(); track file.id) {
                   @if (!file.thingIds.length) {
                     <div class="attachment">
-                      <span>{{ file.title ?? file.filename }}</span
+                      <span>{{ file.filename }}</span
                       ><button
                         class="quiet small danger"
                         [disabled]="processing() || busy()"

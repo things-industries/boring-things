@@ -1,5 +1,5 @@
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { pinField, pinnedField, fieldIcons, fieldIconName } from '../../core/app-icons';
+import { pinField, pinnedField } from '../../core/app-icons';
 import { dateTimeInput } from '../../utils/date.util';
 import { fieldValue, formatFieldValue } from '../../utils/field.util';
 import { fieldValueValidator } from '../../validators/field-value.validator';
@@ -21,14 +21,13 @@ import { errorCode } from '../../utils/error.util';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../error-message/error-message';
 @Component({
-  viewProviders: [provideIcons({ pinField, pinnedField, ...fieldIcons })],
+  viewProviders: [provideIcons({ pinField, pinnedField })],
   selector: 'bt-field',
   imports: [FormsModule, ErrorMessage, NgIcon],
   templateUrl: './field.html',
   styleUrl: './field.scss',
 })
 export class FieldEditor implements OnChanges {
-  readonly fieldIconName = fieldIconName;
   @Input({ required: true }) field!: Schema['Field'];
   @Input({ required: true }) thingId = '';
   @Input() setId: string | null = null;
