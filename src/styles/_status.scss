@@ -8,8 +8,8 @@
   text-transform: capitalize;
 }
 .badge.warning {
-  background: tokens.color(warning);
-  color: tokens.color(warning-contrast);
+  background: tokens.color(warning-subtle);
+  color: tokens.color(warning);
 }
 .sample {
   font-size: 10px;

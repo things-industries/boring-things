@@ -11,8 +11,8 @@ One file per style scope, or one folder when a scope needs several files.
 | `_core.scss`             | Page structure: `:root` properties, `html`/`body`, box sizing, `[hidden]`, `.visually-hidden` | Yes       |
 | `_tokens.scss`           | `tokens.*` functions and space, radius, shadow, icon-size and size maps                       | No        |
 | `colors/_palette.scss`   | Shade scales                                                                                  | No        |
-| `colors/_theme.scss`     | Semantic colour roles                                                                         | No        |
-| `colors/_legacy.scss`    | Roles used by screens built before the current theme                                          | No        |
+| `colors/_theme.scss`     | Colour sets                                                                                   | No        |
+| `colors/_legacy.scss`    | Colours used by screens built before the colour sets                                          | No        |
 | `colors/_utilities.scss` | `.text-*` and `.bg-*` classes                                                                 | Yes       |
 | `typography/_index.scss` | Type roles, `role()` mixin, `$font-family`                                                    | No        |
 | `typography/_base.scss`  | Headings, paragraphs, eyebrow                                                                 | Yes       |
@@ -27,7 +27,27 @@ Component styles use tokens only: no literal colours, font sizes, weights, spaci
 
 ## Colours
 
-`tokens.color(name)` accepts a theme role or a palette shade. Prefer a theme role; use a shade directly when no role fits (for example a specific border or button background). In templates, prefer the utility class when the element needs no other styles.
+`tokens.color(name)` accepts a colour-set token or a palette shade. Prefer a set token; use a shade directly when no set token fits. Every set token and every shade has a `.text-<name>` and a `.bg-<name>` class (`.text-primary-muted`, `.bg-accent-subtle`, `.bg-green-100`). Prefer the class in templates when the element needs no other styles.
+
+### Colour sets
+
+Each set has four tokens. The element decides where each is used (text, border, fill).
+
+| Token            | Meaning                  |
+| ---------------- | ------------------------ |
+| `<set>`          | Main shade               |
+| `<set>-muted`    | Softer shade             |
+| `<set>-subtle`   | Light tint               |
+| `<set>-contrast` | Colour to use on `<set>` |
+
+| Set         | Base          | `-muted`      | `-subtle`     | `-contrast`   | Typical use                                             |
+| ----------- | ------------- | ------------- | ------------- | ------------- | ------------------------------------------------------- |
+| `primary`   | `neutral-900` | `neutral-500` | `neutral-100` | `white`       | Text, primary buttons; muted text; neutral fills        |
+| `secondary` | `neutral-200` | `neutral-100` | `neutral-50`  | `neutral-900` | Dividers and outlines; fills; page background           |
+| `accent`    | `green-600`   | `green-400`   | `green-100`   | `white`       | Links and positive status; accent buttons; green badges |
+| `info`      | `blue-600`    | `blue-400`    | `blue-50`     | `white`       | Informational icons; blue badges and notices            |
+| `danger`    | `red-700`     | `red-500`     | `red-50`      | `white`       | Errors; error fills                                     |
+| `warning`   | `amber-600`   | `amber-400`   | `amber-100`   | `white`       | Warnings; warning fills                                 |
 
 ### Palette
 
@@ -41,41 +61,9 @@ Component styles use tokens only: no literal colours, font sizes, weights, spaci
 | `red`     | `#fff0e9` | `.text-red`, `.bg-red`         | `#efc9ba` | `#dbac9c` | `#c88f7e` | `#b47261` | `#a05543` | `#893f2f` | `#6b3023` | `#4c2118` |
 | `amber`   | `#fdf5ea` | `.text-amber`, `.bg-amber`     | `#e7d1b4` | `#d3b793` | `#c09d71` | `#ac8350` | `#98692e` | `#7d5625` | `#62431c` | `#463014` |
 
-### Theme
-
-| Role                     | Shade               | Class                                                        | Use                                |
-| ------------------------ | ------------------- | ------------------------------------------------------------ | ---------------------------------- |
-| `text`                   | `neutral-900`       | `.text-default`                                              | Default text                       |
-| `text-muted`             | `neutral-500`       | `.text-muted`                                                | Subtitles, meta lines, labels      |
-| `text-subtle`            | `neutral-300`       | `.text-subtle`                                               | Faint text                         |
-| `text-accent`            | `green-600`         | `.text-accent`                                               | Links, positive status             |
-| `text-inverse`           | `white`             | `.text-inverse`                                              | Text on dark fills                 |
-| `text-danger`            | `red-700`           | `.text-danger`                                               | Errors                             |
-| `text-warning`           | `amber-600`         | `.text-warning`                                              | Warnings                           |
-| `background`             | `neutral-50`        | `.text-background`, `.bg-background`                         | Page background                    |
-| `surface`                | `white`             | `.text-surface`, `.bg-surface`                               | Cards, sheets, rows                |
-| `surface-muted`          | `neutral-100`       | `.text-surface-muted`, `.bg-surface-muted`                   | Neutral fills, neutral icon badges |
-| `tint`                   | `neutral-950` at 8% | `.text-tint`, `.bg-tint`                                     | Translucent chip fill              |
-| `primary`                | `neutral-900`       | `.text-primary`, `.bg-primary`                               | Primary buttons, dark cards        |
-| `primary-contrast`       | `white`             | `.text-primary-contrast`, `.bg-primary-contrast`             | Foreground on `primary`            |
-| `accent`                 | `green-400`         | `.bg-accent`                                                 | Accent buttons, highlights         |
-| `accent-contrast`        | `neutral-900`       | `.text-accent-contrast`, `.bg-accent-contrast`               | Foreground on `accent`             |
-| `accent-subtle`          | `green-100`         | `.text-accent-subtle`, `.bg-accent-subtle`                   | Green icon badges, status tiles    |
-| `accent-subtle-contrast` | `green-600`         | `.text-accent-subtle-contrast`, `.bg-accent-subtle-contrast` | Foreground on `accent-subtle`      |
-| `info-subtle`            | `blue-50`           | `.text-info-subtle`, `.bg-info-subtle`                       | Blue icon badges, notices          |
-| `danger-subtle`          | `red-50`            | `.text-danger-subtle`, `.bg-danger-subtle`                   | Error fills                        |
-| `warning-subtle`         | `amber-100`         | `.text-warning-subtle`, `.bg-warning-subtle`                 | Warning fills                      |
-| `border`                 | `neutral-200`       | `.text-border`, `.bg-border`                                 | Dividers, card outlines            |
-| `border-muted`           | `neutral-500`       | `.text-border-muted`, `.bg-border-muted`                     | Strong dividers, inputs            |
-| `border-strong`          | `neutral-900`       | `.text-border-strong`, `.bg-border-strong`                   | Outline buttons                    |
-| `border-accent`          | `green-400`         | `.text-border-accent`, `.bg-border-accent`                   | Accent outlines                    |
-| `skeleton`               | `neutral-200`       | `.text-skeleton`, `.bg-skeleton`                             | Loading placeholders               |
-
-Every palette shade and theme role has a `.text-*` and a `.bg-*` class (`.text-green-600`, `.bg-neutral-100`, `.bg-accent`). Roles named `text-*` are the exception: they give the class of the same name (`.text-accent` is the `text-accent` role), so `accent` only has `.bg-accent`. The default `text` role is `.text-default`. `.bg-*` also sets the role's `-contrast` colour as the foreground when one exists.
-
 ### Legacy roles
 
-`colors/_legacy.scss` keeps role names used by screens built before the current theme (for example `danger`, `destructive`, `badge`, `sample-banner` and category artwork roles), each mapped to a palette shade. Do not use them in new work; each is removed once no screen uses it.
+`colors/_legacy.scss` keeps colour names used by screens built before the current colour sets (for example `danger`, `destructive`, `badge`, `sample-banner` and category artwork roles), each mapped to a palette shade. Do not use them in new work; each is removed once no screen uses it.
 
 ## Typography
 
@@ -101,7 +89,7 @@ Every palette shade and theme role has a `.text-*` and a `.bg-*` class (`.text-g
 - `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px.
 - `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `key-value-row` 39px.
 
-Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; theme roles resolve to their palette variable.
+Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; set tokens resolve to their palette variable.
 
 ## Mixins
 
@@ -116,14 +104,14 @@ Unknown keys fail Sass compilation. CSS custom properties are emitted through `t
 
 Combine one style with an optional size. Use on `<button>` for actions and `<a>` for navigation.
 
-| Class               | Look                                      |
-| ------------------- | ----------------------------------------- |
-| `.button-primary`   | Dark pill, white text                     |
-| `.button-secondary` | Outline pill, strong border, default text |
-| `.button-accent`    | Green accent pill, dark text              |
-| `.button-link`      | Accent text link, no padding              |
-| `.button-sm`        | 32px high, label text, small icons        |
-| `.button-lg`        | 52px high, wider padding                  |
+| Class               | Look                               |
+| ------------------- | ---------------------------------- |
+| `.button-primary`   | Dark pill, white text              |
+| `.button-secondary` | Outline pill in `primary`          |
+| `.button-accent`    | Green accent pill, dark text       |
+| `.button-link`      | Accent text link, no padding       |
+| `.button-sm`        | 32px high, label text, small icons |
+| `.button-lg`        | 52px high, wider padding           |
 
 Default pill height is 44px with body text and medium icons. Legacy button classes remain for screens built before the current system: `button`, `secondary`, `quiet`, `small`, `danger-button`.
 

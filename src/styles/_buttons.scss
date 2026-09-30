@@ -66,19 +66,19 @@ button,
 }
 .button-secondary {
   background: transparent;
-  border-color: tokens.color(border-strong);
-  color: tokens.color(text);
+  border-color: tokens.color(primary);
+  color: tokens.color(primary);
 }
 .button-accent {
-  background: tokens.color(accent);
-  color: tokens.color(accent-contrast);
+  background: tokens.color(accent-muted);
+  color: tokens.color(primary);
 }
 .button-link {
   background: transparent;
   border-radius: 0;
   padding: 0;
   gap: tokens.space(1);
-  color: tokens.color(text-accent);
+  color: tokens.color(accent);
   @include typography.role(label);
   font-weight: 600;
   @include mixins.icon-size(sm);

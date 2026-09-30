@@ -1,29 +1,11 @@
 @use 'sass:map';
-@use 'sass:string';
 @use 'tokens';
 
-$-colors: map.remove(map.merge(tokens.$palette, tokens.$theme), 'text');
-
-// `text-*` roles own their `.text-*` class; other colours get both classes.
-.text-default {
-  color: tokens.color(text);
-}
-@each $name, $value in $-colors {
-  @if string.index($name, 'text-') == 1 {
-    .#{$name} {
-      color: tokens.color($name);
-    }
-  } @else {
-    @if not map.has-key($-colors, 'text-#{$name}') {
-      .text-#{$name} {
-        color: tokens.color($name);
-      }
-    }
-    .bg-#{$name} {
-      background: tokens.color($name);
-      @if map.has-key($-colors, '#{$name}-contrast') {
-        color: tokens.color('#{$name}-contrast');
-      }
-    }
+@each $name, $value in map.merge(tokens.$palette, tokens.$theme) {
+  .text-#{$name} {
+    color: tokens.color($name);
+  }
+  .bg-#{$name} {
+    background: tokens.color($name);
   }
 }

@@ -4,8 +4,8 @@
 :root {
   @include tokens.properties;
   font-family: typography.$font-family;
-  color: tokens.color(text);
-  background: tokens.color(background);
+  color: tokens.color(primary);
+  background: tokens.color(secondary-subtle);
   font-synthesis: none;
   @include typography.role(body);
 }
