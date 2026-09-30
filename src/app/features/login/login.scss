@@ -4,6 +4,7 @@
 .login-page {
   display: flex;
   flex-direction: column;
+  min-height: calc(100vh - #{tokens.space(2)} - #{tokens.space(8)});
   min-height: calc(100dvh - #{tokens.space(2)} - #{tokens.space(8)});
   padding-top: tokens.space(4);
 }

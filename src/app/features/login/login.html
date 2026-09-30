@@ -2,7 +2,7 @@
   <p class="login-wordmark">{{ 'appName' | term }}</p>
   <div class="login-content">
     <h1>Your things.<br />Your life, organised.</h1>
-    <p class="login-copy">
+    <p class="login-copy text-primary-muted">
       Keep the details, documents and little jobs that come with the things in your life together.
     </p>
     <div class="login-actions">
@@ -17,6 +17,7 @@
         </button>
         <button class="button-secondary" type="button" disabled>
           <ng-icon name="signInWithApple" aria-hidden="true" /> Continue with Apple
+          <span class="visually-hidden">(coming soon)</span>
         </button>
       } @else {
         <bt-notice icon="setupNotice">
@@ -26,5 +27,9 @@
       }
     </div>
   </div>
-  <p class="login-terms">By continuing you agree to the Terms and Privacy Policy.</p>
+  @if (!auth.signedIn() && auth.config.logtoEndpoint && auth.config.logtoAppId) {
+    <p class="login-terms text-primary-muted">
+      By continuing you agree to the Terms and Privacy Policy.
+    </p>
+  }
 </section>

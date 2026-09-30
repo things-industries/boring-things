@@ -223,8 +223,8 @@ Layout (`features/login/`):
 - Headline: page `h1` in the `display` role. Supporting copy in `body`, `primary-muted`. Existing copy is kept.
 - Actions stack full width with `space(3)` between them:
   - **Continue with email**: `.button-primary` with the mail icon; calls `Auth.signIn()` (Logto redirect, which offers sign-in and registration).
-  - **Continue with Apple**: `.button-secondary` with the Apple icon, disabled (#16).
-- Terms footnote in `caption`, `primary-muted`, centred: "By continuing you agree to the Terms and Privacy Policy." Terms and Privacy Policy are plain text until their pages exist (#17).
+  - **Continue with Apple**: `.button-secondary` with the Apple icon, disabled (#16), with visually hidden "(coming soon)".
+- Terms footnote in `caption`, `primary-muted`, centred, shown only with the sign-in actions: "By continuing you agree to the Terms and Privacy Policy." Terms and Privacy Policy are plain text until their pages exist (#17).
 - The Home/Vehicles/Memberships examples and the eyebrow are removed; the design has no slot for them.
 
 States:
