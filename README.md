@@ -82,7 +82,7 @@ Sharing, hosted deployment, checkout, repair booking, calendar sync and conversa
 
 The registry contains 165 fieldsets and 413 definitions across seven categories. Ownership, warranty, support and maintenance compose with product or service types. Manufacturer identifiers and coverage components retain separate semantics and set-scoped values. `Other` supports custom fields.
 
-Registry fields carry semantic keys in `icon` (for example `fieldDate`). `src/app/core/app-icons.ts` exports the corresponding ng-icons Remix icons below. Field icon rendering remains available for frontend integration; clients use `fieldDefault` for missing or unknown keys and custom fields.
+Registry fields carry semantic keys in `icon` (for example `fieldDate`). The table below maps these keys to `@ng-icons/remixicon` exports for frontend integration; clients use `fieldDefault` for missing or unknown keys and custom fields.
 
 | API icon key        | Remix export                |
 | ------------------- | --------------------------- |

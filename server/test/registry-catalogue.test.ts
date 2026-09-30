@@ -7,7 +7,7 @@ import { emptyData } from '../../shared/model.js';
 import { patchData } from '../src/application/thing-data.js';
 const registry = new Registry(fields, sets);
 
-test('catalogue covers reviewed categories with compatible dependencies and resolvable Remix icons', async () => {
+test('catalogue covers reviewed categories with compatible dependencies and documented Remix mappings', async () => {
   assert.deepEqual(
     new Set(sets.map((set) => set.categoryId)),
     new Set([
@@ -20,9 +20,11 @@ test('catalogue covers reviewed categories with compatible dependencies and reso
       'insurance',
     ]),
   );
-  const catalogue = await readFile(
-    new URL('../../src/app/core/app-icons.ts', import.meta.url),
-    'utf8',
+  const documentation = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
+  const icons = new Map(
+    [...documentation.matchAll(/^\|\s*`(field\w+)`\s*\|\s*`(remix\w+)`\s*\|$/gm)].map(
+      ([, key, icon]) => [key, icon],
+    ),
   );
   const exports = await readFile(
     new URL(
@@ -33,9 +35,9 @@ test('catalogue covers reviewed categories with compatible dependencies and reso
   );
   for (const field of fields) {
     assert.ok(field.icon, field.id);
-    const match = catalogue.match(new RegExp(`export const ${field.icon} = (remix\\w+);`));
-    assert.ok(match, field.id);
-    assert.ok(exports.includes('declare const ' + match[1] + ' ='), match[1]);
+    const icon = icons.get(field.icon);
+    assert.ok(icon, field.id);
+    assert.ok(exports.includes('declare const ' + icon + ' ='), icon);
   }
   for (const set of sets) {
     assert.equal(new Set(set.fields.map((f) => f.id)).size, set.fields.length, set.id);
