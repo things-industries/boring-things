@@ -1,13 +1,12 @@
-<p><a routerLink="/">Your things</a></p>
-<div class="page-heading">
-  <div>
-    <span class="eyebrow">A LITTLE HELP</span>
-    <h1>{{ 'assistant' | term }}</h1>
-  </div>
-  @if (conversation()?.thingId; as id) {
-    <a [routerLink]="['/things', id]">Back to thing</a>
-  }
-</div>
+@if (thingId) {
+  <bt-top-bar
+    [title]="'assistant' | term"
+    [back]="['/things', thingId]"
+    backLabel="Back to thing"
+  />
+} @else {
+  <bt-top-bar [title]="'assistant' | term" back="/" backLabel="Home" />
+}
 @if (!config.chatEnabled) {
   <p class="notice-banner">The assistant is not configured.</p>
 } @else {

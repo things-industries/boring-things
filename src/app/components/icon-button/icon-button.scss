@@ -1,0 +1,20 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: tokens.size(control-md);
+  height: tokens.size(control-md);
+  padding: 0;
+  border: 0;
+  border-radius: tokens.radius(pill);
+  background: tokens.color(secondary-muted);
+  color: tokens.color(primary);
+  cursor: pointer;
+  @include mixins.icon-size(md);
+}
+:host(.elevated) {
+  background: tokens.color('white');
+  box-shadow: tokens.shadow(floating);
+}

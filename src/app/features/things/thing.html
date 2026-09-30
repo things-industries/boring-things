@@ -1,4 +1,4 @@
-<a class="back" routerLink="/"><ng-icon name="back" aria-hidden="true" /> {{ 'things' | term }}</a>
+<bt-top-bar back="/" [backLabel]="'things' | term" />
 @if (error()) {
   <bt-error-message [code]="error()" />
 }
@@ -38,9 +38,7 @@
   }
   @if (!isNew() && config.chatEnabled) {
     <p>
-      <a class="button secondary" routerLink="/chat" [queryParams]="{ thingId: id }"
-        >Ask about this thing</a
-      >
+      <a class="button secondary" [routerLink]="['/things', id, 'chat']">Ask about this thing</a>
     </p>
   }
   <fieldset class="editor-content" [disabled]="processing()">

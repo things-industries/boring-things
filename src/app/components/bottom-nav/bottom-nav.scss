@@ -1,0 +1,45 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 10;
+  background: tokens.color('white');
+  border-top: 1px solid tokens.color(secondary);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-nav {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  max-width: tokens.size(content-max);
+  height: tokens.size(bottom-nav);
+  margin: 0 auto;
+  padding: 0 tokens.space(2);
+}
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: tokens.space(half);
+  color: tokens.color(primary-muted);
+  @include typography.role(caption);
+  @include mixins.icon-size(md);
+  &.active {
+    color: tokens.color(primary);
+    font-weight: 600;
+  }
+}
+.bottom-nav-add {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: tokens.size(control-md);
+  height: tokens.size(control-md);
+  border-radius: tokens.radius(pill);
+  background: tokens.color(primary);
+  color: tokens.color(primary-contrast);
+  box-shadow: tokens.shadow(floating);
+  @include mixins.icon-size(lg);
+}
