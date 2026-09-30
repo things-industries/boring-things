@@ -33,45 +33,45 @@ Component styles use tokens only: no literal colours, font sizes, weights, spaci
 
 `white` is `#ffffff`. `neutral-950` is `#172126`.
 
-| Hue       | 50        | 100       | 200       | 300       | 400       | 500       | 600       | 700       | 800       | 900       |
-| --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- |
-| `neutral` | `#f2f4f2` | `#e3e8e5` | `#d9dfdb` | `#c8d0cd` | `#9fa8a5` | `#76817d` | `#626d6c` | `#4e5a5a` | `#3b4649` | `#273238` |
-| `green`   | `#f0f9f4` | `#e0f3e9` | `#bee5d1` | `#9bd7b9` | `#79c9a1` | `#5eab85` | `#438d69` | `#367456` | `#295c43` | `#1c4330` |
-| `blue`    | `#e4f0f6` | `#d3e6ef` | `#b2d1e1` | `#91bcd4` | `#70a8c6` | `#4f93b8` | `#427d9d` | `#356783` | `#285268` | `#1b3c4e` |
-| `red`     | `#fff0e9` | `#fae3d9` | `#efc9ba` | `#dbac9c` | `#c88f7e` | `#b47261` | `#a05543` | `#893f2f` | `#6b3023` | `#4c2118` |
-| `amber`   | `#fdf5ea` | `#fbebd6` | `#e7d1b4` | `#d3b793` | `#c09d71` | `#ac8350` | `#98692e` | `#7d5625` | `#62431c` | `#463014` |
+| Hue       | 50        | 100                            | 200       | 300       | 400       | 500       | 600       | 700       | 800       | 900       |
+| --------- | --------- | ------------------------------ | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- |
+| `neutral` | `#f2f4f2` | `.text-neutral`, `.bg-neutral` | `#d9dfdb` | `#c8d0cd` | `#9fa8a5` | `#76817d` | `#626d6c` | `#4e5a5a` | `#3b4649` | `#273238` |
+| `green`   | `#f0f9f4` | `.text-green`, `.bg-green`     | `#bee5d1` | `#9bd7b9` | `#79c9a1` | `#5eab85` | `#438d69` | `#367456` | `#295c43` | `#1c4330` |
+| `blue`    | `#e4f0f6` | `.text-blue`, `.bg-blue`       | `#b2d1e1` | `#91bcd4` | `#70a8c6` | `#4f93b8` | `#427d9d` | `#356783` | `#285268` | `#1b3c4e` |
+| `red`     | `#fff0e9` | `.text-red`, `.bg-red`         | `#efc9ba` | `#dbac9c` | `#c88f7e` | `#b47261` | `#a05543` | `#893f2f` | `#6b3023` | `#4c2118` |
+| `amber`   | `#fdf5ea` | `.text-amber`, `.bg-amber`     | `#e7d1b4` | `#d3b793` | `#c09d71` | `#ac8350` | `#98692e` | `#7d5625` | `#62431c` | `#463014` |
 
 ### Theme
 
-| Role                     | Shade               | Class                | Use                                |
-| ------------------------ | ------------------- | -------------------- | ---------------------------------- |
-| `text`                   | `neutral-900`       | —                    | Default text                       |
-| `text-muted`             | `neutral-500`       | `.text-muted`        | Subtitles, meta lines, labels      |
-| `text-subtle`            | `neutral-300`       | `.text-subtle`       | Faint text                         |
-| `text-accent`            | `green-600`         | `.text-accent`       | Links, positive status             |
-| `text-inverse`           | `white`             | `.text-inverse`      | Text on dark fills                 |
-| `text-danger`            | `red-700`           | `.text-danger`       | Errors                             |
-| `text-warning`           | `amber-600`         | `.text-warning`      | Warnings                           |
-| `background`             | `neutral-50`        | `.bg-background`     | Page background                    |
-| `surface`                | `white`             | `.bg-surface`        | Cards, sheets, rows                |
-| `surface-muted`          | `neutral-100`       | `.bg-surface-muted`  | Neutral fills, neutral icon badges |
-| `tint`                   | `neutral-950` at 8% | `.bg-tint`           | Translucent chip fill              |
-| `primary`                | `neutral-900`       | `.bg-primary`        | Primary buttons, dark cards        |
-| `primary-contrast`       | `white`             | —                    | Foreground on `primary`            |
-| `accent`                 | `green-400`         | `.bg-accent`         | Accent buttons, highlights         |
-| `accent-contrast`        | `neutral-900`       | —                    | Foreground on `accent`             |
-| `accent-subtle`          | `green-100`         | `.bg-accent-subtle`  | Green icon badges, status tiles    |
-| `accent-subtle-contrast` | `green-600`         | —                    | Foreground on `accent-subtle`      |
-| `info-subtle`            | `blue-50`           | `.bg-info-subtle`    | Blue icon badges, notices          |
-| `danger-subtle`          | `red-50`            | `.bg-danger-subtle`  | Error fills                        |
-| `warning-subtle`         | `amber-100`         | `.bg-warning-subtle` | Warning fills                      |
-| `border`                 | `neutral-200`       | —                    | Dividers, card outlines            |
-| `border-muted`           | `neutral-500`       | —                    | Strong dividers, inputs            |
-| `border-strong`          | `neutral-900`       | —                    | Outline buttons                    |
-| `border-accent`          | `green-400`         | —                    | Accent outlines                    |
-| `skeleton`               | `neutral-200`       | `.bg-skeleton`       | Loading placeholders               |
+| Role                     | Shade               | Class                                                        | Use                                |
+| ------------------------ | ------------------- | ------------------------------------------------------------ | ---------------------------------- |
+| `text`                   | `neutral-900`       | `.text-default`                                              | Default text                       |
+| `text-muted`             | `neutral-500`       | `.text-muted`                                                | Subtitles, meta lines, labels      |
+| `text-subtle`            | `neutral-300`       | `.text-subtle`                                               | Faint text                         |
+| `text-accent`            | `green-600`         | `.text-accent`                                               | Links, positive status             |
+| `text-inverse`           | `white`             | `.text-inverse`                                              | Text on dark fills                 |
+| `text-danger`            | `red-700`           | `.text-danger`                                               | Errors                             |
+| `text-warning`           | `amber-600`         | `.text-warning`                                              | Warnings                           |
+| `background`             | `neutral-50`        | `.text-background`, `.bg-background`                         | Page background                    |
+| `surface`                | `white`             | `.text-surface`, `.bg-surface`                               | Cards, sheets, rows                |
+| `surface-muted`          | `neutral-100`       | `.text-surface-muted`, `.bg-surface-muted`                   | Neutral fills, neutral icon badges |
+| `tint`                   | `neutral-950` at 8% | `.text-tint`, `.bg-tint`                                     | Translucent chip fill              |
+| `primary`                | `neutral-900`       | `.text-primary`, `.bg-primary`                               | Primary buttons, dark cards        |
+| `primary-contrast`       | `white`             | `.text-primary-contrast`, `.bg-primary-contrast`             | Foreground on `primary`            |
+| `accent`                 | `green-400`         | `.bg-accent`                                                 | Accent buttons, highlights         |
+| `accent-contrast`        | `neutral-900`       | `.text-accent-contrast`, `.bg-accent-contrast`               | Foreground on `accent`             |
+| `accent-subtle`          | `green-100`         | `.text-accent-subtle`, `.bg-accent-subtle`                   | Green icon badges, status tiles    |
+| `accent-subtle-contrast` | `green-600`         | `.text-accent-subtle-contrast`, `.bg-accent-subtle-contrast` | Foreground on `accent-subtle`      |
+| `info-subtle`            | `blue-50`           | `.text-info-subtle`, `.bg-info-subtle`                       | Blue icon badges, notices          |
+| `danger-subtle`          | `red-50`            | `.text-danger-subtle`, `.bg-danger-subtle`                   | Error fills                        |
+| `warning-subtle`         | `amber-100`         | `.text-warning-subtle`, `.bg-warning-subtle`                 | Warning fills                      |
+| `border`                 | `neutral-200`       | `.text-border`, `.bg-border`                                 | Dividers, card outlines            |
+| `border-muted`           | `neutral-500`       | `.text-border-muted`, `.bg-border-muted`                     | Strong dividers, inputs            |
+| `border-strong`          | `neutral-900`       | `.text-border-strong`, `.bg-border-strong`                   | Outline buttons                    |
+| `border-accent`          | `green-400`         | `.text-border-accent`, `.bg-border-accent`                   | Accent outlines                    |
+| `skeleton`               | `neutral-200`       | `.text-skeleton`, `.bg-skeleton`                             | Loading placeholders               |
 
-`.bg-*` sets the role's `-contrast` colour as the foreground when one exists.
+Every palette shade and theme role has a `.text-*` and a `.bg-*` class (`.text-green-600`, `.bg-neutral-100`, `.bg-accent`). Roles named `text-*` are the exception: they give the class of the same name (`.text-accent` is the `text-accent` role), so `accent` only has `.bg-accent`. The default `text` role is `.text-default`. `.bg-*` also sets the role's `-contrast` colour as the foreground when one exists.
 
 ### Legacy roles
 
