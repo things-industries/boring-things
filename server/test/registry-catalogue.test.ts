@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { fields, sets } from '../src/db/registry-seed.js';
 import { Registry } from '../src/application/registry/registry.js';
 import { emptyData } from '../../shared/model.js';
@@ -122,4 +122,12 @@ test('composite utility and medical/dental cover components retain independent v
     '2027-08-01',
   );
   assert.equal(medical.setIds.filter((id) => id === 'insurance.policy').length, 1);
+});
+
+test('migration versions are unique for the Supabase runner', async () => {
+  const files = (await readdir(new URL('../../supabase/migrations/', import.meta.url))).filter(
+    (file) => file.endsWith('.sql'),
+  );
+  const versions = files.map((file) => file.split('_')[0]);
+  assert.equal(new Set(versions).size, versions.length, 'Migration timestamps must be unique');
 });
