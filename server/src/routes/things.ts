@@ -11,7 +11,7 @@ import { route } from '../contracts/routes.js';
 import { transaction } from '../db/connection.js';
 import { detail, writeThing } from '../application/things.js';
 import { assertEditable } from '../db/imports.js';
-import { ownedThing, listThings, deleteThing } from '../db/things.js';
+import { ownedThing, listThings, deleteThing, recordThingView } from '../db/things.js';
 import { revealValue } from '../application/thing-data.js';
 
 export function thingRoutes(
@@ -29,6 +29,12 @@ export function thingRoutes(
   });
 
   route(app, 'GET', '/api/things/{id}', (req) => detail(db, req.ownerId, req.params.id, registry));
+
+  route(app, 'POST', '/api/things/{id}:view', async (req) => {
+    const result = await recordThingView(db, req.ownerId, req.params.id);
+    changes.publish(req.ownerId);
+    return result;
+  });
 
   route(app, 'PATCH', '/api/things/{id}', async (req) => {
     const result = await writeThing(db, req.ownerId, req.body, registry, req.params.id);

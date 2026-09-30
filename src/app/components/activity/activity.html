@@ -11,6 +11,31 @@
     <h3>
       <a [routerLink]="['/things', issue.thingId]">{{ issue.title }}</a>
     </h3>
+    @if (issue.statusText || issue.dueDate) {
+      <p class="date">
+        @if (issue.statusText) {
+          {{ issue.statusText }}
+        }
+        @if (issue.statusText && issue.dueDate) {
+          ·
+        }
+        @if (issue.dueDate) {
+          {{ issue.dueDate | date: 'd MMMM y' }} ·
+          @let days = daysUntil(issue.dueDate);
+          @if (days === 0) {
+            Due today
+          } @else if (days === 1) {
+            1 day
+          } @else if (days > 1) {
+            {{ days }} days
+          } @else if (days === -1) {
+            1 day overdue
+          } @else {
+            {{ -days }} days overdue
+          }
+        }
+      </p>
+    }
     <p>{{ issue.description }}</p>
     @if (issue.status === 'OPEN') {
       <button
@@ -46,15 +71,24 @@
         <a [href]="source.url" target="_blank" rel="noopener noreferrer">Source</a>
       }
     }
+    @if (event.startsOn) {
+      <p class="date">{{ event.startsOn | date: 'd MMMM y' }}</p>
+    }
     @if (event.startsAt) {
       <p class="date">{{ event.startsAt | date: 'medium' }}</p>
     }
     @if (event.status === 'SUGGESTED') {
-      <label class="compact-label">Schedule for<input type="datetime-local" #dateInput /></label
+      <label class="compact-label"
+        >Date only<input type="checkbox" #dateOnly (change)="dateInput.value = ''"
+      /></label>
+      <label class="compact-label"
+        >Schedule for<input
+          [type]="dateOnly.checked ? 'date' : 'datetime-local'"
+          #dateInput /></label
       ><button
         class="small quiet"
         [disabled]="busy()"
-        (click)="schedule(event.id, dateInput.value)"
+        (click)="schedule(event.id, dateInput.value, dateOnly.checked)"
       >
         Schedule <ng-icon name="scheduleEvent" aria-hidden="true" />
       </button>

@@ -153,7 +153,7 @@ export class ThingPage implements OnDestroy {
       this.library.set([]);
       if (this.imageUrl()) URL.revokeObjectURL(this.imageUrl());
       this.imageUrl.set('');
-      void this.load();
+      void this.load(true);
     });
   }
   ngOnDestroy() {
@@ -161,7 +161,7 @@ export class ThingPage implements OnDestroy {
     this.subscription.unsubscribe();
     if (this.imageUrl()) URL.revokeObjectURL(this.imageUrl());
   }
-  async load() {
+  async load(recordView = false) {
     const id = this.id;
     this.error.set(null);
     try {
@@ -177,6 +177,12 @@ export class ThingPage implements OnDestroy {
       this.fields.set(fields);
       this.tags.set(tags);
       if (id) {
+        if (recordView) {
+          await this.api.client
+            .POST('/api/things/{id}:view', { params: { path: { id } } })
+            .then(apiData);
+          if (id !== this.id) return;
+        }
         const [thing, attachments, issues, events, purchases] = await Promise.all([
           this.api.client.GET('/api/things/{id}', { params: { path: { id } } }).then(apiData),
           this.api.all((query) =>
@@ -191,7 +197,13 @@ export class ThingPage implements OnDestroy {
           ),
           this.api.all((query) =>
             this.api.client.GET('/api/events', {
-              params: { query: { ...query, thingId: id } },
+              params: {
+                query: {
+                  ...query,
+                  thingId: id,
+                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                },
+              },
             }),
           ),
           this.api.all((query) =>
@@ -260,7 +272,13 @@ export class ThingPage implements OnDestroy {
         ),
         this.api.all((query) =>
           this.api.client.GET('/api/events', {
-            params: { query: { ...query, thingId: id } },
+            params: {
+              query: {
+                ...query,
+                thingId: id,
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+            },
           }),
         ),
         this.api.all((query) =>

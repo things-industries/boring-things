@@ -320,3 +320,181 @@ test('stored data survives application restart', async () => {
   });
   assert.equal((await request('GET', `/things/${thing.id}`)).json().name, 'Persists');
 });
+
+test('Issue status text and due dates preserve omission, clear with null and stay owner-scoped', async () => {
+  const thing = await create();
+  const res = await request('POST', '/issues', {
+    thingId: thing.id,
+    title: 'Renew cover',
+    statusText: 'Renewal due',
+    dueDate: '2026-10-12',
+  });
+  assert.equal(res.statusCode, 201, res.body);
+  const issue = res.json<Schema['Issue']>();
+  assert.equal(issue.dueDate, '2026-10-12');
+  const path = `/issues/${issue.id}`;
+  const changed = await request('PATCH', path, { title: 'Review cover' });
+  assert.equal(changed.json().statusText, 'Renewal due');
+  assert.equal(changed.json().dueDate, '2026-10-12');
+  for (const dueDate of ['2026-02-30', '2026-10-12T12:00:00Z'])
+    assert.equal((await request('PATCH', path, { dueDate })).statusCode, 422);
+  assert.equal((await request('PATCH', path, { statusText: 'x'.repeat(501) })).statusCode, 422);
+  assert.equal((await request('PATCH', path, { dueDate: null }, 'bob')).statusCode, 404);
+  const listed = (await request('GET', `/issues?thingId=${thing.id}`)).json().items[0];
+  assert.equal(listed.statusText, 'Renewal due');
+  assert.equal(listed.dueDate, '2026-10-12');
+  const cleared = await request('PATCH', path, {
+    statusText: null,
+    dueDate: null,
+    status: 'RESOLVED',
+  });
+  assert.equal(cleared.json().statusText, null);
+  assert.equal(cleared.json().dueDate, null);
+  assert.ok(cleared.json().resolvedAt);
+  assert.equal((await request('PATCH', path, { statusText: '' })).json().statusText, '');
+});
+
+test('date-only Events retain calendar dates, enforce one schedule and filter mixed schedules by viewer timezone', async () => {
+  const thing = await create();
+  const add = async (schedule: object, title = 'Task') => {
+    const res = await request('POST', '/events', {
+      thingId: thing.id,
+      title,
+      status: 'SCHEDULED',
+      ...schedule,
+    });
+    assert.equal(res.statusCode, 201, res.body);
+    return res.json<Schema['Event']>();
+  };
+  const day = await add({ startsOn: '2026-10-25' }, 'Date only');
+  const before = await add({ startsAt: '2026-10-24T22:30:00Z' }, 'Previous local day');
+  const timed = await add({ startsAt: '2026-10-25T09:00:00Z' }, 'Timed');
+  const after = await add({ startsOn: '2026-10-26' }, 'Next day');
+  assert.equal(day.startsAt, null);
+  assert.equal(day.startsOn, '2026-10-25');
+  const path = `/events/${day.id}`;
+  assert.equal((await request('GET', path)).json().startsOn, '2026-10-25');
+  assert.equal(
+    (await request('PATCH', path, { title: 'Clean oven' })).json().startsOn,
+    '2026-10-25',
+  );
+  for (const patch of [
+    { startsAt: '2026-10-25T09:00:00Z' },
+    { startsOn: null },
+    { startsOn: '2026-02-30' },
+    { startsOn: '2026-10-25T00:00:00Z' },
+  ])
+    assert.equal((await request('PATCH', path, patch)).statusCode, 422, JSON.stringify(patch));
+  assert.equal((await request('PATCH', path, { startsOn: '2026-11-01' }, 'bob')).statusCode, 404);
+  assert.equal(
+    (
+      await request('POST', '/events', {
+        thingId: thing.id,
+        title: 'Both',
+        startsOn: '2026-10-25',
+        startsAt: '2026-10-25T09:00:00Z',
+      })
+    ).statusCode,
+    422,
+  );
+  const query = new URLSearchParams({
+    thingId: thing.id,
+    timeZone: 'Europe/London',
+    from: '2026-10-24T23:00:00Z',
+    to: '2026-10-25T23:59:59Z',
+    limit: '1',
+  });
+  const first = (await request('GET', '/events?' + query)).json();
+  assert.deepEqual(
+    first.items.map((e: Schema['Event']) => e.id),
+    [day.id],
+  );
+  query.set('cursor', first.nextCursor);
+  const second = (await request('GET', '/events?' + query)).json();
+  assert.deepEqual(
+    second.items.map((e: Schema['Event']) => e.id),
+    [timed.id],
+  );
+  assert.equal(second.nextCursor, null);
+  query.delete('cursor');
+  query.set('limit', '100');
+  query.set('from', '2026-10-25T12:00:00Z');
+  const afternoon = (await request('GET', '/events?' + query)).json();
+  assert.deepEqual(
+    afternoon.items.map((e: Schema['Event']) => e.id),
+    [day.id],
+  );
+  const all = (await request('GET', `/events?thingId=${thing.id}&timeZone=Europe%2FLondon`)).json();
+  assert.deepEqual(
+    all.items.map((e: Schema['Event']) => e.id),
+    [before.id, day.id, timed.id, after.id],
+  );
+  assert.equal((await request('GET', '/events?timeZone=Invalid%2FZone')).statusCode, 422);
+  const switched = await request('PATCH', path, {
+    startsOn: null,
+    startsAt: '2026-10-25T10:00:00Z',
+  });
+  assert.equal(switched.statusCode, 200, switched.body);
+  assert.equal(switched.json().startsOn, null);
+  const back = await request('PATCH', path, { startsAt: null, startsOn: '2026-10-25' });
+  assert.equal(back.statusCode, 200, back.body);
+  const done = await request('PATCH', path, { status: 'COMPLETED' });
+  assert.equal(done.json().startsOn, '2026-10-25');
+  assert.ok(done.json().completedAt);
+});
+
+test('explicit Thing views increment atomically without changing content timestamps and support paginated rankings', async () => {
+  const a = await create({ name: 'Usage fixture A' }),
+    b = await create({ name: 'Usage fixture B' }),
+    c = await create({ name: 'Usage fixture C' });
+  assert.equal(a.accessCount, 0);
+  assert.equal(a.lastViewedAt, null);
+  for (let i = 0; i < 2; i++) await request('GET', `/things/${a.id}`);
+  assert.equal((await request('GET', `/things/${a.id}`)).json().accessCount, 0);
+  const path = `/things/${a.id}:view`;
+  assert.equal((await app.inject({ method: 'POST', url: '/api' + path })).statusCode, 401);
+  assert.equal((await request('POST', path, undefined, 'bob')).statusCode, 404);
+  const views = await Promise.all(Array.from({ length: 8 }, () => request('POST', path)));
+  views.forEach((res) => assert.equal(res.statusCode, 200, res.body));
+  assert.deepEqual(
+    views.map((res) => res.json().accessCount).sort((x, y) => x - y),
+    [1, 2, 3, 4, 5, 6, 7, 8],
+  );
+  const viewed = (await request('GET', `/things/${a.id}`)).json<Schema['Thing']>();
+  assert.equal(viewed.accessCount, 8);
+  assert.ok(viewed.lastViewedAt);
+  assert.equal(viewed.updatedAt, a.updatedAt);
+  assert.equal(viewed.revision, a.revision);
+  await request('POST', `/things/${b.id}:view`);
+  const list = async (sort: string, cursor?: string) =>
+    (
+      await request(
+        'GET',
+        '/things?' +
+          new URLSearchParams({
+            q: 'Usage fixture',
+            sort,
+            limit: '1',
+            ...(cursor ? { cursor } : {}),
+          }),
+      )
+    ).json();
+  const frequent = await list('MOST_VIEWED');
+  assert.equal(frequent.items[0].id, a.id);
+  assert.equal(frequent.items[0].accessCount, 8);
+  const next = await list('MOST_VIEWED', frequent.nextCursor);
+  assert.equal(next.items[0].id, b.id);
+  assert.equal((await list('MOST_VIEWED', next.nextCursor)).items[0].id, c.id);
+  assert.equal((await list('RECENTLY_VIEWED')).items[0].id, b.id);
+  assert.equal((await list('UPDATED')).items[0].id, c.id);
+  const edited = await request('PATCH', `/things/${a.id}`, { description: 'An edit' });
+  assert.equal(edited.json().accessCount, 8);
+  assert.notEqual(edited.json().updatedAt, a.updatedAt);
+  assert.equal((await list('UPDATED')).items[0].id, a.id);
+  assert.equal((await request('GET', '/things?sort=INVENTED')).statusCode, 422);
+  assert.equal(
+    (await request('GET', '/things?sort=MOST_VIEWED&q=Usage%20fixture', undefined, 'bob')).json()
+      .items.length,
+    0,
+  );
+});
