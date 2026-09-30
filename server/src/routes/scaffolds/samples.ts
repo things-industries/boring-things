@@ -1,26 +1,21 @@
+import type { FastifyInstance } from 'fastify';
+import { route } from '../../contracts/routes.js';
+import { ensure } from '../../application/errors.js';
+import type { OwnerChanges } from '../../application/streams.js';
+import { profile } from '../../db/users.js';
 /**
  * Reads owner profiles and creates labelled demonstration Things and activity once per owner when
  * sample creation is enabled.
  */
 
 import type pg from 'pg';
-import type { Schema, ThingPatch, Value } from '../../../shared/model.js';
-import { emptyData } from '../../../shared/model.js';
-import { patchData } from './thing-data.js';
-import type { Registry } from './registry.js';
-import { rows, transaction, type Database } from '../db/connection.js';
+import type { Schema, ThingPatch, Value } from '../../../../shared/model.js';
+import { emptyData } from '../../../../shared/model.js';
+import { patchData } from '../../application/thing-data.js';
+import type { Registry } from '../../application/registry/registry.js';
+import { rows, transaction } from '../../db/connection.js';
 
-export async function profile(db: Database, owner: string) {
-  return (
-    await rows<Schema['Profile']>(
-      db,
-      'select id,display_name,samples_added from bt.users where id=$1',
-      [owner],
-    )
-  )[0];
-}
-
-export async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
+async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
   return transaction(pool, async (db) => {
     // Lock the owner row so repeated or concurrent requests cannot create multiple sample collections.
     const [user] = await rows<Schema['Profile']>(
@@ -115,7 +110,7 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
       [owner, hob],
     );
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,description,status,starts_at,is_sample) values($1,$2,'Review home cover','Example reminder. Check the actual renewal date.','scheduled',now()+interval '5 days',true)",
+      "insert into bt.events(owner_id,thing_id,title,description,status,starts_at,is_sample) values($1,$2,'Review home cover','Example reminder. Check the actual renewal date.','SCHEDULED',now()+interval '5 days',true)",
       [owner, insurance],
     );
     await db.query(
@@ -124,9 +119,9 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
     );
 
     for (const [kind, name] of [
-      ['consumable', 'Hob cleaner'],
-      ['accessory', 'Cookware set'],
-      ['upgrade', 'Replacement hob'],
+      ['CONSUMABLE', 'Hob cleaner'],
+      ['ACCESSORY', 'Cookware set'],
+      ['UPGRADE', 'Replacement hob'],
     ])
       await db.query(
         'insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,is_sample) values($1,$2,$3,$4,$5,$6,true)',
@@ -142,5 +137,20 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
 
     await db.query('update bt.users set samples_added=true where id=$1', [owner]);
     return profile(db, owner);
+  });
+}
+
+export function sampleRoutes(
+  app: FastifyInstance,
+  pool: pg.Pool,
+  registry: Registry,
+  enabled: boolean,
+  changes: OwnerChanges,
+) {
+  route(app, 'POST', '/api/profile:seed-samples', async (req) => {
+    ensure(enabled, 'Sample data is disabled', 'NOT_FOUND');
+    const result = await seedSamples(pool, req.ownerId, registry);
+    changes.publish(req.ownerId);
+    return result;
   });
 }

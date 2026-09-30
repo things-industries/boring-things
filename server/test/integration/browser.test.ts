@@ -167,7 +167,7 @@ test(
       await page.getByRole('link', { name: 'Ask about this thing' }).click();
       await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
       await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
-      await page.getByLabel('Action', { exact: true }).selectOption('create_event');
+      await page.getByLabel('Action', { exact: true }).selectOption('CREATE_EVENT');
       await page.getByRole('button', { name: 'Send', exact: true }).click();
       await expect(
         page.getByRole('heading', { name: 'Check the filter', exact: true }),

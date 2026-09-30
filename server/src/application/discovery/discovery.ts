@@ -1,3 +1,4 @@
+import { discoveryAttachment, saveDiscoveryItem } from '../../db/discovery.js';
 /**
  * Validates cited discovery results and saves names, PDF attachments, maintenance suggestions and
  * products with retry deduplication.
@@ -5,18 +6,18 @@
 
 import type pg from 'pg';
 import { createHash } from 'node:crypto';
-import type { BlobStorage } from '../providers/blobs.js';
-import type { Discovery } from './import-types.js';
-import type { ImportRow, Target } from '../db/imports.js';
-import { availableImportName } from '../db/imports.js';
+import type { BlobStorage } from '../../providers/blobs.js';
+import type { Discovery } from '../import/types.js';
+import type { ImportRow, Target } from '../../db/imports.js';
+import { availableImportName } from '../../db/imports.js';
 import {
   downloadPdf,
   type DocumentDownload,
   type DocumentOptions,
-} from '../providers/documents.js';
-import { ensure } from './errors.js';
-import { rows, transaction } from '../db/connection.js';
-import { ownedThing, bumpThing } from '../db/things.js';
+} from '../../providers/documents.js';
+import { ensure } from '../errors.js';
+import { transaction } from '../../db/connection.js';
+import { ownedThing, renameThing } from '../../db/things.js';
 
 // This validates citation links only; PDF downloads also enforce DNS and address restrictions in the document provider.
 export function publicUrl(value: string) {
@@ -74,10 +75,7 @@ export async function persistDiscovery(
       )?.[1].value as string | undefined;
 
       const chosen = await availableImportName(db, job.ownerId, thing.id, name, model);
-      await db.query(
-        'update bt.things set name=$1,revision=revision+1 where id=$2 and owner_id=$3',
-        [chosen, thing.id, job.ownerId],
-      );
+      await renameThing(db, job.ownerId, thing.id, chosen);
     });
   }
 
@@ -115,7 +113,6 @@ export async function persistDiscovery(
       )
       .digest('hex');
 
-    const refs = JSON.stringify([{ url: item.sourceUrl }]);
     let blob: string | undefined;
     let used = false;
 
@@ -125,11 +122,7 @@ export async function persistDiscovery(
 
       if (item.kind === 'reference') {
         if (++references > 3) continue;
-        const [existing] = await rows<{ id: string }>(
-          pool,
-          'select id from bt.attachments where import_key=$1 and owner_id=$2',
-          [key, job.ownerId],
-        );
+        const existing = await discoveryAttachment(pool, job.ownerId, key);
 
         if (!existing) {
           content = await download(item.url, options);
@@ -140,68 +133,19 @@ export async function persistDiscovery(
         }
       }
 
-      await transaction(pool, async (db) => {
+      used = await transaction(pool, async (db) => {
         options.signal.throwIfAborted();
-        await ownedThing(db, job.ownerId, target.thingId, true);
-
-        if (item.kind === 'reference') {
-          const inserted = blob
-            ? await rows<{ id: string }>(
-                db,
-                "insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key) values($1,$2,'application/pdf',$3,$4,$5,$6) on conflict(import_key) do nothing returning id",
-                [
-                  job.ownerId,
-                  `${
-                    item.title
-                      .replace(/[^\p{L}\p{N} ._-]/gu, '')
-                      .replace(/\.pdf$/i, '')
-                      .trim()
-                      .slice(0, 150) || 'Document'
-                  }.pdf`,
-                  content!.length,
-                  blob,
-                  item.url,
-                  key,
-                ],
-              )
-            : [];
-          used = inserted.length > 0;
-          const [file] = inserted.length
-            ? inserted
-            : await rows<{ id: string }>(
-                db,
-                'select id from bt.attachments where import_key=$1 and owner_id=$2',
-                [key, job.ownerId],
-              );
-          await db.query(
-            'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
-            [target.thingId, file.id, job.ownerId],
-          );
-        } else if (item.kind === 'maintenance') {
-          await db.query(
-            "insert into bt.events(owner_id,thing_id,title,description,status,source_refs,import_key) values($1,$2,$3,$4,'suggested',$5,$6) on conflict(import_key) do nothing",
-            [job.ownerId, target.thingId, item.title, item.description, refs, key],
-          );
-        } else {
-          await db.query(
-            'insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,import_key) values($1,$2,$3,$4,$5,$6,$7,now(),$8) on conflict(import_key) do nothing',
-            [
-              job.ownerId,
-              target.thingId,
-              item.kind,
-              item.title,
-              item.description,
-              item.url,
-              refs,
-              key,
-            ],
-          );
-        }
-
-        await bumpThing(db, job.ownerId, target.thingId);
+        return saveDiscoveryItem(
+          db,
+          job.ownerId,
+          target.thingId,
+          key,
+          item,
+          blob ? { storageKey: blob, byteSize: content!.length } : undefined,
+        );
       });
     } catch {
-      if (blob) await blobs.remove(blob);
+      if (blob) await blobs.remove(blob).catch(() => {});
       failed = true;
       continue;
     }

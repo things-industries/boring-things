@@ -32,7 +32,7 @@ export class ImportPanel {
   active() {
     return (
       !!this.job() &&
-      ['queued', 'extracting', 'mapping', 'discovering', 'awaiting_selection'].includes(
+      ['QUEUED', 'EXTRACTING', 'MAPPING', 'DISCOVERING', 'AWAITING_SELECTION'].includes(
         this.job()!.status,
       )
     );

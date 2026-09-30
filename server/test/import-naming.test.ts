@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { candidateModel, importedName } from '../src/application/import-naming.js';
+import { candidateModel, importedName } from '../src/application/import/naming.js';
 import { candidates } from './fixtures/imports.js';
 
 test('import names stay short until a collision needs a model or number', () => {

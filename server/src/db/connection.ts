@@ -4,6 +4,7 @@
  */
 
 import pg from 'pg';
+import { databaseError } from './errors.js';
 
 export type Database = Pick<pg.Pool, 'query'>;
 
@@ -19,17 +20,23 @@ export function createPool(connectionString: string) {
   return pool;
 }
 
-export async function transaction<T>(pool: pg.Pool, fn: (db: Database) => Promise<T>): Promise<T> {
+export async function transaction<T>(
+  pool: pg.Pool,
+  fn: (db: Database) => Promise<T>,
+  isolation?: 'repeatable read',
+): Promise<T> {
   const client = await pool.connect();
 
   try {
-    await client.query('begin');
+    await client.query(
+      isolation === 'repeatable read' ? 'begin isolation level repeatable read' : 'begin',
+    );
     const result = await fn(client);
     await client.query('commit');
     return result;
   } catch (error) {
-    await client.query('rollback');
-    throw error;
+    await client.query('rollback').catch(() => {});
+    throw databaseError(error);
   } finally {
     client.release();
   }
@@ -37,7 +44,7 @@ export async function transaction<T>(pool: pg.Pool, fn: (db: Database) => Promis
 
 // Only top-level column names and Date values are mapped; nested JSON retains its stored shape.
 export async function rows<T>(db: Database, sql: string, params: unknown[] = []): Promise<T[]> {
-  const result = await db.query(sql, params);
+  const result = await execute(db, sql, params);
   return result.rows.map((row) =>
     Object.fromEntries(
       Object.entries(row).map(([key, value]) => [
@@ -46,4 +53,16 @@ export async function rows<T>(db: Database, sql: string, params: unknown[] = [])
       ]),
     ),
   ) as T[];
+}
+
+export async function execute(
+  db: Database,
+  sql: string,
+  params: unknown[] = [],
+): Promise<pg.QueryResult> {
+  try {
+    return await db.query(sql, params);
+  } catch (error) {
+    throw databaseError(error);
+  }
 }

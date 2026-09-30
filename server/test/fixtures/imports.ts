@@ -7,7 +7,7 @@ import type {
   Source,
   RegistryTools,
   AiContext,
-} from '../../src/application/import-types.js';
+} from '../../src/application/import/types.js';
 // Synthetic replay fixtures. Live provider observations are recorded separately by the smoke script.
 const fact = (
   id: string,

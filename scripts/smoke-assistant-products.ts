@@ -70,7 +70,7 @@ try {
     headers,
     payload: {
       requestId: randomUUID(),
-      intent: 'answer',
+      intent: 'ANSWER',
       text: 'Find a compatible detergent consumable for this model. Research products, verify compatibility from manufacturer evidence, and show a product card with a retrieved merchant link. Do not invent a price.',
     },
   });
@@ -85,8 +85,8 @@ try {
         headers,
       })
     ).json<Schema['Conversation']>();
-    message = current.messages.filter((m) => m.role === 'assistant').at(-1);
-    if (message && ['complete', 'failed'].includes(message.status)) break;
+    message = current.messages.filter((m) => m.role === 'ASSISTANT').at(-1);
+    if (message && ['COMPLETE', 'FAILED'].includes(message.status)) break;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   const products = (
@@ -109,9 +109,9 @@ try {
     cardTypes: message?.cards.map((c) => c.type),
     artifact: 'test-results/assistant-products-smoke.json',
   });
-  assert.equal(message?.status, 'complete');
+  assert.equal(message?.status, 'COMPLETE');
   assert.ok(products.items.length);
-  assert.ok(message?.cards.some((c) => c.type === 'purchasable'));
+  assert.ok(message?.cards.some((c) => c.type === 'PURCHASABLE'));
   assert.ok(products.items.every((p) => p.sourceRefs.length && !p.price));
 } finally {
   await app?.close();

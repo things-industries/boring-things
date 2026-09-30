@@ -43,7 +43,7 @@
     </div>
   } @else {
     <form class="field-edit" (ngSubmit)="save()">
-      @if (field.uiHint === 'money') {
+      @if (field.uiHint === 'MONEY') {
         <div class="money-input">
           <select name="currency" [(ngModel)]="currency" aria-label="Currency">
             <option>GBP</option>

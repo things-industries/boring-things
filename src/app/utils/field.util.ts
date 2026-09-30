@@ -10,7 +10,7 @@ export function fieldValue(
   currency: Schema['Money']['currency'],
 ): Value {
   if (field.schema.type === 'boolean') return draft === 'true';
-  if (field.uiHint === 'money') return { amountMinor: amountMinor(draft), currency };
+  if (field.uiHint === 'MONEY') return { amountMinor: amountMinor(draft), currency };
   if (field.schema.type === 'number' || field.schema.type === 'integer') return Number(draft);
   if (field.schema.format === 'date-time') return localDateTimeToUtc(draft)!;
   return draft;

@@ -1,93 +1,91 @@
-/**
- * Streams conversation snapshots and live text deltas, coalescing changes and periodically
- * reconnecting for authentication.
- */
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { Schema } from '../../../shared/model.js';
 
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import type { ThingChanges } from '../application/streams.js';
-import type { Assistant } from '../application/conversations.js';
+type StreamReply = Pick<FastifyReply, 'raw' | 'hijack'>;
+interface StreamEvent {
+  event: string;
+  data: Schema['ConversationDelta'];
+}
+export interface SnapshotStream<T> {
+  event: string;
+  snapshot(): Promise<T>;
+  subscribe(changed: () => void): () => void;
+  revision?(snapshot: T): number;
+  deltas?(send: (event: StreamEvent) => void): () => void;
+}
+export type StreamSnapshots = <T>(reply: StreamReply, options: SnapshotStream<T>) => Promise<void>;
 
-export async function streamSnapshots(
-  req: FastifyRequest<{ Params: Record<string, string> }>,
-  reply: FastifyReply,
-  changes: ThingChanges,
-  event: string,
-  snapshot: () => Promise<unknown>,
-  assistant: Assistant,
-) {
-  let closed = false,
-    running = false,
-    dirty = true;
-
-  const send = async () => {
-    if (closed || running) return;
-    running = true;
-
-    try {
-      do {
-        dirty = false;
-        const data = await snapshot();
-
-        if (!closed && !reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) {
-          // Close a backpressured stream instead of accumulating snapshots; reconnecting clients receive fresh state.
-          reply.raw.end();
-          cleanup();
-        }
-      } while (dirty && !closed);
-    } catch {
-      reply.raw.end();
-      cleanup();
-    } finally {
-      running = false;
-    }
-  };
-
-  // Subscribe before the first read; changes during an in-flight snapshot set dirty and trigger another read.
-  const unsubscribe = changes.subscribe(req.ownerId, () => {
-    dirty = true;
-    void send();
+export function createStreams(app: FastifyInstance): StreamSnapshots {
+  const active = new Set<() => void>();
+  app.addHook('preClose', async () => {
+    for (const close of active) close();
   });
-
-  const unsubDelta = assistant.subscribe(req.ownerId, req.params.id, (delta) => {
-    if (
-      !closed &&
-      !reply.raw.write(`event: conversation.delta\ndata: ${JSON.stringify(delta)}\n\n`)
-    ) {
+  return async function streamSnapshots<T>(reply: StreamReply, options: SnapshotStream<T>) {
+    let closed = false,
+      running = false,
+      dirty = true,
+      revision = -1;
+    let unsubscribe = () => {},
+      unsubscribeDeltas = () => {};
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      unsubscribe();
+      unsubscribeDeltas();
+      clearInterval(keepalive);
+      clearTimeout(renew);
+      active.delete(close);
+      reply.raw.off('close', close);
       reply.raw.end();
-      cleanup();
-    }
-  });
-
-  const keepalive = setInterval(() => {
-    if (!closed) {
-      reply.raw.write(': keep-alive\n\n');
+    };
+    const write = (value: string) => {
+      if (!closed && !reply.raw.write(value)) close();
+    };
+    const send = async () => {
+      if (closed || running) return;
+      running = true;
+      try {
+        do {
+          dirty = false;
+          const data = await options.snapshot();
+          const next = options.revision?.(data);
+          if (next === undefined || next > revision) {
+            if (next !== undefined) revision = next;
+            write(
+              `${next === undefined ? '' : `id: ${next}\n`}event: ${options.event}\ndata: ${JSON.stringify(data)}\n\n`,
+            );
+          }
+        } while (dirty && !closed);
+      } catch {
+        close();
+      } finally {
+        running = false;
+      }
+    };
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'private, no-store',
+      'X-Accel-Buffering': 'no',
+      Connection: 'keep-alive',
+    });
+    active.add(close);
+    reply.raw.on('close', close);
+    unsubscribe = options.subscribe(() => {
       dirty = true;
       void send();
-    }
-  }, 10000);
-
-  // Close periodically so reconnects revalidate the bearer token; the existing stream does not recheck token expiry.
-  const renew = setTimeout(() => {
-    reply.raw.end();
-    cleanup();
-  }, 55000);
-
-  const cleanup = () => {
-    if (closed) return;
-    closed = true;
-    unsubscribe();
-    unsubDelta();
-    clearInterval(keepalive);
-    clearTimeout(renew);
+    });
+    unsubscribeDeltas =
+      options.deltas?.(({ event, data }) =>
+        write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+      ) ?? (() => {});
+    const keepalive = setInterval(() => {
+      write(': keep-alive\n\n');
+      dirty = true;
+      void send();
+    }, 10000);
+    // Reconnects renew authentication; existing streams cannot revalidate their bearer token.
+    const renew = setTimeout(close, 55000);
+    await send();
   };
-
-  reply.hijack();
-  reply.raw.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'private, no-store',
-    'X-Accel-Buffering': 'no',
-    Connection: 'keep-alive',
-  });
-  reply.raw.on('close', cleanup);
-  await send();
 }

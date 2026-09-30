@@ -4,20 +4,12 @@
  */
 
 import { createHash } from 'node:crypto';
-import { Ajv } from 'ajv';
-import type { Candidate, Extraction, MappingStage, Fact } from './import-types.js';
-import type { Registry } from './registry.js';
-import type { ThingData, StoredValue } from '../../../shared/model.js';
-import { ensure } from './errors.js';
-import spec from '../../../openapi.json' with { type: 'json' };
-
-const valueValidator = new Ajv({ strict: false }).compile({
-  ...spec.components.schemas.Value,
-  definitions: { Money: spec.components.schemas.Money },
-  oneOf: spec.components.schemas.Value.oneOf.map((s) =>
-    '$ref' in s ? { $ref: '#/definitions/Money' } : s,
-  ),
-});
+import type { Candidate, Extraction, MappingStage, Fact } from './types.js';
+import type { Registry } from '../registry/registry.js';
+import type { ThingData, StoredValue } from '../../../../shared/model.js';
+import { ensure } from '../errors.js';
+import { schemaValidator } from '../../contracts/schemas.js';
+const valueValidator = schemaValidator('Value');
 
 export function validateExtraction(input: Extraction, categories: string[]): Extraction {
   ensure(
@@ -150,11 +142,11 @@ export function applyImportStage(
       if (
         !data.userEdited?.includes(key) &&
         !data.userEdited?.includes(`local:${localId}`) &&
-        target[entry.fieldId]?.origin !== 'user'
+        target[entry.fieldId]?.origin !== 'USER'
       ) {
         const stored: StoredValue = {
           value: entry.value,
-          origin: 'import',
+          origin: 'IMPORT',
           sourceRefs: [
             {
               attachmentId,
@@ -171,7 +163,7 @@ export function applyImportStage(
         ) {
           target[entry.fieldId] = stored;
           data.undefinedFields = data.undefinedFields.filter(
-            (f) => f.id !== localId || f.origin === 'user',
+            (f) => f.id !== localId || f.origin === 'USER',
           );
 
           if (
@@ -211,7 +203,7 @@ export function retainFacts(
         label: fact.label,
         value: fact.value,
         sensitive: sensitiveFact(fact, registry),
-        origin: 'import',
+        origin: 'IMPORT',
         sourceRefs: [
           {
             attachmentId,

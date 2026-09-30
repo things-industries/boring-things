@@ -2,7 +2,7 @@
   <article class="activity-card">
     <div class="card-top">
       <span class="badge warning">{{
-        issue.status === 'open' ? 'Needs attention' : 'Resolved'
+        issue.status === 'OPEN' ? 'Needs attention' : 'Resolved'
       }}</span>
       @if (issue.isSample) {
         <span class="sample">Sample</span>
@@ -12,7 +12,7 @@
       <a [routerLink]="['/things', issue.thingId]">{{ issue.title }}</a>
     </h3>
     <p>{{ issue.description }}</p>
-    @if (issue.status === 'open') {
+    @if (issue.status === 'OPEN') {
       <button
         class="small quiet"
         [disabled]="busy()"
@@ -20,7 +20,7 @@
           action.emit({
             kind: 'issues',
             id: issue.id,
-            patch: { status: 'resolved' },
+            patch: { status: 'RESOLVED' },
           })
         "
       >
@@ -49,7 +49,7 @@
     @if (event.startsAt) {
       <p class="date">{{ event.startsAt | date: 'medium' }}</p>
     }
-    @if (event.status === 'suggested') {
+    @if (event.status === 'SUGGESTED') {
       <label class="compact-label">Schedule for<input type="datetime-local" #dateInput /></label
       ><button
         class="small quiet"
@@ -59,7 +59,7 @@
         Schedule <ng-icon name="scheduleEvent" aria-hidden="true" />
       </button>
     }
-    @if (event.status === 'scheduled') {
+    @if (event.status === 'SCHEDULED') {
       <button
         class="small quiet"
         [disabled]="busy()"
@@ -67,7 +67,7 @@
           action.emit({
             kind: 'events',
             id: event.id,
-            patch: { status: 'completed' },
+            patch: { status: 'COMPLETED' },
           })
         "
       >

@@ -88,11 +88,13 @@ Removing a populated section or changing category preserves values, provenance a
 
 - `src/app/`: Angular shell, lazy feature pages, shared components and services; see `src/AGENTS.md`.
 - `src/styles/`: Sass tokens, typography, mixins and shared styles; see `src/styles/CHEATSHEET.md`.
-- `server/src/application/`: registry validation, field edits and Thing workflows.
-- `server/src/db/`: database access and typed registry seeds.
+- `server/src/application/`: feature workflows for imports, registry, discovery and conversations, plus shared activity rules and the single-process job runner.
+- `server/src/db/`: typed persistence functions grouped by entity, shared transactions and authored registry seeds.
 - `server/src/providers/blobs.ts`: storage interface and filesystem implementation.
 - `server/src/plugins/auth.ts`: Logto verification and local-user mapping.
-- `server/src/contracts/`: runtime schemas drawn from `openapi.json`.
+- `server/src/contracts/`: operation-specific route types, OAS 3.1 runtime schemas and contract checks.
+- `server/src/routes/`: HTTP handlers, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
+- `server/src/lib/`: generic cancellation and media checks.
 - `shared/api.ts`: generated contract types; do not edit by hand.
 - `src/app/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
 - `supabase/migrations/`: SQL migrations.
@@ -167,3 +169,5 @@ Demo after applying migrations and configuring Logto/OpenAI:
 6. Return to the Thing and reload. The scheduled Event, imported fields and discovered products remain.
 
 Integration checks cover shared attachments, user-edit preservation, grouping, duplicate-free write/discovery retry, owner isolation, deadlines, stream reconnect and restart recovery. Browser checks exercise signed JWT authentication, mobile/desktop chat cards and scheduling. Live Logto redirect/login/logout and physical-device camera capture remain manual; they have not been repeated for step 3.
+
+API domain enums use UPPER_SNAKE_CASE. Run `pnpm db:migrate` before starting this version against an existing database: the migration updates statuses, intents, roles, UI hints, stored field origins and resource cards, preserving user values and retry receipts. Frontend and backend must be updated together. JSON Schema type/format names and external provider protocol values keep their standard spelling.

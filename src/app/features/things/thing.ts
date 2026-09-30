@@ -52,7 +52,7 @@ export class ThingPage implements OnDestroy {
   private auth = inject(Auth);
   private stream?: AbortController;
   processing = computed(() =>
-    ['queued', 'extracting', 'mapping', 'discovering', 'awaiting_selection'].includes(
+    ['QUEUED', 'EXTRACTING', 'MAPPING', 'DISCOVERING', 'AWAITING_SELECTION'].includes(
       this.thing()?.import?.status ?? '',
     ),
   );
@@ -112,7 +112,7 @@ export class ThingPage implements OnDestroy {
   events = signal<Schema['Event'][]>([]);
   purchasables = signal<Schema['Purchasable'][]>([]);
   purchaseGroups = computed(() =>
-    (['consumable', 'accessory', 'upgrade'] as const)
+    (['CONSUMABLE', 'ACCESSORY', 'UPGRADE'] as const)
       .map((kind) => ({
         kind,
         items: this.purchasables().filter((item) => item.kind === kind),
@@ -390,9 +390,12 @@ export class ThingPage implements OnDestroy {
       description: '',
       keywords: [],
       schema: {
-        type: field.valueType === 'money' ? 'object' : field.valueType,
+        type:
+          field.valueType === 'MONEY'
+            ? 'object'
+            : (field.valueType.toLowerCase() as Schema['SchemaTypeEnum']),
       },
-      uiHint: field.valueType === 'money' ? 'money' : 'text',
+      uiHint: field.valueType === 'MONEY' ? 'MONEY' : 'TEXT',
       sensitive: field.sensitive,
       value: field.value,
       masked: field.masked,

@@ -8,38 +8,38 @@
       <bt-error-message [code]="error()" />
     }
     @if (job(); as current) {
-      @if (active() && current.status !== 'awaiting_selection') {
+      @if (active() && current.status !== 'AWAITING_SELECTION') {
         <div class="import-progress" role="progressbar" aria-label="AI import in progress"></div>
       }
       <div role="status" aria-live="polite">
         @switch (current.status) {
-          @case ('queued') {
+          @case ('QUEUED') {
             <p>Import queued…</p>
           }
-          @case ('extracting') {
+          @case ('EXTRACTING') {
             <p>Reading your source…</p>
           }
-          @case ('mapping') {
+          @case ('MAPPING') {
             <p>Adding details… Fields appear as they are ready.</p>
           }
-          @case ('discovering') {
+          @case ('DISCOVERING') {
             <p>Finding manuals, model information and suggestions…</p>
           }
-          @case ('awaiting_selection') {
+          @case ('AWAITING_SELECTION') {
             <h2>Which Things would you like to keep?</h2>
           }
-          @case ('complete') {
+          @case ('COMPLETE') {
             <p>Import complete. Review the details below.</p>
           }
-          @case ('incomplete') {
+          @case ('INCOMPLETE') {
             <p>Some work could not finish. Saved details are available to review.</p>
           }
-          @case ('failed') {
+          @case ('FAILED') {
             <p>The import could not finish. Your source has been kept.</p>
           }
         }
       </div>
-      @if (current.status === 'awaiting_selection') {
+      @if (current.status === 'AWAITING_SELECTION') {
         @for (candidate of current.candidates; track candidate.id) {
           <label
             >{{ candidate.name }}
@@ -63,7 +63,7 @@
         </button>
         <button [disabled]="busy()" (click)="confirm()">Keep selected Things</button>
       }
-      @if (current.status === 'failed' || current.status === 'incomplete') {
+      @if (current.status === 'FAILED' || current.status === 'INCOMPLETE') {
         <button [disabled]="busy()" (click)="retry()">Retry import</button>
       }
       @if (current.thingIds.length > 1) {

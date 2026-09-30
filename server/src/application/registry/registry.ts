@@ -5,9 +5,13 @@
 
 import { Ajv, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
-import type { FieldDefinition, FieldSet, Value } from '../../../shared/model.js';
-import { ensure } from './errors.js';
-import { rows, type Database } from '../db/connection.js';
+import type { FieldDefinition, FieldSet, Value } from '../../../../shared/model.js';
+import { ensure } from '../errors.js';
+
+export interface FieldSearchLabel {
+  label: string;
+  context: string;
+}
 
 export class Registry {
   fields: Map<string, FieldDefinition>;
@@ -25,7 +29,7 @@ export class Registry {
     addFormats.default(ajv);
 
     for (const f of fields) {
-      ensure(f.uiHint !== 'password' || f.sensitive, 'Password fields must be sensitive');
+      ensure(f.uiHint !== 'PASSWORD' || f.sensitive, 'Password fields must be sensitive');
       this.validators.set(f.id, ajv.compile(f.schema));
     }
 
@@ -65,24 +69,4 @@ export class Registry {
     ensure(validator, 'Unknown field');
     ensure(validator(value), `Invalid value for ${this.fields.get(fieldId)!.name}`);
   }
-}
-
-export async function loadRegistry(db: Database) {
-  const fields = await rows<FieldDefinition>(db, 'select * from bt.field_definitions order by id');
-  const sets = await rows<Omit<FieldSet, 'fields'> & { fieldIds: string[] }>(
-    db,
-    'select * from bt.field_sets order by id',
-  );
-
-  return new Registry(
-    fields,
-    sets.map((s) => ({
-      ...s,
-      fields: s.fieldIds.map((id) => {
-        const f = fields.find((f) => f.id === id);
-        ensure(f, 'Unknown field in registry');
-        return f;
-      }),
-    })),
-  );
 }
