@@ -26,7 +26,7 @@
       }
     }
     @if (file(); as file) {
-      <button class="quiet" (click)="download()">Open {{ file.filename }}</button>
+      <button class="quiet" (click)="download()">Open {{ file.title ?? file.filename }}</button>
     }
     <bt-activity [events]="events()" [issues]="issues()" [busy]="busy()" (action)="act($event)" />
     @if (purchase(); as item) {

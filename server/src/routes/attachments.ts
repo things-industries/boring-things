@@ -9,11 +9,13 @@ import {
   uploadAttachment,
   removeAttachment,
   setAttachmentLink,
+  updateAttachmentMetadata,
   type UploadedFile,
 } from '../application/attachments.js';
 import type { BlobStorage } from '../providers/blobs.js';
 import type { Config } from '../config.js';
 import type { OwnerChanges } from '../application/streams.js';
+import { transaction } from '../db/connection.js';
 
 export function attachmentRoutes(
   app: FastifyInstance,
@@ -70,6 +72,16 @@ export function attachmentRoutes(
   route(app, 'GET', '/api/attachments/{id}', async (req) =>
     publicAttachment(await attachment(db, req.ownerId, req.params.id)),
   );
+  route(app, 'PATCH', '/api/attachments/{id}', async (req) => {
+    const result = await transaction(db, (tx) =>
+      updateAttachmentMetadata(tx, req.ownerId, req.params.id, req.body, {
+        origin: 'USER',
+        sourceRefs: [],
+      }),
+    );
+    changes.publish(req.ownerId);
+    return result;
+  });
   route(app, 'GET', '/api/attachments/{id}/content', async (req, reply) => {
     const file = await attachment(db, req.ownerId, req.params.id);
     return reply

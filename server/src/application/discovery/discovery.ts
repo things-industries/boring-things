@@ -18,6 +18,8 @@ import {
 import { ensure } from '../errors.js';
 import { transaction } from '../../db/connection.js';
 import { ownedThing, renameThing } from '../../db/things.js';
+import { validateAttachmentMetadata } from '../attachments.js';
+import { pdfPageCount } from '../../lib/pdf.js';
 
 // This validates citation links only; PDF downloads also enforce DNS and address restrictions in the document provider.
 export function publicUrl(value: string) {
@@ -119,6 +121,7 @@ export async function persistDiscovery(
     try {
       options.signal.throwIfAborted();
       let content: Buffer | null = null;
+      let pageCount: number | null = null;
 
       if (item.kind === 'reference') {
         if (++references > 3) continue;
@@ -128,6 +131,7 @@ export async function persistDiscovery(
           content = await download(item.url, options);
           // HTML support pages remain citations; they are never manufactured into text files.
           if (!content) continue;
+          pageCount = await pdfPageCount(content, 'application/pdf', options.signal);
           options.signal.throwIfAborted();
           blob = await blobs.put(content);
         }
@@ -140,8 +144,13 @@ export async function persistDiscovery(
           job.ownerId,
           target.thingId,
           key,
-          item,
-          blob ? { storageKey: blob, byteSize: content!.length } : undefined,
+          item.kind === 'reference'
+            ? {
+                ...item,
+                metadata: validateAttachmentMetadata({ title: item.title, ...item.metadata }),
+              }
+            : item,
+          blob ? { storageKey: blob, byteSize: content!.length, pageCount } : undefined,
         );
       });
     } catch {

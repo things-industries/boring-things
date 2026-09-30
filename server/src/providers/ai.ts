@@ -4,6 +4,7 @@
  */
 
 import { Ajv } from 'ajv';
+import spec from '../../../openapi.json' with { type: 'json' };
 import type {
   AiContext,
   Candidate,
@@ -50,7 +51,22 @@ const fact = object({
   sensitive: { type: 'boolean' },
 });
 
+const metadataSchema = object({
+  title: spec.components.schemas.AttachmentPatch.properties.title,
+  documentType: {
+    type: ['string', 'null'],
+    enum: [...spec.components.schemas.AttachmentDocumentTypeEnum.enum, null],
+  },
+  publisher: spec.components.schemas.AttachmentPatch.properties.publisher,
+  documentDate: {
+    type: ['string', 'null'],
+    description: 'Original document date as YYYY-MM-DD when supported, otherwise null.',
+  },
+});
+const optionalMetadata = { anyOf: [metadataSchema, { type: 'null' }] };
+
 const extractionSchema = object({
+  metadata: optionalMetadata,
   text: string,
   candidates: array(
     object({
@@ -89,6 +105,7 @@ const discoverySchema = object({
       description: string,
       url: string,
       sourceUrl: string,
+      metadata: optionalMetadata,
     }),
   ),
 });
@@ -258,7 +275,7 @@ export class OpenAiImports implements ImportAi {
           content: [
             {
               type: 'input_text',
-              text: `Transcribe the source and extract up to 10 distinct Things with up to 100 supported facts each. A combined buildings/contents policy is one Thing. A separate appliance and policy are two. Categories: ${categories.join(', ')}. Keep all readable source content in text, including content with no field match. Unknown category is other. Use sequential candidate/fact IDs. Each fact has a verbatim supporting quote (max 2000 characters), page number or null. Mark passwords, access codes and other secret facts sensitive. Do not put secrets in candidate names. Use a short everyday name: brand plus the supported product type, e.g. "Bosch Oven". Avoid model/serial numbers and generic "appliance" when a specific type is evident. Do not guess a product type from an unfamiliar model code; discovery can resolve it later. Extract manufacturer, model, E-number (including slash suffix), production/FD and serial/Z-number as separate facts when present. Never mistake a model identifier for a serial number. Terms describe type, brand and model. Extract only supported facts; missing data stays absent.`,
+              text: `Transcribe the source and extract up to 10 distinct Things with up to 100 supported facts each. A combined buildings/contents policy is one Thing. A separate appliance and policy are two. Categories: ${categories.join(', ')}. Keep all readable source content in text, including content with no field match. Unknown category is other. Use sequential candidate/fact IDs. Each fact has a verbatim supporting quote (max 2000 characters), page number or null. Mark passwords, access codes and other secret facts sensitive. Do not put secrets in candidate names. Use a short everyday name: brand plus the supported product type, e.g. "Bosch Oven". Avoid model/serial numbers and generic "appliance" when a specific type is evident. Do not guess a product type from an unfamiliar model code; discovery can resolve it later. Extract manufacturer, model, E-number (including slash suffix), production/FD and serial/Z-number as separate facts when present. Never mistake a model identifier for a serial number. Terms describe type, brand and model. Extract only supported facts; missing data stays absent. Return document metadata with a short descriptive title, documentType (MANUAL, RECEIPT, INVOICE, INSTALLATION_GUIDE, SPECIFICATION or OTHER), issuing organisation as publisher, and the original documentDate as YYYY-MM-DD. Metadata describes the whole source document. Use null for unsupported properties, or null metadata for a product photograph or unclassified notes. Never infer document date from a purchase date unless the source is a receipt for that purchase. Omit passwords, access codes, account numbers and serial numbers from metadata. Do not infer page counts.`,
             },
             content,
           ],
@@ -357,7 +374,7 @@ export class OpenAiImports implements ImportAi {
       [
         {
           role: 'user',
-          content: `Structure up to 8 supported recommendations from the search report. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a short brand + everyday product type name such as "Bosch Oven", with sourceUrl proving the identification; otherwise null. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs relevant to the identified model (manuals, installation guides, specification sheets). Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing model compatibility. Prefer official manufacturer documents. Maintenance must be supported by a cited manual/model source. Product compatibility must be supported; omit uncertain products. Product url must be a retrieved merchant product page, not a PDF, manual or support index. Omit products without a merchant page. No prices. Report: ${this.text(result)}\nRetrieved URLs: ${JSON.stringify(sources)}`,
+          content: `Structure up to 8 supported recommendations from the search report. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a short brand + everyday product type name such as "Bosch Oven", with sourceUrl proving the identification; otherwise null. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs relevant to the identified model (manuals, installation guides, specification sheets). Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing model compatibility. Prefer official manufacturer documents. Reference metadata may include title, documentType, publisher and documentDate only when supported by the cited source; unknown properties are null. Use null metadata for other item kinds. Do not infer document date from website update dates. Maintenance must be supported by a cited manual/model source. Product compatibility must be supported; omit uncertain products. Product url must be a retrieved merchant product page, not a PDF, manual or support index. Omit products without a merchant page. No prices. Report: ${this.text(result)}\nRetrieved URLs: ${JSON.stringify(sources)}`,
         },
       ],
       discoverySchema,

@@ -107,6 +107,7 @@ As a Boring things user, I must be able to:
 - Authorise Boring Things to discover my Things automatically, via connections into other services that I use (OpenBanking, email, password manager)
 - See and search a list of Things that I own
 - See details of a single Thing
+- Give attachments readable titles, document types, publishers and original document dates; retain original filenames and files. Show PDF page counts when available. Preserve attachment metadata edits and explicit clears when extracting details again.
 - Ask natural-language questions about my Things and get smart, accurate answers
 - See questions I've previously asked and review those chats
 - See a timeline of upcoming and past events related to my Things, and have them synced to my device calendar

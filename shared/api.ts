@@ -261,7 +261,11 @@ export interface paths {
         delete: operations["deleteAttachment"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit attachment metadata
+         * @description Owner-scoped partial update shared across all linked Things. User edits and clears take precedence over later extraction.
+         */
+        patch: operations["patchAttachment"];
         trace?: never;
     };
     "/api/attachments/{id}/content": {
@@ -643,6 +647,8 @@ export interface components {
             schema: components["schemas"]["FieldSchema"];
             uiHint: components["schemas"]["UiHintEnum"];
             sensitive: boolean;
+            /** @description Icon name from the client field icon catalogue. Missing, null or unrecognised names use the generic field icon. */
+            icon?: string | null;
         };
         /** @description A field definition with its current value, provenance and masking state. */
         Field: {
@@ -657,6 +663,8 @@ export interface components {
             masked: boolean;
             origin: components["schemas"]["FieldOriginEnum"] | null;
             sourceRefs: components["schemas"]["SourceRef"][];
+            /** @description Icon name from the client field icon catalogue. Missing, null or unrecognised names use the generic field icon. */
+            icon?: string | null;
         };
         /** @description Category-specific field group with required and suggested related sets. */
         FieldSet: {
@@ -862,6 +870,19 @@ export interface components {
             thingIds: string[];
             /** Format: date-time */
             createdAt: string;
+            /** @description Display title; null displays the original filename. */
+            title: string | null;
+            documentType: components["schemas"]["AttachmentDocumentTypeEnum"] | null;
+            /** @description Manufacturer, retailer or organisation that issued the document. */
+            publisher: string | null;
+            /**
+             * Format: date
+             * @description Original document date, independent of upload time.
+             */
+            documentDate: string | null;
+            /** @description PDF page count derived from the file. Null for non-PDF, unparsed, malformed or encrypted files. */
+            readonly pageCount: number | null;
+            metadataSources: components["schemas"]["AttachmentMetadataSources"];
         };
         /** @description Problem associated with one Thing, including resolution state. */
         Issue: {
@@ -1183,6 +1204,31 @@ export interface components {
              */
             lastViewedAt: string | null;
         };
+        /** @description Specified attachment metadata updates. Omitted properties are preserved; null clears a value and protects that clear from automated extraction. Filename, content and page count are not editable. */
+        AttachmentPatch: {
+            /** @description Display title; null displays the original filename. */
+            title?: string | null;
+            documentType?: components["schemas"]["AttachmentDocumentTypeEnum"] | null;
+            /** @description Manufacturer, retailer or organisation that issued the document. */
+            publisher?: string | null;
+            /**
+             * Format: date
+             * @description Original document date, independent of upload time.
+             */
+            documentDate?: string | null;
+        };
+        /** @description Origin and supporting document or URL for a metadata value. USER entries also preserve explicit clears. */
+        AttachmentMetadataSource: {
+            origin: components["schemas"]["AttachmentMetadataOriginEnum"];
+            sourceRefs: components["schemas"]["SourceRef"][];
+        };
+        /** @description Per-property metadata provenance; absent entries indicate unknown origin. Raw extracted quotes are omitted. */
+        AttachmentMetadataSources: {
+            title?: components["schemas"]["AttachmentMetadataSource"];
+            documentType?: components["schemas"]["AttachmentMetadataSource"];
+            publisher?: components["schemas"]["AttachmentMetadataSource"];
+            documentDate?: components["schemas"]["AttachmentMetadataSource"];
+        };
         /**
          * @description Issue status.
          * @enum {string}
@@ -1253,6 +1299,16 @@ export interface components {
          * @enum {string}
          */
         ThingSortEnum: "UPDATED" | "RECENTLY_VIEWED" | "MOST_VIEWED";
+        /**
+         * @description Document classification; null on Attachment means unknown.
+         * @enum {string}
+         */
+        AttachmentDocumentTypeEnum: "MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER";
+        /**
+         * @description Source of attachment metadata.
+         * @enum {string}
+         */
+        AttachmentMetadataOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
     };
     responses: {
         /** @description A valid bearer token is required. */
@@ -1979,6 +2035,38 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    patchAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachmentPatch"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];

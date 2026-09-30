@@ -39,6 +39,8 @@ import {
 import { ownedThing, bumpThing, saveThingData } from '../../db/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { persistDiscovery } from '../discovery/discovery.js';
+import { updateAttachmentMetadata } from '../attachments.js';
+import { pdfPageCount } from '../../lib/pdf.js';
 
 export class ImportProcessor {
   constructor(
@@ -118,7 +120,25 @@ export class ImportProcessor {
         // Preserve the literal text input too, even if the model omitted part of it.
         if (file.mediaType === 'text/plain')
           extraction.text = Buffer.concat(chunks).toString('utf8');
-        await saveExtraction(this.pool, job, extraction);
+        const pageCount =
+          file.pageCount ?? (await pdfPageCount(Buffer.concat(chunks), file.mediaType, signal));
+        signal.throwIfAborted();
+        await transaction(this.pool, async (db) => {
+          await saveExtraction(db, job, extraction);
+          if (extraction.metadata || pageCount !== null)
+            await updateAttachmentMetadata(
+              db,
+              job.ownerId,
+              file.id,
+              extraction.metadata ?? { title: null },
+              {
+                origin: 'IMPORT',
+                sourceRefs: [{ attachmentId: file.id }],
+              },
+              pageCount,
+            );
+        });
+        this.changes.publish(job.ownerId);
         job = await ownedImport(this.pool, job.ownerId, job.id);
       }
 

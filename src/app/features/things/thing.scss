@@ -151,6 +151,9 @@ bt-field:target {
   gap: tokens.space(5);
 }
 .pinned-summary dt {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
   color: tokens.color('text-muted');
 }
 .pinned-summary dd {

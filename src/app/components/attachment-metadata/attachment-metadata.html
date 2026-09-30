@@ -1,0 +1,79 @@
+<p class="metadata muted">
+  <span>{{ file.mediaType === 'application/pdf' ? 'PDF' : file.mediaType }}</span>
+  @if (file.pageCount !== null) {
+    <span> · {{ file.pageCount }} {{ file.pageCount === 1 ? 'page' : 'pages' }}</span>
+  }
+  @if (file.publisher) {
+    <span> · {{ file.publisher }}</span>
+  }
+  @if (file.documentDate) {
+    <span> · {{ file.documentDate | date: 'd MMM yyyy' : 'UTC' }}</span>
+  }
+</p>
+@if (file.documentType) {
+  <span class="document-type muted">
+    @switch (file.documentType) {
+      @case ('MANUAL') {
+        Manual
+      }
+      @case ('RECEIPT') {
+        Receipt
+      }
+      @case ('INVOICE') {
+        Invoice
+      }
+      @case ('INSTALLATION_GUIDE') {
+        Installation guide
+      }
+      @case ('SPECIFICATION') {
+        Specification
+      }
+      @case ('OTHER') {
+        Other document
+      }
+    }
+  </span>
+}
+@if (editing()) {
+  <form (ngSubmit)="save()">
+    <fieldset [disabled]="busy() || disabled">
+      <label
+        >Title<input name="title" [(ngModel)]="title" maxlength="200" [placeholder]="file.filename"
+      /></label>
+      <label
+        >Document type<select name="documentType" [(ngModel)]="documentType">
+          <option value="">Unknown</option>
+          <option value="MANUAL">Manual</option>
+          <option value="RECEIPT">Receipt</option>
+          <option value="INVOICE">Invoice</option>
+          <option value="INSTALLATION_GUIDE">Installation guide</option>
+          <option value="SPECIFICATION">Specification</option>
+          <option value="OTHER">Other document</option>
+        </select></label
+      >
+      <label>Publisher<input name="publisher" [(ngModel)]="publisher" maxlength="200" /></label>
+      <label
+        >Document date<input name="documentDate" [(ngModel)]="documentDate" type="date"
+      /></label>
+      <small class="muted"
+        >Original file: {{ file.filename }}. Changes apply wherever this attachment is
+        linked.</small
+      >
+      <div class="actions">
+        <button class="small" type="submit">Save details</button>
+        <button class="quiet small" type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </fieldset>
+  </form>
+} @else {
+  <button
+    class="quiet small"
+    type="button"
+    [disabled]="disabled || busy()"
+    (click)="edit()"
+    [attr.aria-label]="'Edit details for ' + (file.title ?? file.filename)"
+  >
+    Edit details
+  </button>
+}
+<bt-error-message [code]="error()" />

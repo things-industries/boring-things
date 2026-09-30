@@ -1,0 +1,36 @@
+@use 'tokens';
+:host {
+  display: block;
+  min-width: 0;
+}
+.metadata {
+  margin: tokens.space(1) 0;
+  overflow-wrap: anywhere;
+}
+.document-type {
+  font-size: 12px;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: tokens.space(2) 0;
+  min-width: 0;
+}
+label {
+  display: block;
+  margin-bottom: tokens.space(2);
+}
+input,
+select {
+  width: 100%;
+  min-width: 0;
+}
+small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: tokens.space(2);
+  margin-top: tokens.space(2);
+}

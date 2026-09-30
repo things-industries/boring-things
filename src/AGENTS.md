@@ -35,7 +35,7 @@ Keep feature-only components and data services beside their feature. Move code i
 ## Components and state
 
 - Use standalone components, separate `.ts`, `.html` and `.scss` files, and lazy page routes
-- Prefer Angular components select the element like `'app-button'` and not by Attribute selector `'[app-button]'`. Only use the attribute selector when the underlying element has to be rendered as a direct descendent or we would be using many of the element's native apis without much structural changes. 
+- Prefer Angular components select the element like `'app-button'` and not by Attribute selector `'[app-button]'`. Only use the attribute selector when the underlying element has to be rendered as a direct descendent or we would be using many of the element's native apis without much structural changes.
 - Use `inject()` in field initialisers. Keep the shell focused on navigation and application layout.
 - Keep component state in local signals. Shared services own private writable signals and expose readonly views with `asReadonly()`.
 - No global store library is currently installed. Introduce a store only when shared state warrants it and the dependency is approved.
@@ -68,6 +68,7 @@ Keep feature-only components and data services beside their feature. Move code i
 - Import Remix icons only in `app/core/app-icons.ts`. Export names describing their purpose, such as `pinField` and `uploadFile`.
 - Components register only their icons in `viewProviders: [provideIcons({ ... })]` and render them with `NgIcon`.
 - Prefer line variants; use fills for selected states. Decorative icons use `aria-hidden="true"`; icon-only controls need a label on the control.
+- Field icons returned by the registry use the named `fieldIcons` catalogue in `app/core/app-icons.ts`; resolve names through `fieldIconName` for a generic fallback. Render them through `NgIcon` with `aria-hidden="true"`.
 - Category icons returned by the registry are API content. UI controls use the icon catalogue.
 - Declare custom SVG icons in the catalogue using `currentColor`. Do not add another icon library.
 

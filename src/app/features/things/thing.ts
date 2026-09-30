@@ -6,7 +6,7 @@ import { Auth } from '../../core/services/auth.service';
 import { ThingSkeleton } from './thing-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { back, open, uploadFile, addTag } from '../../core/app-icons';
+import { back, open, uploadFile, addTag, fieldIcons, fieldIconName } from '../../core/app-icons';
 import { apiData } from '../../core/api/api-client';
 import {
   Component,
@@ -30,9 +30,10 @@ import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { FieldEditor } from '../../components/field/field';
 import { Activity } from '../../components/activity/activity';
+import { AttachmentMetadata } from '../../components/attachment-metadata/attachment-metadata';
 import type { ActivityAction } from '../../interfaces/activity.interface';
 @Component({
-  viewProviders: [provideIcons({ open, uploadFile, addTag, back })],
+  viewProviders: [provideIcons({ open, uploadFile, addTag, back, ...fieldIcons })],
   selector: 'bt-thing',
   imports: [
     ThingSkeleton,
@@ -41,6 +42,7 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
     RouterLink,
     FieldEditor,
     Activity,
+    AttachmentMetadata,
     ErrorMessage,
     NgIcon,
     TermPipe,
@@ -66,6 +68,7 @@ export class ThingPage implements OnDestroy {
   thing = signal<Schema['Thing'] | null>(null);
   sections = computed(() => fieldSections(this.thing()?.fieldSets ?? []));
   fieldAnchor = fieldAnchor;
+  readonly fieldIconName = fieldIconName;
   formatValue = formatFieldValue;
   pinnedDetails = computed(() => {
     const thing = this.thing();
@@ -77,6 +80,7 @@ export class ThingPage implements OnDestroy {
           ? [
               {
                 label: field.label,
+                icon: null,
                 value: field.value,
                 masked: field.masked,
                 anchor: 'custom-' + field.id,
@@ -93,6 +97,7 @@ export class ThingPage implements OnDestroy {
         ? [
             {
               label: field.name,
+              icon: field.icon,
               value: field.value,
               masked: field.masked,
               anchor: fieldAnchor(pin.fieldSetId ?? null, field.id),
@@ -549,6 +554,10 @@ export class ThingPage implements OnDestroy {
   }
   download(file: Schema['Attachment']) {
     void this.perform(() => this.api.download(file));
+  }
+  attachmentChanged(file: Schema['Attachment']) {
+    this.attachments.update((files) => files.map((item) => (item.id === file.id ? file : item)));
+    this.library.update((files) => files.map((item) => (item.id === file.id ? file : item)));
   }
   activity(action: ActivityAction) {
     void this.perform(async () => {
