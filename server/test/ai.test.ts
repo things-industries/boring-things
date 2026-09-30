@@ -28,7 +28,10 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
         output:
           requests.length === 1
             ? [
-                { type: 'web_search_call', action: { sources: [{ url: source }] } },
+                {
+                  type: 'web_search_call',
+                  action: { sources: [{ url: source }] },
+                },
                 { type: 'web_search_call', action: { url: pdf } },
                 {
                   type: 'message',

@@ -1,0 +1,38 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  display: block;
+  max-width: 56rem;
+  margin: auto;
+}
+.messages {
+  display: grid;
+  gap: tokens.space(4);
+}
+.message {
+  min-width: 0;
+}
+.message.user {
+  background: tokens.color('surface-subtle');
+}
+.message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message h2 {
+  font-size: 1rem;
+}
+.sources {
+  display: grid;
+  gap: tokens.space(2);
+  overflow-wrap: anywhere;
+}
+.composer {
+  margin-top: tokens.space(5);
+  display: grid;
+  gap: tokens.space(3);
+}
+.chat-skeleton {
+  @include mixins.skeleton;
+  min-height: 12rem;
+}

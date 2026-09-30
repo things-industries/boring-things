@@ -1,118 +1,141 @@
 @if (config.importEnabled) {
-<section class="panel import-panel" aria-label="Import a Thing">
-  @if (!thingId()) {
-  <h2>Import with AI</h2>
-  <p>Start with a photo, document or pasted text. Details are added as they are found.</p>
-  } @if (error()) {
-  <bt-error-message [code]="error()" />
-  } @if (job(); as current) { @if (active() && current.status !== 'awaiting_selection') {
-  <div class="import-progress" role="progressbar" aria-label="AI import in progress"></div>
-  }
-  <div role="status" aria-live="polite">
-    @switch (current.status) { @case ('queued') {
-    <p>Import queued…</p>
-    } @case ('extracting') {
-    <p>Reading your source…</p>
-    } @case ('mapping') {
-    <p>Adding details… Fields appear as they are ready.</p>
-    } @case ('discovering') {
-    <p>Finding manuals, model information and suggestions…</p>
-    } @case ('awaiting_selection') {
-    <h2>Which Things would you like to keep?</h2>
-    } @case ('complete') {
-    <p>Import complete. Review the details below.</p>
-    } @case ('incomplete') {
-    <p>Some work could not finish. Saved details are available to review.</p>
-    } @case ('failed') {
-    <p>The import could not finish. Your source has been kept.</p>
-    } }
-  </div>
-  @if (current.status === 'awaiting_selection') { @for (candidate of current.candidates; track
-  candidate.id) {
-  <label
-    >{{ candidate.name }}
-    <select
-      [ngModel]="selections[candidate.id] || ''"
-      (ngModelChange)="selections[candidate.id] = $event"
-      [disabled]="busy()"
-    >
-      <option value="">Create a Thing</option>
-      <option value="skip">Skip</option>
-      @for (thing of existing(); track thing.id) { @if (thing.id !== thingId()) {
-      <option [value]="thing.id">Add to {{ thing.name }}</option>
-      } }
-    </select>
-  </label>
-  }
-  <button class="quiet" [disabled]="busy()" (click)="loadExisting()">Choose existing Things</button>
-  <button [disabled]="busy()" (click)="confirm()">Keep selected Things</button>
-  } @if (current.status === 'failed' || current.status === 'incomplete') {
-  <button [disabled]="busy()" (click)="retry()">Retry import</button>
-  } @if (current.thingIds.length > 1) {
-  <p>Things from this source:</p>
-  @for (id of current.thingIds; track id; let number = $index) {
-  <a [routerLink]="['/things', id]">Open Thing {{ number + 1 }}</a>
-  } } } @if (!active()) {
-  <details [open]="!thingId()">
-    <summary>
-      {{ thingId() ? 'Add details from a source' : 'Start with a photo, file or text' }}
-    </summary>
-    <p class="muted">
-      The source is sent to OpenAI to extract details. Review imported values before relying on
-      them.
-    </p>
-    <div class="upload-options">
-      <button type="button" [disabled]="busy()" (click)="camera.click()">
-        <ng-icon name="takePhoto" aria-hidden="true" /> Take photo
-      </button>
-      <input
-        #camera
-        hidden
-        aria-label="Take photo"
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        capture="environment"
-        [disabled]="busy()"
-        (change)="file($event)"
-      />
-      <button type="button" [disabled]="busy()" (click)="photos.click()">
-        <ng-icon name="choosePhoto" aria-hidden="true" /> Choose photo
-      </button>
-      <input
-        #photos
-        hidden
-        aria-label="Choose photo"
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        [disabled]="busy()"
-        (change)="file($event)"
-      />
-      <button type="button" [disabled]="busy()" (click)="document.click()">
-        <ng-icon name="uploadFile" aria-hidden="true" /> Upload file
-      </button>
-      <input
-        #document
-        hidden
-        aria-label="Import file"
-        type="file"
-        [accept]="config.supportedMediaTypes.join(',')"
-        [disabled]="busy()"
-        (change)="file($event)"
-      />
-    </div>
-    <small class="muted"
-      >PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB</small
-    >
-    <label>Paste text<textarea [(ngModel)]="text" rows="3" [disabled]="busy()"></textarea></label>
-    <button [disabled]="busy() || !text.trim()" (click)="paste()">
-      {{ busy() ? 'Starting import…' : 'Import text' }}
-    </button>
-  </details>
-  }
-</section>
+  <section class="panel import-panel" aria-label="Import a Thing">
+    @if (!thingId()) {
+      <h2>Import with AI</h2>
+      <p>Start with a photo, document or pasted text. Details are added as they are found.</p>
+    }
+    @if (error()) {
+      <bt-error-message [code]="error()" />
+    }
+    @if (job(); as current) {
+      @if (active() && current.status !== 'awaiting_selection') {
+        <div class="import-progress" role="progressbar" aria-label="AI import in progress"></div>
+      }
+      <div role="status" aria-live="polite">
+        @switch (current.status) {
+          @case ('queued') {
+            <p>Import queued…</p>
+          }
+          @case ('extracting') {
+            <p>Reading your source…</p>
+          }
+          @case ('mapping') {
+            <p>Adding details… Fields appear as they are ready.</p>
+          }
+          @case ('discovering') {
+            <p>Finding manuals, model information and suggestions…</p>
+          }
+          @case ('awaiting_selection') {
+            <h2>Which Things would you like to keep?</h2>
+          }
+          @case ('complete') {
+            <p>Import complete. Review the details below.</p>
+          }
+          @case ('incomplete') {
+            <p>Some work could not finish. Saved details are available to review.</p>
+          }
+          @case ('failed') {
+            <p>The import could not finish. Your source has been kept.</p>
+          }
+        }
+      </div>
+      @if (current.status === 'awaiting_selection') {
+        @for (candidate of current.candidates; track candidate.id) {
+          <label
+            >{{ candidate.name }}
+            <select
+              [ngModel]="selections[candidate.id] || ''"
+              (ngModelChange)="selections[candidate.id] = $event"
+              [disabled]="busy()"
+            >
+              <option value="">Create a Thing</option>
+              <option value="skip">Skip</option>
+              @for (thing of existing(); track thing.id) {
+                @if (thing.id !== thingId()) {
+                  <option [value]="thing.id">Add to {{ thing.name }}</option>
+                }
+              }
+            </select>
+          </label>
+        }
+        <button class="quiet" [disabled]="busy()" (click)="loadExisting()">
+          Choose existing Things
+        </button>
+        <button [disabled]="busy()" (click)="confirm()">Keep selected Things</button>
+      }
+      @if (current.status === 'failed' || current.status === 'incomplete') {
+        <button [disabled]="busy()" (click)="retry()">Retry import</button>
+      }
+      @if (current.thingIds.length > 1) {
+        <p>Things from this source:</p>
+        @for (id of current.thingIds; track id; let number = $index) {
+          <a [routerLink]="['/things', id]">Open Thing {{ number + 1 }}</a>
+        }
+      }
+    }
+    @if (!active()) {
+      <details [open]="!thingId()">
+        <summary>
+          {{ thingId() ? 'Add details from a source' : 'Start with a photo, file or text' }}
+        </summary>
+        <p class="muted">
+          The source is sent to OpenAI to extract details. Review imported values before relying on
+          them.
+        </p>
+        <div class="upload-options">
+          <button type="button" [disabled]="busy()" (click)="camera.click()">
+            <ng-icon name="takePhoto" aria-hidden="true" /> Take photo
+          </button>
+          <input
+            #camera
+            hidden
+            aria-label="Take photo"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            [disabled]="busy()"
+            (change)="file($event)"
+          />
+          <button type="button" [disabled]="busy()" (click)="photos.click()">
+            <ng-icon name="choosePhoto" aria-hidden="true" /> Choose photo
+          </button>
+          <input
+            #photos
+            hidden
+            aria-label="Choose photo"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            [disabled]="busy()"
+            (change)="file($event)"
+          />
+          <button type="button" [disabled]="busy()" (click)="document.click()">
+            <ng-icon name="uploadFile" aria-hidden="true" /> Upload file
+          </button>
+          <input
+            #document
+            hidden
+            aria-label="Import file"
+            type="file"
+            [accept]="config.supportedMediaTypes.join(',')"
+            [disabled]="busy()"
+            (change)="file($event)"
+          />
+        </div>
+        <small class="muted"
+          >PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB</small
+        >
+        <label
+          >Paste text<textarea [(ngModel)]="text" rows="3" [disabled]="busy()"></textarea>
+        </label>
+        <button [disabled]="busy() || !text.trim()" (click)="paste()">
+          {{ busy() ? 'Starting import…' : 'Import text' }}
+        </button>
+      </details>
+    }
+  </section>
 } @else if (!thingId()) {
-<section class="panel import-panel" aria-label="Import a Thing">
-  <h2>Import with AI</h2>
-  <p class="muted">AI import is currently unavailable. You can enter details manually below.</p>
-</section>
+  <section class="panel import-panel" aria-label="Import a Thing">
+    <h2>Import with AI</h2>
+    <p class="muted">AI import is currently unavailable. You can enter details manually below.</p>
+  </section>
 }

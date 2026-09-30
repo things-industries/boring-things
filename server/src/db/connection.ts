@@ -1,15 +1,27 @@
+/**
+ * Creates the PostgreSQL pool, manages transactions and maps database column names and timestamps
+ * to application response shapes.
+ */
+
 import pg from 'pg';
+
 export type Database = Pick<pg.Pool, 'query'>;
+
 export function createPool(connectionString: string) {
   const pool = new pg.Pool({ connectionString, max: 10 });
   pool.on('error', (error) => {
     // Idle connections can disappear on database restart. Never log query/value details.
-    console.error('Idle database connection failed', { code: (error as pg.DatabaseError).code });
+    console.error('Idle database connection failed', {
+      code: (error as pg.DatabaseError).code,
+    });
   });
+
   return pool;
 }
+
 export async function transaction<T>(pool: pg.Pool, fn: (db: Database) => Promise<T>): Promise<T> {
   const client = await pool.connect();
+
   try {
     await client.query('begin');
     const result = await fn(client);
@@ -22,6 +34,8 @@ export async function transaction<T>(pool: pg.Pool, fn: (db: Database) => Promis
     client.release();
   }
 }
+
+// Only top-level column names and Date values are mapped; nested JSON retains its stored shape.
 export async function rows<T>(db: Database, sql: string, params: unknown[] = []): Promise<T[]> {
   const result = await db.query(sql, params);
   return result.rows.map((row) =>

@@ -16,7 +16,13 @@
       <button
         class="small quiet"
         [disabled]="busy()"
-        (click)="action.emit({ kind: 'issues', id: issue.id, patch: { status: 'resolved' } })"
+        (click)="
+          action.emit({
+            kind: 'issues',
+            id: issue.id,
+            patch: { status: 'resolved' },
+          })
+        "
       >
         Mark resolved <ng-icon name="complete" aria-hidden="true" />
       </button>
@@ -36,7 +42,9 @@
     </h3>
     <p>{{ event.description }}</p>
     @for (source of event.sourceRefs; track $index) {
-      @if (source.url) { <a [href]="source.url" target="_blank" rel="noopener noreferrer">Source</a> }
+      @if (source.url) {
+        <a [href]="source.url" target="_blank" rel="noopener noreferrer">Source</a>
+      }
     }
     @if (event.startsAt) {
       <p class="date">{{ event.startsAt | date: 'medium' }}</p>
@@ -55,7 +63,13 @@
       <button
         class="small quiet"
         [disabled]="busy()"
-        (click)="action.emit({ kind: 'events', id: event.id, patch: { status: 'completed' } })"
+        (click)="
+          action.emit({
+            kind: 'events',
+            id: event.id,
+            patch: { status: 'completed' },
+          })
+        "
       >
         Mark complete <ng-icon name="complete" aria-hidden="true" />
       </button>

@@ -11,5 +11,8 @@
     "useDefineForClassFields": false,
     "lib": ["ES2022", "DOM"]
   },
-  "angularCompilerOptions": { "strictTemplates": true, "strictInjectionParameters": true }
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictInjectionParameters": true
+  }
 }

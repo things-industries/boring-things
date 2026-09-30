@@ -1,0 +1,105 @@
+<p><a routerLink="/">Your things</a></p>
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">A LITTLE HELP</span>
+    <h1>{{ 'assistant' | term }}</h1>
+  </div>
+  @if (conversation()?.thingId; as id) {
+    <a [routerLink]="['/things', id]">Back to thing</a>
+  }
+</div>
+@if (!config.chatEnabled) {
+  <p class="notice">The assistant is not configured.</p>
+} @else {
+  <p class="muted">
+    Questions and relevant records or documents are sent to OpenAI. Review answers and sources.
+    Starting another chat starts a new conversation.
+  </p>
+  @if (error()) {
+    <bt-error-message [code]="error()" />
+    @if (!conversation()) {
+      <button (click)="start()">Retry</button>
+    }
+  }
+  @if (disconnected()) {
+    <p class="notice" role="status">Connection interrupted. Reconnecting to saved messages…</p>
+  }
+  @if (conversation(); as chat) {
+    <div class="messages">
+      @for (message of chat.messages; track message.id) {
+        <article class="panel message" [class.user]="message.role === 'user'">
+          <h2>{{ message.role === 'user' ? 'You' : 'Assistant' }}</h2>
+          <p class="message-text">{{ message.text }}</p>
+          @for (card of message.cards; track $index) {
+            <bt-resource-card [card]="card" />
+          }
+          <div class="sources">
+            @for (source of message.sourceRefs; track $index) {
+              @if (source.url) {
+                <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{
+                  source.url
+                }}</a>
+              }
+              @if (source.attachmentId) {
+                <button class="quiet small" (click)="attachment(source.attachmentId)">
+                  Open cited document
+                  @if (source.page) {
+                    · page {{ source.page }}
+                  }
+                </button>
+              }
+            }
+          </div>
+          @if (message.status === 'queued' || message.status === 'processing') {
+            <p role="status" class="muted">
+              {{ message.status === 'queued' ? 'Waiting to respond…' : 'Preparing an answer…' }}
+            </p>
+          }
+          @if (message.status === 'failed') {
+            <p class="notice">The response was interrupted. Saved actions remain available.</p>
+            @if ($last) {
+              <button
+                class="secondary small"
+                [disabled]="busy() || inFlight()"
+                (click)="send(message)"
+              >
+                Retry response
+              </button>
+            }
+          }
+        </article>
+      } @empty {
+        <p class="panel">Ask about a detail, a manual, maintenance or compatible products.</p>
+      }
+    </div>
+    <form class="panel composer" (ngSubmit)="send()">
+      <label
+        >Message<textarea
+          name="message"
+          [(ngModel)]="text"
+          maxlength="8000"
+          rows="3"
+          [disabled]="busy() || inFlight()"
+          required
+        ></textarea>
+      </label>
+      <label
+        >Action<select
+          aria-label="Action"
+          name="intent"
+          [(ngModel)]="intent"
+          [disabled]="busy() || inFlight()"
+        >
+          <option value="answer">Ask a question</option>
+          <option value="create_event">Create maintenance event</option>
+          <option value="create_issue">Report issue</option>
+        </select></label
+      >
+      <button type="submit" [disabled]="busy() || inFlight() || !text.trim()">Send</button>
+    </form>
+  } @else {
+    <div class="chat-skeleton" role="status">
+      <span class="visually-hidden">Starting chat…</span>
+    </div>
+  }
+}

@@ -192,7 +192,10 @@ test('multiple candidates require confirmation and reuse one shared attachment',
   assert.equal(job.status, 'awaiting_selection');
   assert.equal(job.thingIds.length, 0);
   const response = await request('POST', `/imports/${job.id}:confirm`, {
-    selections: job.candidates.map((c) => ({ candidateId: c.id, targetThingId: null })),
+    selections: job.candidates.map((c) => ({
+      candidateId: c.id,
+      targetThingId: null,
+    })),
   });
   assert.equal(response.statusCode, 200, response.body);
   const done = await wait(job.id);
@@ -216,7 +219,13 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
     failed = await wait(accepted.importId);
   assert.equal(failed.status, 'incomplete');
   const edit = await request('PATCH', `/things/${accepted.thingId}`, {
-    values: [{ fieldSetId: 'appliances.neff', fieldId: 'appliances.zNumber', value: '0099' }],
+    values: [
+      {
+        fieldSetId: 'appliances.neff',
+        fieldId: 'appliances.zNumber',
+        value: '0099',
+      },
+    ],
   });
   assert.equal(edit.statusCode, 200, edit.body);
   const retry = await request('POST', `/imports/${failed.id}:retry`);
@@ -253,7 +262,10 @@ test('arbitrary model IDs never enter storage and tool exhaustion preserves part
   ai.exhaustTools = false;
 });
 test('all-existing confirmation removes untouched skeleton and redirects to selected target', async () => {
-  const existing = await create({ categoryId: 'appliances', name: 'Existing hob' });
+  const existing = await create({
+    categoryId: 'appliances',
+    name: 'Existing hob',
+  });
   const accepted = await start('two'),
     job = await wait(accepted.importId);
   const response = await request('POST', `/imports/${job.id}:confirm`, {
@@ -270,7 +282,11 @@ test('SSE reconnect sends persisted snapshots, updates after commit and masks se
     categoryId: 'memberships',
     addFieldSetIds: ['memberships.museum'],
     values: [
-      { fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin', value: '123456' },
+      {
+        fieldSetId: 'memberships.museum',
+        fieldId: 'membership.accessPin',
+        value: '123456',
+      },
     ],
   });
   const base = await app.listen({ host: '127.0.0.1', port: 0 });
@@ -313,7 +329,9 @@ test('SSE reconnect sends persisted snapshots, updates after commit and masks se
   }
   const stream = await connect();
   const first = await stream.next();
-  await request('PATCH', `/things/${thing.id}`, { name: 'Updated after connect' });
+  await request('PATCH', `/things/${thing.id}`, {
+    name: 'Updated after connect',
+  });
   const second = await stream.next();
   assert.ok(second.revision > first.revision);
   assert.equal(second.name, 'Updated after connect');
@@ -458,7 +476,11 @@ test('discovered names use only owner collisions and preserve existing or edited
     (
       await request('PATCH', `/things/${target.thingId}`, {
         values: [
-          { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'SYNTHETIC/01' },
+          {
+            fieldSetId: 'appliances.appliance',
+            fieldId: 'common.model',
+            value: 'SYNTHETIC/01',
+          },
         ],
       })
     ).statusCode,
@@ -477,7 +499,10 @@ test('discovered names use only owner collisions and preserve existing or edited
   await request('PATCH', `/things/${target.thingId}`, { name: 'Kitchen oven' });
   await persistDiscovery(pool, blobs, job, target, discovery, options);
   assert.equal((await request('GET', `/things/${target.thingId}`)).json().name, 'Kitchen oven');
-  const existing = await create({ name: 'Existing oven', categoryId: 'appliances' });
+  const existing = await create({
+    name: 'Existing oven',
+    categoryId: 'appliances',
+  });
   const other = await start('neff', existing.id);
   await wait(other.importId);
   const otherJob = await ownedImport(pool, owner, other.importId);
@@ -490,7 +515,10 @@ test('discovered names use only owner collisions and preserve existing or edited
       blobs,
       job,
       target,
-      { ...discovery, identity: { name: 'Invented', sourceUrl: 'https://uncited.example/' } },
+      {
+        ...discovery,
+        identity: { name: 'Invented', sourceUrl: 'https://uncited.example/' },
+      },
       options,
     ),
   );

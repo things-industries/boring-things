@@ -1,5 +1,5 @@
 import { inject, provideAppInitializer, type ApplicationConfig } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import type { Schema } from '../../shared/model';
 import { CONFIG } from './core/runtime-config';
 import { Auth } from './core/services/auth.service';
@@ -9,7 +9,7 @@ export function appConfig(config: Schema['Config']): ApplicationConfig {
     providers: [
       { provide: CONFIG, useValue: config },
       provideAppInitializer(() => inject(Auth).initialize()),
-      provideRouter(routes),
+      provideRouter(routes, withInMemoryScrolling({ anchorScrolling: 'enabled' })),
     ],
   };
 }

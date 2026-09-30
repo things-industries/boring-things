@@ -1,3 +1,8 @@
+/**
+ * Assembles Fastify dependencies, contracts, authentication, routes and background workers; serves
+ * the built frontend when available.
+ */
+
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
@@ -21,11 +26,15 @@ import { tagRoutes } from './routes/tags.js';
 import { attachmentRoutes } from './routes/attachments.js';
 import { activityRoutes } from './routes/activity.js';
 import { conversationRoutes } from './routes/conversations.js';
+import { Assistant } from './application/conversations.js';
+import { OpenAiChat } from './providers/chat.js';
+import type { ChatAi } from './application/chat-types.js';
 import { OpenAiImports } from './providers/ai.js';
 import type { ImportAi } from './application/import-types.js';
 import { ImportRunner } from './application/imports.js';
 import { ThingChanges } from './application/streams.js';
 import { importRoutes } from './routes/imports.js';
+
 export async function buildApp(
   options: {
     config?: Config;
@@ -34,6 +43,7 @@ export async function buildApp(
     verifyIdentity?: VerifyIdentity;
     logger?: boolean;
     importAi?: ImportAi;
+    chatAi?: ChatAi;
   } = {},
 ) {
   const config = options.config ?? readConfig();
@@ -44,16 +54,24 @@ export async function buildApp(
       : false,
     bodyLimit: 1048576,
   });
+  // Only pools created here belong to the app; callers manage the lifetime of injected pools.
   if (!options.pool) app.addHook('onClose', () => pool.end());
   installContracts(app);
   const specificationPath = fileURLToPath(new URL('../../openapi.json', import.meta.url));
   await app.register(swagger, {
     mode: 'static',
-    specification: { path: specificationPath, baseDir: dirname(specificationPath) },
+    specification: {
+      path: specificationPath,
+      baseDir: dirname(specificationPath),
+    },
   });
   await app.register(swaggerUi, { routePrefix: '/api/documentation' });
   app.setErrorHandler((error, req, reply) => {
-    const e = error as Error & { code?: string; statusCode?: number; validation?: unknown };
+    const e = error as Error & {
+      code?: string;
+      statusCode?: number;
+      validation?: unknown;
+    };
     const status =
       e instanceof HttpError
         ? e.statusCode
@@ -64,6 +82,7 @@ export async function buildApp(
             : e.code === '23503'
               ? 422
               : (e.statusCode ?? 500);
+
     const message =
       e instanceof HttpError
         ? e.message
@@ -89,6 +108,7 @@ export async function buildApp(
     await pool.query('select 1');
     return { status: 'ok' };
   });
+
   route(app, 'GET', '/api/config', async () => ({
     logtoEndpoint: config.logtoEndpoint,
     logtoAppId: config.logtoAppId,
@@ -96,8 +116,11 @@ export async function buildApp(
     maxUploadBytes: config.maxUploadBytes,
     supportedMediaTypes: config.supportedMediaTypes,
     sampleDataEnabled: config.sampleDataEnabled,
+    chatEnabled: !!(options.chatAi || (config.openaiApiKey && config.openaiModel)),
     importEnabled: !!(options.importAi || (config.openaiApiKey && config.openaiModel)),
   }));
+
+  // Registry definitions are cached at startup; restart the server after changing seeded metadata.
   const registry = await loadRegistry(pool);
   const blobs = options.blobs ?? new LocalBlobs(config.blobDirectory);
   const ai =
@@ -110,20 +133,37 @@ export async function buildApp(
           config.discoverySearchCalls,
         )
       : undefined);
+
   const changes = new ThingChanges();
-  const runner = new ImportRunner(pool, registry, blobs, ai, config, changes);
+  const chatAi =
+    options.chatAi ??
+    (config.openaiApiKey && config.openaiModel
+      ? new OpenAiChat(
+          config.openaiApiKey,
+          config.openaiModel,
+          config.aiMaxOutputTokens,
+          config.chatToolCalls,
+        )
+      : undefined);
+
+  const assistant = new Assistant(pool, registry, blobs, chatAi, ai, config, changes);
+  const runner = new ImportRunner(pool, registry, blobs, ai, config, changes, assistant);
   app.addHook('onReady', () => runner.start());
   app.addHook('preClose', () => runner.stop());
+  // Authentication applies to this scope; health, client configuration and API documentation remain public.
   await app.register(async (api) => {
     installAuth(api, pool, options.verifyIdentity ?? logtoVerifier(config));
     await api.register(multipart, {
       limits: { fileSize: config.maxUploadBytes, files: 1, fields: 0 },
     });
+
     route(api, 'GET', '/api/profile', (req) => profile(pool, req.ownerId));
+
     route(api, 'POST', '/api/profile:seed-samples', (req) => {
       ensure(config.sampleDataEnabled, 'Sample data is disabled', 404);
       return seedSamples(pool, req.ownerId, registry);
     });
+
     api.addHook('onResponse', async (req, reply) => {
       if (req.ownerId && req.method !== 'GET' && reply.statusCode < 400)
         changes.publish(req.ownerId);
@@ -134,9 +174,10 @@ export async function buildApp(
     tagRoutes(api, pool);
     attachmentRoutes(api, pool, blobs, config);
     activityRoutes(api, pool);
-    conversationRoutes(api, pool);
+    conversationRoutes(api, pool, runner, assistant, changes, !!chatAi);
   });
   const web = resolve('dist/web/browser');
+
   if (existsSync(web)) {
     await app.register(fastifyStatic, { root: web });
     app.setNotFoundHandler((req, reply) => {
@@ -145,5 +186,6 @@ export async function buildApp(
       return reply.sendFile('index.html');
     });
   }
+
   return app;
 }

@@ -96,7 +96,13 @@ test('cleared user values and removed custom facts remain cleared on retry', () 
   data = patchData(
     data,
     {
-      values: [{ fieldSetId: 'appliances.neff', fieldId: 'appliances.zNumber', value: null }],
+      values: [
+        {
+          fieldSetId: 'appliances.neff',
+          fieldId: 'appliances.zNumber',
+          value: null,
+        },
+      ],
       removeUndefinedFieldIds: [unknownId],
     },
     'appliances',
@@ -135,7 +141,11 @@ test('sensitive facts cannot map to an unmasked definition and discovery only re
   );
   const data = select();
   data.values['appliances.neff'] = {
-    'appliances.zNumber': { value: 'private-serial', origin: 'user', sourceRefs: [] },
+    'appliances.zNumber': {
+      value: 'private-serial',
+      origin: 'user',
+      sourceRefs: [],
+    },
     'appliances.eNumber': { value: 'MODEL/01', origin: 'user', sourceRefs: [] },
   };
   const query = publicDiscoveryCandidate(candidate, data)!;
@@ -145,9 +155,13 @@ test('sensitive facts cannot map to an unmasked definition and discovery only re
 });
 test('extraction cannot smuggle category IDs and normalizes candidate/fact identifiers', () => {
   assert.throws(() =>
-    validateExtraction({ text: 'source', candidates: [{ ...candidate, categoryId: 'invented' }] }, [
-      'appliances',
-    ]),
+    validateExtraction(
+      {
+        text: 'source',
+        candidates: [{ ...candidate, categoryId: 'invented' }],
+      },
+      ['appliances'],
+    ),
   );
   const result = validateExtraction(
     { text: 'source', candidates: [{ ...candidate, id: '__proto__' }] },
@@ -220,7 +234,14 @@ test('recorded live extraction and mapping retain the required fixture invariant
 
 test('retained PIN facts are masked before registry mapping even if extraction missed sensitivity', () => {
   const source = structuredClone(candidate);
-  source.facts = [{ ...source.facts[0], label: 'Access PIN', sensitive: false, value: '0077' }];
+  source.facts = [
+    {
+      ...source.facts[0],
+      label: 'Access PIN',
+      sensitive: false,
+      value: '0077',
+    },
+  ];
   const data = retainFacts(emptyData(), source, job, attachment, registry);
   assert.equal(data.undefinedFields[0].sensitive, true);
 });

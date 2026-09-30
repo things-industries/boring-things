@@ -86,7 +86,9 @@ export class ImportPanel {
       else
         this.changed.emit(
           await this.api.client
-            .GET('/api/imports/{id}', { params: { path: { id: accepted.importId } } })
+            .GET('/api/imports/{id}', {
+              params: { path: { id: accepted.importId } },
+            })
             .then(apiData),
         );
     });
@@ -104,7 +106,10 @@ export class ImportPanel {
     void this.perform(async () => {
       const selections = job.candidates
         .filter((c) => this.selections[c.id] !== 'skip')
-        .map((c) => ({ candidateId: c.id, targetThingId: this.selections[c.id] || null }));
+        .map((c) => ({
+          candidateId: c.id,
+          targetThingId: this.selections[c.id] || null,
+        }));
       const result = await this.api.client
         .POST('/api/imports/{id}:confirm', {
           params: { path: { id: job.id } },

@@ -1,3 +1,8 @@
+/**
+ * Searches registry metadata for fields and sets, expanding mandatory dependencies and returning
+ * bounded suggestions for AI mapping.
+ */
+
 import type { Database } from '../db/connection.js';
 import { rows } from '../db/connection.js';
 import type { Registry } from './registry.js';
@@ -11,6 +16,7 @@ export async function searchRegistry(
   limit = 12,
   offset = 0,
 ) {
+  // SQL identifiers come from fixed choices; search terms remain bound parameters.
   const table = kind === 'fields' ? 'field_definitions' : 'field_sets';
   const description = kind === 'fields' ? 'description' : 'eligibility';
   const category = kind === 'field-sets' ? 'and ($4::text is null or category_id=$4)' : '';
@@ -22,6 +28,7 @@ export async function searchRegistry(
     params,
   );
 }
+
 export async function searchFieldSets(
   db: Database,
   registry: Registry,
@@ -34,6 +41,7 @@ export async function searchFieldSets(
       terms.every((t) => typeof t === 'string' && t.length > 0 && t.length <= 200),
     'Invalid search terms',
   );
+  // Search both whole phrases and significant words; caps bound model context and database work.
   const queryTerms = [
     ...new Set(
       terms.flatMap((term) => [
@@ -42,6 +50,7 @@ export async function searchFieldSets(
       ]),
     ),
   ].slice(0, 60);
+
   const found = await searchRegistry(db, 'field-sets', queryTerms, category, 13);
   const roots = found.slice(0, 12).map((r) => r.id);
   const included = registry.expand(roots, category);
@@ -57,6 +66,7 @@ export async function searchFieldSets(
     truncated: found.length > 12 || suggestions.length > 12,
   };
 }
+
 export async function searchFields(
   db: Database,
   registry: Registry,
@@ -76,6 +86,7 @@ export async function searchFields(
     'Invalid field search',
   );
   const results = [];
+
   for (const { label, context } of labels) {
     const found = await searchRegistry(
       db,
@@ -101,5 +112,6 @@ export async function searchFields(
       truncated: found.length > 5,
     });
   }
+
   return { results, truncated: results.some((r) => r.truncated) };
 }

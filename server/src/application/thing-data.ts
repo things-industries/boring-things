@@ -1,3 +1,8 @@
+/**
+ * Applies Thing field patches, preserves values when sets change, maintains pins and projects
+ * masked or explicitly revealed values.
+ */
+
 import { randomUUID } from 'node:crypto';
 import type {
   FieldDefinition,
@@ -12,6 +17,7 @@ import type { Registry } from './registry.js';
 
 export const pinKey = (pin: Pin) =>
   pin.undefinedFieldId ? `local:${pin.undefinedFieldId}` : `${pin.fieldSetId ?? ''}:${pin.fieldId}`;
+
 export function patchData(
   original: ThingData,
   patch: ThingPatch,
@@ -19,6 +25,7 @@ export function patchData(
   registry: Registry,
 ): ThingData {
   const data = structuredClone(original);
+  // Track explicit clears and removals too, so later import retries cannot restore values the owner discarded.
   const edited = new Set(data.userEdited ?? []);
   for (const key of ['name', 'categoryId', 'description'] as const)
     if (patch[key] !== undefined) edited.add(key);
@@ -38,6 +45,8 @@ export function patchData(
     [...removed].every((id) => !selected.includes(id)),
     'An included set is still required',
   );
+
+  // Removing a populated set preserves its values as custom fields and moves pins to the new local IDs.
   for (const oldId of data.setIds.filter((id) => !selected.includes(id))) {
     for (const [fieldId, stored] of Object.entries(data.values[oldId] ?? {})) {
       const definition = registry.fields.get(fieldId)!;
@@ -52,9 +61,12 @@ export function patchData(
         pin.fieldSetId === oldId && pin.fieldId === fieldId ? { undefinedFieldId: id } : pin,
       );
     }
+
     delete data.values[oldId];
   }
+
   data.setIds = selected;
+
   for (const entry of patch.values ?? []) {
     if (entry.fieldSetId !== null) {
       ensure(selected.includes(entry.fieldSetId), 'Field set is not selected');
@@ -63,20 +75,28 @@ export function patchData(
         'Field is not a member of the selected set',
       );
     } else ensure(registry.fields.has(entry.fieldId), 'Unknown standalone field');
+
     const target =
       entry.fieldSetId === null ? data.standalone : (data.values[entry.fieldSetId] ??= {});
+
     if (entry.value === null) delete target[entry.fieldId];
     else {
       registry.validate(entry.fieldId, entry.value);
-      target[entry.fieldId] = { value: entry.value, origin: 'user', sourceRefs: [] };
+      target[entry.fieldId] = {
+        value: entry.value,
+        origin: 'user',
+        sourceRefs: [],
+      };
     }
   }
+
   const removeLocal = new Set(patch.removeUndefinedFieldIds ?? []);
   ensure(
     [...removeLocal].every((id) => data.undefinedFields.some((f) => f.id === id)),
     'Unknown local field',
   );
   data.undefinedFields = data.undefinedFields.filter((f) => !removeLocal.has(f.id));
+
   for (const input of patch.undefinedFields ?? []) {
     ensure(!input.id || data.undefinedFields.some((f) => f.id === input.id), 'Unknown local field');
     const field = {
@@ -87,6 +107,7 @@ export function patchData(
     };
     data.undefinedFields = [...data.undefinedFields.filter((f) => f.id !== field.id), field];
   }
+
   const validPin = (p: Pin) => {
     if (p.undefinedFieldId)
       return (
@@ -94,18 +115,23 @@ export function patchData(
         p.fieldSetId === undefined &&
         data.undefinedFields.some((f) => f.id === p.undefinedFieldId)
       );
+
     if (!p.fieldId || p.fieldSetId === undefined) return false;
     return p.fieldSetId === null
       ? Object.hasOwn(data.standalone, p.fieldId)
       : selected.includes(p.fieldSetId) &&
           !!registry.sets.get(p.fieldSetId)?.fields.some((f) => f.id === p.fieldId);
   };
+
   if (patch.pinnedFields) {
     ensure(patch.pinnedFields.every(validPin), 'Invalid pinned field');
     data.pins = [...new Map(patch.pinnedFields.map((p) => [pinKey(p), p])).values()];
   } else data.pins = data.pins.filter(validPin);
+
   return data;
 }
+
+// Mask source quotes alongside sensitive values; provenance can contain the same secret.
 function projectField(definition: FieldDefinition, stored?: StoredValue): Schema['Field'] {
   return {
     ...definition,
@@ -115,6 +141,7 @@ function projectField(definition: FieldDefinition, stored?: StoredValue): Schema
     sourceRefs: definition.sensitive ? [] : (stored?.sourceRefs ?? []),
   };
 }
+
 export function projectData(
   data: ThingData,
   registry: Registry,
@@ -122,7 +149,10 @@ export function projectData(
   return {
     fieldSets: data.setIds.map((id) => {
       const set = registry.sets.get(id)!;
-      return { ...set, fields: set.fields.map((f) => projectField(f, data.values[id]?.[f.id])) };
+      return {
+        ...set,
+        fields: set.fields.map((f) => projectField(f, data.values[id]?.[f.id])),
+      };
     }),
     standaloneFields: Object.entries(data.standalone).map(([id, stored]) =>
       projectField(registry.fields.get(id)!, stored),
@@ -138,6 +168,7 @@ export function projectData(
     pinnedFields: data.pins,
   };
 }
+
 export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
   if (pin.undefinedFieldId) {
     ensure(!pin.fieldId && pin.fieldSetId === undefined, 'Invalid field reference');
@@ -145,6 +176,7 @@ export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
     ensure(field, 'Field not found', 404);
     return field.value;
   }
+
   ensure(
     pin.fieldId && pin.fieldSetId !== undefined && registry.fields.has(pin.fieldId),
     'Invalid field reference',
@@ -156,5 +188,6 @@ export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
     'Field not found',
     404,
   );
+
   return data.values[pin.fieldSetId]?.[pin.fieldId]?.value ?? null;
 }

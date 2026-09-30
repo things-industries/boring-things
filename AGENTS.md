@@ -1,6 +1,6 @@
 # Boring Things agent guide
 
-Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing, private attachments, progressive AI imports and cited discovery. Assistant execution is subsequent work.
+Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing, private attachments, progressive AI imports, cited discovery and active assistant chat.
 
 ## Read when relevant
 
@@ -9,12 +9,6 @@ Boring Things helps people manage life administration around appliances, members
 - `src/AGENTS.md`: Front end. Angular structure and conventions.
 - `server/AGENTS.md`: Back end. Fastify, persistence, authentication and attachments.
 - `docs/AGENTS.md`: documentation structure and evidence conventions.
-
-### Plans currently in progress
-
-- `docs/plans/poc-scaffolding.md` current registry, import and assistant work. Its confirmed decisions refine the earlier requirements; planned modules and endpoints are not evidence of implementation. Other plans apply only to their named area. The technology requirements contain earlier proposals; check code and README for the current stack.  
-
-Remove references to plans above when they are complete or no longer relevant.
 
 ## Agent behaviour
 
@@ -61,10 +55,12 @@ CI=true pnpm dev          # Angular and Fastify live reload
 pnpm dev:server           # Fastify only
 pnpm api:generate        # Generate shared OpenAPI types
 pnpm api:check           # Check contract drift
+pnpm format              # Apply Prettier formatting
+pnpm format:check        # Check formatting without writing
 pnpm lint                # ESLint
 pnpm test                # Node unit tests
 CI=true pnpm typecheck   # Server types and Angular development build
-CI=true pnpm check       # Contract, lint, types, unit tests and build
+CI=true pnpm check       # Formatting, contract, lint, types, unit tests and build
 pnpm test:integration    # Requires local Supabase and built frontend
 CI=true pnpm build       # Build both targets
 pnpm start               # Serve built application
@@ -72,7 +68,7 @@ pnpm db:stop             # Stop local Supabase, preserving data
 ```
 
 - Prefix Angular CLI commands and wrappers with `CI=true` on the first attempt inside Codex's macOS sandbox. If CI mode changes the behaviour under test, request approval for an unsandboxed run.
-- Run `CI=true pnpm check` before handing off code changes. Add relevant integration/browser checks for persistence, authentication or user-journey changes. Documentation-only changes need path, command and diff checks.
+- Run `pnpm format` after editing, then `CI=true pnpm check` before handing off code changes. Formatting follows `.prettierrc.json` and `.prettierignore`; preserve unrelated working-tree changes. Add relevant integration/browser checks for persistence, authentication or user-journey changes. Documentation-only changes need formatting, path, command and diff checks.
 - Integration tests create and remove isolated temporary databases. They do not replace a live Logto redirect/login/logout check.
 - Database reset deletes local data. Use it only when deletion is authorised. Ordinary startup and migration do not require a reset.
 - Registry seeds update definitions; incompatible changes need a migration for existing values. Sample Things are a separate, opt-in, owner-scoped action.
@@ -83,4 +79,4 @@ pnpm db:stop             # Stop local Supabase, preserving data
 - Preserve unknown values, provenance and user edits. Identifiers are strings; absence is distinct from `false`, `0` and empty text.
 - Tags currently organise an owner's Things. Household sharing is future work and requires an explicit access model.
 - Activity and purchasable samples must stay labelled; sample merchant actions stay disabled.
-- AI imports and Thing SSE are implemented with a single-process persisted runner. Do not describe assistant execution, distributed queues, checkout, repair booking or hosted deployment as available. For work in those areas, read the scoped plan and confirm the requested slice.
+- Imports and assistant messages share a single-process persisted runner, with authenticated Thing/conversation SSE. Chat write tools require the matching message intent and atomic retry receipts. Do not describe distributed queues, checkout, repair booking, conversation history or hosted deployment as available. Read the scoped plan before extending these boundaries.

@@ -17,8 +17,9 @@ export function fieldValue(
 }
 export function formatFieldValue(value: Value | null): string {
   return value !== null && typeof value === 'object'
-    ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: value.currency }).format(
-        value.amountMinor / 100,
-      )
+    ? new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: value.currency,
+      }).format(value.amountMinor / 100)
     : String(value ?? '');
 }

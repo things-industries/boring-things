@@ -66,7 +66,11 @@ test('false, zero and empty strings are values; null clears', () => {
     {
       addFieldSetIds: ['memberships.museum'],
       values: [
-        { fieldSetId: 'memberships.museum', fieldId: 'membership.autoRenew', value: false },
+        {
+          fieldSetId: 'memberships.museum',
+          fieldId: 'membership.autoRenew',
+          value: false,
+        },
         { fieldSetId: null, fieldId: 'vehicles.payloadKg', value: 0 },
         { fieldSetId: null, fieldId: 'common.model', value: '' },
       ],
@@ -92,7 +96,11 @@ test('identifier types, membership, bounds, dates, enums and money are validated
   assert.throws(() => registry.validate('membership.expires', '2026-02-30'), /Invalid value/);
   assert.throws(() => registry.validate('membership.level', 'Invented'), /Invalid value/);
   assert.throws(
-    () => registry.validate('insurance.excess', { amountMinor: 1.5, currency: 'GBP' }),
+    () =>
+      registry.validate('insurance.excess', {
+        amountMinor: 1.5,
+        currency: 'GBP',
+      }),
     /Invalid value/,
   );
   assert.throws(
@@ -101,7 +109,13 @@ test('identifier types, membership, bounds, dates, enums and money are validated
         emptyData(),
         {
           addFieldSetIds: ['vehicles.van'],
-          values: [{ fieldSetId: 'vehicles.van', fieldId: 'appliances.zNumber', value: '15' }],
+          values: [
+            {
+              fieldSetId: 'vehicles.van',
+              fieldId: 'appliances.zNumber',
+              value: '15',
+            },
+          ],
         },
         'vehicles',
         registry,
@@ -115,7 +129,11 @@ test('masked fields require reveal; category changes preserve sensitivity, prove
     {
       addFieldSetIds: ['memberships.museum'],
       values: [
-        { fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin', value: '0042' },
+        {
+          fieldSetId: 'memberships.museum',
+          fieldId: 'membership.accessPin',
+          value: '0042',
+        },
       ],
       pinnedFields: [{ fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin' }],
     },

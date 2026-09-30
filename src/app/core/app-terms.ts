@@ -3,4 +3,5 @@ export const APP_TERMS = {
   things: 'Your things',
   addThing: 'Add a thing',
   login: 'Sign in',
+  assistant: 'Assistant',
 } as const;
