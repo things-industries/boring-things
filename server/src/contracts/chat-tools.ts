@@ -1,18 +1,30 @@
+/**
+ * Defines assistant function names and argument schemas shared by provider requests and
+ * application-side tool validation.
+ */
+
 const text = { type: 'string', maxLength: 4000 };
 const id = { type: 'string', format: 'uuid' };
+
+// Strict tool objects require every property; nullable fields represent values that do not apply.
 const object = (properties: Record<string, unknown>) => ({
   type: 'object',
   additionalProperties: false,
   properties,
   required: Object.keys(properties),
 });
+
 const card = object({
-  type: { type: 'string', enum: ['thing', 'field', 'attachment', 'event', 'issue', 'purchasable'] },
+  type: {
+    type: 'string',
+    enum: ['thing', 'field', 'attachment', 'event', 'issue', 'purchasable'],
+  },
   id,
   fieldSetId: { type: ['string', 'null'] },
   fieldId: { type: ['string', 'null'] },
   page: { type: ['integer', 'null'], minimum: 1 },
 });
+
 export const chatFunctions = [
   [
     'search_things',

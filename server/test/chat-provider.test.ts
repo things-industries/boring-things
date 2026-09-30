@@ -59,7 +59,11 @@ test('Responses streaming collects split frames, passes function results and rec
       { type: 'response.output_text.delta', delta: 'details.' },
       {
         type: 'response.completed',
-        response: { status: 'completed', output: [], usage: { input_tokens: 6, output_tokens: 3 } },
+        response: {
+          status: 'completed',
+          output: [],
+          usage: { input_tokens: 6, output_tokens: 3 },
+        },
       },
     ]);
   });
@@ -93,7 +97,11 @@ test('an interrupted provider stream cannot complete an assistant response', asy
     new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
       task,
       async () => ({ output: {} }),
-      { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+      {
+        signal: new AbortController().signal,
+        delta: () => {},
+        record: async () => {},
+      },
     ),
     /incomplete/,
   );

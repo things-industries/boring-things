@@ -75,7 +75,11 @@ async function setup(owner = 'alice') {
     await request(
       'POST',
       '/things',
-      { name: 'Chat Thing', categoryId: 'appliances', addFieldSetIds: ['appliances.neff'] },
+      {
+        name: 'Chat Thing',
+        categoryId: 'appliances',
+        addFieldSetIds: ['appliances.neff'],
+      },
       owner,
     )
   ).json<Schema['Thing']>();
@@ -97,7 +101,11 @@ async function wait(id: string, statuses = ['complete', 'failed']) {
 }
 test('chat writes, retry receipts, multiple messages, owner isolation and deleted cards', async () => {
   const { thing, chat } = await setup();
-  const input = { text: 'Create a filter check', requestId: randomUUID(), intent: 'create_event' };
+  const input = {
+    text: 'Create a filter check',
+    requestId: randomUUID(),
+    intent: 'create_event',
+  };
   ai.failOnce = true;
   assert.equal(
     (await request('POST', `/conversations/${chat.id}/messages`, input)).statusCode,
@@ -154,8 +162,12 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   );
   const startsAt = '2026-10-01T09:00:00.000Z';
   assert.equal(
-    (await request('PATCH', `/events/${events.items[0].id}`, { status: 'scheduled', startsAt }))
-      .statusCode,
+    (
+      await request('PATCH', `/events/${events.items[0].id}`, {
+        status: 'scheduled',
+        startsAt,
+      })
+    ).statusCode,
     200,
   );
   const dashboard = (await request('POST', '/conversations', {})).json<Schema['Conversation']>();
@@ -176,7 +188,11 @@ test('single in-flight response, SSE snapshots and reconnect without duplicate t
   ai.pause = new Promise((r) => {
     release = r;
   });
-  const input = { text: 'Read the saved details', intent: 'answer', requestId: randomUUID() };
+  const input = {
+    text: 'Read the saved details',
+    intent: 'answer',
+    requestId: randomUUID(),
+  };
   await request('POST', `/conversations/${chat.id}/messages`, input);
   await wait(chat.id, ['processing']);
   assert.equal(
@@ -239,7 +255,11 @@ test('tool owner checks reject guessed Thing IDs and new writes need matching in
 });
 test('restart retains activity and marks interrupted messages retryable', async () => {
   const { chat, thing } = await setup();
-  const input = { text: 'Create maintenance', intent: 'create_event', requestId: randomUUID() };
+  const input = {
+    text: 'Create maintenance',
+    intent: 'create_event',
+    requestId: randomUUID(),
+  };
   await request('POST', `/conversations/${chat.id}/messages`, input);
   await wait(chat.id);
   await app.close();
@@ -258,7 +278,11 @@ test('restart retains activity and marks interrupted messages retryable', async 
 test('write intent and deadline are enforced even when the provider requests a write', async () => {
   const { thing, chat } = await setup();
   ai.probe = async (_input, execute) => {
-    await execute('create_event', { thingId: thing.id, title: 'Unauthorised', description: '' });
+    await execute('create_event', {
+      thingId: thing.id,
+      title: 'Unauthorised',
+      description: '',
+    });
   };
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Just answer a question',
@@ -350,7 +374,11 @@ test('product discovery is cited, bounded and reused after a response failure', 
   const { thing, chat } = await setup();
   await request('PATCH', `/things/${thing.id}`, {
     values: [
-      { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'Synthetic model' },
+      {
+        fieldSetId: 'appliances.appliance',
+        fieldId: 'common.model',
+        value: 'Synthetic model',
+      },
     ],
   });
   let discoveries = 0;
@@ -375,7 +403,11 @@ test('product discovery is cited, bounded and reused after a response failure', 
     await execute('discover', { thingId: thing.id, focus: 'products' });
   };
   ai.failOnce = true;
-  const input = { text: 'Find a filter', intent: 'answer', requestId: randomUUID() };
+  const input = {
+    text: 'Find a filter',
+    intent: 'answer',
+    requestId: randomUUID(),
+  };
   await request('POST', `/conversations/${chat.id}/messages`, input);
   assert.equal((await wait(chat.id)).message.status, 'failed');
   await request('POST', `/conversations/${chat.id}/messages`, input);

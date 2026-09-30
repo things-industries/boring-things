@@ -21,7 +21,11 @@ test('import names stay short until a collision needs a model or number', () => 
 test('only nonsensitive model identifiers are eligible for disambiguation', () => {
   assert.equal(candidateModel(candidates.neff), undefined);
   const candidate = structuredClone(candidates.neff);
-  candidate.facts[0] = { ...candidate.facts[0], label: 'E-Nr', value: 'MODEL/01' };
+  candidate.facts[0] = {
+    ...candidate.facts[0],
+    label: 'E-Nr',
+    value: 'MODEL/01',
+  };
   assert.equal(candidateModel(candidate), 'MODEL/01');
   candidate.facts[0].sensitive = true;
   assert.equal(candidateModel(candidate), undefined);

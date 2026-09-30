@@ -1,4 +1,10 @@
+/**
+ * Defines import extraction, mapping, discovery and provider interfaces, plus shared usage tracking
+ * and active job states.
+ */
+
 import type { Schema, Value } from '../../../shared/model.js';
+
 export interface Fact {
   id: string;
   label: string;
@@ -7,6 +13,7 @@ export interface Fact {
   page: number | null;
   sensitive: boolean;
 }
+
 export interface Candidate {
   id: string;
   name: string;
@@ -14,15 +21,18 @@ export interface Candidate {
   terms: string[];
   facts: Fact[];
 }
+
 export interface Extraction {
   text: string;
   candidates: Candidate[];
 }
+
 export interface Source {
   filename: string;
   mediaType: string;
   content: Buffer;
 }
+
 export interface MappingValue {
   factId: string;
   fieldSetId: string | null;
@@ -30,8 +40,10 @@ export interface MappingValue {
   value: Value;
   pin: boolean;
 }
+
 export type MappingStage =
   { kind: 'sets'; setIds: string[] } | { kind: 'values'; values: MappingValue[] };
+
 export interface DiscoveryItem {
   kind: 'reference' | 'maintenance' | 'consumable' | 'accessory' | 'upgrade';
   title: string;
@@ -39,20 +51,25 @@ export interface DiscoveryItem {
   url: string;
   sourceUrl: string;
 }
+
 export interface Discovery {
   items: DiscoveryItem[];
   sources: string[];
   identity?: { name: string; sourceUrl: string } | null;
 }
+
 export type Usage = Schema['ImportUsage'];
+
 export interface AiContext {
   signal: AbortSignal;
   record: (usage: Partial<Usage>) => Promise<void>;
 }
+
 export interface RegistryTools {
   searchFieldSets(categoryId: string, terms: string[]): Promise<unknown>;
   searchFields(labels: { label: string; context: string }[]): Promise<unknown>;
 }
+
 export interface ImportAi {
   extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
   map(candidate: Candidate, tools: RegistryTools, context: AiContext): AsyncIterable<MappingStage>;
@@ -62,6 +79,8 @@ export interface ImportAi {
     focus?: 'reference' | 'maintenance' | 'products',
   ): Promise<Discovery>;
 }
+
+// Awaiting selection still locks the Thing until the owner confirms which candidates to import.
 export const activeStatuses = [
   'queued',
   'extracting',
@@ -69,6 +88,7 @@ export const activeStatuses = [
   'mapping',
   'discovering',
 ];
+
 export const blankUsage = (model = ''): Usage => ({
   model,
   inputTokens: 0,

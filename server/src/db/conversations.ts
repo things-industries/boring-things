@@ -1,3 +1,8 @@
+/**
+ * Persists owner-scoped conversations and queued messages, reads assistant resources and records
+ * transactional write receipts for retries.
+ */
+
 import type pg from 'pg';
 import type { Schema } from '../../../shared/model.js';
 import { rows, transaction, type Database } from './connection.js';
@@ -6,8 +11,13 @@ import { ensure } from '../application/errors.js';
 
 export type MessageRow = Schema['Message'] & {
   intent: Schema['MessageInput']['intent'];
-  toolResults: { key: string; result: unknown; card?: Schema['ResourceCard'] }[];
+  toolResults: {
+    key: string;
+    result: unknown;
+    card?: Schema['ResourceCard'];
+  }[];
 };
+
 export async function ownedConversation(db: Database, owner: string, id: string, lock = false) {
   const [item] = await rows<{ id: string; thingId: string | null }>(
     db,
@@ -17,6 +27,7 @@ export async function ownedConversation(db: Database, owner: string, id: string,
   ensure(item, 'Conversation not found', 404);
   return item;
 }
+
 export async function conversation(
   db: Database,
   owner: string,
@@ -28,6 +39,8 @@ export async function conversation(
     "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,intent,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'user' then 0 else 1 end,id",
     [id],
   );
+
+  // Cards can outlive their targets; recheck owner access so clients can mark deleted resources unavailable.
   for (const message of messages)
     for (const card of message.cards) {
       const table =
@@ -40,14 +53,17 @@ export async function conversation(
               : card.type === 'issue'
                 ? 'issues'
                 : 'purchasables';
+
       const key = card.type === 'field' ? 'thingId' : `${card.type}Id`;
       const value = (card as unknown as Record<string, unknown>)[key];
       card.available = !!(
         await db.query(`select 1 from bt.${table} where id=$1 and owner_id=$2`, [value, owner])
       ).rowCount;
     }
+
   return { ...item, messages };
 }
+
 export async function enqueueMessage(
   pool: pg.Pool,
   owner: string,
@@ -62,14 +78,17 @@ export async function enqueueMessage(
       'select * from bt.messages where conversation_id=$1 and request_id=$2',
       [id, input.requestId],
     );
+
     const user = existing.find((m) => m.role === 'user');
     const assistant = existing.find((m) => m.role === 'assistant');
+
     if (user)
       ensure(
         user.text === input.text.trim() && user.intent === input.intent,
         'Request ID already used',
         409,
       );
+
     if (assistant && assistant.status !== 'failed') return conversation(db, owner, id);
     ensure(
       !(
@@ -81,6 +100,8 @@ export async function enqueueMessage(
       'A response is already in progress',
       409,
     );
+
+    // Requeue the same message without clearing tool receipts, so successful writes survive a failed response.
     if (assistant) {
       // Earlier failed turns cannot be retried after the conversation has moved on.
       const [latest] = await rows<{ id: string }>(
@@ -103,23 +124,29 @@ export async function enqueueMessage(
         [id, input.requestId, input.text.trim(), input.intent],
       );
     }
+
     return conversation(db, owner, id);
   });
 }
 
 export type ChatJob = MessageRow & { ownerId: string; thingId: string | null };
+
 export async function recoverMessages(db: Database) {
   await db.query(
     "update bt.messages set status='failed',error='interrupted' where role='assistant' and status='processing'",
   );
 }
+
+// The shared runner serialises consumption; this query does not claim jobs for multiple worker processes.
 export async function nextMessage(db: Database) {
   const [job] = await rows<ChatJob>(
     db,
     "select m.*,c.owner_id,c.thing_id from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.role='assistant' and m.status='queued' order by m.created_at,m.id limit 1",
   );
+
   return job;
 }
+
 export async function saveMessage(
   db: Database,
   job: ChatJob,
@@ -136,6 +163,7 @@ export async function saveMessage(
     usage: 'usage',
     error: 'error',
   } as const;
+
   const entries = Object.entries(patch) as [keyof typeof columns, unknown][];
   const values = entries.map(([key, value]) =>
     ['cards', 'sourceRefs', 'toolResults', 'usage'].includes(key) ? JSON.stringify(value) : value,
@@ -145,6 +173,7 @@ export async function saveMessage(
     [...values, job.id, job.ownerId],
   );
 }
+
 export async function searchChatThings(db: Database, owner: string, query: string) {
   return rows<{ id: string; name: string; categoryId: string }>(
     db,
@@ -152,6 +181,7 @@ export async function searchChatThings(db: Database, owner: string, query: strin
     [owner, query],
   );
 }
+
 export async function chatResources(db: Database, owner: string, id: string) {
   const attachments = await rows<
     Pick<Schema['Attachment'], 'id' | 'filename' | 'mediaType' | 'byteSize' | 'sourceUrl'>
@@ -160,7 +190,9 @@ export async function chatResources(db: Database, owner: string, id: string) {
     'select a.id,a.filename,a.media_type,a.byte_size,a.source_url from bt.attachments a join bt.thing_attachments l on l.attachment_id=a.id where l.thing_id=$1 and a.owner_id=$2 order by a.created_at desc,a.id limit 31',
     [id, owner],
   );
+
   const activity: Record<string, { id: string }[]> = {};
+
   for (const [kind, table] of [
     ['event', 'events'],
     ['issue', 'issues'],
@@ -172,12 +204,14 @@ export async function chatResources(db: Database, owner: string, id: string) {
       [id, owner],
     );
   }
+
   return {
     attachments: attachments.slice(0, 30),
     activity: Object.fromEntries(Object.entries(activity).map(([k, v]) => [k, v.slice(0, 30)])),
     truncated: attachments.length > 30 || Object.values(activity).some((v) => v.length > 30),
   };
 }
+
 export async function chatAttachment(db: Database, owner: string, id: string) {
   const [file] = await rows<{
     id: string;
@@ -186,8 +220,10 @@ export async function chatAttachment(db: Database, owner: string, id: string) {
     storageKey: string;
     byteSize: number;
   }>(db, 'select * from bt.attachments where id=$1 and owner_id=$2', [id, owner]);
+
   return file;
 }
+
 export async function createChatActivity(
   pool: pg.Pool,
   job: ChatJob,
@@ -205,13 +241,16 @@ export async function createChatActivity(
     ensure(current, 'Message is no longer processing', 409);
     ensure(current.intent === name, 'Message intent does not allow this write');
     const previous = current.toolResults.find((r) => r.key === name);
+
     if (previous) {
       ensure(
         (previous.result as { thingId: string }).thingId === input.thingId,
         'One creation per message',
       );
+
       return previous;
     }
+
     await ownedThing(db, job.ownerId, input.thingId, true);
     const table = name === 'create_event' ? 'events' : 'issues';
     const [item] = await rows<{ id: string; thingId: string }>(
@@ -219,13 +258,17 @@ export async function createChatActivity(
       `insert into bt.${table}(owner_id,thing_id,title,description) values($1,$2,$3,$4) returning id,thing_id`,
       [job.ownerId, input.thingId, input.title.trim(), input.description],
     );
+
     const card: Schema['ResourceCard'] =
       name === 'create_event'
         ? { type: 'event', eventId: item.id }
         : { type: 'issue', issueId: item.id };
+
     const result = { key: name, result: item, card };
     // Commit the record and receipt together, so retry can reuse its result.
-    await saveMessage(db, job, { toolResults: [...current.toolResults, result] });
+    await saveMessage(db, job, {
+      toolResults: [...current.toolResults, result],
+    });
     await bumpThing(db, job.ownerId, input.thingId);
     signal.throwIfAborted();
     return result;

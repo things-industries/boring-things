@@ -1,3 +1,8 @@
+/**
+ * Registers private attachment upload, download, deletion and Thing linking, coordinating blob
+ * storage with owner-scoped metadata.
+ */
+
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { basename } from 'node:path';
@@ -10,7 +15,9 @@ import { assertEditable } from '../db/imports.js';
 import { ownedThing, bumpThing } from '../db/things.js';
 import type { BlobStorage } from '../providers/blobs.js';
 import type { Config } from '../config.js';
+
 type AttachmentRow = Schema['Attachment'] & { storageKey: string };
+
 async function attachment(db: Database, owner: string, id: string, lock = false) {
   const [file] = await rows<AttachmentRow>(
     db,
@@ -20,15 +27,19 @@ async function attachment(db: Database, owner: string, id: string, lock = false)
   ensure(file, 'Attachment not found', 404);
   return file;
 }
+
+// Magic bytes and UTF-8 checks reject mismatched uploads; this is not full document validation or malware scanning.
 export function matchesMedia(buffer: Buffer, type: string) {
   if (type === 'application/pdf') return buffer.subarray(0, 5).toString() === '%PDF-';
   if (type === 'image/png')
     return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   if (type === 'image/jpeg') return buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255;
+
   if (type === 'image/webp')
     return (
       buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP'
     );
+
   if (type === 'text/plain') {
     try {
       new TextDecoder('utf-8', { fatal: true }).decode(buffer);
@@ -37,8 +48,10 @@ export function matchesMedia(buffer: Buffer, type: string) {
       return false;
     }
   }
+
   return false;
 }
+
 export function attachmentRoutes(
   app: FastifyInstance,
   db: pg.Pool,
@@ -57,11 +70,18 @@ export function attachmentRoutes(
       req.query,
     );
   });
+
   route(app, 'POST', '/api/attachments', async (req, reply) => {
     const parts = req.parts({
-      limits: { fileSize: config.maxUploadBytes, files: 1, fields: 0, parts: 1 },
+      limits: {
+        fileSize: config.maxUploadBytes,
+        files: 1,
+        fields: 0,
+        parts: 1,
+      },
     });
     let file: { filename: string; type: string; buffer: Buffer } | undefined;
+
     for await (const part of parts) {
       ensure(
         part.type === 'file' && part.fieldname === 'file',
@@ -85,9 +105,12 @@ export function attachmentRoutes(
         buffer,
       };
     }
+
     ensure(file, 'Choose a file');
+    // The filesystem and database do not share a transaction; remove the new blob if metadata insertion fails.
     const key = await blobs.put(file.buffer);
     let id: string;
+
     try {
       const [row] = await rows<{ id: string }>(
         db,
@@ -99,10 +122,13 @@ export function attachmentRoutes(
       await blobs.remove(key);
       throw error;
     }
+
     reply.code(201);
     return attachment(db, req.ownerId, id);
   });
+
   route(app, 'GET', '/api/attachments/{id}', (req) => attachment(db, req.ownerId, req.params.id));
+
   route(app, 'GET', '/api/attachments/{id}/content', async (req, reply) => {
     const file = await attachment(db, req.ownerId, req.params.id);
     reply
@@ -113,8 +139,10 @@ export function attachmentRoutes(
         `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
       )
       .type(file.mediaType);
+
     return reply.send(blobs.read(file.storageKey));
   });
+
   route(app, 'DELETE', '/api/attachments/{id}', async (req, reply) => {
     const key = await transaction(db, async (tx) => {
       const file = await attachment(tx, req.ownerId, req.params.id, true);
@@ -128,18 +156,21 @@ export function attachmentRoutes(
         file.id,
         req.ownerId,
       ]);
+
       return file.storageKey;
     });
     // Metadata deletion commits first. A failed filesystem cleanup leaves an orphan, never a broken live record.
     await blobs.remove(key);
     reply.code(204).send();
   });
+
   for (const method of ['PUT', 'DELETE'] as const)
     route(app, method, '/api/attachments/{id}/things/{thingId}', async (req, reply) => {
       await transaction(db, async (tx) => {
         await attachment(tx, req.ownerId, req.params.id, true);
         await ownedThing(tx, req.ownerId, req.params.thingId, true);
         await assertEditable(tx, req.ownerId, req.params.thingId);
+
         if (method === 'PUT')
           await tx.query(
             'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
@@ -155,6 +186,7 @@ export function attachmentRoutes(
             [req.params.thingId, req.params.id, req.ownerId],
           );
         }
+
         await bumpThing(tx, req.ownerId, req.params.thingId);
       });
       reply.code(204).send();

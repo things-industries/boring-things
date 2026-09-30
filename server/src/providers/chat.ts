@@ -1,6 +1,12 @@
+/**
+ * Adapts streamed OpenAI Responses calls to assistant text deltas and sequential application tools,
+ * including requested attachment content.
+ */
+
 import type { ChatAi, ChatInput, ChatContext, ChatToolResult } from '../application/chat-types.js';
 import { chatFunctions } from '../contracts/chat-tools.js';
 import { ensure } from '../application/errors.js';
+
 interface Output {
   type: string;
   name?: string;
@@ -8,6 +14,7 @@ interface Output {
   call_id?: string;
   content?: { type: string; text?: string }[];
 }
+
 interface Response {
   status: string;
   output: Output[];
@@ -17,6 +24,7 @@ interface Response {
     input_tokens_details?: { cached_tokens: number };
   };
 }
+
 export class OpenAiChat implements ChatAi {
   constructor(
     private key: string,
@@ -24,6 +32,7 @@ export class OpenAiChat implements ChatAi {
     private maxOutputTokens: number,
     private rounds: number,
   ) {}
+
   async respond(
     task: ChatInput,
     execute: (name: string, args: unknown) => Promise<ChatToolResult>,
@@ -35,12 +44,16 @@ export class OpenAiChat implements ChatAi {
       content: `Active Thing ID: ${task.thingId ?? 'none; search the owner Things'}. Message intent: ${task.intent}. Completed writes for this request (reuse them): ${JSON.stringify(task.completedWrites)}. Current UTC time: ${new Date().toISOString()}.`,
     });
     let answer = '';
+
     for (let round = 0; round <= this.rounds; round++) {
       context.signal.throwIfAborted();
       const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         signal: context.signal,
-        headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${this.key}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           model: this.model,
           store: false,
@@ -61,7 +74,9 @@ export class OpenAiChat implements ChatAi {
       let completed: Response | undefined;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      // Network chunks can split UTF-8 characters and SSE frames; retain decoder state and buffer incomplete frames.
       let buffer = '';
+
       try {
         while (true) {
           const next = await reader.read();
@@ -69,6 +84,7 @@ export class OpenAiChat implements ChatAi {
           buffer += decoder.decode(next.value, { stream: true });
           ensure(buffer.length < 4 * 1024 * 1024, 'Provider frame too large');
           let end: number;
+
           while ((end = buffer.indexOf('\n\n')) >= 0) {
             const frame = buffer.slice(0, end);
             buffer = buffer.slice(end + 2);
@@ -79,10 +95,12 @@ export class OpenAiChat implements ChatAi {
               .join('\n');
             if (!data || data === '[DONE]') continue;
             const event = JSON.parse(data);
+
             if (event.type === 'response.output_text.delta') {
               answer += event.delta;
               context.delta(event.delta);
             }
+
             if (event.type === 'response.completed') completed = event.response as Response;
             if (['error', 'response.failed', 'response.incomplete'].includes(event.type))
               throw new Error('chat_provider_failed');
@@ -92,6 +110,7 @@ export class OpenAiChat implements ChatAi {
         await reader.cancel().catch(() => {});
         reader.releaseLock();
       }
+
       ensure(completed?.status === 'completed', 'Assistant response incomplete');
       await context.record({
         model: this.model,
@@ -99,10 +118,12 @@ export class OpenAiChat implements ChatAi {
         outputTokens: completed.usage?.output_tokens ?? 0,
         cachedTokens: completed.usage?.input_tokens_details?.cached_tokens ?? 0,
       });
+      // Replay output and tool results for the next turn because remote response storage is disabled.
       input.push(...completed.output);
       const calls = completed.output.filter((o) => o.type === 'function_call');
       if (!calls.length) return answer;
       ensure(calls.length === 1 && round < this.rounds, 'tool_limit');
+
       for (const call of calls) {
         const result = await execute(call.name ?? '', JSON.parse(call.arguments ?? '{}'));
         input.push({
@@ -110,6 +131,7 @@ export class OpenAiChat implements ChatAi {
           call_id: call.call_id,
           output: JSON.stringify(result.output),
         });
+
         if (result.source) {
           const source = result.source;
           const data = `data:${source.mediaType};base64,${source.content.toString('base64')}`;
@@ -124,12 +146,17 @@ export class OpenAiChat implements ChatAi {
                 ? { type: 'input_text', text: source.content.toString('utf8') }
                 : source.mediaType.startsWith('image/')
                   ? { type: 'input_image', image_url: data }
-                  : { type: 'input_file', filename: source.filename, file_data: data },
+                  : {
+                      type: 'input_file',
+                      filename: source.filename,
+                      file_data: data,
+                    },
             ],
           });
         }
       }
     }
+
     throw new Error('tool_limit');
   }
 }

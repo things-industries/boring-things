@@ -1,6 +1,12 @@
+/**
+ * Streams conversation snapshots and live text deltas, coalescing changes and periodically
+ * reconnecting for authentication.
+ */
+
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { ThingChanges } from '../application/streams.js';
 import type { Assistant } from '../application/conversations.js';
+
 export async function streamSnapshots(
   req: FastifyRequest<{ Params: Record<string, string> }>,
   reply: FastifyReply,
@@ -12,14 +18,18 @@ export async function streamSnapshots(
   let closed = false,
     running = false,
     dirty = true;
+
   const send = async () => {
     if (closed || running) return;
     running = true;
+
     try {
       do {
         dirty = false;
         const data = await snapshot();
+
         if (!closed && !reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) {
+          // Close a backpressured stream instead of accumulating snapshots; reconnecting clients receive fresh state.
           reply.raw.end();
           cleanup();
         }
@@ -31,10 +41,13 @@ export async function streamSnapshots(
       running = false;
     }
   };
+
+  // Subscribe before the first read; changes during an in-flight snapshot set dirty and trigger another read.
   const unsubscribe = changes.subscribe(req.ownerId, () => {
     dirty = true;
     void send();
   });
+
   const unsubDelta = assistant.subscribe(req.ownerId, req.params.id, (delta) => {
     if (
       !closed &&
@@ -44,6 +57,7 @@ export async function streamSnapshots(
       cleanup();
     }
   });
+
   const keepalive = setInterval(() => {
     if (!closed) {
       reply.raw.write(': keep-alive\n\n');
@@ -51,10 +65,13 @@ export async function streamSnapshots(
       void send();
     }
   }, 10000);
+
+  // Close periodically so reconnects revalidate the bearer token; the existing stream does not recheck token expiry.
   const renew = setTimeout(() => {
     reply.raw.end();
     cleanup();
   }, 55000);
+
   const cleanup = () => {
     if (closed) return;
     closed = true;
@@ -63,6 +80,7 @@ export async function streamSnapshots(
     clearInterval(keepalive);
     clearTimeout(renew);
   };
+
   reply.hijack();
   reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream',

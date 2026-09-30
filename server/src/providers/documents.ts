@@ -1,3 +1,8 @@
+/**
+ * Downloads bounded PDF documents over HTTPS, checking hosts, DNS answers, redirects and file
+ * signatures before accepting content.
+ */
+
 import { lookup } from 'node:dns/promises';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
@@ -6,6 +11,7 @@ import { ensure } from '../application/errors.js';
 import { withDeadline } from '../application/import-deadline.js';
 
 const blocked = new BlockList();
+
 for (const [address, prefix] of [
   ['0.0.0.0', 8],
   ['10.0.0.0', 8],
@@ -22,8 +28,12 @@ for (const [address, prefix] of [
   ['224.0.0.0', 3],
 ] as const)
   blocked.addSubnet(address, prefix, 'ipv4');
+
+// Allow only global IPv6 ranges, then exclude reserved blocks; IPv4-mapped IPv6 addresses stay outside this allowlist.
 const globalV6 = new BlockList();
+
 globalV6.addSubnet('2000::', 3, 'ipv6');
+
 for (const [address, prefix] of [
   ['2001::', 23],
   ['2001:db8::', 32],
@@ -38,6 +48,7 @@ export function publicAddress(address: string) {
     ? !blocked.check(address, 'ipv4')
     : family === 6 && globalV6.check(address, 'ipv6') && !blocked.check(address, 'ipv6');
 }
+
 export function documentUrl(value: string) {
   const url = new URL(value);
   const hostname = url.hostname.replace(/^\[|\]$/g, '');
@@ -53,6 +64,7 @@ export function documentUrl(value: string) {
     hostname !== 'localhost' && !hostname.endsWith('.localhost') && !hostname.endsWith('.local'),
     'Unsafe document host',
   );
+
   return url;
 }
 
@@ -89,6 +101,7 @@ export interface DocumentOptions {
   maxBytes: number;
   signal: AbortSignal;
 }
+
 export type DocumentDownload = (url: string, options: DocumentOptions) => Promise<Buffer | null>;
 
 export async function downloadPdf(
@@ -98,22 +111,28 @@ export async function downloadPdf(
 ): Promise<Buffer | null> {
   const signal = AbortSignal.any([options.signal, AbortSignal.timeout(15000)]);
   let url = documentUrl(value);
+
   for (let redirects = 0; redirects <= 3; redirects++) {
     signal.throwIfAborted();
     const response = await request(url, signal);
+
     try {
       if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
         ensure(redirects < 3 && response.headers.location, 'Document redirect limit');
+        // Every redirect is a new untrusted target and must pass URL and connection-time DNS checks again.
         url = documentUrl(new URL(response.headers.location, url).href);
         continue;
       }
+
       ensure(response.statusCode === 200, 'Document download failed');
       const type = response.headers['content-type']?.split(';')[0].trim().toLowerCase();
+
       if (
         type &&
         !['application/pdf', 'application/octet-stream', 'binary/octet-stream'].includes(type)
       )
         return null;
+
       ensure(
         !response.headers['content-encoding'] ||
           response.headers['content-encoding'] === 'identity',
@@ -123,8 +142,10 @@ export async function downloadPdf(
         Number(response.headers['content-length'] ?? 0) <= options.maxBytes,
         'Document too large',
       );
+      // Enforce the byte cap while streaming too; Content-Length may be absent or inaccurate.
       const chunks: Buffer[] = [];
       let size = 0;
+
       for await (const chunk of response) {
         signal.throwIfAborted();
         const bytes = Buffer.from(chunk);
@@ -132,15 +153,18 @@ export async function downloadPdf(
         ensure(size <= options.maxBytes, 'Document too large');
         chunks.push(bytes);
       }
+
       const content = Buffer.concat(chunks);
       ensure(
         content.subarray(0, 5).toString() === '%PDF-' && content.subarray(-1024).includes('%%EOF'),
         'Invalid PDF document',
       );
+
       return content;
     } finally {
       response.destroy();
     }
   }
+
   throw new Error('Document redirect limit');
 }

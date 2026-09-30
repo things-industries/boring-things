@@ -1,3 +1,8 @@
+/**
+ * Validates extracted facts and maps them into Thing fields while preserving provenance, sensitive
+ * values and user edits.
+ */
+
 import { createHash } from 'node:crypto';
 import { Ajv } from 'ajv';
 import type { Candidate, Extraction, MappingStage, Fact } from './import-types.js';
@@ -5,6 +10,7 @@ import type { Registry } from './registry.js';
 import type { ThingData, StoredValue } from '../../../shared/model.js';
 import { ensure } from './errors.js';
 import spec from '../../../openapi.json' with { type: 'json' };
+
 const valueValidator = new Ajv({ strict: false }).compile({
   ...spec.components.schemas.Value,
   definitions: { Money: spec.components.schemas.Money },
@@ -12,6 +18,7 @@ const valueValidator = new Ajv({ strict: false }).compile({
     '$ref' in s ? { $ref: '#/definitions/Money' } : s,
   ),
 });
+
 export function validateExtraction(input: Extraction, categories: string[]): Extraction {
   ensure(
     input &&
@@ -22,6 +29,7 @@ export function validateExtraction(input: Extraction, categories: string[]): Ext
       input.candidates.length <= 10,
     'Invalid extraction',
   );
+
   return {
     text: input.text,
     candidates: input.candidates.map((c, i) => {
@@ -54,14 +62,17 @@ export function validateExtraction(input: Extraction, categories: string[]): Ext
               (f.page === null || (Number.isInteger(f.page) && f.page > 0)),
             'Invalid extracted fact',
           );
+
           return { ...f, id: `fact-${n + 1}` };
         }),
       };
     }),
   };
 }
+
 function sensitiveFact(fact: Fact, registry?: Registry) {
   const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
   const label = normalize(fact.label);
   return (
     fact.sensitive ||
@@ -73,10 +84,13 @@ function sensitiveFact(fact: Fact, registry?: Registry) {
     )
   );
 }
+
+// Derive stable local IDs from the import, candidate and fact so retries reuse custom fields and their edit markers.
 export function localFactId(jobId: string, candidateId: string, factId: string) {
   const hash = createHash('sha256').update(`${jobId}:${candidateId}:${factId}`).digest('hex');
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
+
 export function applyImportStage(
   original: ThingData,
   stage: MappingStage,
@@ -89,6 +103,7 @@ export function applyImportStage(
   attachmentId: string,
 ): ThingData {
   const data = structuredClone(original);
+
   if (stage.kind === 'sets') {
     ensure(
       stage.setIds.length <= 30 && stage.setIds.every((id) => allowedSets.has(id)),
@@ -100,6 +115,7 @@ export function applyImportStage(
     data.setIds = registry.expand([...data.setIds, ...selected], category);
   } else {
     ensure(stage.values.length <= 100, 'Too many mapped values');
+
     for (const entry of stage.values) {
       const fact = candidate.facts.find((f) => f.id === entry.factId);
       ensure(fact && allowedFields.has(entry.fieldId), 'Unknown mapped fact or field');
@@ -108,23 +124,29 @@ export function applyImportStage(
         definition && (!sensitiveFact(fact, registry) || definition.sensitive),
         'Sensitive fact requires a sensitive field',
       );
+
       if (entry.fieldSetId !== null)
         ensure(
           data.setIds.includes(entry.fieldSetId) &&
             registry.sets.get(entry.fieldSetId)?.fields.some((f) => f.id === entry.fieldId),
           'Invalid field membership',
         );
+
       registry.validate(entry.fieldId, entry.value);
+
       // An identifier-like string cannot silently become a number.
       if (typeof fact.value === 'string' && definition.schema.type === 'string')
         ensure(
           typeof entry.value === 'string' && entry.value === fact.value,
           'Text and identifiers must preserve the extracted value',
         );
+
       const key = `${entry.fieldSetId ?? ''}:${entry.fieldId}`;
       const target =
         entry.fieldSetId === null ? data.standalone : (data.values[entry.fieldSetId] ??= {});
       const localId = localFactId(jobId, candidate.id, fact.id);
+
+      // A cleared or manually edited destination stays under owner control, including edits to its retained custom fact.
       if (
         !data.userEdited?.includes(key) &&
         !data.userEdited?.includes(`local:${localId}`) &&
@@ -141,6 +163,7 @@ export function applyImportStage(
             },
           ],
         };
+
         // Repeated mapping to the same address must not collapse different facts.
         if (
           !target[entry.fieldId] ||
@@ -150,6 +173,7 @@ export function applyImportStage(
           data.undefinedFields = data.undefinedFields.filter(
             (f) => f.id !== localId || f.origin === 'user',
           );
+
           if (
             entry.pin &&
             !definition.sensitive &&
@@ -157,13 +181,18 @@ export function applyImportStage(
             !data.userEdited?.includes('pins') &&
             !data.pins.some((p) => p.fieldSetId === entry.fieldSetId && p.fieldId === entry.fieldId)
           )
-            data.pins.push({ fieldSetId: entry.fieldSetId, fieldId: entry.fieldId });
+            data.pins.push({
+              fieldSetId: entry.fieldSetId,
+              fieldId: entry.fieldId,
+            });
         }
       }
     }
   }
+
   return data;
 }
+
 export function retainFacts(
   original: ThingData,
   candidate: Candidate,
@@ -172,8 +201,10 @@ export function retainFacts(
   registry?: Registry,
 ) {
   const data = structuredClone(original);
+
   for (const fact of candidate.facts) {
     const id = localFactId(jobId, candidate.id, fact.id);
+
     if (!data.undefinedFields.some((f) => f.id === id) && !data.userEdited?.includes(`local:${id}`))
       data.undefinedFields.push({
         id,
@@ -190,9 +221,12 @@ export function retainFacts(
         ],
       });
   }
+
   return data;
 }
+
 export function publicDiscoveryCandidate(candidate: Candidate, data: ThingData): Candidate | null {
+  // Only public product identifiers leave this boundary for web discovery; extracted text and private facts are excluded.
   const permitted = ['common.brand', 'common.manufacturer', 'common.model', 'appliances.eNumber'];
   const values = [
     ...Object.entries(data.standalone),

@@ -1,3 +1,8 @@
+/**
+ * Runs queued assistant messages with bounded tools, owner-scoped resource access, intent-gated
+ * writes and streamed progress.
+ */
+
 import type pg from 'pg';
 import { EventEmitter } from 'node:events';
 import { Ajv } from 'ajv';
@@ -28,13 +33,17 @@ import { withDeadline } from './import-deadline.js';
 import { publicDiscoveryCandidate } from './import-mapping.js';
 import { publicUrl, persistDiscovery } from './discovery.js';
 import type { ThingChanges } from './streams.js';
+
 const ajv = new Ajv({ strict: false });
+
 addFormats.default(ajv);
+
 const validators = new Map(chatFunctions.map((f) => [f.name, ajv.compile(f.parameters)]));
 
 export class Assistant {
   private live = new Map<string, { messageId: string; text: string }>();
   private deltas = new EventEmitter();
+
   constructor(
     private pool: pg.Pool,
     private registry: Registry,
@@ -46,6 +55,7 @@ export class Assistant {
   ) {
     this.deltas.setMaxListeners(0);
   }
+
   subscribe(owner: string, id: string, fn: (delta: Schema['ConversationDelta']) => void) {
     const key = owner + ':' + id;
     this.deltas.on(key, fn);
@@ -53,20 +63,25 @@ export class Assistant {
       this.deltas.off(key, fn);
     };
   }
+
   async snapshot(owner: string, id: string) {
     const result = await conversation(this.pool, owner, id);
     const live = this.live.get(owner + ':' + id);
+
     if (live) {
       const message = result.messages.find(
         (m) => m.id === live.messageId && m.status === 'processing',
       );
       if (message) message.text = live.text;
     }
+
     return result;
   }
+
   async recover() {
     await recoverMessages(this.pool);
   }
+
   async next(shutdown: AbortSignal) {
     if (!this.ai) return false;
     const job = await nextMessage(this.pool);
@@ -74,6 +89,7 @@ export class Assistant {
     await this.run(job, shutdown);
     return true;
   }
+
   private async run(job: ChatJob, shutdown: AbortSignal) {
     const key = job.ownerId + ':' + job.conversationId;
     const live = { messageId: job.id, text: '' };
@@ -84,11 +100,13 @@ export class Assistant {
     const elapsed = usage.elapsedMs;
     const cards: Schema['ResourceCard'][] = [];
     const refs: Schema['SourceRef'][] = [];
+    // Retrieval grants this turn access to cards and tools; model-supplied IDs alone do not authorise resources.
     const allowedThings = new Map<string, Schema['Thing']>();
     const allowedResources = new Set<string>();
     let calls = 0,
       discovered = false,
       files = 0;
+
     const record = async (delta: Partial<Schema['ImportUsage']>) => {
       usage.model = delta.model ?? usage.model;
       usage.inputTokens += delta.inputTokens ?? 0;
@@ -98,32 +116,38 @@ export class Assistant {
       usage.elapsedMs = elapsed + Date.now() - started;
       await saveMessage(this.pool, job, { usage });
     };
+
     const addCard = (card: Schema['ResourceCard']) => {
       if (!cards.some((c) => JSON.stringify(c) === JSON.stringify(card))) {
         ensure(cards.length < 24, 'Assistant card limit');
         cards.push(card);
       }
     };
+
     const readThing = async (id: string) => {
       const thing = await detail(this.pool, job.ownerId, id, this.registry);
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
       const { attachments, activity, truncated } = await chatResources(this.pool, job.ownerId, id);
       for (const a of attachments) allowedResources.add('attachment:' + a.id);
+
       for (const [kind, table] of [
         ['event', 'events'],
         ['issue', 'issues'],
         ['purchasable', 'purchasables'],
       ] as const)
         activity[table].forEach((i) => allowedResources.add(kind + ':' + i.id));
+
       return { thing, attachments, ...activity, truncated };
     };
+
     const execute = async (name: string, args: unknown): Promise<ChatToolResult> => {
       signal.throwIfAborted();
       ensure(++calls <= this.config.chatToolCalls, 'tool_limit');
       ensure(validators.get(name)?.(args), 'Invalid assistant tool arguments');
       const a = args as Record<string, string>;
       let output: unknown;
+
       if (name === 'search_things') {
         const items = await searchChatThings(this.pool, job.ownerId, a['query']);
         items.slice(0, 20).forEach((i) => allowedResources.add('thing:' + i.id));
@@ -136,15 +160,19 @@ export class Assistant {
         ensure(file && file.byteSize <= this.config.maxUploadBytes, 'Attachment unavailable');
         const chunks: Buffer[] = [];
         let bytes = 0;
+
         for await (const chunk of this.blobs.read(file.storageKey)) {
           signal.throwIfAborted();
           bytes += chunk.length;
           ensure(bytes <= this.config.maxUploadBytes, 'Attachment too large');
           chunks.push(Buffer.from(chunk));
         }
+
         addCard({ type: 'attachment', attachmentId: file.id });
         refs.push({ attachmentId: file.id });
-        await record({ toolCalls: [{ name, resultCount: 1, truncated: false }] });
+        await record({
+          toolCalls: [{ name, resultCount: 1, truncated: false }],
+        });
         return {
           output: { attachmentId: file.id, filename: file.filename },
           source: {
@@ -160,7 +188,13 @@ export class Assistant {
         ensure(thing, 'Read the Thing first');
         const stored = await ownedThing(this.pool, job.ownerId, thing.id);
         const candidate = publicDiscoveryCandidate(
-          { id: thing.id, name: thing.name, categoryId: thing.categoryId, terms: [], facts: [] },
+          {
+            id: thing.id,
+            name: thing.name,
+            categoryId: thing.categoryId,
+            terms: [],
+            facts: [],
+          },
           stored.data,
         );
         ensure(candidate, 'Public model identifiers are missing');
@@ -171,6 +205,7 @@ export class Assistant {
           signal,
           AbortSignal.timeout(this.config.discoveryTimeoutMs),
         ]);
+
         if (!found) {
           found = await withDeadline(
             this.discoveryAi.discover(
@@ -184,6 +219,7 @@ export class Assistant {
           job.toolResults.push({ key: discoveryKey, result: found });
           await saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
+
         await persistDiscovery(
           this.pool,
           this.blobs,
@@ -196,6 +232,7 @@ export class Assistant {
         output = { discovery: found, context: await readThing(thing.id) };
         this.changes.publish(job.ownerId);
       } else if (name === 'create_event' || name === 'create_issue') {
+        // Creation requires the persisted message intent; prompts and model tool selection cannot grant write permission.
         ensure(job.intent === name, 'Select the matching creation intent', 422);
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');
@@ -204,7 +241,11 @@ export class Assistant {
           this.pool,
           job,
           name,
-          { thingId: a['thingId'], title: a['title'], description: a['description'] },
+          {
+            thingId: a['thingId'],
+            title: a['title'],
+            description: a['description'],
+          },
           signal,
         );
         if (!job.toolResults.some((r) => r.key === name)) job.toolResults.push(saved);
@@ -225,11 +266,13 @@ export class Assistant {
             }[];
           }
         ).cards;
+
         for (const c of selected) {
           ensure(
             allowedResources.has((c.type === 'field' ? 'thing' : c.type) + ':' + c.id),
             'Card was not retrieved',
           );
+
           if (c.type === 'field') {
             const thing = allowedThings.get(c.id);
             ensure(thing, 'Read the Thing first');
@@ -238,7 +281,12 @@ export class Assistant {
               : thing.standaloneFields;
             const field = fields?.find((f) => f.id === c.fieldId);
             ensure(field, 'Unknown field');
-            addCard({ type: 'field', thingId: c.id, fieldSetId: c.fieldSetId, fieldId: field.id });
+            addCard({
+              type: 'field',
+              thingId: c.id,
+              fieldSetId: c.fieldSetId,
+              fieldId: field.id,
+            });
             refs.push(...field.sourceRefs);
           } else if (c.type === 'thing') addCard({ type: 'thing', thingId: c.id });
           else if (c.type === 'attachment') {
@@ -247,17 +295,23 @@ export class Assistant {
               attachmentId: c.id,
               ...(c.page ? { page: c.page } : {}),
             });
-            refs.push({ attachmentId: c.id, ...(c.page ? { page: c.page } : {}) });
+            refs.push({
+              attachmentId: c.id,
+              ...(c.page ? { page: c.page } : {}),
+            });
           } else if (c.type === 'event') addCard({ type: 'event', eventId: c.id });
           else if (c.type === 'issue') addCard({ type: 'issue', issueId: c.id });
           else addCard({ type: 'purchasable', purchasableId: c.id });
         }
+
         output = { shown: selected.length };
       }
+
       signal.throwIfAborted();
       await record({ toolCalls: [{ name, resultCount: 1, truncated: false }] });
       return { output };
     };
+
     try {
       await saveMessage(this.pool, job, { status: 'processing' });
       this.changes.publish(job.ownerId);
@@ -265,6 +319,7 @@ export class Assistant {
       const messages = history.messages
         .filter((m) => m.id !== job.id && m.status === 'complete')
         .map((m) => ({ role: m.role, content: m.text }));
+
       if (job.thingId) {
         const context = await readThing(job.thingId);
         messages.push({
@@ -272,6 +327,7 @@ export class Assistant {
           content: 'Untrusted active Thing context: ' + JSON.stringify(context),
         });
       }
+
       for (const receipt of job.toolResults) if (receipt.card) addCard(receipt.card);
       const text = await withDeadline(
         this.ai!.respond(
@@ -291,6 +347,7 @@ export class Assistant {
                 typeof text === 'string' && live.text.length + text.length <= 100000,
                 'Assistant text limit',
               );
+              // Offsets let clients reconcile streamed text with snapshots; this live buffer is lost on process restart.
               const offset = live.text.length;
               live.text += text;
               this.deltas.emit(key, { messageId: job.id, offset, text });

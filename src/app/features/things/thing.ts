@@ -113,7 +113,10 @@ export class ThingPage implements OnDestroy {
   purchasables = signal<Schema['Purchasable'][]>([]);
   purchaseGroups = computed(() =>
     (['consumable', 'accessory', 'upgrade'] as const)
-      .map((kind) => ({ kind, items: this.purchasables().filter((item) => item.kind === kind) }))
+      .map((kind) => ({
+        kind,
+        items: this.purchasables().filter((item) => item.kind === kind),
+      }))
       .filter((group) => group.items.length),
   );
   busy = signal(false);
@@ -182,10 +185,14 @@ export class ThingPage implements OnDestroy {
             }),
           ),
           this.api.all((query) =>
-            this.api.client.GET('/api/issues', { params: { query: { ...query, thingId: id } } }),
+            this.api.client.GET('/api/issues', {
+              params: { query: { ...query, thingId: id } },
+            }),
           ),
           this.api.all((query) =>
-            this.api.client.GET('/api/events', { params: { query: { ...query, thingId: id } } }),
+            this.api.client.GET('/api/events', {
+              params: { query: { ...query, thingId: id } },
+            }),
           ),
           this.api.all((query) =>
             this.api.client.GET('/api/purchasables', {
@@ -247,10 +254,14 @@ export class ThingPage implements OnDestroy {
     try {
       const [attachments, events, purchases, issues] = await Promise.all([
         this.api.all((query) =>
-          this.api.client.GET('/api/attachments', { params: { query: { ...query, thingId: id } } }),
+          this.api.client.GET('/api/attachments', {
+            params: { query: { ...query, thingId: id } },
+          }),
         ),
         this.api.all((query) =>
-          this.api.client.GET('/api/events', { params: { query: { ...query, thingId: id } } }),
+          this.api.client.GET('/api/events', {
+            params: { query: { ...query, thingId: id } },
+          }),
         ),
         this.api.all((query) =>
           this.api.client.GET('/api/purchasables', {
@@ -258,7 +269,9 @@ export class ThingPage implements OnDestroy {
           }),
         ),
         this.api.all((query) =>
-          this.api.client.GET('/api/issues', { params: { query: { ...query, thingId: id } } }),
+          this.api.client.GET('/api/issues', {
+            params: { query: { ...query, thingId: id } },
+          }),
         ),
       ]);
       if (id !== this.id || revision !== this.thing()?.revision) return;
@@ -376,7 +389,9 @@ export class ThingPage implements OnDestroy {
       name: field.label,
       description: '',
       keywords: [],
-      schema: { type: field.valueType === 'money' ? 'object' : field.valueType },
+      schema: {
+        type: field.valueType === 'money' ? 'object' : field.valueType,
+      },
       uiHint: field.valueType === 'money' ? 'money' : 'text',
       sensitive: field.sensitive,
       value: field.value,
@@ -391,14 +406,25 @@ export class ThingPage implements OnDestroy {
     if (value === null) this.update({ removeUndefinedFieldIds: [field.id] });
     else
       this.update({
-        undefinedFields: [{ id: field.id, label: field.label, sensitive: field.sensitive, value }],
+        undefinedFields: [
+          {
+            id: field.id,
+            label: field.label,
+            sensitive: field.sensitive,
+            value,
+          },
+        ],
       });
   }
   addLocal() {
     if (this.localLabel.trim()) {
       this.update({
         undefinedFields: [
-          { label: this.localLabel.trim(), value: this.localValue, sensitive: this.localSensitive },
+          {
+            label: this.localLabel.trim(),
+            value: this.localValue,
+            sensitive: this.localSensitive,
+          },
         ],
       });
       this.localLabel = '';
@@ -408,7 +434,9 @@ export class ThingPage implements OnDestroy {
   }
   toggleTag(tag: string) {
     const ids = this.thing()?.tagIds ?? [];
-    this.update({ tagIds: ids.includes(tag) ? ids.filter((id) => id !== tag) : [...ids, tag] });
+    this.update({
+      tagIds: ids.includes(tag) ? ids.filter((id) => id !== tag) : [...ids, tag],
+    });
   }
   async addTag() {
     if (!this.newTag.trim()) return;
@@ -447,11 +475,15 @@ export class ThingPage implements OnDestroy {
   async extractAttachment(attachmentId: string) {
     await this.perform(async () => {
       const accepted = await this.api.client
-        .POST('/api/things:import', { body: { attachmentId, thingId: this.id } })
+        .POST('/api/things:import', {
+          body: { attachmentId, thingId: this.id },
+        })
         .then(apiData);
       this.importChanged(
         await this.api.client
-          .GET('/api/imports/{id}', { params: { path: { id: accepted.importId } } })
+          .GET('/api/imports/{id}', {
+            params: { path: { id: accepted.importId } },
+          })
           .then(apiData),
       );
     });
@@ -488,7 +520,9 @@ export class ThingPage implements OnDestroy {
   }
   async deleteFile(id: string) {
     await this.perform(async () => {
-      await this.api.client.DELETE('/api/attachments/{id}', { params: { path: { id } } });
+      await this.api.client.DELETE('/api/attachments/{id}', {
+        params: { path: { id } },
+      });
       this.library.update((list) => list.filter((a) => a.id !== id));
     });
   }
@@ -512,7 +546,9 @@ export class ThingPage implements OnDestroy {
   }
   async remove() {
     await this.perform(async () => {
-      await this.api.client.DELETE('/api/things/{id}', { params: { path: { id: this.id } } });
+      await this.api.client.DELETE('/api/things/{id}', {
+        params: { path: { id: this.id } },
+      });
       await this.router.navigate(['/']);
     });
   }

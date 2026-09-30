@@ -1,3 +1,8 @@
+/**
+ * Reads server configuration from environment variables, including provider credentials, storage
+ * paths and workflow limits.
+ */
+
 export interface Config {
   chatTimeoutMs: number;
   chatToolCalls: number;
@@ -19,6 +24,7 @@ export interface Config {
   supportedMediaTypes: string[];
   sampleDataEnabled: boolean;
 }
+
 export function readConfig(): Config {
   return {
     chatTimeoutMs: positive('CHAT_TIMEOUT_MS', 180000),

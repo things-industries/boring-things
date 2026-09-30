@@ -158,4 +158,8 @@ bt-field:target {
   overflow-wrap: anywhere;
 }
 
-.pinned-summary dl > div { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.pinned-summary dl > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}

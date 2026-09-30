@@ -2127,9 +2127,7 @@
                     "format": "binary"
                   }
                 },
-                "required": [
-                  "file"
-                ]
+                "required": ["file"]
               }
             }
           }
@@ -2766,10 +2764,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "open",
-                "resolved"
-              ]
+              "enum": ["open", "resolved"]
             }
           }
         ]
@@ -3210,12 +3205,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "suggested",
-                "scheduled",
-                "completed",
-                "dismissed"
-              ]
+              "enum": ["suggested", "scheduled", "completed", "dismissed"]
             }
           },
           {
@@ -3672,11 +3662,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "consumable",
-                "accessory",
-                "upgrade"
-              ]
+              "enum": ["consumable", "accessory", "upgrade"]
             }
           }
         ]
@@ -4753,10 +4739,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "message",
-          "statusCode"
-        ]
+        "required": ["message", "statusCode"]
       },
       "Money": {
         "type": "object",
@@ -4770,17 +4753,10 @@
           "currency": {
             "type": "string",
             "pattern": "^[A-Z]{3}$",
-            "enum": [
-              "GBP",
-              "EUR",
-              "USD"
-            ]
+            "enum": ["GBP", "EUR", "USD"]
           }
         },
-        "required": [
-          "amountMinor",
-          "currency"
-        ]
+        "required": ["amountMinor", "currency"]
       },
       "Value": {
         "oneOf": [
@@ -4806,9 +4782,7 @@
           {
             "type": "string",
             "nullable": true,
-            "enum": [
-              null
-            ]
+            "enum": [null]
           }
         ]
       },
@@ -4857,20 +4831,11 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "string",
-              "number",
-              "integer",
-              "boolean",
-              "object"
-            ]
+            "enum": ["string", "number", "integer", "boolean", "object"]
           },
           "format": {
             "type": "string",
-            "enum": [
-              "date",
-              "date-time"
-            ]
+            "enum": ["date", "date-time"]
           },
           "enum": {
             "type": "array",
@@ -4909,9 +4874,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "type"
-        ]
+        "required": ["type"]
       },
       "FieldDefinition": {
         "type": "object",
@@ -4953,15 +4916,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "keywords",
-          "schema",
-          "uiHint",
-          "sensitive"
-        ]
+        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"]
       },
       "Field": {
         "type": "object",
@@ -5010,10 +4965,7 @@
           },
           "origin": {
             "type": "string",
-            "enum": [
-              "user",
-              "import"
-            ],
+            "enum": ["user", "import"],
             "nullable": true
           },
           "sourceRefs": {
@@ -5163,10 +5115,7 @@
           },
           "origin": {
             "type": "string",
-            "enum": [
-              "user",
-              "import"
-            ]
+            "enum": ["user", "import"]
           },
           "sourceRefs": {
             "type": "array",
@@ -5176,12 +5125,7 @@
           },
           "valueType": {
             "type": "string",
-            "enum": [
-              "string",
-              "number",
-              "boolean",
-              "money"
-            ]
+            "enum": ["string", "number", "boolean", "money"]
           }
         },
         "required": [
@@ -5222,15 +5166,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "icon",
-          "defaultImage",
-          "sortOrder",
-          "thingCount"
-        ]
+        "required": ["id", "name", "description", "icon", "defaultImage", "sortOrder", "thingCount"]
       },
       "Profile": {
         "type": "object",
@@ -5247,11 +5183,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "id",
-          "displayName",
-          "samplesAdded"
-        ]
+        "required": ["id", "displayName", "samplesAdded"]
       },
       "Config": {
         "type": "object",
@@ -5308,10 +5240,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name"
-        ]
+        "required": ["id", "name"]
       },
       "TagInput": {
         "type": "object",
@@ -5323,9 +5252,7 @@
             "maxLength": 80
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "ThingSummary": {
         "type": "object",
@@ -5587,11 +5514,7 @@
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": [
-          "fieldSetId",
-          "fieldId",
-          "value"
-        ]
+        "required": ["fieldSetId", "fieldId", "value"]
       },
       "UndefinedPatch": {
         "type": "object",
@@ -5613,11 +5536,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "label",
-          "value",
-          "sensitive"
-        ]
+        "required": ["label", "value", "sensitive"]
       },
       "ThingCreate": {
         "type": "object",
@@ -5685,10 +5604,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "name",
-          "categoryId"
-        ]
+        "required": ["name", "categoryId"]
       },
       "ThingPatch": {
         "type": "object",
@@ -5768,9 +5684,7 @@
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": [
-          "value"
-        ]
+        "required": ["value"]
       },
       "Attachment": {
         "type": "object",
@@ -5835,10 +5749,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "open",
-              "resolved"
-            ]
+            "enum": ["open", "resolved"]
           },
           "resolvedAt": {
             "type": "string",
@@ -5849,15 +5760,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "id",
-          "thingId",
-          "title",
-          "description",
-          "status",
-          "resolvedAt",
-          "isSample"
-        ]
+        "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"]
       },
       "IssueInput": {
         "type": "object",
@@ -5878,16 +5781,10 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "open",
-              "resolved"
-            ]
+            "enum": ["open", "resolved"]
           }
         },
-        "required": [
-          "thingId",
-          "title"
-        ]
+        "required": ["thingId", "title"]
       },
       "IssuePatch": {
         "type": "object",
@@ -5904,10 +5801,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "open",
-              "resolved"
-            ]
+            "enum": ["open", "resolved"]
           }
         }
       },
@@ -5936,12 +5830,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "suggested",
-              "scheduled",
-              "completed",
-              "dismissed"
-            ]
+            "enum": ["suggested", "scheduled", "completed", "dismissed"]
           },
           "startsAt": {
             "type": "string",
@@ -6000,12 +5889,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "suggested",
-              "scheduled",
-              "completed",
-              "dismissed"
-            ]
+            "enum": ["suggested", "scheduled", "completed", "dismissed"]
           },
           "startsAt": {
             "type": "string",
@@ -6013,10 +5897,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "thingId",
-          "title"
-        ]
+        "required": ["thingId", "title"]
       },
       "EventPatch": {
         "type": "object",
@@ -6038,12 +5919,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "suggested",
-              "scheduled",
-              "completed",
-              "dismissed"
-            ]
+            "enum": ["suggested", "scheduled", "completed", "dismissed"]
           },
           "startsAt": {
             "type": "string",
@@ -6066,11 +5942,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "consumable",
-              "accessory",
-              "upgrade"
-            ]
+            "enum": ["consumable", "accessory", "upgrade"]
           },
           "name": {
             "type": "string"
@@ -6094,9 +5966,7 @@
               {
                 "type": "string",
                 "nullable": true,
-                "enum": [
-                  null
-                ]
+                "enum": [null]
               }
             ]
           },
@@ -6147,10 +6017,7 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "user",
-              "assistant"
-            ]
+            "enum": ["user", "assistant"]
           },
           "text": {
             "type": "string"
@@ -6169,12 +6036,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "queued",
-              "processing",
-              "complete",
-              "failed"
-            ]
+            "enum": ["queued", "processing", "complete", "failed"]
           },
           "createdAt": {
             "type": "string",
@@ -6194,11 +6056,7 @@
           },
           "intent": {
             "type": "string",
-            "enum": [
-              "answer",
-              "create_event",
-              "create_issue"
-            ]
+            "enum": ["answer", "create_event", "create_issue"]
           }
         },
         "required": [
@@ -6234,11 +6092,7 @@
             }
           }
         },
-        "required": [
-          "id",
-          "thingId",
-          "messages"
-        ]
+        "required": ["id", "thingId", "messages"]
       },
       "ConversationInput": {
         "type": "object",
@@ -6266,10 +6120,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "FieldSetList": {
         "type": "object",
@@ -6286,10 +6137,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "FieldDefinitionList": {
         "type": "object",
@@ -6306,10 +6154,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "ThingSummaryList": {
         "type": "object",
@@ -6326,10 +6171,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "TagList": {
         "type": "object",
@@ -6346,10 +6188,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "AttachmentList": {
         "type": "object",
@@ -6366,10 +6205,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "IssueList": {
         "type": "object",
@@ -6386,10 +6222,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "EventList": {
         "type": "object",
@@ -6406,10 +6239,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "PurchasableList": {
         "type": "object",
@@ -6426,10 +6256,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
+        "required": ["items", "nextCursor"]
       },
       "ImportCandidate": {
         "type": "object",
@@ -6445,11 +6272,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "categoryId"
-        ]
+        "required": ["id", "name", "categoryId"]
       },
       "ImportUsage": {
         "type": "object",
@@ -6486,11 +6309,7 @@
                   "type": "boolean"
                 }
               },
-              "required": [
-                "name",
-                "resultCount",
-                "truncated"
-              ]
+              "required": ["name", "resultCount", "truncated"]
             }
           }
         },
@@ -6578,9 +6397,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "attachmentId"
-        ]
+        "required": ["attachmentId"]
       },
       "ImportAccepted": {
         "type": "object",
@@ -6608,11 +6425,7 @@
             ]
           }
         },
-        "required": [
-          "importId",
-          "thingId",
-          "status"
-        ]
+        "required": ["importId", "thingId", "status"]
       },
       "ImportConfirmation": {
         "type": "object",
@@ -6633,18 +6446,13 @@
                   "nullable": true
                 }
               },
-              "required": [
-                "candidateId",
-                "targetThingId"
-              ]
+              "required": ["candidateId", "targetThingId"]
             },
             "minItems": 1,
             "maxItems": 10
           }
         },
-        "required": [
-          "selections"
-        ]
+        "required": ["selections"]
       },
       "ResourceCard": {
         "oneOf": [
@@ -6654,9 +6462,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "thing"
-                ]
+                "enum": ["thing"]
               },
               "thingId": {
                 "type": "string",
@@ -6666,10 +6472,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "type",
-              "thingId"
-            ]
+            "required": ["type", "thingId"]
           },
           {
             "type": "object",
@@ -6677,9 +6480,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "field"
-                ]
+                "enum": ["field"]
               },
               "thingId": {
                 "type": "string",
@@ -6696,12 +6497,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "type",
-              "thingId",
-              "fieldSetId",
-              "fieldId"
-            ]
+            "required": ["type", "thingId", "fieldSetId", "fieldId"]
           },
           {
             "type": "object",
@@ -6709,9 +6505,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "attachment"
-                ]
+                "enum": ["attachment"]
               },
               "attachmentId": {
                 "type": "string",
@@ -6725,10 +6519,7 @@
                 "minimum": 1
               }
             },
-            "required": [
-              "type",
-              "attachmentId"
-            ]
+            "required": ["type", "attachmentId"]
           },
           {
             "type": "object",
@@ -6736,9 +6527,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "issue"
-                ]
+                "enum": ["issue"]
               },
               "issueId": {
                 "type": "string",
@@ -6748,10 +6537,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "type",
-              "issueId"
-            ]
+            "required": ["type", "issueId"]
           },
           {
             "type": "object",
@@ -6759,9 +6545,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "event"
-                ]
+                "enum": ["event"]
               },
               "eventId": {
                 "type": "string",
@@ -6771,10 +6555,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "type",
-              "eventId"
-            ]
+            "required": ["type", "eventId"]
           },
           {
             "type": "object",
@@ -6782,9 +6563,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": [
-                  "purchasable"
-                ]
+                "enum": ["purchasable"]
               },
               "purchasableId": {
                 "type": "string",
@@ -6794,10 +6573,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "type",
-              "purchasableId"
-            ]
+            "required": ["type", "purchasableId"]
           }
         ]
       },
@@ -6816,18 +6592,10 @@
           },
           "intent": {
             "type": "string",
-            "enum": [
-              "answer",
-              "create_event",
-              "create_issue"
-            ]
+            "enum": ["answer", "create_event", "create_issue"]
           }
         },
-        "required": [
-          "text",
-          "requestId",
-          "intent"
-        ]
+        "required": ["text", "requestId", "intent"]
       },
       "ConversationDelta": {
         "type": "object",
@@ -6845,11 +6613,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "messageId",
-          "offset",
-          "text"
-        ]
+        "required": ["messageId", "offset", "text"]
       }
     }
   }

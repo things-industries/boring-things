@@ -67,7 +67,9 @@ export class ResourceCard {
       } else if (card.type === 'attachment')
         this.file.set(
           await this.api.client
-            .GET('/api/attachments/{id}', { params: { path: { id: card.attachmentId } } })
+            .GET('/api/attachments/{id}', {
+              params: { path: { id: card.attachmentId } },
+            })
             .then(apiData),
         );
       else if (card.type === 'event')
@@ -85,7 +87,9 @@ export class ResourceCard {
       else
         this.purchase.set(
           await this.api.client
-            .GET('/api/purchasables/{id}', { params: { path: { id: card.purchasableId } } })
+            .GET('/api/purchasables/{id}', {
+              params: { path: { id: card.purchasableId } },
+            })
             .then(apiData),
         );
     } catch {

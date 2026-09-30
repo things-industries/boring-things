@@ -41,8 +41,16 @@ try {
       categoryId: 'appliances',
       addFieldSetIds: ['appliances.appliance'],
       values: [
-        { fieldSetId: 'appliances.appliance', fieldId: 'common.manufacturer', value: 'Miele' },
-        { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'G 7310 SC AutoDos' },
+        {
+          fieldSetId: 'appliances.appliance',
+          fieldId: 'common.manufacturer',
+          value: 'Miele',
+        },
+        {
+          fieldSetId: 'appliances.appliance',
+          fieldId: 'common.model',
+          value: 'G 7310 SC AutoDos',
+        },
       ],
     },
   });
@@ -71,14 +79,22 @@ try {
   let message: Schema['Message'] | undefined;
   while (Date.now() < deadline) {
     const current = (
-      await app.inject({ method: 'GET', url: `/api/conversations/${chat.id}`, headers })
+      await app.inject({
+        method: 'GET',
+        url: `/api/conversations/${chat.id}`,
+        headers,
+      })
     ).json<Schema['Conversation']>();
     message = current.messages.filter((m) => m.role === 'assistant').at(-1);
     if (message && ['complete', 'failed'].includes(message.status)) break;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   const products = (
-    await app.inject({ method: 'GET', url: `/api/purchasables?thingId=${thing.id}`, headers })
+    await app.inject({
+      method: 'GET',
+      url: `/api/purchasables?thingId=${thing.id}`,
+      headers,
+    })
   ).json<{ items: Schema['Purchasable'][] }>();
   await mkdir('test-results', { recursive: true });
   await writeFile(

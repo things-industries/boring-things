@@ -50,7 +50,9 @@ export class Dashboard {
         this.api.all((query) => this.api.client.GET('/api/tags', { params: { query } })),
         this.api.client
           .GET('/api/issues', {
-            params: { query: { status: 'open', limit: APP_CONFIG.activityLimit } },
+            params: {
+              query: { status: 'open', limit: APP_CONFIG.activityLimit },
+            },
           })
           .then(apiData),
         this.api.client

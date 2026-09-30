@@ -21,10 +21,15 @@ export class FixtureChat implements ChatAi {
     this.calls++;
     const searched = input.thingId ? null : await execute('search_things', { query: '' });
     const id = input.thingId ?? (searched!.output as { items: { id: string }[] }).items[0]?.id;
-    const result = await execute('read_thing', { thingId: this.foreignThing ?? id });
+    const result = await execute('read_thing', {
+      thingId: this.foreignThing ?? id,
+    });
     await this.probe?.(input, execute);
     const { thing, attachments } = result.output as {
-      thing: { id: string; fieldSets: { id: string; fields: { id: string }[] }[] };
+      thing: {
+        id: string;
+        fieldSets: { id: string; fields: { id: string }[] }[];
+      };
       attachments: { id: string }[];
     };
     await this.pause;
@@ -36,7 +41,13 @@ export class FixtureChat implements ChatAi {
       });
     await execute('show_cards', {
       cards: [
-        { type: 'thing', id: thing.id, fieldSetId: null, fieldId: null, page: null },
+        {
+          type: 'thing',
+          id: thing.id,
+          fieldSetId: null,
+          fieldId: null,
+          page: null,
+        },
         ...(thing.fieldSets.length
           ? [
               {
@@ -67,7 +78,11 @@ export class FixtureChat implements ChatAi {
       throw new Error('Synthetic provider failure after write');
     }
     context.delta('are ready.');
-    await context.record({ model: 'fixture', inputTokens: 10, outputTokens: 5 });
+    await context.record({
+      model: 'fixture',
+      inputTokens: 10,
+      outputTokens: 5,
+    });
     return 'The saved details are ready.';
   }
 }

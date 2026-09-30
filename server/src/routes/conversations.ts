@@ -1,3 +1,8 @@
+/**
+ * Registers owner-scoped conversation creation, message enqueueing, reads and authenticated
+ * snapshot and text streams.
+ */
+
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import type { Schema } from '../../../shared/model.js';
@@ -10,6 +15,7 @@ import type { Assistant } from '../application/conversations.js';
 import type { ThingChanges } from '../application/streams.js';
 import { streamSnapshots } from './stream.js';
 import { ownedThing, bumpThing } from '../db/things.js';
+
 export function conversationRoutes(
   app: FastifyInstance,
   db: pg.Pool,
@@ -31,6 +37,7 @@ export function conversationRoutes(
       return conversation(tx, req.ownerId, item.id);
     }),
   );
+
   route<Schema['MessageInput']>(
     app,
     'POST',
@@ -44,6 +51,7 @@ export function conversationRoutes(
       return result;
     },
   );
+
   route(app, 'GET', '/api/conversations/{id}/stream', async (req, reply) => {
     await conversation(db, req.ownerId, req.params.id);
     return streamSnapshots(
@@ -55,6 +63,7 @@ export function conversationRoutes(
       assistant,
     );
   });
+
   route(app, 'GET', '/api/conversations/{id}', (req) =>
     conversation(db, req.ownerId, req.params.id),
   );

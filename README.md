@@ -107,25 +107,25 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 
 ## Configuration
 
-| Variable             | Purpose                                                     |
-| -------------------- | ----------------------------------------------------------- |
-| `DATABASE_URL`       | Backend Postgres connection; local default uses port 55432  |
-| `LOGTO_ENDPOINT`     | Tenant endpoint, without `/oidc`                            |
-| `LOGTO_APP_ID`       | SPA application ID; public identifier                       |
-| `LOGTO_API_RESOURCE` | API audience; `https://api.boring-things.local`             |
-| `BLOB_DIRECTORY`     | Local blob directory; default `.data/blobs`                 |
-| `MAX_UPLOAD_BYTES`   | Upload limit; default 20971520                              |
-| `ENABLE_SAMPLE_DATA` | Enables the authenticated sample-data action; default false |
-| `OPENAI_API_KEY` | Server-only OpenAI credential |
-| `OPENAI_MODEL` | Configurable model; required for imports and chat |
-| `IMPORT_TIMEOUT_MS` | Extraction/mapping attempt deadline; default 180000 |
-| `IMPORT_TOOL_ROUNDS` | Registry tool-call budget per candidate; default 4 |
-| `DISCOVERY_TIMEOUT_MS` | Discovery deadline per candidate; default 90000 |
-| `DISCOVERY_SEARCH_CALLS` | Web tool-call budget per discovery; default 3 |
-| `CHAT_TIMEOUT_MS` | Assistant attempt deadline; default 180000 |
-| `CHAT_TOOL_CALLS` | Function-call budget per assistant response; default 12 |
-| `AI_MAX_OUTPUT_TOKENS` | Output token limit per provider response; default 12000 |
-| `HOST`, `PORT`       | API bind address; default `127.0.0.1:3000`                  |
+| Variable                 | Purpose                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| `DATABASE_URL`           | Backend Postgres connection; local default uses port 55432  |
+| `LOGTO_ENDPOINT`         | Tenant endpoint, without `/oidc`                            |
+| `LOGTO_APP_ID`           | SPA application ID; public identifier                       |
+| `LOGTO_API_RESOURCE`     | API audience; `https://api.boring-things.local`             |
+| `BLOB_DIRECTORY`         | Local blob directory; default `.data/blobs`                 |
+| `MAX_UPLOAD_BYTES`       | Upload limit; default 20971520                              |
+| `ENABLE_SAMPLE_DATA`     | Enables the authenticated sample-data action; default false |
+| `OPENAI_API_KEY`         | Server-only OpenAI credential                               |
+| `OPENAI_MODEL`           | Configurable model; required for imports and chat           |
+| `IMPORT_TIMEOUT_MS`      | Extraction/mapping attempt deadline; default 180000         |
+| `IMPORT_TOOL_ROUNDS`     | Registry tool-call budget per candidate; default 4          |
+| `DISCOVERY_TIMEOUT_MS`   | Discovery deadline per candidate; default 90000             |
+| `DISCOVERY_SEARCH_CALLS` | Web tool-call budget per discovery; default 3               |
+| `CHAT_TIMEOUT_MS`        | Assistant attempt deadline; default 180000                  |
+| `CHAT_TOOL_CALLS`        | Function-call budget per assistant response; default 12     |
+| `AI_MAX_OUTPUT_TOKENS`   | Output token limit per provider response; default 12000     |
+| `HOST`, `PORT`           | API bind address; default `127.0.0.1:3000`                  |
 
 One tenant can supply identities to both local and production environments. Database records and files remain environment-specific. The API returns public auth configuration to the frontend at startup, so Logto settings do not require rebuilding Angular.
 
@@ -133,7 +133,9 @@ One tenant can supply identities to both local and production environments. Data
 
 ```sh
 pnpm api:generate                # after editing openapi.json
-CI=true pnpm check               # contract drift, lint, types, unit tests, build
+pnpm format                      # apply Prettier formatting
+pnpm format:check                # check formatting without writing
+CI=true pnpm check               # formatting, contract drift, lint, types, unit tests, build
 pnpm test:integration            # requires local Supabase and a built frontend
 ```
 
@@ -148,7 +150,6 @@ Integration checks create and remove isolated temporary databases; they do not r
 Run `node --import tsx --env-file=.env scripts/smoke-import.ts` for a **paid live** check using the configured model and synthetic hob/van/policy data. It creates and removes a temporary local database and blob directory; it does not change application records. Its trace and usage report are saved under ignored `test-results/import-smoke.json`. Live Logto redirects and physical-device camera capture require separate manual checks.
 
 Provider implementation references: [file inputs](https://developers.openai.com/api/docs/guides/file-inputs), [function calling](https://developers.openai.com/api/docs/guides/function-calling), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [web search](https://developers.openai.com/api/docs/guides/tools-web-search).
-
 
 ### Assistant verification and demo
 

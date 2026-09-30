@@ -113,7 +113,11 @@ export class ChatPage implements OnDestroy {
       : undefined;
     const input =
       retry && user
-        ? { text: user.text, requestId: retry.requestId, intent: retry.intent ?? 'answer' }
+        ? {
+            text: user.text,
+            requestId: retry.requestId,
+            intent: retry.intent ?? 'answer',
+          }
         : (this.pending ?? {
             text: this.text.trim(),
             requestId: crypto.randomUUID(),

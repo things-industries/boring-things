@@ -5,7 +5,10 @@ import { allPages, apiData, createApiClient } from '../../src/app/core/api/api-c
 test('authenticated requests obtain the current token and disable caching', async () => {
   let token = 'first';
   const client = createApiClient(
-    { token: async () => token, onUnauthorized: () => assert.fail('Unexpected 401') },
+    {
+      token: async () => token,
+      onUnauthorized: () => assert.fail('Unexpected 401'),
+    },
     {
       baseUrl: 'https://example.test',
       async fetch(request) {
@@ -17,9 +20,13 @@ test('authenticated requests obtain the current token and disable caching', asyn
       },
     },
   );
-  await client.DELETE('/api/things/{id}', { params: { path: { id: 'thing-1' } } });
+  await client.DELETE('/api/things/{id}', {
+    params: { path: { id: 'thing-1' } },
+  });
   token = 'refreshed';
-  await client.DELETE('/api/things/{id}', { params: { path: { id: 'thing-1' } } });
+  await client.DELETE('/api/things/{id}', {
+    params: { path: { id: 'thing-1' } },
+  });
 });
 
 test('public configuration needs no token', async () => {

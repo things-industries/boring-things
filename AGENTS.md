@@ -55,10 +55,12 @@ CI=true pnpm dev          # Angular and Fastify live reload
 pnpm dev:server           # Fastify only
 pnpm api:generate        # Generate shared OpenAPI types
 pnpm api:check           # Check contract drift
+pnpm format              # Apply Prettier formatting
+pnpm format:check        # Check formatting without writing
 pnpm lint                # ESLint
 pnpm test                # Node unit tests
 CI=true pnpm typecheck   # Server types and Angular development build
-CI=true pnpm check       # Contract, lint, types, unit tests and build
+CI=true pnpm check       # Formatting, contract, lint, types, unit tests and build
 pnpm test:integration    # Requires local Supabase and built frontend
 CI=true pnpm build       # Build both targets
 pnpm start               # Serve built application
@@ -66,7 +68,7 @@ pnpm db:stop             # Stop local Supabase, preserving data
 ```
 
 - Prefix Angular CLI commands and wrappers with `CI=true` on the first attempt inside Codex's macOS sandbox. If CI mode changes the behaviour under test, request approval for an unsandboxed run.
-- Run `CI=true pnpm check` before handing off code changes. Add relevant integration/browser checks for persistence, authentication or user-journey changes. Documentation-only changes need path, command and diff checks.
+- Run `pnpm format` after editing, then `CI=true pnpm check` before handing off code changes. Formatting follows `.prettierrc.json` and `.prettierignore`; preserve unrelated working-tree changes. Add relevant integration/browser checks for persistence, authentication or user-journey changes. Documentation-only changes need formatting, path, command and diff checks.
 - Integration tests create and remove isolated temporary databases. They do not replace a live Logto redirect/login/logout check.
 - Database reset deletes local data. Use it only when deletion is authorised. Ordinary startup and migration do not require a reset.
 - Registry seeds update definitions; incompatible changes need a migration for existing values. Sample Things are a separate, opt-in, owner-scoped action.

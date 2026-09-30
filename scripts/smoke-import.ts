@@ -78,7 +78,10 @@ try {
   const upload = await app.inject({
     method: 'POST',
     url: '/api/attachments',
-    headers: { ...headers, 'content-type': 'multipart/form-data; boundary=' + boundary },
+    headers: {
+      ...headers,
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="synthetic.txt"\r\nContent-Type: text/plain\r\n\r\n${source}\r\n--${boundary}--\r\n`,
   });
   assert.equal(upload.statusCode, 201, upload.body);
@@ -95,7 +98,11 @@ try {
   let job: Schema['Import'] | undefined;
   while (Date.now() < deadline) {
     job = (
-      await app.inject({ method: 'GET', url: `/api/imports/${accepted.importId}`, headers })
+      await app.inject({
+        method: 'GET',
+        url: `/api/imports/${accepted.importId}`,
+        headers,
+      })
     ).json();
     if (job!.status !== previous) {
       console.log({ status: job!.status, elapsedMs: job!.usage.elapsedMs });
@@ -108,7 +115,10 @@ try {
         url: `/api/imports/${job!.id}:confirm`,
         headers,
         payload: {
-          selections: job!.candidates.map((c) => ({ candidateId: c.id, targetThingId: null })),
+          selections: job!.candidates.map((c) => ({
+            candidateId: c.id,
+            targetThingId: null,
+          })),
         },
       });
       assert.equal(confirm.statusCode, 200, confirm.body);
@@ -180,7 +190,11 @@ try {
       const end = Date.now() + config.chatTimeoutMs + 10000;
       while (Date.now() < end) {
         const current = (
-          await app!.inject({ method: 'GET', url: `/api/conversations/${chat.id}`, headers })
+          await app!.inject({
+            method: 'GET',
+            url: `/api/conversations/${chat.id}`,
+            headers,
+          })
         ).json<Schema['Conversation']>();
         const message = current.messages.filter((m) => m.role === 'assistant').at(-1)!;
         if (['complete', 'failed'].includes(message.status)) {
@@ -222,7 +236,11 @@ try {
     });
     assert.equal(scheduled.statusCode, 200, scheduled.body);
     const purchases = (
-      await app.inject({ method: 'GET', url: `/api/purchasables?thingId=${thing.id}`, headers })
+      await app.inject({
+        method: 'GET',
+        url: `/api/purchasables?thingId=${thing.id}`,
+        headers,
+      })
     ).json<{ items: Schema['Purchasable'][] }>();
     if (purchases.items.length) {
       const products = await send(
@@ -238,12 +256,21 @@ try {
       verifyIdentity: async () => ({ subject: 'synthetic-smoke' }),
     });
     const reloaded = (
-      await app.inject({ method: 'GET', url: `/api/things/${thing.id}`, headers })
+      await app.inject({
+        method: 'GET',
+        url: `/api/things/${thing.id}`,
+        headers,
+      })
     ).json<Schema['Thing']>();
     assert.ok(reloaded.eventIds.includes(event.eventId));
     assert.equal(
-      (await app.inject({ method: 'GET', url: `/api/events/${event.eventId}`, headers })).json()
-        .status,
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/events/${event.eventId}`,
+          headers,
+        })
+      ).json().status,
       'scheduled',
     );
     console.log({

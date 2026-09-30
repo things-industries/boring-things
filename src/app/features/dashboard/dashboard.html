@@ -56,7 +56,8 @@
         [class.active]="categoryId === category.id"
         (click)="chooseCategory(category.id)"
       >
-        {{ category.icon }} {{ category.name }} <span>{{ category.thingCount }}</span>
+        {{ category.icon }} {{ category.name }}
+        <span>{{ category.thingCount }}</span>
       </button>
     }
   </div>
@@ -64,8 +65,12 @@
     <bt-dashboard-skeleton />
   } @else if (!things().length) {
     <div class="empty">
-      <div class="empty-icon"><ng-icon name="addThing" aria-hidden="true" /></div>
-      <h2>{{ q || categoryId || tagId ? 'No matching things' : 'Make room for less admin' }}</h2>
+      <div class="empty-icon">
+        <ng-icon name="addThing" aria-hidden="true" />
+      </div>
+      <h2>
+        {{ q || categoryId || tagId ? 'No matching things' : 'Make room for less admin' }}
+      </h2>
       <p>Add a thing and give its details a home.</p>
       <a class="button" routerLink="/things/new">Add your first thing</a>
     </div>
