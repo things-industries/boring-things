@@ -6,6 +6,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get config */
         get: operations["getConfig"];
         put?: never;
         post?: never;
@@ -22,6 +23,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get profile */
         get: operations["getProfile"];
         put?: never;
         post?: never;
@@ -40,6 +42,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Seed samples */
         post: operations["seedSamples"];
         delete?: never;
         options?: never;
@@ -54,6 +57,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List categorys */
         get: operations["listCategorys"];
         put?: never;
         post?: never;
@@ -70,6 +74,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List field sets */
         get: operations["listFieldSets"];
         put?: never;
         post?: never;
@@ -86,6 +91,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get field set */
         get: operations["getFieldSet"];
         put?: never;
         post?: never;
@@ -102,6 +108,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List field definitions */
         get: operations["listFieldDefinitions"];
         put?: never;
         post?: never;
@@ -118,6 +125,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get field */
         get: operations["getField"];
         put?: never;
         post?: never;
@@ -134,8 +142,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List thing summarys
+         * @description Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days.
+         */
         get: operations["listThingSummarys"];
         put?: never;
+        /** Create thing */
         post: operations["createThing"];
         delete?: never;
         options?: never;
@@ -150,12 +163,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get thing */
         get: operations["getThing"];
         put?: never;
         post?: never;
+        /** Delete thing */
         delete: operations["deleteThing"];
         options?: never;
         head?: never;
+        /** Patch thing */
         patch: operations["patchThing"];
         trace?: never;
     };
@@ -168,6 +184,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Reveal field */
         post: operations["revealField"];
         delete?: never;
         options?: never;
@@ -182,8 +199,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List tags */
         get: operations["listTags"];
         put?: never;
+        /** Create tag */
         post: operations["createTag"];
         delete?: never;
         options?: never;
@@ -201,9 +220,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /** Delete tag */
         delete: operations["deleteTag"];
         options?: never;
         head?: never;
+        /** Patch tag */
         patch: operations["patchTag"];
         trace?: never;
     };
@@ -214,8 +235,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List attachments */
         get: operations["listAttachments"];
         put?: never;
+        /** Upload attachment */
         post: operations["uploadAttachment"];
         delete?: never;
         options?: never;
@@ -230,9 +253,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get attachment */
         get: operations["getAttachment"];
         put?: never;
         post?: never;
+        /** Delete attachment */
         delete: operations["deleteAttachment"];
         options?: never;
         head?: never;
@@ -246,6 +271,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Download attachment */
         get: operations["downloadAttachment"];
         put?: never;
         post?: never;
@@ -263,8 +289,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /** Link attachment */
         put: operations["linkAttachment"];
         post?: never;
+        /** Unlink attachment */
         delete: operations["unlinkAttachment"];
         options?: never;
         head?: never;
@@ -278,8 +306,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List issues */
         get: operations["listIssues"];
         put?: never;
+        /** Create issue */
         post: operations["createIssue"];
         delete?: never;
         options?: never;
@@ -294,12 +324,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get issue */
         get: operations["getIssue"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        /** Patch issue */
         patch: operations["patchIssue"];
         trace?: never;
     };
@@ -310,8 +342,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List events
+         * @description Events ordered by schedule ascending, then ID; unscheduled events last. Date-only events sort at midnight in timeZone. Bounds are inclusive: timed events compare instants; date-only events compare the calendar date of each bound in timeZone, including the entire matching day.
+         */
         get: operations["listEvents"];
         put?: never;
+        /** Create event */
         post: operations["createEvent"];
         delete?: never;
         options?: never;
@@ -326,12 +363,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get event */
         get: operations["getEvent"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        /** Patch event */
         patch: operations["patchEvent"];
         trace?: never;
     };
@@ -342,6 +381,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List purchasables */
         get: operations["listPurchasables"];
         put?: never;
         post?: never;
@@ -358,6 +398,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get purchasable */
         get: operations["getPurchasable"];
         put?: never;
         post?: never;
@@ -376,6 +417,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Create conversation */
         post: operations["createConversation"];
         delete?: never;
         options?: never;
@@ -390,6 +432,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get conversation */
         get: operations["getConversation"];
         put?: never;
         post?: never;
@@ -408,6 +451,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Start import */
         post: operations["startImport"];
         delete?: never;
         options?: never;
@@ -422,6 +466,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get import */
         get: operations["getImport"];
         put?: never;
         post?: never;
@@ -440,6 +485,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Confirm import */
         post: operations["confirmImport"];
         delete?: never;
         options?: never;
@@ -456,6 +502,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Retry import */
         post: operations["retryImport"];
         delete?: never;
         options?: never;
@@ -470,6 +517,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Stream thing */
         get: operations["streamThing"];
         put?: never;
         post?: never;
@@ -488,6 +536,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Send message */
         post: operations["sendMessage"];
         delete?: never;
         options?: never;
@@ -502,10 +551,33 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID. */
+        /**
+         * Stream conversation
+         * @description Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID.
+         */
         get: operations["streamConversation"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/things/{id}:view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a user view
+         * @description Call once when a user opens a Thing page. Atomically increments accessCount and records server time in lastViewedAt. Reads and stream refreshes do not record views. Does not change updatedAt or content revision. Each successful request counts once; clients must not automatically retry.
+         */
+        post: operations["recordThingView"];
         delete?: never;
         options?: never;
         head?: never;
@@ -516,17 +588,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Public failure message and HTTP status; private diagnostic details are omitted. */
         Error: {
             message: string;
             statusCode: number;
         };
+        /** @description Amount in integer minor units and a supported currency with two decimal places. */
         Money: {
             amountMinor: number;
-            /** @enum {string} */
-            currency: "GBP" | "EUR" | "USD";
+            currency: components["schemas"]["CurrencyEnum"];
         };
+        /** @description A stored scalar or money value. Identifiers retain their string representation. */
         Value: string | number | boolean | components["schemas"]["Money"];
-        NullableValue: components["schemas"]["Value"] | (null);
+        /** @description A field value, or null for an empty, cleared or masked field. */
+        NullableValue: components["schemas"]["Value"] | null;
+        /** @description Attachment or public URL supporting a value; quotes may be omitted for sensitive fields. */
         SourceRef: {
             /** Format: uuid */
             attachmentId?: string;
@@ -535,17 +611,17 @@ export interface components {
             /** Format: uri */
             url?: string;
         };
+        /** @description Reference to a field within its set, a standalone field, or a custom field. */
         Pin: {
             fieldSetId?: string | null;
             fieldId?: string;
             /** Format: uuid */
             undefinedFieldId?: string;
         };
+        /** @description Supported JSON Schema subset used to validate registry field values. */
         FieldSchema: {
-            /** @enum {string} */
-            type: "string" | "number" | "integer" | "boolean" | "object";
-            /** @enum {string} */
-            format?: "date" | "date-time";
+            type: components["schemas"]["SchemaTypeEnum"];
+            format?: components["schemas"]["SchemaFormatEnum"];
             enum?: string[];
             minimum?: number;
             maximum?: number;
@@ -558,31 +634,31 @@ export interface components {
             required?: string[];
             additionalProperties?: boolean;
         };
+        /** @description Authored registry definition reused across categories and field sets. */
         FieldDefinition: {
             id: string;
             name: string;
             description: string;
             keywords: string[];
             schema: components["schemas"]["FieldSchema"];
-            /** @enum {string} */
-            uiHint: "text" | "textarea" | "number" | "checkbox" | "select" | "date" | "datetime" | "money" | "password";
+            uiHint: components["schemas"]["UiHintEnum"];
             sensitive: boolean;
         };
+        /** @description A field definition with its current value, provenance and masking state. */
         Field: {
             id: string;
             name: string;
             description: string;
             keywords: string[];
             schema: components["schemas"]["FieldSchema"];
-            /** @enum {string} */
-            uiHint: "text" | "textarea" | "number" | "checkbox" | "select" | "date" | "datetime" | "money" | "password";
+            uiHint: components["schemas"]["UiHintEnum"];
             sensitive: boolean;
             value: components["schemas"]["NullableValue"];
             masked: boolean;
-            /** @enum {string|null} */
-            origin: "user" | "import" | null;
+            origin: components["schemas"]["FieldOriginEnum"] | null;
             sourceRefs: components["schemas"]["SourceRef"][];
         };
+        /** @description Category-specific field group with required and suggested related sets. */
         FieldSet: {
             id: string;
             categoryId: string;
@@ -593,6 +669,7 @@ export interface components {
             considerAlongside: string[];
             fields: components["schemas"]["FieldDefinition"][];
         };
+        /** @description Selected field set expanded with current field values. */
         DetailFieldSet: {
             id: string;
             categoryId: string;
@@ -603,6 +680,7 @@ export interface components {
             considerAlongside: string[];
             fields: components["schemas"]["Field"][];
         };
+        /** @description Owner-specific custom field preserving data without a registry definition. */
         UndefinedField: {
             /** Format: uuid */
             id: string;
@@ -610,12 +688,11 @@ export interface components {
             value: components["schemas"]["NullableValue"];
             sensitive: boolean;
             masked: boolean;
-            /** @enum {string} */
-            origin: "user" | "import";
+            origin: components["schemas"]["FieldOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
-            /** @enum {string} */
-            valueType: "string" | "number" | "boolean" | "money";
+            valueType: components["schemas"]["ValueTypeEnum"];
         };
+        /** @description Authored Thing category with owner-scoped Thing count. */
         Category: {
             id: string;
             name: string;
@@ -625,12 +702,14 @@ export interface components {
             sortOrder: number;
             thingCount: number;
         };
+        /** @description Authenticated owner profile and sample-data status. */
         Profile: {
             /** Format: uuid */
             id: string;
             displayName: string;
             samplesAdded: boolean;
         };
+        /** @description Public client configuration and feature availability; contains no server credentials. */
         Config: {
             logtoEndpoint: string;
             logtoAppId: string;
@@ -641,14 +720,17 @@ export interface components {
             importEnabled: boolean;
             chatEnabled: boolean;
         };
+        /** @description Owner-defined label used to organise Things. */
         Tag: {
             /** Format: uuid */
             id: string;
             name: string;
         };
+        /** @description Name for an owner-scoped tag; whitespace-only names are rejected. */
         TagInput: {
             name: string;
         };
+        /** @description Public Thing metadata excluding stored field values. */
         ThingSummary: {
             /** Format: uuid */
             id: string;
@@ -664,7 +746,15 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             isSample: boolean;
+            /** @description Number of explicit user views recorded for this Thing. */
+            accessCount: number;
+            /**
+             * Format: date-time
+             * @description Most recent explicit user view; null until first viewed.
+             */
+            lastViewedAt: string | null;
         };
+        /** @description Owner-scoped Thing detail with masked fields, links and current import state. */
         Thing: {
             /** Format: uuid */
             id: string;
@@ -696,19 +786,27 @@ export interface components {
                 attachmentId: string;
                 /** Format: uuid */
                 thingId: string | null;
-                /** @enum {string} */
-                status: "queued" | "extracting" | "awaiting_selection" | "mapping" | "discovering" | "complete" | "incomplete" | "failed";
+                status: components["schemas"]["ImportStatusEnum"];
                 candidates: components["schemas"]["ImportCandidate"][];
                 thingIds: string[];
                 error: string | null;
                 usage: components["schemas"]["ImportUsage"];
             } | null;
+            /** @description Number of explicit user views recorded for this Thing. */
+            accessCount: number;
+            /**
+             * Format: date-time
+             * @description Most recent explicit user view; null until first viewed.
+             */
+            lastViewedAt: string | null;
         };
+        /** @description Set or standalone field update; null clears the stored value. */
         ValuePatch: {
             fieldSetId: string | null;
             fieldId: string;
             value: components["schemas"]["NullableValue"];
         };
+        /** @description Custom field update retaining its identity and sensitivity. */
         UndefinedPatch: {
             /** Format: uuid */
             id?: string;
@@ -716,6 +814,7 @@ export interface components {
             value: components["schemas"]["Value"];
             sensitive: boolean;
         };
+        /** @description Initial Thing metadata and optional field, tag and pin selections. */
         ThingCreate: {
             name: string;
             description?: string;
@@ -730,6 +829,7 @@ export interface components {
             /** Format: uuid */
             imageAttachmentId?: string | null;
         };
+        /** @description Specified Thing updates, merged under a lock while preserving other values. */
         ThingPatch: {
             name?: string;
             description?: string;
@@ -744,21 +844,26 @@ export interface components {
             /** Format: uuid */
             imageAttachmentId?: string | null;
         };
+        /** @description Field reference for an explicit owner-authorised sensitive-value read. */
         RevealRequest: components["schemas"]["Pin"];
+        /** @description Revealed field value; responses must not be cached. */
         RevealResult: {
             value: components["schemas"]["NullableValue"];
         };
+        /** @description Private attachment metadata and linked Things; excludes storage keys. */
         Attachment: {
             /** Format: uuid */
             id: string;
             filename: string;
             mediaType: string;
             byteSize: number;
+            /** Format: uri */
             sourceUrl: string | null;
             thingIds: string[];
             /** Format: date-time */
             createdAt: string;
         };
+        /** @description Problem associated with one Thing, including resolution state. */
         Issue: {
             /** Format: uuid */
             id: string;
@@ -766,26 +871,47 @@ export interface components {
             thingId: string;
             title: string;
             description: string;
-            /** @enum {string} */
-            status: "open" | "resolved";
+            status: components["schemas"]["IssueStatusEnum"];
             /** Format: date-time */
             resolvedAt: string | null;
             isSample: boolean;
+            /** @description Optional freeform status shown on an Issue card. Null clears it. */
+            statusText?: string | null;
+            /**
+             * Format: date
+             * @description Optional calendar due date, without a time or timezone. Null clears it.
+             */
+            dueDate?: string | null;
         };
+        /** @description New Thing issue; defaults to OPEN. */
         IssueInput: {
             /** Format: uuid */
             thingId: string;
             title: string;
             description?: string;
-            /** @enum {string} */
-            status?: "open" | "resolved";
+            status?: components["schemas"]["IssueStatusEnum"];
+            /** @description Optional freeform status shown on an Issue card. Null clears it. */
+            statusText?: string | null;
+            /**
+             * Format: date
+             * @description Optional calendar due date, without a time or timezone. Null clears it.
+             */
+            dueDate?: string | null;
         };
+        /** @description Specified issue updates; resolving retains the first resolution timestamp. */
         IssuePatch: {
             title?: string;
             description?: string;
-            /** @enum {string} */
-            status?: "open" | "resolved";
+            status?: components["schemas"]["IssueStatusEnum"];
+            /** @description Optional freeform status shown on an Issue card. Null clears it. */
+            statusText?: string | null;
+            /**
+             * Format: date
+             * @description Optional calendar due date, without a time or timezone. Null clears it.
+             */
+            dueDate?: string | null;
         };
+        /** @description Suggested or scheduled Thing task with lifecycle timestamps and provenance. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         Event: {
             /** Format: uuid */
             id: string;
@@ -795,15 +921,20 @@ export interface components {
             issueId: string | null;
             title: string;
             description: string;
-            /** @enum {string} */
-            status: "suggested" | "scheduled" | "completed" | "dismissed";
+            status: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt: string | null;
             /** Format: date-time */
             completedAt: string | null;
             sourceRefs: components["schemas"]["SourceRef"][];
             isSample: boolean;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn: string | null;
         };
+        /** @description New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         EventInput: {
             /** Format: uuid */
             thingId: string;
@@ -811,39 +942,50 @@ export interface components {
             issueId?: string | null;
             title: string;
             description?: string;
-            /** @enum {string} */
-            status?: "suggested" | "scheduled" | "completed" | "dismissed";
+            status?: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt?: string | null;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn?: string | null;
         };
+        /** @description Specified event updates; null clears optional links or dates. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         EventPatch: {
             /** Format: uuid */
             issueId?: string | null;
             title?: string;
             description?: string;
-            /** @enum {string} */
-            status?: "suggested" | "scheduled" | "completed" | "dismissed";
+            status?: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt?: string | null;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn?: string | null;
         };
+        /** @description Cited consumable, accessory or upgrade suggestion; sample actions are disabled. */
         Purchasable: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             thingId: string;
-            /** @enum {string} */
-            kind: "consumable" | "accessory" | "upgrade";
+            kind: components["schemas"]["PurchasableKindEnum"];
             name: string;
             description: string;
             /** Format: uri */
             merchantUrl: string;
+            /** Format: uri */
             imageUrl: string | null;
-            price: components["schemas"]["Money"] | (null);
+            price: components["schemas"]["Money"] | null;
             sourceRefs: components["schemas"]["SourceRef"][];
             /** Format: date-time */
             checkedAt: string | null;
             isSample: boolean;
         };
+        /** @description Persisted conversation message with intent, citations, cards and execution state. */
         Message: {
             /** Format: uuid */
             id: string;
@@ -851,20 +993,18 @@ export interface components {
             conversationId: string;
             /** Format: uuid */
             requestId: string;
-            /** @enum {string} */
-            role: "user" | "assistant";
+            role: components["schemas"]["MessageRoleEnum"];
             text: string;
             cards: components["schemas"]["ResourceCard"][];
             sourceRefs: components["schemas"]["SourceRef"][];
-            /** @enum {string} */
-            status: "queued" | "processing" | "complete" | "failed";
+            status: components["schemas"]["MessageStatusEnum"];
             /** Format: date-time */
             createdAt: string;
             error?: string | null;
             usage?: components["schemas"]["ImportUsage"] | null;
-            /** @enum {string} */
-            intent: "answer" | "create_event" | "create_issue";
+            intent: components["schemas"]["MessageIntentEnum"];
         };
+        /** @description Active owner-scoped conversation and its persisted messages. */
         Conversation: {
             /** Format: uuid */
             id: string;
@@ -872,51 +1012,63 @@ export interface components {
             thingId: string | null;
             messages: components["schemas"]["Message"][];
         };
+        /** @description Optional Thing context for a new conversation. */
         ConversationInput: {
             /** Format: uuid */
             thingId?: string | null;
         };
+        /** @description Paginated category results and an opaque continuation cursor. */
         CategoryList: {
             items: components["schemas"]["Category"][];
             nextCursor: string | null;
         };
+        /** @description Paginated field set results and an opaque continuation cursor. */
         FieldSetList: {
             items: components["schemas"]["FieldSet"][];
             nextCursor: string | null;
         };
+        /** @description Paginated field definition results and an opaque continuation cursor. */
         FieldDefinitionList: {
             items: components["schemas"]["FieldDefinition"][];
             nextCursor: string | null;
         };
+        /** @description Paginated thing summary results and an opaque continuation cursor. */
         ThingSummaryList: {
             items: components["schemas"]["ThingSummary"][];
             nextCursor: string | null;
         };
+        /** @description Paginated tag results and an opaque continuation cursor. */
         TagList: {
             items: components["schemas"]["Tag"][];
             nextCursor: string | null;
         };
+        /** @description Paginated attachment results and an opaque continuation cursor. */
         AttachmentList: {
             items: components["schemas"]["Attachment"][];
             nextCursor: string | null;
         };
+        /** @description Paginated issue results and an opaque continuation cursor. */
         IssueList: {
             items: components["schemas"]["Issue"][];
             nextCursor: string | null;
         };
+        /** @description Paginated event results and an opaque continuation cursor. */
         EventList: {
             items: components["schemas"]["Event"][];
             nextCursor: string | null;
         };
+        /** @description Paginated purchasable results and an opaque continuation cursor. */
         PurchasableList: {
             items: components["schemas"]["Purchasable"][];
             nextCursor: string | null;
         };
+        /** @description Detected Thing offered for owner confirmation. */
         ImportCandidate: {
             id: string;
             name: string;
             categoryId: string;
         };
+        /** @description Provider usage and bounded tool execution totals for an attempt. */
         ImportUsage: {
             model: string;
             inputTokens: number;
@@ -929,6 +1081,7 @@ export interface components {
                 truncated: boolean;
             }[];
         };
+        /** @description Public import state excluding raw extraction and private source content. */
         Import: {
             /** Format: uuid */
             id: string;
@@ -936,27 +1089,28 @@ export interface components {
             attachmentId: string;
             /** Format: uuid */
             thingId: string | null;
-            /** @enum {string} */
-            status: "queued" | "extracting" | "awaiting_selection" | "mapping" | "discovering" | "complete" | "incomplete" | "failed";
+            status: components["schemas"]["ImportStatusEnum"];
             candidates: components["schemas"]["ImportCandidate"][];
             thingIds: string[];
             error: string | null;
             usage: components["schemas"]["ImportUsage"];
         };
+        /** @description Source attachment and optional existing Thing to enrich. */
         ImportStart: {
             /** Format: uuid */
             attachmentId: string;
             /** Format: uuid */
             thingId?: string;
         };
+        /** @description Queued import identity and initial Thing identity. */
         ImportAccepted: {
             /** Format: uuid */
             importId: string;
             /** Format: uuid */
             thingId: string;
-            /** @enum {string} */
-            status: "queued" | "extracting" | "awaiting_selection" | "mapping" | "discovering" | "complete" | "incomplete" | "failed";
+            status: components["schemas"]["ImportStatusEnum"];
         };
+        /** @description Selected detected candidates and their optional existing targets. */
         ImportConfirmation: {
             selections: {
                 candidateId: string;
@@ -964,61 +1118,216 @@ export interface components {
                 targetThingId: string | null;
             }[];
         };
+        /** @description Typed reference to an owned resource; availability reflects current access. */
         ResourceCard: {
-            /** @enum {string} */
-            type: "thing";
+            /** @constant */
+            type: "THING";
             /** Format: uuid */
             thingId: string;
             available?: boolean;
         } | {
-            /** @enum {string} */
-            type: "field";
+            /** @constant */
+            type: "FIELD";
             /** Format: uuid */
             thingId: string;
             available?: boolean;
             fieldSetId: string | null;
             fieldId: string;
         } | {
-            /** @enum {string} */
-            type: "attachment";
+            /** @constant */
+            type: "ATTACHMENT";
             /** Format: uuid */
             attachmentId: string;
             available?: boolean;
             page?: number;
         } | {
-            /** @enum {string} */
-            type: "issue";
+            /** @constant */
+            type: "ISSUE";
             /** Format: uuid */
             issueId: string;
             available?: boolean;
         } | {
-            /** @enum {string} */
-            type: "event";
+            /** @constant */
+            type: "EVENT";
             /** Format: uuid */
             eventId: string;
             available?: boolean;
         } | {
-            /** @enum {string} */
-            type: "purchasable";
+            /** @constant */
+            type: "PURCHASABLE";
             /** Format: uuid */
             purchasableId: string;
             available?: boolean;
         };
+        /** @description Idempotent message request with explicit authorisation intent for write tools. */
         MessageInput: {
             text: string;
             /** Format: uuid */
             requestId: string;
-            /** @enum {string} */
-            intent: "answer" | "create_event" | "create_issue";
+            intent: components["schemas"]["MessageIntentEnum"];
         };
+        /** @description Transient text update identified by message and text offset. */
         ConversationDelta: {
             /** Format: uuid */
             messageId: string;
             offset: number;
             text: string;
         };
+        /** @description Usage metadata returned after recording a user view. */
+        ThingAccess: {
+            /** @description Number of explicit user views recorded for this Thing. */
+            accessCount: number;
+            /**
+             * Format: date-time
+             * @description Most recent explicit user view; null until first viewed.
+             */
+            lastViewedAt: string | null;
+        };
+        /**
+         * @description Issue status.
+         * @enum {string}
+         */
+        IssueStatusEnum: "OPEN" | "RESOLVED";
+        /**
+         * @description Event status.
+         * @enum {string}
+         */
+        EventStatusEnum: "SUGGESTED" | "SCHEDULED" | "COMPLETED" | "DISMISSED";
+        /**
+         * @description Purchasable kind.
+         * @enum {string}
+         */
+        PurchasableKindEnum: "CONSUMABLE" | "ACCESSORY" | "UPGRADE";
+        /**
+         * @description Currency.
+         * @enum {string}
+         */
+        CurrencyEnum: "GBP" | "EUR" | "USD";
+        /**
+         * @description Schema type.
+         * @enum {string}
+         */
+        SchemaTypeEnum: "string" | "number" | "integer" | "boolean" | "object";
+        /**
+         * @description Schema format.
+         * @enum {string}
+         */
+        SchemaFormatEnum: "date" | "date-time";
+        /**
+         * @description Ui hint.
+         * @enum {string}
+         */
+        UiHintEnum: "TEXT" | "TEXTAREA" | "NUMBER" | "CHECKBOX" | "SELECT" | "DATE" | "DATETIME" | "MONEY" | "PASSWORD";
+        /**
+         * @description Field origin.
+         * @enum {string}
+         */
+        FieldOriginEnum: "USER" | "IMPORT";
+        /**
+         * @description Value type.
+         * @enum {string}
+         */
+        ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY";
+        /**
+         * @description Import status.
+         * @enum {string}
+         */
+        ImportStatusEnum: "QUEUED" | "EXTRACTING" | "AWAITING_SELECTION" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED";
+        /**
+         * @description Message role.
+         * @enum {string}
+         */
+        MessageRoleEnum: "USER" | "ASSISTANT";
+        /**
+         * @description Message status.
+         * @enum {string}
+         */
+        MessageStatusEnum: "QUEUED" | "PROCESSING" | "COMPLETE" | "FAILED";
+        /**
+         * @description Message intent.
+         * @enum {string}
+         */
+        MessageIntentEnum: "ANSWER" | "CREATE_EVENT" | "CREATE_ISSUE";
+        /**
+         * @description Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED.
+         * @enum {string}
+         */
+        ThingSortEnum: "UPDATED" | "RECENTLY_VIEWED" | "MOST_VIEWED";
     };
-    responses: never;
+    responses: {
+        /** @description A valid bearer token is required. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The resource is missing, inaccessible or disabled. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The request conflicts with current state or an existing record. */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The uploaded file exceeds the configured limit. */
+        TooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The file or request media type is unsupported. */
+        UnsupportedMedia: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The request or a referenced value is invalid. */
+        InvalidInput: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The requested capability is not configured or available. */
+        Unavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The request failed; private diagnostics are omitted. */
+        ServerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -1044,69 +1353,8 @@ export interface operations {
                     "application/json": components["schemas"]["Config"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
         };
     };
     getProfile: {
@@ -1127,69 +1375,10 @@ export interface operations {
                     "application/json": components["schemas"]["Profile"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     seedSamples: {
@@ -1210,75 +1399,20 @@ export interface operations {
                     "application/json": components["schemas"]["Profile"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listCategorys: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
             };
             header?: never;
@@ -1296,77 +1430,22 @@ export interface operations {
                     "application/json": components["schemas"]["CategoryList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listFieldSets: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Category id. */
                 categoryId?: string;
+                /** @description Text used to search matching records. */
                 q?: string;
             };
             header?: never;
@@ -1384,69 +1463,10 @@ export interface operations {
                     "application/json": components["schemas"]["FieldSetList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getFieldSet: {
@@ -1454,6 +1474,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -1469,76 +1490,21 @@ export interface operations {
                     "application/json": components["schemas"]["FieldSet"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listFieldDefinitions: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Text used to search matching records. */
                 q?: string;
             };
             header?: never;
@@ -1556,69 +1522,10 @@ export interface operations {
                     "application/json": components["schemas"]["FieldDefinitionList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getField: {
@@ -1626,6 +1533,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -1641,79 +1549,28 @@ export interface operations {
                     "application/json": components["schemas"]["FieldDefinition"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listThingSummarys: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Category id. */
                 categoryId?: string;
+                /** @description Tag id. */
                 tagId?: string;
+                /** @description Text used to search matching records. */
                 q?: string;
+                /** @description Sort order; defaults to UPDATED. Applied before pagination. */
+                sort?: components["schemas"]["ThingSortEnum"];
             };
             header?: never;
             path?: never;
@@ -1730,69 +1587,10 @@ export interface operations {
                     "application/json": components["schemas"]["ThingSummaryList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     createThing: {
@@ -1817,69 +1615,12 @@ export interface operations {
                     "application/json": components["schemas"]["Thing"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getThing: {
@@ -1887,6 +1628,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -1902,69 +1644,11 @@ export interface operations {
                     "application/json": components["schemas"]["Thing"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     deleteThing: {
@@ -1972,6 +1656,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -1985,69 +1670,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     patchThing: {
@@ -2055,6 +1683,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2074,69 +1703,12 @@ export interface operations {
                     "application/json": components["schemas"]["Thing"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     revealField: {
@@ -2144,6 +1716,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2163,75 +1736,20 @@ export interface operations {
                     "application/json": components["schemas"]["RevealResult"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listTags: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
             };
             header?: never;
@@ -2249,69 +1767,10 @@ export interface operations {
                     "application/json": components["schemas"]["TagList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     createTag: {
@@ -2336,69 +1795,12 @@ export interface operations {
                     "application/json": components["schemas"]["Tag"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     deleteTag: {
@@ -2406,6 +1808,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2419,69 +1822,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     patchTag: {
@@ -2489,6 +1835,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2508,76 +1855,22 @@ export interface operations {
                     "application/json": components["schemas"]["Tag"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listAttachments: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Thing id. */
                 thingId?: string;
             };
             header?: never;
@@ -2595,69 +1888,10 @@ export interface operations {
                     "application/json": components["schemas"]["AttachmentList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     uploadAttachment: {
@@ -2685,69 +1919,14 @@ export interface operations {
                     "application/json": components["schemas"]["Attachment"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["TooLarge"];
+            415: components["responses"]["UnsupportedMedia"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getAttachment: {
@@ -2755,6 +1934,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2770,69 +1950,11 @@ export interface operations {
                     "application/json": components["schemas"]["Attachment"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     deleteAttachment: {
@@ -2840,6 +1962,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2853,69 +1976,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     downloadAttachment: {
@@ -2923,6 +1989,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -2938,69 +2005,11 @@ export interface operations {
                     "application/octet-stream": Blob;
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     linkAttachment: {
@@ -3008,7 +2017,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
+                /** @description Thing id. */
                 thingId: string;
             };
             cookie?: never;
@@ -3022,69 +2033,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     unlinkAttachment: {
@@ -3092,7 +2046,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
+                /** @description Thing id. */
                 thingId: string;
             };
             cookie?: never;
@@ -3106,78 +2062,25 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listIssues: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Thing id. */
                 thingId?: string;
-                status?: "open" | "resolved";
+                /** @description Status. */
+                status?: components["schemas"]["IssueStatusEnum"];
             };
             header?: never;
             path?: never;
@@ -3194,69 +2097,10 @@ export interface operations {
                     "application/json": components["schemas"]["IssueList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     createIssue: {
@@ -3281,69 +2125,12 @@ export interface operations {
                     "application/json": components["schemas"]["Issue"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getIssue: {
@@ -3351,6 +2138,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -3366,69 +2154,11 @@ export interface operations {
                     "application/json": components["schemas"]["Issue"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     patchIssue: {
@@ -3436,6 +2166,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -3455,80 +2186,31 @@ export interface operations {
                     "application/json": components["schemas"]["Issue"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listEvents: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Thing id. */
                 thingId?: string;
-                status?: "suggested" | "scheduled" | "completed" | "dismissed";
+                /** @description Status. */
+                status?: components["schemas"]["EventStatusEnum"];
+                /** @description Inclusive lower start-time bound. */
                 from?: string;
+                /** @description Inclusive upper start-time bound. */
                 to?: string;
+                /** @description IANA timezone used to compare date-only events to from/to and order mixed schedules. Defaults to UTC. */
+                timeZone?: string;
             };
             header?: never;
             path?: never;
@@ -3545,69 +2227,10 @@ export interface operations {
                     "application/json": components["schemas"]["EventList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     createEvent: {
@@ -3632,69 +2255,12 @@ export interface operations {
                     "application/json": components["schemas"]["Event"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getEvent: {
@@ -3702,6 +2268,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -3717,69 +2284,11 @@ export interface operations {
                     "application/json": components["schemas"]["Event"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     patchEvent: {
@@ -3787,6 +2296,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -3806,78 +2316,25 @@ export interface operations {
                     "application/json": components["schemas"]["Event"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listPurchasables: {
         parameters: {
             query?: {
+                /** @description Maximum number of results. */
                 limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
+                /** @description Thing id. */
                 thingId?: string;
-                kind?: "consumable" | "accessory" | "upgrade";
+                /** @description Kind. */
+                kind?: components["schemas"]["PurchasableKindEnum"];
             };
             header?: never;
             path?: never;
@@ -3894,69 +2351,10 @@ export interface operations {
                     "application/json": components["schemas"]["PurchasableList"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getPurchasable: {
@@ -3964,6 +2362,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -3979,69 +2378,11 @@ export interface operations {
                     "application/json": components["schemas"]["Purchasable"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     createConversation: {
@@ -4066,69 +2407,12 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getConversation: {
@@ -4136,6 +2420,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -4151,69 +2436,11 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     startImport: {
@@ -4238,69 +2465,12 @@ export interface operations {
                     "application/json": components["schemas"]["ImportAccepted"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getImport: {
@@ -4308,6 +2478,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -4323,69 +2494,11 @@ export interface operations {
                     "application/json": components["schemas"]["Import"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     confirmImport: {
@@ -4393,6 +2506,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -4412,69 +2526,12 @@ export interface operations {
                     "application/json": components["schemas"]["Import"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     retryImport: {
@@ -4482,6 +2539,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -4497,69 +2555,12 @@ export interface operations {
                     "application/json": components["schemas"]["Import"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     streamThing: {
@@ -4567,6 +2568,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Thing id. */
                 thingId: string;
             };
             cookie?: never;
@@ -4582,69 +2584,11 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     sendMessage: {
@@ -4652,6 +2596,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -4671,69 +2616,12 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
-            /** @description Request failed */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     streamConversation: {
@@ -4741,6 +2629,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Id. */
                 id: string;
             };
             cookie?: never;
@@ -4756,69 +2645,38 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            /** @description Request failed */
-            401: {
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    recordThingView: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated access metadata. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["ThingAccess"];
                 };
             };
-            /** @description Request failed */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Request failed */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
         };
     };
 }

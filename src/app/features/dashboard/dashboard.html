@@ -85,7 +85,12 @@
           }
         </div>
         <div class="thing-card-body">
-          <span class="eyebrow">{{ category(thing.categoryId)?.name }}</span>
+          <span class="eyebrow"
+            >{{ category(thing.categoryId)?.name }}
+            @if (isNew(thing.createdAt)) {
+              · New
+            }
+          </span>
           <h2>{{ thing.name }}</h2>
           <p>{{ thing.description || 'Details, documents and more' }}</p>
           <ng-icon class="card-arrow" name="open" aria-hidden="true" /></div

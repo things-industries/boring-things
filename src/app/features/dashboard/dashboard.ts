@@ -1,3 +1,4 @@
+import { isNewThing } from '../../utils/date.util';
 import { DashboardSkeleton } from './dashboard-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -51,7 +52,7 @@ export class Dashboard {
         this.api.client
           .GET('/api/issues', {
             params: {
-              query: { status: 'open', limit: APP_CONFIG.activityLimit },
+              query: { status: 'OPEN', limit: APP_CONFIG.activityLimit },
             },
           })
           .then(apiData),
@@ -59,7 +60,8 @@ export class Dashboard {
           .GET('/api/events', {
             params: {
               query: {
-                status: 'scheduled',
+                status: 'SCHEDULED',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 from: new Date().toISOString(),
                 limit: APP_CONFIG.activityLimit,
               },
@@ -111,6 +113,9 @@ export class Dashboard {
   chooseCategory(id: string) {
     this.categoryId = id;
     void this.search();
+  }
+  isNew(createdAt: string) {
+    return isNewThing(createdAt, new Date(), APP_CONFIG.newThingDays);
   }
   category(id: string) {
     return this.categories().find((c) => c.id === id);

@@ -6,7 +6,7 @@
     <button class="quiet small" (click)="load(card())">Retry</button>
   } @else {
     @if (thing(); as thing) {
-      @if (card().type === 'field' && field(); as field) {
+      @if (card().type === 'FIELD' && field(); as field) {
         <a [routerLink]="['/things', thing.id]" [fragment]="fieldAnchor(fieldSetId(), field.id)"
           >{{ thing.name }} · {{ field.name }}</a
         >
@@ -30,7 +30,7 @@
     }
     <bt-activity [events]="events()" [issues]="issues()" [busy]="busy()" (action)="act($event)" />
     @if (purchase(); as item) {
-      <span class="eyebrow">{{ item.kind }}</span>
+      <span class="eyebrow">{{ item.kind.toLowerCase() }}</span>
       <h3>{{ item.name }}</h3>
       <p>{{ item.description }}</p>
       @if (item.isSample) {

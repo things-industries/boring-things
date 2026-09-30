@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Registry } from '../src/application/registry.js';
+import { Registry } from '../src/application/registry/registry.js';
 import { fields, sets } from '../src/db/registry-seed.js';
 import { emptyData } from '../../shared/model.js';
 import { candidates } from './fixtures/imports.js';
@@ -10,9 +10,8 @@ import {
   publicDiscoveryCandidate,
   retainFacts,
   validateExtraction,
-} from '../src/application/import-mapping.js';
+} from '../src/application/import/mapping.js';
 import { patchData } from '../src/application/thing-data.js';
-import { withDeadline } from '../src/application/import-deadline.js';
 const registry = new Registry(fields, sets);
 const candidate = candidates.neff;
 const allowedSets = new Set(['appliances.neff', 'appliances.appliance']);
@@ -143,10 +142,10 @@ test('sensitive facts cannot map to an unmasked definition and discovery only re
   data.values['appliances.neff'] = {
     'appliances.zNumber': {
       value: 'private-serial',
-      origin: 'user',
+      origin: 'USER',
       sourceRefs: [],
     },
-    'appliances.eNumber': { value: 'MODEL/01', origin: 'user', sourceRefs: [] },
+    'appliances.eNumber': { value: 'MODEL/01', origin: 'USER', sourceRefs: [] },
   };
   const query = publicDiscoveryCandidate(candidate, data)!;
   assert.equal(query.name, 'MODEL/01');
@@ -169,29 +168,15 @@ test('extraction cannot smuggle category IDs and normalizes candidate/fact ident
   );
   assert.equal(result.candidates[0].id, 'candidate-1');
 });
-test('deadline rejects adapters that ignore cancellation and suppresses late completion', async () => {
-  const controller = new AbortController();
-  let complete!: (value: string) => void;
-  const result = withDeadline(
-    new Promise<string>((resolve) => {
-      complete = resolve;
-    }),
-    controller.signal,
-  );
-  controller.abort();
-  await assert.rejects(result);
-  complete('late');
-});
-
 test('recorded live extraction and mapping retain the required fixture invariants', async () => {
   const { readFile } = await import('node:fs/promises');
   const recording = JSON.parse(
     await readFile(new URL('./fixtures/import-recording.json', import.meta.url), 'utf8'),
   ) as {
-    extraction: import('../src/application/import-types.js').Extraction;
+    extraction: import('../src/application/import/types.js').Extraction;
     mapping: {
       candidate: string;
-      result: import('../src/application/import-types.js').MappingStage;
+      result: import('../src/application/import/types.js').MappingStage;
     }[];
   };
   const extracted = validateExtraction(recording.extraction, [

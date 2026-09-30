@@ -8,7 +8,7 @@ import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP } from 'node:net';
 import { ensure } from '../application/errors.js';
-import { withDeadline } from '../application/import-deadline.js';
+import { awaitWithSignal } from '../lib/abort.js';
 
 const blocked = new BlockList();
 
@@ -70,7 +70,7 @@ export function documentUrl(value: string) {
 
 async function publicRequest(url: URL, signal: AbortSignal): Promise<IncomingMessage> {
   const hostname = url.hostname.replace(/^\[|\]$/g, '');
-  const addresses = await withDeadline(lookup(hostname, { all: true, verbatim: true }), signal);
+  const addresses = await awaitWithSignal(lookup(hostname, { all: true, verbatim: true }), signal);
   ensure(
     addresses.length && addresses.every(({ address }) => publicAddress(address)),
     'Unsafe document address',

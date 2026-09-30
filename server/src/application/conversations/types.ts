@@ -3,8 +3,8 @@
  * text updates.
  */
 
-import type { Schema } from '../../../shared/model.js';
-import type { AiContext, Source } from './import-types.js';
+import type { Schema } from '../../../../shared/model.js';
+import type { AiContext, Source } from '../import/types.js';
 
 export interface ChatToolResult {
   output: unknown;
@@ -15,8 +15,13 @@ export interface ChatContext extends AiContext {
   delta(text: string): void;
 }
 
+export interface ChatMessage {
+  role: Schema['MessageRoleEnum'];
+  content: string;
+}
+
 export interface ChatInput {
-  messages: { role: 'user' | 'assistant'; content: string }[];
+  messages: ChatMessage[];
   thingId: string | null;
   intent: Schema['MessageInput']['intent'];
   completedWrites: unknown[];

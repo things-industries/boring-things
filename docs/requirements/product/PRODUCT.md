@@ -133,7 +133,9 @@ See the `UI Inspiration` folder for ideas for specific components
     - If not logged in, full screen login/register experience
 - **Things section**
     - **Things Dashboard/home view**:
-        - Active issues
+        - Active issues power Needs attention. Each issue may include freeform status text and a calendar due date; the UI shows a countdown when a date is present.
+        - Frequent and recent Things use access count and last-viewed time recorded on user page opens. Background and assistant reads do not count.
+        - Thing card subtitles use category names. New means created less than seven days ago.
         - Upcoming events (next 7 days)
         - Categories of thing with number of things in each
         - Insights
@@ -159,7 +161,7 @@ See the `UI Inspiration` folder for ideas for specific components
 - **Timeline**:
     - **Main timeline view**
         - Search accepts keywords, filters for Thing name, date range, etc
-        - Each event shows date, name of event, thing
+        - Each event shows date, name of event, thing. Events can have a calendar date without a time, or a scheduled instant. Recurrence is outside the current scope.
     - **Event view**
         - Date, name, details
         - Links to any related Things

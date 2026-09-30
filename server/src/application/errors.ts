@@ -1,16 +1,26 @@
-/**
- * Provides HTTP-aware application errors and assertion helpers for validation and access checks.
- */
+export type ErrorKind =
+  | 'INVALID_INPUT'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'UNAUTHENTICATED'
+  | 'UNAVAILABLE'
+  | 'TOO_LARGE'
+  | 'UNSUPPORTED_MEDIA';
 
-export class HttpError extends Error {
+export class ApplicationError extends Error {
   constructor(
-    public statusCode: number,
+    public readonly kind: ErrorKind,
     message: string,
   ) {
     super(message);
+    this.name = 'ApplicationError';
   }
 }
 
-export function ensure(condition: unknown, message: string, status = 422): asserts condition {
-  if (!condition) throw new HttpError(status, message);
+export function ensure(
+  condition: unknown,
+  message: string,
+  kind: ErrorKind = 'INVALID_INPUT',
+): asserts condition {
+  if (!condition) throw new ApplicationError(kind, message);
 }

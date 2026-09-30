@@ -13,7 +13,7 @@ import type {
   ThingPatch,
 } from '../../../shared/model.js';
 import { ensure } from './errors.js';
-import type { Registry } from './registry.js';
+import type { Registry } from './registry/registry.js';
 
 export const pinKey = (pin: Pin) =>
   pin.undefinedFieldId ? `local:${pin.undefinedFieldId}` : `${pin.fieldSetId ?? ''}:${pin.fieldId}`;
@@ -84,7 +84,7 @@ export function patchData(
       registry.validate(entry.fieldId, entry.value);
       target[entry.fieldId] = {
         value: entry.value,
-        origin: 'user',
+        origin: 'USER',
         sourceRefs: [],
       };
     }
@@ -102,7 +102,7 @@ export function patchData(
     const field = {
       ...input,
       id: input.id ?? randomUUID(),
-      origin: 'user' as const,
+      origin: 'USER' as const,
       sourceRefs: [],
     };
     data.undefinedFields = [...data.undefinedFields.filter((f) => f.id !== field.id), field];
@@ -159,8 +159,9 @@ export function projectData(
     ),
     undefinedFields: data.undefinedFields.map((f) => ({
       ...f,
-      valueType: (typeof f.value === 'object' ? 'money' : typeof f.value) as
-        'money' | 'string' | 'number' | 'boolean',
+      valueType: (typeof f.value === 'object'
+        ? 'MONEY'
+        : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum'],
       value: f.sensitive ? null : f.value,
       masked: f.sensitive,
       sourceRefs: f.sensitive ? [] : f.sourceRefs,
@@ -173,7 +174,7 @@ export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
   if (pin.undefinedFieldId) {
     ensure(!pin.fieldId && pin.fieldSetId === undefined, 'Invalid field reference');
     const field = data.undefinedFields.find((f) => f.id === pin.undefinedFieldId);
-    ensure(field, 'Field not found', 404);
+    ensure(field, 'Field not found', 'NOT_FOUND');
     return field.value;
   }
 
@@ -186,7 +187,7 @@ export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
     data.setIds.includes(pin.fieldSetId) &&
       registry.sets.get(pin.fieldSetId)!.fields.some((f) => f.id === pin.fieldId),
     'Field not found',
-    404,
+    'NOT_FOUND',
   );
 
   return data.values[pin.fieldSetId]?.[pin.fieldId]?.value ?? null;

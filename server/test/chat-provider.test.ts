@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAiChat } from '../src/providers/chat.js';
-import type { ChatContext } from '../src/application/chat-types.js';
+import type { ChatContext } from '../src/application/conversations/types.js';
 const task = {
   thingId: null,
-  intent: 'answer' as const,
-  messages: [{ role: 'user' as const, content: 'Read the Thing' }],
+  intent: 'ANSWER' as const,
+  messages: [{ role: 'USER' as const, content: 'Read the Thing' }],
   completedWrites: [],
 };
 function stream(events: unknown[]) {

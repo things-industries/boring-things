@@ -27,8 +27,8 @@
   @if (conversation(); as chat) {
     <div class="messages">
       @for (message of chat.messages; track message.id) {
-        <article class="panel message" [class.user]="message.role === 'user'">
-          <h2>{{ message.role === 'user' ? 'You' : 'Assistant' }}</h2>
+        <article class="panel message" [class.user]="message.role === 'USER'">
+          <h2>{{ message.role === 'USER' ? 'You' : 'Assistant' }}</h2>
           <p class="message-text">{{ message.text }}</p>
           @for (card of message.cards; track $index) {
             <bt-resource-card [card]="card" />
@@ -50,12 +50,12 @@
               }
             }
           </div>
-          @if (message.status === 'queued' || message.status === 'processing') {
+          @if (message.status === 'QUEUED' || message.status === 'PROCESSING') {
             <p role="status" class="muted">
-              {{ message.status === 'queued' ? 'Waiting to respond…' : 'Preparing an answer…' }}
+              {{ message.status === 'QUEUED' ? 'Waiting to respond…' : 'Preparing an answer…' }}
             </p>
           }
-          @if (message.status === 'failed') {
+          @if (message.status === 'FAILED') {
             <p class="notice">The response was interrupted. Saved actions remain available.</p>
             @if ($last) {
               <button
@@ -90,9 +90,9 @@
           [(ngModel)]="intent"
           [disabled]="busy() || inFlight()"
         >
-          <option value="answer">Ask a question</option>
-          <option value="create_event">Create maintenance event</option>
-          <option value="create_issue">Report issue</option>
+          <option value="ANSWER">Ask a question</option>
+          <option value="CREATE_EVENT">Create maintenance event</option>
+          <option value="CREATE_ISSUE">Report issue</option>
         </select></label
       >
       <button type="submit" [disabled]="busy() || inFlight() || !text.trim()">Send</button>

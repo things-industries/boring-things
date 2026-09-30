@@ -1,51 +1,47 @@
-/**
- * Registers category counts and searchable field and set endpoints backed by database metadata and
- * the loaded registry.
- */
-
 import type { FastifyInstance } from 'fastify';
-import type { Registry } from '../application/registry.js';
+import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
-import { page, pageResult } from '../application/pagination.js';
-import { rows, type Database } from '../db/connection.js';
-import { searchRegistry } from '../application/registry-search.js';
+import { page, pageResult, type PageQuery } from '../application/pagination.js';
+import type { Database } from '../db/connection.js';
+import { listCategories, searchRegistry } from '../db/registry.js';
 import { ensure } from '../application/errors.js';
 
+interface RegistryQuery extends PageQuery {
+  q?: string;
+  categoryId?: string;
+}
 export function registryRoutes(app: FastifyInstance, db: Database, registry: Registry) {
-  route(app, 'GET', '/api/categories', async (req) => {
-    const { limit, offset } = page(req.query);
-    const result = await rows(
+  async function list<T>(
+    kind: 'fields' | 'field-sets',
+    records: Map<string, T>,
+    query: RegistryQuery,
+  ) {
+    const { limit, offset } = page(query);
+    const ids = await searchRegistry(
       db,
-      'select c.*, (select count(*)::integer from bt.things t where t.category_id=c.id and t.owner_id=$1) as thing_count from bt.categories c order by sort_order,id limit $2 offset $3',
-      [req.ownerId, limit + 1, offset],
+      kind,
+      [query.q ?? ''],
+      query.categoryId,
+      limit + 1,
+      offset,
     );
-
-    return pageResult(result, req.query);
-  });
-
-  for (const kind of ['field-sets', 'fields'] as const) {
-    route(app, 'GET', `/api/${kind}`, async (req) => {
-      const { limit, offset } = page(req.query);
-      const ids = await searchRegistry(
-        db,
-        kind,
-        [req.query.q ?? ''],
-        req.query.categoryId,
-        limit + 1,
-        offset,
-      );
-
-      return pageResult(
-        ids.map(({ id }) => (kind === 'fields' ? registry.fields.get(id) : registry.sets.get(id))),
-        req.query,
-      );
-    });
-
-    route(app, 'GET', `/api/${kind}/{id}`, async (req) => {
-      const item =
-        kind === 'fields' ? registry.fields.get(req.params.id) : registry.sets.get(req.params.id);
-      ensure(item, 'Registry record not found', 404);
-      return item;
-    });
+    return pageResult(
+      ids.map(({ id }) => {
+        const item = records.get(id);
+        ensure(item, 'Registry record unavailable');
+        return item;
+      }),
+      query,
+    );
   }
+  function get<T>(records: Map<string, T>, id: string) {
+    const item = records.get(id);
+    ensure(item, 'Registry record not found', 'NOT_FOUND');
+    return item;
+  }
+  route(app, 'GET', '/api/categories', (req) => listCategories(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/fields', (req) => list('fields', registry.fields, req.query));
+  route(app, 'GET', '/api/field-sets', (req) => list('field-sets', registry.sets, req.query));
+  route(app, 'GET', '/api/fields/{id}', (req) => get(registry.fields, req.params.id));
+  route(app, 'GET', '/api/field-sets/{id}', (req) => get(registry.sets, req.params.id));
 }

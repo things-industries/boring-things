@@ -8,7 +8,7 @@ import { readConfig } from '../server/src/config.js';
 import { createPool, transaction } from '../server/src/db/connection.js';
 import { seedRegistry } from '../server/src/db/registry-seed.js';
 import { OpenAiImports } from '../server/src/providers/ai.js';
-import type { ImportAi } from '../server/src/application/import-types.js';
+import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
 assert.ok(config.openaiApiKey && config.openaiModel, 'Set OPENAI_API_KEY and OPENAI_MODEL');
@@ -108,7 +108,7 @@ try {
       console.log({ status: job!.status, elapsedMs: job!.usage.elapsedMs });
       previous = job!.status;
     }
-    if (job!.status === 'awaiting_selection') {
+    if (job!.status === 'AWAITING_SELECTION') {
       assert.equal(job!.candidates.length, 3);
       const confirm: { statusCode: number; body: string } = await app.inject({
         method: 'POST',
@@ -122,7 +122,7 @@ try {
         },
       });
       assert.equal(confirm.statusCode, 200, confirm.body);
-    } else if (['complete', 'incomplete', 'failed'].includes(job!.status)) break;
+    } else if (['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(job!.status)) break;
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   const things = await Promise.all(
@@ -144,7 +144,7 @@ try {
     thingCount: things.length,
     artifact: 'test-results/import-smoke.json',
   });
-  assert.equal(job?.status, 'complete');
+  assert.equal(job?.status, 'COMPLETE');
   const fields = things.flatMap((t) => t.fieldSets.flatMap((s) => s.fields));
   assert.equal(fields.find((f) => f.id === 'appliances.zNumber')?.value, '0015');
   assert.ok(
@@ -196,8 +196,8 @@ try {
             headers,
           })
         ).json<Schema['Conversation']>();
-        const message = current.messages.filter((m) => m.role === 'assistant').at(-1)!;
-        if (['complete', 'failed'].includes(message.status)) {
+        const message = current.messages.filter((m) => m.role === 'ASSISTANT').at(-1)!;
+        if (['COMPLETE', 'FAILED'].includes(message.status)) {
           messages.push(message);
           await writeFile(
             'test-results/assistant-smoke.json',
@@ -209,7 +209,7 @@ try {
             usage: message.usage,
             cardTypes: message.cards.map((c) => c.type),
           });
-          assert.equal(message.status, 'complete');
+          assert.equal(message.status, 'COMPLETE');
           return message;
         }
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -218,21 +218,21 @@ try {
     };
     const answer = await send(
       'What is the stored Z-number? Cite the field and source document.',
-      'answer',
+      'ANSWER',
     );
     assert.match(answer.text, /0015/);
-    assert.ok(answer.cards.some((c) => c.type === 'field' || c.type === 'attachment'));
+    assert.ok(answer.cards.some((c) => c.type === 'FIELD' || c.type === 'ATTACHMENT'));
     const maintenance = await send(
       'Create a maintenance event titled Review hob care instructions. It should remind the owner to read the saved manual before cleaning.',
-      'create_event',
+      'CREATE_EVENT',
     );
-    const event = maintenance.cards.find((c) => c.type === 'event');
-    assert.ok(event && event.type === 'event');
+    const event = maintenance.cards.find((c) => c.type === 'EVENT');
+    assert.ok(event && event.type === 'EVENT');
     const scheduled = await app.inject({
       method: 'PATCH',
       url: `/api/events/${event.eventId}`,
       headers,
-      payload: { status: 'scheduled', startsAt: '2026-10-01T09:00:00Z' },
+      payload: { status: 'SCHEDULED', startsAt: '2026-10-01T09:00:00Z' },
     });
     assert.equal(scheduled.statusCode, 200, scheduled.body);
     const purchases = (
@@ -245,9 +245,9 @@ try {
     if (purchases.items.length) {
       const products = await send(
         'Show a saved compatible accessory, consumable or upgrade with its merchant link and supporting source. Do not invent products.',
-        'answer',
+        'ANSWER',
       );
-      assert.ok(products.cards.some((c) => c.type === 'purchasable'));
+      assert.ok(products.cards.some((c) => c.type === 'PURCHASABLE'));
     }
     await app.close();
     app = await buildApp({
@@ -271,7 +271,7 @@ try {
           headers,
         })
       ).json().status,
-      'scheduled',
+      'SCHEDULED',
     );
     console.log({
       assistantArtifact: 'test-results/assistant-smoke.json',

@@ -9,7 +9,7 @@ export type ThingPatch = Schema['ThingPatch'];
 export type SourceRef = Schema['SourceRef'];
 export interface StoredValue {
   value: Value;
-  origin: 'user' | 'import';
+  origin: Schema['FieldOriginEnum'];
   sourceRefs: SourceRef[];
 }
 export interface LocalField extends StoredValue {

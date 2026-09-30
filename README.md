@@ -39,6 +39,10 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Manual Thing creation/deletion, category correction, pins, tags and custom fields.
 - Top-level uploads, downloads, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
 - Issue/Event endpoints, purchasable reads, and active multi-message chat with cited resource cards, streamed answers and persisted retry recovery.
+- Issue cards support optional freeform `statusText` and date-only `dueDate`, including a local-calendar countdown. Omitted patch fields are preserved; `null` clears them.
+- Events can use a date-only `startsOn` or an instant `startsAt`. Scheduling requires one; switching formats requires clearing the other. Event lists order by schedule, then ID, and accept `timeZone` (default UTC) for date-only ordering and inclusive date-range filtering. Date-only events remain upcoming throughout their local day.
+- Thing summaries/detail expose `accessCount` and `lastViewedAt`. `POST /api/things/{id}:view` records one page open, without changing edit timestamps or content revision; reads, assistant tools and stream refreshes do not count. Each successful request increments once, so clients must not automatically retry. List sorting supports `UPDATED` (default), `RECENTLY_VIEWED` and `MOST_VIEWED`, before pagination. Unviewed Things sort last for recent views; frequency ties use last-view time, then ID.
+- Thing cards use category names and show **New** while creation age is less than seven days. Attention cards use stored Issues; automatic deadline-derived Issue creation and recurring Events remain outside the implemented scope.
 - Optional **Add sample data** action. It creates four sample Things with labelled issues, events and purchasables once per owner. Merchant actions are disabled for sample suggestions.
 
 ## AI imports
@@ -88,11 +92,13 @@ Removing a populated section or changing category preserves values, provenance a
 
 - `src/app/`: Angular shell, lazy feature pages, shared components and services; see `src/AGENTS.md`.
 - `src/styles/`: Sass tokens, typography, mixins and shared styles; see `src/styles/CHEATSHEET.md`.
-- `server/src/application/`: registry validation, field edits and Thing workflows.
-- `server/src/db/`: database access and typed registry seeds.
+- `server/src/application/`: feature workflows for imports, registry, discovery and conversations, plus shared activity rules and the single-process job runner.
+- `server/src/db/`: typed persistence functions grouped by entity, shared transactions and authored registry seeds.
 - `server/src/providers/blobs.ts`: storage interface and filesystem implementation.
 - `server/src/plugins/auth.ts`: Logto verification and local-user mapping.
-- `server/src/contracts/`: runtime schemas drawn from `openapi.json`.
+- `server/src/contracts/`: operation-specific route types, OAS 3.1 runtime schemas and contract checks.
+- `server/src/routes/`: HTTP handlers, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
+- `server/src/lib/`: generic cancellation and media checks.
 - `shared/api.ts`: generated contract types; do not edit by hand.
 - `src/app/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
 - `supabase/migrations/`: SQL migrations.
@@ -167,3 +173,5 @@ Demo after applying migrations and configuring Logto/OpenAI:
 6. Return to the Thing and reload. The scheduled Event, imported fields and discovered products remain.
 
 Integration checks cover shared attachments, user-edit preservation, grouping, duplicate-free write/discovery retry, owner isolation, deadlines, stream reconnect and restart recovery. Browser checks exercise signed JWT authentication, mobile/desktop chat cards and scheduling. Live Logto redirect/login/logout and physical-device camera capture remain manual; they have not been repeated for step 3.
+
+API domain enums use UPPER_SNAKE_CASE. Run `pnpm db:migrate` before starting this version against an existing database: the migration updates statuses, intents, roles, UI hints, stored field origins and resource cards, preserving user values and retry receipts. Frontend and backend must be updated together. JSON Schema type/format names and external provider protocol values keep their standard spelling.

@@ -5,7 +5,7 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import type { Schema } from '../../../../shared/model';
 import type { ActivityAction } from '../../interfaces/activity.interface';
-import { localDateTimeToUtc } from '../../utils/date.util';
+import { daysUntil, localDateTimeToUtc } from '../../utils/date.util';
 
 @Component({
   viewProviders: [provideIcons({ scheduleEvent, complete })],
@@ -19,13 +19,15 @@ export class Activity {
   events = input<Schema['Event'][]>([]);
   busy = input(false);
   action = output<ActivityAction>();
-  schedule(id: string, date: string) {
-    const startsAt = localDateTimeToUtc(date);
-    if (startsAt)
+  readonly daysUntil = daysUntil;
+  schedule(id: string, date: string, dateOnly = false) {
+    const startsAt = dateOnly ? null : localDateTimeToUtc(date);
+    const startsOn = dateOnly && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+    if (startsAt || startsOn)
       this.action.emit({
         kind: 'events',
         id,
-        patch: { status: 'scheduled', startsAt },
+        patch: { status: 'SCHEDULED', startsAt, startsOn },
       });
   }
 }

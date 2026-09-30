@@ -270,13 +270,13 @@
               @for (group of purchaseGroups(); track group.kind) {
                 <h3>
                   @switch (group.kind) {
-                    @case ('consumable') {
+                    @case ('CONSUMABLE') {
                       Consumables
                     }
-                    @case ('accessory') {
+                    @case ('ACCESSORY') {
                       Accessories
                     }
-                    @case ('upgrade') {
+                    @case ('UPGRADE') {
                       Upgrades
                     }
                   }
@@ -285,7 +285,7 @@
                   @for (item of group.items; track item.id) {
                     <article class="panel purchase">
                       <div class="card-top">
-                        <span class="eyebrow">{{ item.kind }}</span>
+                        <span class="eyebrow">{{ item.kind.toLowerCase() }}</span>
                         @if (item.isSample) {
                           <span class="sample">Sample</span>
                         }

@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.1.1",
   "info": {
     "title": "Boring Things foundation",
     "version": "0.1.0",
@@ -20,78 +20,16 @@
               }
             }
           },
-          "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
           },
-          "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           }
         },
-        "security": []
+        "security": [],
+        "tags": ["Configuration"],
+        "summary": "Get config"
       }
     },
     "/api/profile": {
@@ -109,81 +47,25 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "tags": ["Profile"],
+        "summary": "Get profile"
       }
     },
     "/api/profile:seed-samples": {
@@ -201,81 +83,31 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "tags": ["Profile"],
+        "summary": "Seed samples"
       }
     },
     "/api/categories": {
@@ -293,74 +125,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -377,16 +151,21 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           }
-        ]
+        ],
+        "tags": ["Registry"],
+        "summary": "List categorys"
       }
     },
     "/api/field-sets": {
@@ -404,74 +183,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -488,30 +209,38 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "categoryId",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Category id."
           },
           {
             "name": "q",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 400
+            },
+            "description": "Text used to search matching records."
           }
-        ]
+        ],
+        "tags": ["Registry"],
+        "summary": "List field sets"
       }
     },
     "/api/field-sets/{id}": {
@@ -529,74 +258,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -611,9 +285,12 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Registry"],
+        "summary": "Get field set"
       }
     },
     "/api/fields": {
@@ -631,74 +308,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -715,23 +334,30 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "q",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 400
+            },
+            "description": "Text used to search matching records."
           }
-        ]
+        ],
+        "tags": ["Registry"],
+        "summary": "List field definitions"
       }
     },
     "/api/fields/{id}": {
@@ -749,74 +375,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -831,9 +402,12 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Registry"],
+        "summary": "Get field"
       }
     },
     "/api/things": {
@@ -851,74 +425,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -935,21 +451,25 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "categoryId",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Category id."
           },
           {
             "name": "tagId",
@@ -957,16 +477,30 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Tag id."
           },
           {
             "name": "q",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 400
+            },
+            "description": "Text used to search matching records."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ThingSortEnum"
+            },
+            "description": "Sort order; defaults to UPDATED. Applied before pagination."
           }
-        ]
+        ],
+        "tags": ["Things"],
+        "summary": "List thing summarys",
+        "description": "Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days."
       },
       "post": {
         "operationId": "createThing",
@@ -982,74 +516,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1066,7 +548,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Things"],
+        "summary": "Create thing"
       }
     },
     "/api/things/{id}": {
@@ -1084,74 +568,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1167,9 +596,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Things"],
+        "summary": "Get thing"
       },
       "patch": {
         "operationId": "patchThing",
@@ -1185,74 +617,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1268,7 +648,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "requestBody": {
@@ -1280,7 +661,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Things"],
+        "summary": "Patch thing"
       },
       "delete": {
         "operationId": "deleteThing",
@@ -1289,74 +672,22 @@
             "description": "Success"
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1372,9 +703,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Things"],
+        "summary": "Delete thing"
       }
     },
     "/api/things/{id}:reveal-field": {
@@ -1392,74 +726,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1473,8 +755,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Id."
           }
         ],
         "requestBody": {
@@ -1486,7 +770,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Things"],
+        "summary": "Reveal field"
       }
     },
     "/api/tags": {
@@ -1504,74 +790,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1588,16 +816,21 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           }
-        ]
+        ],
+        "tags": ["Tags"],
+        "summary": "List tags"
       },
       "post": {
         "operationId": "createTag",
@@ -1613,74 +846,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1697,7 +878,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Tags"],
+        "summary": "Create tag"
       }
     },
     "/api/tags/{id}": {
@@ -1715,74 +898,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1798,7 +929,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "requestBody": {
@@ -1810,7 +942,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Tags"],
+        "summary": "Patch tag"
       },
       "delete": {
         "operationId": "deleteTag",
@@ -1819,74 +953,22 @@
             "description": "Success"
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -1902,9 +984,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Tags"],
+        "summary": "Delete tag"
       }
     },
     "/api/attachments": {
@@ -1922,74 +1007,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2006,14 +1033,17 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "thingId",
@@ -2021,9 +1051,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           }
-        ]
+        ],
+        "tags": ["Attachments"],
+        "summary": "List attachments"
       },
       "post": {
         "operationId": "uploadAttachment",
@@ -2039,74 +1072,28 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/TooLarge"
           },
           "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/UnsupportedMedia"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2131,7 +1118,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Attachments"],
+        "summary": "Upload attachment"
       }
     },
     "/api/attachments/{id}": {
@@ -2149,74 +1138,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2232,9 +1166,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Attachments"],
+        "summary": "Get attachment"
       },
       "delete": {
         "operationId": "deleteAttachment",
@@ -2243,74 +1180,22 @@
             "description": "Success"
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2326,9 +1211,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Attachments"],
+        "summary": "Delete attachment"
       }
     },
     "/api/attachments/{id}/content": {
@@ -2347,74 +1235,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2430,9 +1263,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Attachments"],
+        "summary": "Download attachment"
       }
     },
     "/api/attachments/{id}/things/{thingId}": {
@@ -2443,74 +1279,22 @@
             "description": "Success"
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2526,7 +1310,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           },
           {
             "name": "thingId",
@@ -2535,9 +1320,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           }
-        ]
+        ],
+        "tags": ["Attachments"],
+        "summary": "Link attachment"
       },
       "delete": {
         "operationId": "unlinkAttachment",
@@ -2546,74 +1334,22 @@
             "description": "Success"
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2629,7 +1365,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           },
           {
             "name": "thingId",
@@ -2638,9 +1375,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           }
-        ]
+        ],
+        "tags": ["Attachments"],
+        "summary": "Unlink attachment"
       }
     },
     "/api/issues": {
@@ -2658,74 +1398,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2742,14 +1424,17 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "thingId",
@@ -2757,17 +1442,20 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           },
           {
             "name": "status",
             "in": "query",
             "schema": {
-              "type": "string",
-              "enum": ["open", "resolved"]
-            }
+              "$ref": "#/components/schemas/IssueStatusEnum"
+            },
+            "description": "Status."
           }
-        ]
+        ],
+        "tags": ["Activity"],
+        "summary": "List issues"
       },
       "post": {
         "operationId": "createIssue",
@@ -2783,74 +1471,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2867,7 +1503,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Activity"],
+        "summary": "Create issue"
       }
     },
     "/api/issues/{id}": {
@@ -2885,74 +1523,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -2968,9 +1551,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Activity"],
+        "summary": "Get issue"
       },
       "patch": {
         "operationId": "patchIssue",
@@ -2986,74 +1572,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3069,7 +1603,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "requestBody": {
@@ -3081,7 +1616,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Activity"],
+        "summary": "Patch issue"
       }
     },
     "/api/events": {
@@ -3099,74 +1636,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3183,14 +1662,17 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "thingId",
@@ -3198,15 +1680,16 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           },
           {
             "name": "status",
             "in": "query",
             "schema": {
-              "type": "string",
-              "enum": ["suggested", "scheduled", "completed", "dismissed"]
-            }
+              "$ref": "#/components/schemas/EventStatusEnum"
+            },
+            "description": "Status."
           },
           {
             "name": "from",
@@ -3214,7 +1697,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "Inclusive lower start-time bound."
           },
           {
             "name": "to",
@@ -3222,9 +1706,23 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "description": "Inclusive upper start-time bound."
+          },
+          {
+            "name": "timeZone",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "UTC"
+            },
+            "description": "IANA timezone used to compare date-only events to from/to and order mixed schedules. Defaults to UTC."
           }
-        ]
+        ],
+        "tags": ["Activity"],
+        "summary": "List events",
+        "description": "Events ordered by schedule ascending, then ID; unscheduled events last. Date-only events sort at midnight in timeZone. Bounds are inclusive: timed events compare instants; date-only events compare the calendar date of each bound in timeZone, including the entire matching day."
       },
       "post": {
         "operationId": "createEvent",
@@ -3240,74 +1738,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3324,7 +1770,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Activity"],
+        "summary": "Create event"
       }
     },
     "/api/events/{id}": {
@@ -3342,74 +1790,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3425,9 +1818,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Activity"],
+        "summary": "Get event"
       },
       "patch": {
         "operationId": "patchEvent",
@@ -3443,74 +1839,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3526,7 +1870,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "requestBody": {
@@ -3538,7 +1883,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Activity"],
+        "summary": "Patch event"
       }
     },
     "/api/purchasables": {
@@ -3556,74 +1903,16 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3640,14 +1929,17 @@
               "minimum": 1,
               "maximum": 100,
               "default": 50
-            }
+            },
+            "description": "Maximum number of results."
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
           },
           {
             "name": "thingId",
@@ -3655,17 +1947,20 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           },
           {
             "name": "kind",
             "in": "query",
             "schema": {
-              "type": "string",
-              "enum": ["consumable", "accessory", "upgrade"]
-            }
+              "$ref": "#/components/schemas/PurchasableKindEnum"
+            },
+            "description": "Kind."
           }
-        ]
+        ],
+        "tags": ["Activity"],
+        "summary": "List purchasables"
       }
     },
     "/api/purchasables/{id}": {
@@ -3683,74 +1978,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3766,9 +2006,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Activity"],
+        "summary": "Get purchasable"
       }
     },
     "/api/conversations": {
@@ -3786,74 +2029,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3870,7 +2061,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Conversations"],
+        "summary": "Create conversation"
       }
     },
     "/api/conversations/{id}": {
@@ -3888,74 +2081,19 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -3971,9 +2109,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Conversations"],
+        "summary": "Get conversation"
       }
     },
     "/api/things:import": {
@@ -3997,74 +2138,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -4076,7 +2165,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Imports"],
+        "summary": "Start import"
       }
     },
     "/api/imports/{id}": {
@@ -4095,7 +2186,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "responses": {
@@ -4110,76 +2202,23 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
-        }
+        },
+        "tags": ["Imports"],
+        "summary": "Get import"
       }
     },
     "/api/imports/{id}:confirm": {
@@ -4198,7 +2237,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "responses": {
@@ -4213,74 +2253,22 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -4292,7 +2280,9 @@
               }
             }
           }
-        }
+        },
+        "tags": ["Imports"],
+        "summary": "Confirm import"
       }
     },
     "/api/imports/{id}:retry": {
@@ -4311,7 +2301,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "responses": {
@@ -4326,76 +2317,26 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
-        }
+        },
+        "tags": ["Imports"],
+        "summary": "Retry import"
       }
     },
     "/api/things/{thingId}/stream": {
@@ -4414,7 +2355,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Thing id."
           }
         ],
         "responses": {
@@ -4429,152 +2371,29 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           },
           "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unavailable"
           }
-        }
+        },
+        "tags": ["Things"],
+        "summary": "Stream thing"
       }
     },
     "/api/conversations/{id}/messages": {
       "post": {
         "operationId": "sendMessage",
         "responses": {
-          "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "202": {
             "description": "Success",
             "content": {
@@ -4584,6 +2403,24 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -4609,9 +2446,12 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
-        ]
+        ],
+        "tags": ["Conversations"],
+        "summary": "Send message"
       }
     },
     "/api/conversations/{id}/stream": {
@@ -4630,7 +2470,8 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Id."
           }
         ],
         "responses": {
@@ -4645,77 +2486,68 @@
             }
           },
           "401": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "422": {
-            "description": "Request failed",
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "description": "Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID.",
+        "tags": ["Conversations"],
+        "summary": "Stream conversation"
+      }
+    },
+    "/api/things/{id}:view": {
+      "post": {
+        "operationId": "recordThingView",
+        "summary": "Record a user view",
+        "description": "Call once when a user opens a Thing page. Atomically increments accessCount and records server time in lastViewedAt. Reads and stream refreshes do not record views. Does not change updatedAt or content revision. Each successful request counts once; clients must not automatically retry.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated access metadata.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ThingAccess"
                 }
               }
             }
           },
-          "503": {
-            "description": "Request failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
           }
-        },
-        "description": "Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID."
+        }
       }
     }
   },
@@ -4739,7 +2571,8 @@
             "type": "integer"
           }
         },
-        "required": ["message", "statusCode"]
+        "required": ["message", "statusCode"],
+        "description": "Public failure message and HTTP status; private diagnostic details are omitted."
       },
       "Money": {
         "type": "object",
@@ -4751,12 +2584,11 @@
             "maximum": 9007199254740991
           },
           "currency": {
-            "type": "string",
-            "pattern": "^[A-Z]{3}$",
-            "enum": ["GBP", "EUR", "USD"]
+            "$ref": "#/components/schemas/CurrencyEnum"
           }
         },
-        "required": ["amountMinor", "currency"]
+        "required": ["amountMinor", "currency"],
+        "description": "Amount in integer minor units and a supported currency with two decimal places."
       },
       "Value": {
         "oneOf": [
@@ -4772,7 +2604,8 @@
           {
             "$ref": "#/components/schemas/Money"
           }
-        ]
+        ],
+        "description": "A stored scalar or money value. Identifiers retain their string representation."
       },
       "NullableValue": {
         "anyOf": [
@@ -4780,11 +2613,10 @@
             "$ref": "#/components/schemas/Value"
           },
           {
-            "type": "string",
-            "nullable": true,
-            "enum": [null]
+            "type": "null"
           }
-        ]
+        ],
+        "description": "A field value, or null for an empty, cleared or masked field."
       },
       "SourceRef": {
         "type": "object",
@@ -4806,36 +2638,39 @@
             "type": "string",
             "format": "uri"
           }
-        }
+        },
+        "description": "Attachment or public URL supporting a value; quotes may be omitted for sensitive fields."
       },
       "Pin": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "fieldSetId": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"],
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "fieldId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "undefinedFieldId": {
             "type": "string",
             "format": "uuid"
           }
-        }
+        },
+        "description": "Reference to a field within its set, a standalone field, or a custom field."
       },
       "FieldSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "type": {
-            "type": "string",
-            "enum": ["string", "number", "integer", "boolean", "object"]
+            "$ref": "#/components/schemas/SchemaTypeEnum"
           },
           "format": {
-            "type": "string",
-            "enum": ["date", "date-time"]
+            "$ref": "#/components/schemas/SchemaFormatEnum"
           },
           "enum": {
             "type": "array",
@@ -4874,7 +2709,8 @@
             "type": "boolean"
           }
         },
-        "required": ["type"]
+        "required": ["type"],
+        "description": "Supported JSON Schema subset used to validate registry field values."
       },
       "FieldDefinition": {
         "type": "object",
@@ -4899,24 +2735,14 @@
             "$ref": "#/components/schemas/FieldSchema"
           },
           "uiHint": {
-            "type": "string",
-            "enum": [
-              "text",
-              "textarea",
-              "number",
-              "checkbox",
-              "select",
-              "date",
-              "datetime",
-              "money",
-              "password"
-            ]
+            "$ref": "#/components/schemas/UiHintEnum"
           },
           "sensitive": {
             "type": "boolean"
           }
         },
-        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"]
+        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"],
+        "description": "Authored registry definition reused across categories and field sets."
       },
       "Field": {
         "type": "object",
@@ -4941,18 +2767,7 @@
             "$ref": "#/components/schemas/FieldSchema"
           },
           "uiHint": {
-            "type": "string",
-            "enum": [
-              "text",
-              "textarea",
-              "number",
-              "checkbox",
-              "select",
-              "date",
-              "datetime",
-              "money",
-              "password"
-            ]
+            "$ref": "#/components/schemas/UiHintEnum"
           },
           "sensitive": {
             "type": "boolean"
@@ -4964,9 +2779,14 @@
             "type": "boolean"
           },
           "origin": {
-            "type": "string",
-            "enum": ["user", "import"],
-            "nullable": true
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FieldOriginEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceRefs": {
             "type": "array",
@@ -4987,7 +2807,8 @@
           "masked",
           "origin",
           "sourceRefs"
-        ]
+        ],
+        "description": "A field definition with its current value, provenance and masking state."
       },
       "FieldSet": {
         "type": "object",
@@ -4997,7 +2818,9 @@
             "type": "string"
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "name": {
             "type": "string"
@@ -5039,7 +2862,8 @@
           "includes",
           "considerAlongside",
           "fields"
-        ]
+        ],
+        "description": "Category-specific field group with required and suggested related sets."
       },
       "DetailFieldSet": {
         "type": "object",
@@ -5049,7 +2873,9 @@
             "type": "string"
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "name": {
             "type": "string"
@@ -5091,7 +2917,8 @@
           "includes",
           "considerAlongside",
           "fields"
-        ]
+        ],
+        "description": "Selected field set expanded with current field values."
       },
       "UndefinedField": {
         "type": "object",
@@ -5114,8 +2941,7 @@
             "type": "boolean"
           },
           "origin": {
-            "type": "string",
-            "enum": ["user", "import"]
+            "$ref": "#/components/schemas/FieldOriginEnum"
           },
           "sourceRefs": {
             "type": "array",
@@ -5124,8 +2950,7 @@
             }
           },
           "valueType": {
-            "type": "string",
-            "enum": ["string", "number", "boolean", "money"]
+            "$ref": "#/components/schemas/ValueTypeEnum"
           }
         },
         "required": [
@@ -5137,7 +2962,8 @@
           "origin",
           "sourceRefs",
           "valueType"
-        ]
+        ],
+        "description": "Owner-specific custom field preserving data without a registry definition."
       },
       "Category": {
         "type": "object",
@@ -5156,8 +2982,7 @@
             "type": "string"
           },
           "defaultImage": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           },
           "sortOrder": {
             "type": "integer"
@@ -5166,7 +2991,16 @@
             "type": "integer"
           }
         },
-        "required": ["id", "name", "description", "icon", "defaultImage", "sortOrder", "thingCount"]
+        "required": [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "defaultImage",
+          "sortOrder",
+          "thingCount"
+        ],
+        "description": "Authored Thing category with owner-scoped Thing count."
       },
       "Profile": {
         "type": "object",
@@ -5183,7 +3017,8 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "displayName", "samplesAdded"]
+        "required": ["id", "displayName", "samplesAdded"],
+        "description": "Authenticated owner profile and sample-data status."
       },
       "Config": {
         "type": "object",
@@ -5226,7 +3061,8 @@
           "sampleDataEnabled",
           "importEnabled",
           "chatEnabled"
-        ]
+        ],
+        "description": "Public client configuration and feature availability; contains no server credentials."
       },
       "Tag": {
         "type": "object",
@@ -5240,7 +3076,8 @@
             "type": "string"
           }
         },
-        "required": ["id", "name"]
+        "required": ["id", "name"],
+        "description": "Owner-defined label used to organise Things."
       },
       "TagInput": {
         "type": "object",
@@ -5252,7 +3089,8 @@
             "maxLength": 80
           }
         },
-        "required": ["name"]
+        "required": ["name"],
+        "description": "Name for an owner-scoped tag; whitespace-only names are rejected."
       },
       "ThingSummary": {
         "type": "object",
@@ -5269,22 +3107,25 @@
             "type": "string"
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "revision": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "imageAttachmentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "tagIds": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "maxItems": 200
           },
           "createdAt": {
             "type": "string",
@@ -5296,6 +3137,16 @@
           },
           "isSample": {
             "type": "boolean"
+          },
+          "accessCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of explicit user views recorded for this Thing."
+          },
+          "lastViewedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Most recent explicit user view; null until first viewed."
           }
         },
         "required": [
@@ -5308,8 +3159,11 @@
           "tagIds",
           "createdAt",
           "updatedAt",
-          "isSample"
-        ]
+          "isSample",
+          "accessCount",
+          "lastViewedAt"
+        ],
+        "description": "Public Thing metadata excluding stored field values."
       },
       "Thing": {
         "type": "object",
@@ -5326,22 +3180,25 @@
             "type": "string"
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "revision": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "imageAttachmentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "tagIds": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "maxItems": 200
           },
           "createdAt": {
             "type": "string",
@@ -5376,7 +3233,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Pin"
-            }
+            },
+            "maxItems": 200
           },
           "attachmentIds": {
             "type": "array",
@@ -5414,7 +3272,7 @@
             }
           },
           "import": {
-            "type": "object",
+            "type": ["object", "null"],
             "additionalProperties": false,
             "properties": {
               "id": {
@@ -5426,22 +3284,11 @@
                 "format": "uuid"
               },
               "thingId": {
-                "type": "string",
-                "format": "uuid",
-                "nullable": true
+                "type": ["string", "null"],
+                "format": "uuid"
               },
               "status": {
-                "type": "string",
-                "enum": [
-                  "queued",
-                  "extracting",
-                  "awaiting_selection",
-                  "mapping",
-                  "discovering",
-                  "complete",
-                  "incomplete",
-                  "failed"
-                ]
+                "$ref": "#/components/schemas/ImportStatusEnum"
               },
               "candidates": {
                 "type": "array",
@@ -5457,8 +3304,7 @@
                 }
               },
               "error": {
-                "type": "string",
-                "nullable": true
+                "type": ["string", "null"]
               },
               "usage": {
                 "$ref": "#/components/schemas/ImportUsage"
@@ -5473,8 +3319,17 @@
               "thingIds",
               "error",
               "usage"
-            ],
-            "nullable": true
+            ]
+          },
+          "accessCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of explicit user views recorded for this Thing."
+          },
+          "lastViewedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Most recent explicit user view; null until first viewed."
           }
         },
         "required": [
@@ -5496,25 +3351,32 @@
           "issueIds",
           "eventIds",
           "purchasableIds",
-          "conversationIds"
-        ]
+          "conversationIds",
+          "accessCount",
+          "lastViewedAt"
+        ],
+        "description": "Owner-scoped Thing detail with masked fields, links and current import state."
       },
       "ValuePatch": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "fieldSetId": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"],
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "fieldId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "value": {
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": ["fieldSetId", "fieldId", "value"]
+        "required": ["fieldSetId", "fieldId", "value"],
+        "description": "Set or standalone field update; null clears the stored value."
       },
       "UndefinedPatch": {
         "type": "object",
@@ -5536,7 +3398,8 @@
             "type": "boolean"
           }
         },
-        "required": ["label", "value", "sensitive"]
+        "required": ["label", "value", "sensitive"],
+        "description": "Custom field update retaining its identity and sensitivity."
       },
       "ThingCreate": {
         "type": "object",
@@ -5552,26 +3415,31 @@
             "maxLength": 4000
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "tagIds": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "maxItems": 200
           },
           "addFieldSetIds": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "maxItems": 200
           },
           "removeFieldSetIds": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "maxItems": 200
           },
           "values": {
             "type": "array",
@@ -5590,21 +3458,23 @@
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "maxItems": 200
           },
           "pinnedFields": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Pin"
-            }
+            },
+            "maxItems": 200
           },
           "imageAttachmentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           }
         },
-        "required": ["name", "categoryId"]
+        "required": ["name", "categoryId"],
+        "description": "Initial Thing metadata and optional field, tag and pin selections."
       },
       "ThingPatch": {
         "type": "object",
@@ -5620,26 +3490,31 @@
             "maxLength": 4000
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
           "tagIds": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "maxItems": 200
           },
           "addFieldSetIds": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "maxItems": 200
           },
           "removeFieldSetIds": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "maxItems": 200
           },
           "values": {
             "type": "array",
@@ -5658,23 +3533,26 @@
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "maxItems": 200
           },
           "pinnedFields": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Pin"
-            }
+            },
+            "maxItems": 200
           },
           "imageAttachmentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           }
-        }
+        },
+        "description": "Specified Thing updates, merged under a lock while preserving other values."
       },
       "RevealRequest": {
-        "$ref": "#/components/schemas/Pin"
+        "$ref": "#/components/schemas/Pin",
+        "description": "Field reference for an explicit owner-authorised sensitive-value read."
       },
       "RevealResult": {
         "type": "object",
@@ -5684,7 +3562,8 @@
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": ["value"]
+        "required": ["value"],
+        "description": "Revealed field value; responses must not be cached."
       },
       "Attachment": {
         "type": "object",
@@ -5701,11 +3580,12 @@
             "type": "string"
           },
           "byteSize": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "sourceUrl": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uri"
           },
           "thingIds": {
             "type": "array",
@@ -5727,7 +3607,8 @@
           "sourceUrl",
           "thingIds",
           "createdAt"
-        ]
+        ],
+        "description": "Private attachment metadata and linked Things; excludes storage keys."
       },
       "Issue": {
         "type": "object",
@@ -5748,19 +3629,28 @@
             "type": "string"
           },
           "status": {
-            "type": "string",
-            "enum": ["open", "resolved"]
+            "$ref": "#/components/schemas/IssueStatusEnum"
           },
           "resolvedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "date-time"
           },
           "isSample": {
             "type": "boolean"
+          },
+          "statusText": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "description": "Optional freeform status shown on an Issue card. Null clears it."
+          },
+          "dueDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Optional calendar due date, without a time or timezone. Null clears it."
           }
         },
-        "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"]
+        "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"],
+        "description": "Problem associated with one Thing, including resolution state."
       },
       "IssueInput": {
         "type": "object",
@@ -5780,11 +3670,21 @@
             "maxLength": 4000
           },
           "status": {
-            "type": "string",
-            "enum": ["open", "resolved"]
+            "$ref": "#/components/schemas/IssueStatusEnum"
+          },
+          "statusText": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "description": "Optional freeform status shown on an Issue card. Null clears it."
+          },
+          "dueDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Optional calendar due date, without a time or timezone. Null clears it."
           }
         },
-        "required": ["thingId", "title"]
+        "required": ["thingId", "title"],
+        "description": "New Thing issue; defaults to OPEN."
       },
       "IssuePatch": {
         "type": "object",
@@ -5800,10 +3700,20 @@
             "maxLength": 4000
           },
           "status": {
-            "type": "string",
-            "enum": ["open", "resolved"]
+            "$ref": "#/components/schemas/IssueStatusEnum"
+          },
+          "statusText": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "description": "Optional freeform status shown on an Issue card. Null clears it."
+          },
+          "dueDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Optional calendar due date, without a time or timezone. Null clears it."
           }
-        }
+        },
+        "description": "Specified issue updates; resolving retains the first resolution timestamp."
       },
       "Event": {
         "type": "object",
@@ -5818,9 +3728,8 @@
             "format": "uuid"
           },
           "issueId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "title": {
             "type": "string"
@@ -5829,18 +3738,15 @@
             "type": "string"
           },
           "status": {
-            "type": "string",
-            "enum": ["suggested", "scheduled", "completed", "dismissed"]
+            "$ref": "#/components/schemas/EventStatusEnum"
           },
           "startsAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "date-time"
           },
           "completedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "date-time"
           },
           "sourceRefs": {
             "type": "array",
@@ -5850,6 +3756,11 @@
           },
           "isSample": {
             "type": "boolean"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
           }
         },
         "required": [
@@ -5862,8 +3773,10 @@
           "startsAt",
           "completedAt",
           "sourceRefs",
-          "isSample"
-        ]
+          "isSample",
+          "startsOn"
+        ],
+        "description": "Suggested or scheduled Thing task with lifecycle timestamps and provenance. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
       },
       "EventInput": {
         "type": "object",
@@ -5874,9 +3787,8 @@
             "format": "uuid"
           },
           "issueId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "title": {
             "type": "string",
@@ -5888,25 +3800,28 @@
             "maxLength": 4000
           },
           "status": {
-            "type": "string",
-            "enum": ["suggested", "scheduled", "completed", "dismissed"]
+            "$ref": "#/components/schemas/EventStatusEnum"
           },
           "startsAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
           }
         },
-        "required": ["thingId", "title"]
+        "required": ["thingId", "title"],
+        "description": "New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
       },
       "EventPatch": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "issueId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "title": {
             "type": "string",
@@ -5918,15 +3833,19 @@
             "maxLength": 4000
           },
           "status": {
-            "type": "string",
-            "enum": ["suggested", "scheduled", "completed", "dismissed"]
+            "$ref": "#/components/schemas/EventStatusEnum"
           },
           "startsAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
           }
-        }
+        },
+        "description": "Specified event updates; null clears optional links or dates. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
       },
       "Purchasable": {
         "type": "object",
@@ -5941,8 +3860,7 @@
             "format": "uuid"
           },
           "kind": {
-            "type": "string",
-            "enum": ["consumable", "accessory", "upgrade"]
+            "$ref": "#/components/schemas/PurchasableKindEnum"
           },
           "name": {
             "type": "string"
@@ -5955,8 +3873,8 @@
             "format": "uri"
           },
           "imageUrl": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uri"
           },
           "price": {
             "anyOf": [
@@ -5964,9 +3882,7 @@
                 "$ref": "#/components/schemas/Money"
               },
               {
-                "type": "string",
-                "nullable": true,
-                "enum": [null]
+                "type": "null"
               }
             ]
           },
@@ -5977,9 +3893,8 @@
             }
           },
           "checkedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "date-time"
           },
           "isSample": {
             "type": "boolean"
@@ -5997,7 +3912,8 @@
           "sourceRefs",
           "checkedAt",
           "isSample"
-        ]
+        ],
+        "description": "Cited consumable, accessory or upgrade suggestion; sample actions are disabled."
       },
       "Message": {
         "type": "object",
@@ -6016,8 +3932,7 @@
             "format": "uuid"
           },
           "role": {
-            "type": "string",
-            "enum": ["user", "assistant"]
+            "$ref": "#/components/schemas/MessageRoleEnum"
           },
           "text": {
             "type": "string"
@@ -6035,28 +3950,31 @@
             }
           },
           "status": {
-            "type": "string",
-            "enum": ["queued", "processing", "complete", "failed"]
+            "$ref": "#/components/schemas/MessageStatusEnum"
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
           },
           "error": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           },
           "usage": {
-            "allOf": [
+            "anyOf": [
               {
-                "$ref": "#/components/schemas/ImportUsage"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ImportUsage"
+                  }
+                ]
+              },
+              {
+                "type": "null"
               }
-            ],
-            "nullable": true
+            ]
           },
           "intent": {
-            "type": "string",
-            "enum": ["answer", "create_event", "create_issue"]
+            "$ref": "#/components/schemas/MessageIntentEnum"
           }
         },
         "required": [
@@ -6070,7 +3988,8 @@
           "status",
           "createdAt",
           "intent"
-        ]
+        ],
+        "description": "Persisted conversation message with intent, citations, cards and execution state."
       },
       "Conversation": {
         "type": "object",
@@ -6081,9 +4000,8 @@
             "format": "uuid"
           },
           "thingId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "messages": {
             "type": "array",
@@ -6092,18 +4010,19 @@
             }
           }
         },
-        "required": ["id", "thingId", "messages"]
+        "required": ["id", "thingId", "messages"],
+        "description": "Active owner-scoped conversation and its persisted messages."
       },
       "ConversationInput": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "thingId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           }
-        }
+        },
+        "description": "Optional Thing context for a new conversation."
       },
       "CategoryList": {
         "type": "object",
@@ -6116,11 +4035,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated category results and an opaque continuation cursor."
       },
       "FieldSetList": {
         "type": "object",
@@ -6133,11 +4052,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated field set results and an opaque continuation cursor."
       },
       "FieldDefinitionList": {
         "type": "object",
@@ -6150,11 +4069,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated field definition results and an opaque continuation cursor."
       },
       "ThingSummaryList": {
         "type": "object",
@@ -6167,11 +4086,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated thing summary results and an opaque continuation cursor."
       },
       "TagList": {
         "type": "object",
@@ -6184,11 +4103,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated tag results and an opaque continuation cursor."
       },
       "AttachmentList": {
         "type": "object",
@@ -6201,11 +4120,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated attachment results and an opaque continuation cursor."
       },
       "IssueList": {
         "type": "object",
@@ -6218,11 +4137,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated issue results and an opaque continuation cursor."
       },
       "EventList": {
         "type": "object",
@@ -6235,11 +4154,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated event results and an opaque continuation cursor."
       },
       "PurchasableList": {
         "type": "object",
@@ -6252,11 +4171,11 @@
             }
           },
           "nextCursor": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"]
+        "required": ["items", "nextCursor"],
+        "description": "Paginated purchasable results and an opaque continuation cursor."
       },
       "ImportCandidate": {
         "type": "object",
@@ -6269,10 +4188,13 @@
             "type": "string"
           },
           "categoryId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           }
         },
-        "required": ["id", "name", "categoryId"]
+        "required": ["id", "name", "categoryId"],
+        "description": "Detected Thing offered for owner confirmation."
       },
       "ImportUsage": {
         "type": "object",
@@ -6282,16 +4204,20 @@
             "type": "string"
           },
           "inputTokens": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "outputTokens": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "cachedTokens": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "elapsedMs": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "toolCalls": {
             "type": "array",
@@ -6320,7 +4246,8 @@
           "cachedTokens",
           "elapsedMs",
           "toolCalls"
-        ]
+        ],
+        "description": "Provider usage and bounded tool execution totals for an attempt."
       },
       "Import": {
         "type": "object",
@@ -6335,22 +4262,11 @@
             "format": "uuid"
           },
           "thingId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "status": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "extracting",
-              "awaiting_selection",
-              "mapping",
-              "discovering",
-              "complete",
-              "incomplete",
-              "failed"
-            ]
+            "$ref": "#/components/schemas/ImportStatusEnum"
           },
           "candidates": {
             "type": "array",
@@ -6366,8 +4282,7 @@
             }
           },
           "error": {
-            "type": "string",
-            "nullable": true
+            "type": ["string", "null"]
           },
           "usage": {
             "$ref": "#/components/schemas/ImportUsage"
@@ -6382,7 +4297,8 @@
           "thingIds",
           "error",
           "usage"
-        ]
+        ],
+        "description": "Public import state excluding raw extraction and private source content."
       },
       "ImportStart": {
         "type": "object",
@@ -6397,7 +4313,8 @@
             "format": "uuid"
           }
         },
-        "required": ["attachmentId"]
+        "required": ["attachmentId"],
+        "description": "Source attachment and optional existing Thing to enrich."
       },
       "ImportAccepted": {
         "type": "object",
@@ -6412,20 +4329,11 @@
             "format": "uuid"
           },
           "status": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "extracting",
-              "awaiting_selection",
-              "mapping",
-              "discovering",
-              "complete",
-              "incomplete",
-              "failed"
-            ]
+            "$ref": "#/components/schemas/ImportStatusEnum"
           }
         },
-        "required": ["importId", "thingId", "status"]
+        "required": ["importId", "thingId", "status"],
+        "description": "Queued import identity and initial Thing identity."
       },
       "ImportConfirmation": {
         "type": "object",
@@ -6441,9 +4349,8 @@
                   "type": "string"
                 },
                 "targetThingId": {
-                  "type": "string",
-                  "format": "uuid",
-                  "nullable": true
+                  "type": ["string", "null"],
+                  "format": "uuid"
                 }
               },
               "required": ["candidateId", "targetThingId"]
@@ -6452,7 +4359,8 @@
             "maxItems": 10
           }
         },
-        "required": ["selections"]
+        "required": ["selections"],
+        "description": "Selected detected candidates and their optional existing targets."
       },
       "ResourceCard": {
         "oneOf": [
@@ -6462,7 +4370,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["thing"]
+                "const": "THING"
               },
               "thingId": {
                 "type": "string",
@@ -6480,7 +4388,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["field"]
+                "const": "FIELD"
               },
               "thingId": {
                 "type": "string",
@@ -6490,8 +4398,7 @@
                 "type": "boolean"
               },
               "fieldSetId": {
-                "type": "string",
-                "nullable": true
+                "type": ["string", "null"]
               },
               "fieldId": {
                 "type": "string"
@@ -6505,7 +4412,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["attachment"]
+                "const": "ATTACHMENT"
               },
               "attachmentId": {
                 "type": "string",
@@ -6527,7 +4434,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["issue"]
+                "const": "ISSUE"
               },
               "issueId": {
                 "type": "string",
@@ -6545,7 +4452,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["event"]
+                "const": "EVENT"
               },
               "eventId": {
                 "type": "string",
@@ -6563,7 +4470,7 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["purchasable"]
+                "const": "PURCHASABLE"
               },
               "purchasableId": {
                 "type": "string",
@@ -6575,7 +4482,8 @@
             },
             "required": ["type", "purchasableId"]
           }
-        ]
+        ],
+        "description": "Typed reference to an owned resource; availability reflects current access."
       },
       "MessageInput": {
         "type": "object",
@@ -6591,11 +4499,11 @@
             "format": "uuid"
           },
           "intent": {
-            "type": "string",
-            "enum": ["answer", "create_event", "create_issue"]
+            "$ref": "#/components/schemas/MessageIntentEnum"
           }
         },
-        "required": ["text", "requestId", "intent"]
+        "required": ["text", "requestId", "intent"],
+        "description": "Idempotent message request with explicit authorisation intent for write tools."
       },
       "ConversationDelta": {
         "type": "object",
@@ -6613,8 +4521,236 @@
             "type": "string"
           }
         },
-        "required": ["messageId", "offset", "text"]
+        "required": ["messageId", "offset", "text"],
+        "description": "Transient text update identified by message and text offset."
+      },
+      "ThingAccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accessCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of explicit user views recorded for this Thing."
+          },
+          "lastViewedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Most recent explicit user view; null until first viewed."
+          }
+        },
+        "required": ["accessCount", "lastViewedAt"],
+        "description": "Usage metadata returned after recording a user view."
+      },
+      "IssueStatusEnum": {
+        "type": "string",
+        "description": "Issue status.",
+        "enum": ["OPEN", "RESOLVED"]
+      },
+      "EventStatusEnum": {
+        "type": "string",
+        "description": "Event status.",
+        "enum": ["SUGGESTED", "SCHEDULED", "COMPLETED", "DISMISSED"]
+      },
+      "PurchasableKindEnum": {
+        "type": "string",
+        "description": "Purchasable kind.",
+        "enum": ["CONSUMABLE", "ACCESSORY", "UPGRADE"]
+      },
+      "CurrencyEnum": {
+        "type": "string",
+        "description": "Currency.",
+        "enum": ["GBP", "EUR", "USD"]
+      },
+      "SchemaTypeEnum": {
+        "type": "string",
+        "description": "Schema type.",
+        "enum": ["string", "number", "integer", "boolean", "object"]
+      },
+      "SchemaFormatEnum": {
+        "type": "string",
+        "description": "Schema format.",
+        "enum": ["date", "date-time"]
+      },
+      "UiHintEnum": {
+        "type": "string",
+        "description": "Ui hint.",
+        "enum": [
+          "TEXT",
+          "TEXTAREA",
+          "NUMBER",
+          "CHECKBOX",
+          "SELECT",
+          "DATE",
+          "DATETIME",
+          "MONEY",
+          "PASSWORD"
+        ]
+      },
+      "FieldOriginEnum": {
+        "type": "string",
+        "description": "Field origin.",
+        "enum": ["USER", "IMPORT"]
+      },
+      "ValueTypeEnum": {
+        "type": "string",
+        "description": "Value type.",
+        "enum": ["STRING", "NUMBER", "BOOLEAN", "MONEY"]
+      },
+      "ImportStatusEnum": {
+        "type": "string",
+        "description": "Import status.",
+        "enum": [
+          "QUEUED",
+          "EXTRACTING",
+          "AWAITING_SELECTION",
+          "MAPPING",
+          "DISCOVERING",
+          "COMPLETE",
+          "INCOMPLETE",
+          "FAILED"
+        ]
+      },
+      "MessageRoleEnum": {
+        "type": "string",
+        "description": "Message role.",
+        "enum": ["USER", "ASSISTANT"]
+      },
+      "MessageStatusEnum": {
+        "type": "string",
+        "description": "Message status.",
+        "enum": ["QUEUED", "PROCESSING", "COMPLETE", "FAILED"]
+      },
+      "MessageIntentEnum": {
+        "type": "string",
+        "description": "Message intent.",
+        "enum": ["ANSWER", "CREATE_EVENT", "CREATE_ISSUE"]
+      },
+      "ThingSortEnum": {
+        "type": "string",
+        "enum": ["UPDATED", "RECENTLY_VIEWED", "MOST_VIEWED"],
+        "description": "Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "A valid bearer token is required.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The resource is missing, inaccessible or disabled.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The request conflicts with current state or an existing record.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "TooLarge": {
+        "description": "The uploaded file exceeds the configured limit.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UnsupportedMedia": {
+        "description": "The file or request media type is unsupported.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InvalidInput": {
+        "description": "The request or a referenced value is invalid.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "The requested capability is not configured or available.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "The request failed; private diagnostics are omitted.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Things",
+      "description": "Thing records, fields and sensitive-value access."
+    },
+    {
+      "name": "Registry",
+      "description": "Authored categories, field sets and field definitions."
+    },
+    {
+      "name": "Tags",
+      "description": "Owner-defined Thing labels."
+    },
+    {
+      "name": "Attachments",
+      "description": "Private files and their Thing links."
+    },
+    {
+      "name": "Activity",
+      "description": "Issues, events and purchasable suggestions."
+    },
+    {
+      "name": "Imports",
+      "description": "Progressive extraction, confirmation and retry."
+    },
+    {
+      "name": "Conversations",
+      "description": "Assistant conversations, messages and live updates."
+    },
+    {
+      "name": "Profile",
+      "description": "Owner profile and opt-in demonstration data."
+    },
+    {
+      "name": "Configuration",
+      "description": "Public application configuration."
+    }
+  ]
 }

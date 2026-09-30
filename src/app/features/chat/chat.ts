@@ -30,11 +30,11 @@ export class ChatPage implements OnDestroy {
   disconnected = signal(false);
   inFlight = computed(
     () =>
-      this.conversation()?.messages.some((m) => ['queued', 'processing'].includes(m.status)) ??
+      this.conversation()?.messages.some((m) => ['QUEUED', 'PROCESSING'].includes(m.status)) ??
       false,
   );
   text = '';
-  intent: Schema['MessageInput']['intent'] = 'answer';
+  intent: Schema['MessageInput']['intent'] = 'ANSWER';
   // Keep the request ID through uncertain network outcomes as well as server failures.
   private pending: Schema['MessageInput'] | null = null;
   constructor() {
@@ -75,7 +75,7 @@ export class ChatPage implements OnDestroy {
             if (
               this.pending &&
               snapshot.messages.some(
-                (m) => m.requestId === this.pending!.requestId && m.role === 'assistant',
+                (m) => m.requestId === this.pending!.requestId && m.role === 'ASSISTANT',
               )
             ) {
               this.pending = null;
@@ -89,7 +89,7 @@ export class ChatPage implements OnDestroy {
                     ...c,
                     messages: c.messages.map((m) =>
                       m.id === delta.messageId &&
-                      m.status === 'processing' &&
+                      m.status === 'PROCESSING' &&
                       m.text.length === delta.offset
                         ? { ...m, text: m.text + delta.text }
                         : m,
@@ -109,14 +109,14 @@ export class ChatPage implements OnDestroy {
     const chat = this.conversation();
     if (!chat || this.busy() || this.inFlight()) return;
     const user = retry
-      ? chat.messages.find((m) => m.requestId === retry.requestId && m.role === 'user')
+      ? chat.messages.find((m) => m.requestId === retry.requestId && m.role === 'USER')
       : undefined;
     const input =
       retry && user
         ? {
             text: user.text,
             requestId: retry.requestId,
-            intent: retry.intent ?? 'answer',
+            intent: retry.intent ?? 'ANSWER',
           }
         : (this.pending ?? {
             text: this.text.trim(),
@@ -138,7 +138,7 @@ export class ChatPage implements OnDestroy {
       // A subsequent stream snapshot may already be newer than this acceptance response.
       this.conversation.update((current) =>
         current?.messages.some(
-          (m) => m.requestId === input.requestId && m.role === 'assistant' && m.status !== 'failed',
+          (m) => m.requestId === input.requestId && m.role === 'ASSISTANT' && m.status !== 'FAILED',
         )
           ? current
           : accepted,

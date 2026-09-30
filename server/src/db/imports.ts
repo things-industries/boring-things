@@ -1,3 +1,4 @@
+import { execute } from './connection.js';
 /**
  * Persists import state, allocates candidate targets, guards edits and exposes import summaries
  * without raw extracted content.
@@ -6,12 +7,12 @@
 import { isDeepStrictEqual } from 'node:util';
 import type pg from 'pg';
 import { emptyData, type Schema } from '../../../shared/model.js';
-import type { Discovery, Extraction, Usage } from '../application/import-types.js';
-import { activeStatuses, blankUsage } from '../application/import-types.js';
+import type { Discovery, Extraction, Usage } from '../application/import/types.js';
+import { activeStatuses, blankUsage } from '../application/import/types.js';
 import { ensure } from '../application/errors.js';
 import { rows, transaction, type Database } from './connection.js';
 import { ownedThing, bumpThing } from './things.js';
-import { candidateModel, importedName } from '../application/import-naming.js';
+import { candidateModel, importedName } from '../application/import/naming.js';
 
 export async function availableImportName(
   db: Database,
@@ -63,7 +64,7 @@ export async function ownedImport(db: Database, owner: string, id: string, lock 
     `select * from bt.imports where id=$1 and owner_id=$2 ${lock ? 'for update' : ''}`,
     [id, owner],
   );
-  ensure(job, 'Import not found', 404);
+  ensure(job, 'Import not found', 'NOT_FOUND');
   return job;
 }
 
@@ -75,7 +76,7 @@ export function projectImport(job: ImportRow): Schema['Import'] {
     thingId: job.targetThingId ?? job.resultThingIds[0] ?? null,
     status: job.status,
     candidates:
-      job.status === 'awaiting_selection'
+      job.status === 'AWAITING_SELECTION'
         ? (job.extraction?.candidates.map((c) => ({
             id: c.id,
             name: c.name,
@@ -100,7 +101,7 @@ export async function thingImport(db: Database, owner: string, id: string) {
 
 export async function assertEditable(db: Database, owner: string, id: string) {
   const job = await thingImport(db, owner, id);
-  ensure(!job || !activeStatuses.includes(job.status), 'Thing is processing an import', 409);
+  ensure(!job || !activeStatuses.includes(job.status), 'Thing is processing an import', 'CONFLICT');
 }
 
 export async function touchImportThings(db: Database, job: ImportRow) {
@@ -121,9 +122,10 @@ export async function setImportStatus(
 ) {
   return transaction(pool, async (db) => {
     const job = await ownedImport(db, owner, id, true);
-    await db.query(
+    await execute(
+      db,
       'update bt.imports set status=$1,error=$2,finished_at=case when $3 then now() else null end where id=$4 and owner_id=$5',
-      [status, error, ['complete', 'incomplete', 'failed'].includes(status), id, owner],
+      [status, error, ['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(status), id, owner],
     );
     await touchImportThings(db, job);
   });
@@ -138,13 +140,13 @@ export async function startImport(
   return transaction(pool, async (db) => {
     ensure(
       (
-        await db.query('select id from bt.attachments where id=$1 and owner_id=$2 for update', [
+        await execute(db, 'select id from bt.attachments where id=$1 and owner_id=$2 for update', [
           attachment,
           owner,
         ])
       ).rowCount,
       'Attachment not found',
-      404,
+      'NOT_FOUND',
     );
     let thingId = target;
 
@@ -160,17 +162,18 @@ export async function startImport(
       thingId = thing.id;
     }
 
-    await db.query(
+    await execute(
+      db,
       'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
       [thingId, attachment, owner],
     );
     const [job] = await rows<ImportRow>(
       db,
-      "insert into bt.imports(owner_id,attachment_id,target_thing_id,skeleton_id,status) values($1,$2,$3,$4,'queued') returning *",
+      "insert into bt.imports(owner_id,attachment_id,target_thing_id,skeleton_id,status) values($1,$2,$3,$4,'QUEUED') returning *",
       [owner, attachment, thingId, target ? null : thingId],
     );
     await bumpThing(db, owner, thingId);
-    return { importId: job.id, thingId, status: 'queued' as const };
+    return { importId: job.id, thingId, status: 'QUEUED' as const };
   });
 }
 
@@ -195,7 +198,7 @@ export async function allocateTargets(
     ensure(
       !current || current.id === job.id || !activeStatuses.includes(current.status),
       'Target is processing an import',
-      409,
+      'CONFLICT',
     );
   }
 
@@ -229,7 +232,7 @@ export async function allocateTargets(
 
     if (isNew) {
       const current = await ownedThing(db, job.ownerId, id, true);
-      await db.query('update bt.things set name=$1,category_id=$2 where id=$3 and owner_id=$4', [
+      await execute(db, 'update bt.things set name=$1,category_id=$2 where id=$3 and owner_id=$4', [
         current.data.userEdited?.includes('name') ? current.name : name,
         current.data.userEdited?.includes('categoryId') ? current.categoryId : candidate.categoryId,
         id,
@@ -237,11 +240,13 @@ export async function allocateTargets(
       ]);
     }
 
-    await db.query(
+    await execute(
+      db,
       'insert into bt.import_targets(import_id,candidate_id,thing_id,owner_id,is_new) values($1,$2,$3,$4,$5)',
       [job.id, candidate.id, id, job.ownerId, isNew],
     );
-    await db.query(
+    await execute(
+      db,
       'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
       [id, job.attachmentId, job.ownerId],
     );
@@ -252,12 +257,14 @@ export async function allocateTargets(
   // The processing lock prevents edits. Still verify that this is the untouched skeleton.
   if (skeletonAvailable && job.skeletonId && !ids.includes(job.skeletonId)) {
     const skeleton = await ownedThing(db, job.ownerId, job.skeletonId, true);
-    const links = await db.query(
+    const links = await execute(
+      db,
       'select 1 from bt.thing_attachments where thing_id=$1 and attachment_id<>$2',
       [job.skeletonId, job.attachmentId],
     );
 
-    const activity = await db.query(
+    const activity = await execute(
+      db,
       'select 1 from bt.issues where thing_id=$1 union all select 1 from bt.events where thing_id=$1 union all select 1 from bt.purchasables where thing_id=$1 union all select 1 from bt.conversations where thing_id=$1 limit 1',
       [job.skeletonId],
     );
@@ -269,17 +276,19 @@ export async function allocateTargets(
       skeleton.name === 'Importing…' &&
       isDeepStrictEqual(skeleton.data, emptyData()) &&
       !links.rowCount &&
-      !(await db.query('select 1 from bt.thing_tags where thing_id=$1', [job.skeletonId])).rowCount
+      !(await execute(db, 'select 1 from bt.thing_tags where thing_id=$1', [job.skeletonId]))
+        .rowCount
     ) {
-      await db.query('delete from bt.things where id=$1 and owner_id=$2', [
+      await execute(db, 'delete from bt.things where id=$1 and owner_id=$2', [
         job.skeletonId,
         job.ownerId,
       ]);
     }
   }
 
-  await db.query(
-    "update bt.imports set selection=$1,result_thing_ids=$2,target_thing_id=$3,status='queued' where id=$4 and owner_id=$5",
+  await execute(
+    db,
+    "update bt.imports set selection=$1,result_thing_ids=$2,target_thing_id=$3,status='QUEUED' where id=$4 and owner_id=$5",
     [JSON.stringify(selections), [...new Set(ids)], ids[0], job.id, job.ownerId],
   );
 }
@@ -290,4 +299,83 @@ export async function targets(db: Database, job: ImportRow) {
     'select * from bt.import_targets where import_id=$1 and owner_id=$2 order by candidate_id',
     [job.id, job.ownerId],
   );
+}
+
+export async function recoverImports(pool: pg.Pool): Promise<void> {
+  await transaction(pool, async (db) => {
+    const interrupted = await rows<ImportRow>(
+      db,
+      "select * from bt.imports where status in ('EXTRACTING','MAPPING','DISCOVERING') for update",
+    );
+    await execute(
+      db,
+      "update bt.imports set status='FAILED',error='interrupted',finished_at=now() where status in ('EXTRACTING','MAPPING','DISCOVERING')",
+    );
+    for (const job of interrupted) await touchImportThings(db, job);
+  });
+}
+export async function nextImport(db: Database): Promise<ImportRow | undefined> {
+  return (
+    await rows<ImportRow>(
+      db,
+      "select * from bt.imports where status='QUEUED' order by created_at,id limit 1",
+    )
+  )[0];
+}
+export async function recordImportUsage(db: Database, job: ImportRow, usage: Usage): Promise<void> {
+  await execute(db, 'update bt.imports set usage=$1 where id=$2 and owner_id=$3', [
+    JSON.stringify(usage),
+    job.id,
+    job.ownerId,
+  ]);
+}
+export async function beginImport(db: Database, job: ImportRow): Promise<void> {
+  await execute(
+    db,
+    'update bt.imports set started_at=now(),finished_at=null,error=null where id=$1 and owner_id=$2',
+    [job.id, job.ownerId],
+  );
+}
+export async function saveExtraction(
+  db: Database,
+  job: ImportRow,
+  extraction: Extraction,
+): Promise<void> {
+  await execute(db, 'update bt.imports set extraction=$1 where id=$2 and owner_id=$3', [
+    JSON.stringify(extraction),
+    job.id,
+    job.ownerId,
+  ]);
+}
+export async function saveTargetDiscovery(
+  db: Database,
+  job: ImportRow,
+  candidateId: string,
+  discovery: Discovery,
+): Promise<void> {
+  await execute(
+    db,
+    'update bt.import_targets set discovery=$1 where import_id=$2 and candidate_id=$3 and exists(select 1 from bt.imports where id=$2 and owner_id=$4)',
+    [JSON.stringify(discovery), job.id, candidateId, job.ownerId],
+  );
+}
+export async function markTarget(
+  db: Database,
+  job: ImportRow,
+  candidateId: string,
+  stage: 'selected' | 'mapped' | 'discovered',
+): Promise<void> {
+  await execute(
+    db,
+    `update bt.import_targets set ${stage}=true where import_id=$1 and candidate_id=$2 and exists(select 1 from bt.imports where id=$1 and owner_id=$3)`,
+    [job.id, candidateId, job.ownerId],
+  );
+}
+export async function requeueImport(db: Database, job: ImportRow): Promise<void> {
+  await execute(
+    db,
+    "update bt.imports set status='QUEUED',error=null,finished_at=null where id=$1 and owner_id=$2",
+    [job.id, job.ownerId],
+  );
+  await touchImportThings(db, job);
 }

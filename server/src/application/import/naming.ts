@@ -1,8 +1,4 @@
-/**
- * Builds short imported Thing names, adding a model or numeric suffix when existing names collide.
- */
-
-import type { Candidate } from './import-types.js';
+import type { Candidate } from './types.js';
 
 export function candidateModel(candidate: Candidate) {
   return candidate.facts.find(
