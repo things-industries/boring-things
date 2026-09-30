@@ -26,13 +26,10 @@ The following are used as working documents and are more freely updated.
 - `meeting-notes/`: dated discussion records; preserve their historical context.
 - `plans/`: scoped implementation plans. `plans/poc-scaffolding.md` records confirmed scaffold decisions and subsequent work.
 - `setup/`: operational setup instructions, including Logto.
+- `agents/`: agent behaviour and GitHub issue conventions, referenced from root `AGENTS.md`.
 
 Paths above are relative to `docs/`. Root `README.md` describes implemented behaviour and local commands. Requirements express product intent; plans can contain unimplemented work. Do not present a proposal as a delivered capability. For the scaffold, confirmed plan decisions refine earlier requirements, including the use of Angular and Logto.
 
 ## Writing conventions
 
-- Organize by sections
-- Keep research claims evidence-backed; add source links to `requirements/research/sources.md`. Label assumptions and inference.
-- Prefer concise bullets over long narrative blocks.
-- Update paths and command examples against the repository. Avoid duplicating code conventions from the root, frontend and backend agent guides.
-- Use synthetic or redacted examples for private records, documents and identifiers. Keep credentials out of setup instructions and screenshots.
+Research-doc-specific conventions (evidence, sourcing, examples): `docs/agents/agent-behaviour.md`. General agent conduct and doc-organisation rules: same file, referenced from root `AGENTS.md`.

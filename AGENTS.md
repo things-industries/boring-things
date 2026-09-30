@@ -18,12 +18,11 @@ Remove references to plans above when they are complete or no longer relevant.
 
 ## Agent behaviour
 
-- Never refer to yourself in the first person. Write tersely. Avoid unnecessary adjectives and contrastive framing.
-- Preserve user-authored and unrelated working-tree changes. Keep secrets and private user data out of source control.
-- Complete the authorised task. Ask about preferences or intent when the answer materially affects the result; continue independent work while awaiting an answer.
-- Report what changed, validation performed and anything unverified. Distinguish implemented behaviour, accepted plans and proposals.
-- Use the agent's GitHub plugin for GitHub content and operations. Search deferred tools and inspect the complete connector response, including structured data. If unavailable or unable to perform the operation, stop that operation and explain the access needed. Do not use a browser, web search, GitHub CLI, GitHub API or direct HTTP as a fallback unless explicitly directed. Standard git remote commands are unaffected.
-- Do not create issues, send messages or publish changes unless authorised by the task.
+Standard all agent work in this repo must comply with: conduct, documentation maintenance, preference recording, refactoring, comments and document/PR/issue writing. See `docs/agents/agent-behaviour.md`.
+
+## GitHub issues
+
+How agents access, label and write GitHub issues. See `docs/agents/github-issues.md`.
 
 ## Architecture and toolchain
 
