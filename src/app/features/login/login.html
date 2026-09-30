@@ -1,26 +1,30 @@
-<section class="login-panel">
-  <span class="eyebrow">LESS TO REMEMBER</span>
-  <h1>Your things.<br />Your life, organised.</h1>
-  <p>
-    Keep the details, documents and little jobs that come with the things in your life together.
-  </p>
-  @if (auth.error()) {
-    <bt-error-message [code]="auth.error()" />
-  }
-  @if (auth.signedIn()) {
-    <a class="button" routerLink="/">Open your things</a>
-  } @else if (auth.config.logtoEndpoint && auth.config.logtoAppId) {
-    <button (click)="auth.signIn()">
-      Sign in or create an account <ng-icon name="open" aria-hidden="true" />
-    </button>
-  } @else {
-    <p class="notice-banner">
-      Sign-in setup is pending. The local app is ready for its Logto connection.
+<section class="login-page">
+  <p class="login-wordmark">{{ 'appName' | term }}</p>
+  <div class="login-content">
+    <h1>Your things.<br />Your life, organised.</h1>
+    <p class="login-copy">
+      Keep the details, documents and little jobs that come with the things in your life together.
     </p>
-  }
-  <div class="login-examples">
-    <span><ng-icon name="homeExample" aria-hidden="true" /> Home</span
-    ><span><ng-icon name="vehicleExample" aria-hidden="true" /> Vehicles</span
-    ><span><ng-icon name="membershipExample" aria-hidden="true" /> Memberships</span>
+    <div class="login-actions">
+      @if (auth.error()) {
+        <bt-error-message [code]="auth.error()" />
+      }
+      @if (auth.signedIn()) {
+        <a class="button-primary" routerLink="/">Open your things</a>
+      } @else if (auth.config.logtoEndpoint && auth.config.logtoAppId) {
+        <button class="button-primary" type="button" (click)="auth.signIn()">
+          <ng-icon name="signInWithEmail" aria-hidden="true" /> Continue with email
+        </button>
+        <button class="button-secondary" type="button" disabled>
+          <ng-icon name="signInWithApple" aria-hidden="true" /> Continue with Apple
+        </button>
+      } @else {
+        <bt-notice icon="setupNotice">
+          Sign-in setup is pending.
+          <span noticeDetail>The local app is ready for its Logto connection.</span>
+        </bt-notice>
+      }
+    </div>
   </div>
+  <p class="login-terms">By continuing you agree to the Terms and Privacy Policy.</p>
 </section>

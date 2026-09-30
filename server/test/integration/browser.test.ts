@@ -468,7 +468,7 @@ test(
       await signedOut.goto(base);
       await expect(
         signedOut.getByRole('button', {
-          name: 'Sign in or create an account',
+          name: 'Continue with email',
           exact: false,
         }),
       ).toBeVisible();

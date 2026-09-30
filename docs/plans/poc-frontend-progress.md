@@ -10,7 +10,7 @@ Status values: `Not started`, `In progress`, `Done`, `Blocked`.
 | -------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0. Design foundation       | Done        | Palette shade scales and colour sets; type, spacing, radius, shadow, icon-size and size tokens; Inter; styles grouped by scope; utility and button classes; icon catalogue additions; mocks convention. Legacy roles mapped to palette shades. |
 | 1. Shell and navigation    | Done        | Header and footer removed; centred 480px column; bottom nav on Home, Things, Timeline; top bar on Thing and chat pages; `/things`, `/things/:id/details`, `/things/:id/chat`, `/timeline`, `/profile` routes.                                  |     |
-| 2. Sign in                 | Not started |                                                                                                                                                                                                                                                |
+| 2. Sign in                 | Done        | Wordmark, headline, copy, Continue with email, disabled Continue with Apple (#16), terms footnote as plain text (#17); setup-pending state uses `bt-notice`. Login examples, eyebrow and their icons/colour removed.                           |
 | 3. Home                    | Not started |                                                                                                                                                                                                                                                |
 | 4. Add Thing               | Not started |                                                                                                                                                                                                                                                |
 | 5. Thing detail            | Not started |                                                                                                                                                                                                                                                |
@@ -38,6 +38,7 @@ Record each shared component, mixin or token group when added: name, path, first
 | `bt-bottom-nav`                                                               | `src/app/components/bottom-nav/`       | 1     |
 | `bt-placeholder-page`                                                         | `src/app/components/placeholder-page/` | 1     |
 | Size tokens `bottom-nav`, `content-max`                                       | `src/styles/_tokens.scss`              | 1     |
+| `bt-notice` (`tone`, `icon`, `busy`, `[noticeDetail]` secondary line)         | `src/app/components/notice/`           | 2     |
 
 ## Mocks
 
@@ -84,5 +85,6 @@ Decisions made during implementation that refine the plan.
 
 ## Unverified
 
+- Stage 2: sign-in layout and copy are built from the plan's description; no comparison against the design frame. Existing headline and supporting copy kept. Live Logto redirect not exercised; the integration browser test was updated for the renamed button but not run (needs local Supabase).
 - Stage 1: nav, top bar and icon button are built from the plan's descriptions; no comparison against the design frames. The existing dashboard, Thing and chat pages are legacy layouts inside the narrower column until their stages rebuild them.
 - Stage 0: no visual comparison against the design frames. Token anchors come from the Design alignment table.

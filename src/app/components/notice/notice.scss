@@ -1,0 +1,50 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: flex;
+  align-items: flex-start;
+  gap: tokens.space(3);
+  padding: tokens.space(3) tokens.space(4);
+  border-radius: tokens.radius(tile);
+  color: tokens.color(primary);
+  @include mixins.icon-size(md);
+}
+@each $tone in (info, accent, warning, danger) {
+  :host(.tone-#{$tone}) {
+    background: tokens.color(#{$tone}-subtle);
+    .notice-icon {
+      color: tokens.color($tone);
+    }
+  }
+}
+.notice-icon {
+  flex-shrink: 0;
+}
+.notice-spinner {
+  animation: notice-spin 1s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+.notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(half);
+  min-width: 0;
+}
+.notice-main {
+  @include typography.role(body);
+}
+.notice-detail {
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
+  &:empty {
+    display: none;
+  }
+}
+@keyframes notice-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

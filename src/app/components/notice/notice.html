@@ -1,0 +1,9 @@
+@if (busy()) {
+  <ng-icon class="notice-icon notice-spinner" name="loading" aria-hidden="true" />
+} @else if (icon(); as icon) {
+  <ng-icon class="notice-icon" [name]="icon" aria-hidden="true" />
+}
+<div class="notice-text">
+  <span class="notice-main"><ng-content /></span>
+  <span class="notice-detail"><ng-content select="[noticeDetail]" /></span>
+</div>

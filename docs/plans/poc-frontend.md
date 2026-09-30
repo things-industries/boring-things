@@ -214,7 +214,35 @@ Validation: `CI=true pnpm check`; browser test updated for the moved links; mobi
 
 ### 2. Sign in
 
-- Rebuild login and setup-pending screens; `bt-notice` for setup state.
+One page at `/login` (and `/callback` while the redirect is handled) with four states chosen in the template: signed out, signed in, setup pending and authentication error.
+
+Layout (`features/login/`):
+
+- Full-height column inside `.app-main`: wordmark at the top; headline, supporting copy and actions pushed to the lower part of the screen; terms footnote last.
+- Wordmark: `APP_TERMS.appName` in the `section` role. Not a link; this is the only page before sign-in.
+- Headline: page `h1` in the `display` role. Supporting copy in `body`, `primary-muted`. Existing copy is kept.
+- Actions stack full width with `space(3)` between them:
+  - **Continue with email**: `.button-primary` with the mail icon; calls `Auth.signIn()` (Logto redirect, which offers sign-in and registration).
+  - **Continue with Apple**: `.button-secondary` with the Apple icon, disabled (#16).
+- Terms footnote in `caption`, `primary-muted`, centred: "By continuing you agree to the Terms and Privacy Policy." Terms and Privacy Policy are plain text until their pages exist (#17).
+- The Home/Vehicles/Memberships examples and the eyebrow are removed; the design has no slot for them.
+
+States:
+
+| State                    | Actions area                                                          |
+| ------------------------ | --------------------------------------------------------------------- |
+| Signed out, Logto set up | Continue with email, disabled Continue with Apple                     |
+| Signed in                | `.button-primary` link **Open your things** to `/`                    |
+| Setup pending (no Logto) | `bt-notice` (info): "Sign-in setup is pending." with a secondary line |
+| Authentication error     | `bt-error-message` at the top of the actions; actions stay available  |
+
+Component (`src/app/components/notice/`):
+
+- `bt-notice`: tinted banner, reused by Add Thing (privacy notice) and Thing detail (processing notice). Inputs: `tone` (`info`, `accent`, `warning`, `danger`; default `info`) picks the `<tone>-subtle` fill and `<tone>` icon colour; `icon` (catalogue SVG, host registers it); `busy` shows a spinning loader in place of the icon. Default content is the main line in `body`; content marked `noticeDetail` is the secondary line in `caption`, `primary-muted`. Radius `tile`, padding `space(3)` `space(4)`. Hosts add `role="status"` when the notice changes live.
+
+Clean-up: remove the `homeExample`, `vehicleExample` and `membershipExample` icons and the `text-login-example` legacy colour once unused. Add `signInWithEmail`, `signInWithApple` and `setupNotice` icons.
+
+Validation: `CI=true pnpm check`; browser test updated for the renamed sign-in button; mobile (390px) and desktop screenshots of the signed-out and setup-pending states.
 
 ### 3. Home
 
