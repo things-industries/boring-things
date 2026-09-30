@@ -7,7 +7,7 @@ export function fieldValueValidator(field: Schema['Field']): ValidatorFn {
     const draft = String(control.value ?? '');
     if (field.schema.type === 'boolean' && !['true', 'false'].includes(draft))
       return { 'boolean-required': true };
-    if (field.uiHint === 'money') {
+    if (field.uiHint === 'MONEY') {
       if (!/^\d+(\.\d{1,2})?$/.test(draft)) return { 'invalid-money': true };
       if (!Number.isSafeInteger(amountMinor(draft))) return { 'money-too-large': true };
     }

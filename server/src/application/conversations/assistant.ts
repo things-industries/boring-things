@@ -1,3 +1,4 @@
+import { createChatActivity } from './messages.js';
 /**
  * Runs queued assistant messages with bounded tools, owner-scoped resource access, intent-gated
  * writes and streamed progress.
@@ -7,14 +8,14 @@ import type pg from 'pg';
 import { EventEmitter } from 'node:events';
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
-import type { Schema } from '../../../shared/model.js';
-import type { Config } from '../config.js';
-import type { BlobStorage } from '../providers/blobs.js';
-import type { Registry } from './registry.js';
-import type { ChatAi, ChatToolResult } from './chat-types.js';
-import type { ImportAi, Discovery } from './import-types.js';
-import { blankUsage } from './import-types.js';
-import { chatFunctions } from '../contracts/chat-tools.js';
+import type { Schema } from '../../../../shared/model.js';
+import type { Config } from '../../config.js';
+import type { BlobStorage } from '../../providers/blobs.js';
+import type { Registry } from '../registry/registry.js';
+import type { ChatAi, ChatToolResult } from './types.js';
+import type { ImportAi, Discovery } from '../import/types.js';
+import { blankUsage } from '../import/types.js';
+import { chatFunctions } from '../../contracts/chat-tools.js';
 import {
   conversation,
   type ChatJob,
@@ -24,15 +25,14 @@ import {
   searchChatThings,
   chatResources,
   chatAttachment,
-  createChatActivity,
-} from '../db/conversations.js';
-import { ownedThing } from '../db/things.js';
-import { detail } from './things.js';
-import { ensure } from './errors.js';
-import { withDeadline } from './import-deadline.js';
-import { publicDiscoveryCandidate } from './import-mapping.js';
-import { publicUrl, persistDiscovery } from './discovery.js';
-import type { ThingChanges } from './streams.js';
+} from '../../db/conversations.js';
+import { ownedThing } from '../../db/things.js';
+import { detail } from '../things.js';
+import { ensure } from '../errors.js';
+import { awaitWithSignal } from '../../lib/abort.js';
+import { publicDiscoveryCandidate } from '../import/mapping.js';
+import { publicUrl, persistDiscovery } from '../discovery/discovery.js';
+import type { OwnerChanges } from '../streams.js';
 
 const ajv = new Ajv({ strict: false });
 
@@ -40,8 +40,23 @@ addFormats.default(ajv);
 
 const validators = new Map(chatFunctions.map((f) => [f.name, ajv.compile(f.parameters)]));
 
+interface LiveMessage {
+  messageId: string;
+  text: string;
+}
+interface ToolCard {
+  type: Schema['ResourceCard']['type'];
+  id: string;
+  fieldSetId: string | null;
+  fieldId: string | null;
+  page: number | null;
+}
+interface ShowCardsInput {
+  cards: ToolCard[];
+}
+
 export class Assistant {
-  private live = new Map<string, { messageId: string; text: string }>();
+  private live = new Map<string, LiveMessage>();
   private deltas = new EventEmitter();
 
   constructor(
@@ -51,7 +66,7 @@ export class Assistant {
     private ai: ChatAi | undefined,
     private discoveryAi: ImportAi | undefined,
     private config: Config,
-    private changes: ThingChanges,
+    private changes: OwnerChanges,
   ) {
     this.deltas.setMaxListeners(0);
   }
@@ -70,7 +85,7 @@ export class Assistant {
 
     if (live) {
       const message = result.messages.find(
-        (m) => m.id === live.messageId && m.status === 'processing',
+        (m) => m.id === live.messageId && m.status === 'PROCESSING',
       );
       if (message) message.text = live.text;
     }
@@ -168,7 +183,7 @@ export class Assistant {
           chunks.push(Buffer.from(chunk));
         }
 
-        addCard({ type: 'attachment', attachmentId: file.id });
+        addCard({ type: 'ATTACHMENT', attachmentId: file.id });
         refs.push({ attachmentId: file.id });
         await record({
           toolCalls: [{ name, resultCount: 1, truncated: false }],
@@ -207,7 +222,7 @@ export class Assistant {
         ]);
 
         if (!found) {
-          found = await withDeadline(
+          found = await awaitWithSignal(
             this.discoveryAi.discover(
               candidate,
               { signal: discoverySignal, record },
@@ -233,7 +248,11 @@ export class Assistant {
         this.changes.publish(job.ownerId);
       } else if (name === 'create_event' || name === 'create_issue') {
         // Creation requires the persisted message intent; prompts and model tool selection cannot grant write permission.
-        ensure(job.intent === name, 'Select the matching creation intent', 422);
+        ensure(
+          job.intent === name.toUpperCase(),
+          'Select the matching creation intent',
+          'INVALID_INPUT',
+        );
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');
         const kind = name === 'create_event' ? 'event' : 'issue';
@@ -255,25 +274,17 @@ export class Assistant {
         output = saved.result;
         this.changes.publish(job.ownerId);
       } else if (name === 'show_cards') {
-        const selected = (
-          args as {
-            cards: {
-              type: string;
-              id: string;
-              fieldSetId: string | null;
-              fieldId: string | null;
-              page: number | null;
-            }[];
-          }
-        ).cards;
+        const selected = (args as unknown as ShowCardsInput).cards;
 
         for (const c of selected) {
           ensure(
-            allowedResources.has((c.type === 'field' ? 'thing' : c.type) + ':' + c.id),
+            allowedResources.has(
+              (c.type === 'FIELD' ? 'thing' : c.type.toLowerCase()) + ':' + c.id,
+            ),
             'Card was not retrieved',
           );
 
-          if (c.type === 'field') {
+          if (c.type === 'FIELD') {
             const thing = allowedThings.get(c.id);
             ensure(thing, 'Read the Thing first');
             const fields = c.fieldSetId
@@ -282,16 +293,16 @@ export class Assistant {
             const field = fields?.find((f) => f.id === c.fieldId);
             ensure(field, 'Unknown field');
             addCard({
-              type: 'field',
+              type: 'FIELD',
               thingId: c.id,
               fieldSetId: c.fieldSetId,
               fieldId: field.id,
             });
             refs.push(...field.sourceRefs);
-          } else if (c.type === 'thing') addCard({ type: 'thing', thingId: c.id });
-          else if (c.type === 'attachment') {
+          } else if (c.type === 'THING') addCard({ type: 'THING', thingId: c.id });
+          else if (c.type === 'ATTACHMENT') {
             addCard({
-              type: 'attachment',
+              type: 'ATTACHMENT',
               attachmentId: c.id,
               ...(c.page ? { page: c.page } : {}),
             });
@@ -299,9 +310,9 @@ export class Assistant {
               attachmentId: c.id,
               ...(c.page ? { page: c.page } : {}),
             });
-          } else if (c.type === 'event') addCard({ type: 'event', eventId: c.id });
-          else if (c.type === 'issue') addCard({ type: 'issue', issueId: c.id });
-          else addCard({ type: 'purchasable', purchasableId: c.id });
+          } else if (c.type === 'EVENT') addCard({ type: 'EVENT', eventId: c.id });
+          else if (c.type === 'ISSUE') addCard({ type: 'ISSUE', issueId: c.id });
+          else addCard({ type: 'PURCHASABLE', purchasableId: c.id });
         }
 
         output = { shown: selected.length };
@@ -313,23 +324,23 @@ export class Assistant {
     };
 
     try {
-      await saveMessage(this.pool, job, { status: 'processing' });
+      await saveMessage(this.pool, job, { status: 'PROCESSING' });
       this.changes.publish(job.ownerId);
       const history = await conversation(this.pool, job.ownerId, job.conversationId);
       const messages = history.messages
-        .filter((m) => m.id !== job.id && m.status === 'complete')
+        .filter((m) => m.id !== job.id && m.status === 'COMPLETE')
         .map((m) => ({ role: m.role, content: m.text }));
 
       if (job.thingId) {
         const context = await readThing(job.thingId);
         messages.push({
-          role: 'user',
+          role: 'USER',
           content: 'Untrusted active Thing context: ' + JSON.stringify(context),
         });
       }
 
       for (const receipt of job.toolResults) if (receipt.card) addCard(receipt.card);
-      const text = await withDeadline(
+      const text = await awaitWithSignal(
         this.ai!.respond(
           {
             messages,
@@ -362,14 +373,14 @@ export class Assistant {
         text,
         cards,
         sourceRefs: [...new Map(refs.map((r) => [JSON.stringify(r), r])).values()],
-        status: 'complete',
+        status: 'COMPLETE',
         error: null,
       });
     } catch {
       await saveMessage(this.pool, job, {
         text: live.text,
         cards,
-        status: 'failed',
+        status: 'FAILED',
         error: shutdown.aborted ? 'interrupted' : signal.aborted ? 'timeout' : 'assistant_failed',
       });
     } finally {

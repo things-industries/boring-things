@@ -99,7 +99,7 @@ async function start(source: string, thingId?: string) {
 }
 async function wait(
   id: string,
-  states = ['complete', 'incomplete', 'failed', 'awaiting_selection'],
+  states = ['COMPLETE', 'INCOMPLETE', 'FAILED', 'AWAITING_SELECTION'],
 ) {
   const deadline = Date.now() + 10000;
   do {
@@ -140,7 +140,7 @@ test('immediate skeleton, progressive empty sets, source retention, string IDs a
   release();
   ai.pause = undefined;
   const job = await wait(accepted.importId);
-  assert.equal(job.status, 'complete', JSON.stringify(job));
+  assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
   thing = (await request('GET', `/things/${accepted.thingId}`)).json();
   assert.equal(
     thing.fieldSets
@@ -171,7 +171,7 @@ test('van inclusion and independent buildings/contents values', async () => {
   for (const source of ['van', 'policy']) {
     const accepted = await start(source),
       job = await wait(accepted.importId);
-    assert.equal(job.status, 'complete', JSON.stringify(job));
+    assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
     const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
     if (source === 'van') assert.ok(thing.fieldSets.some((s) => s.id === 'vehicles.vehicle'));
     else {
@@ -189,7 +189,7 @@ test('van inclusion and independent buildings/contents values', async () => {
 test('multiple candidates require confirmation and reuse one shared attachment', async () => {
   const accepted = await start('two'),
     job = await wait(accepted.importId);
-  assert.equal(job.status, 'awaiting_selection');
+  assert.equal(job.status, 'AWAITING_SELECTION');
   assert.equal(job.thingIds.length, 0);
   const response = await request('POST', `/imports/${job.id}:confirm`, {
     selections: job.candidates.map((c) => ({
@@ -199,7 +199,7 @@ test('multiple candidates require confirmation and reuse one shared attachment',
   });
   assert.equal(response.statusCode, 200, response.body);
   const done = await wait(job.id);
-  assert.equal(done.status, 'complete', JSON.stringify(done));
+  assert.equal(done.status, 'COMPLETE', JSON.stringify(done));
   assert.equal(done.thingIds[0], accepted.thingId);
   assert.equal(done.thingIds.length, 2);
   for (const id of done.thingIds)
@@ -217,7 +217,7 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   ai.failOnce = true;
   const accepted = await start('neff'),
     failed = await wait(accepted.importId);
-  assert.equal(failed.status, 'incomplete');
+  assert.equal(failed.status, 'INCOMPLETE');
   const edit = await request('PATCH', `/things/${accepted.thingId}`, {
     values: [
       {
@@ -231,7 +231,7 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   const retry = await request('POST', `/imports/${failed.id}:retry`);
   assert.equal(retry.statusCode, 200, retry.body);
   const done = await wait(failed.id);
-  assert.equal(done.status, 'complete', JSON.stringify(done));
+  assert.equal(done.status, 'COMPLETE', JSON.stringify(done));
   assert.deepEqual(done.thingIds, [accepted.thingId]);
   const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(
@@ -246,7 +246,7 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
 test('arbitrary model IDs never enter storage and tool exhaustion preserves partial data', async () => {
   ai.arbitraryId = true;
   const accepted = await start('neff');
-  assert.equal((await wait(accepted.importId)).status, 'incomplete');
+  assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
   let thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(thing.fieldSets.length, 0);
   assert.equal(thing.undefinedFields.length, 2);
@@ -273,7 +273,7 @@ test('all-existing confirmation removes untouched skeleton and redirects to sele
   });
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().thingId, existing.id);
-  assert.equal((await wait(job.id)).status, 'complete');
+  assert.equal((await wait(job.id)).status, 'COMPLETE');
   assert.equal((await request('GET', `/things/${accepted.thingId}`)).statusCode, 404);
   assert.equal((await request('GET', `/things/${existing.id}`)).json().name, 'Existing hob');
 });
@@ -346,7 +346,7 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
   const accepted = await start('neff');
   const job = await wait(accepted.importId);
   await app.close();
-  await pool.query("update bt.imports set status='mapping' where id=$1", [job.id]);
+  await pool.query("update bt.imports set status='MAPPING' where id=$1", [job.id]);
   app = await buildApp({
     pool,
     config: { ...readConfig(), blobDirectory: directory },
@@ -355,16 +355,16 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
   });
   await app.ready();
   const interrupted = (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
-  assert.equal(interrupted.status, 'failed');
+  assert.equal(interrupted.status, 'FAILED');
   assert.equal(interrupted.error, 'interrupted');
   assert.equal((await request('POST', `/imports/${job.id}:retry`)).statusCode, 200);
   const done = await wait(job.id);
-  assert.equal(done.status, 'complete');
+  assert.equal(done.status, 'COMPLETE');
   assert.deepEqual(done.thingIds, [accepted.thingId]);
 });
 
 test('discovery persists cited resources once and preserves edits on repeated writes', async () => {
-  const { persistDiscovery } = await import('../../src/application/discovery.js');
+  const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
   const { ownedImport, targets } = await import('../../src/db/imports.js');
   const { LocalBlobs } = await import('../../src/providers/blobs.js');
   const accepted = await start('neff');
@@ -408,7 +408,7 @@ test('discovery persists cited resources once and preserves edits on repeated wr
   };
   await persistDiscovery(pool, blobs, job, target, discovery, options, download);
   const event = (await request('GET', `/events?thingId=${accepted.thingId}`)).json().items[0];
-  await request('PATCH', `/events/${event.id}`, { status: 'dismissed' });
+  await request('PATCH', `/events/${event.id}`, { status: 'DISMISSED' });
   await persistDiscovery(pool, blobs, job, target, discovery, options, download);
   assert.equal(downloads, 1);
   const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
@@ -426,7 +426,7 @@ test('discovery persists cited resources once and preserves edits on repeated wr
     (await request('GET', `/events?thingId=${accepted.thingId}`)).json().items.length,
     1,
   );
-  assert.equal((await request('GET', `/events/${event.id}`)).json().status, 'dismissed');
+  assert.equal((await request('GET', `/events/${event.id}`)).json().status, 'DISMISSED');
   const purchases = (await request('GET', `/purchasables?thingId=${accepted.thingId}`)).json()
     .items;
   assert.equal(purchases.length, 1);
@@ -453,7 +453,7 @@ test('discovery persists cited resources once and preserves edits on repeated wr
 });
 
 test('discovered names use only owner collisions and preserve existing or edited names', async () => {
-  const { persistDiscovery } = await import('../../src/application/discovery.js');
+  const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
   const { ownedImport, targets } = await import('../../src/db/imports.js');
   const { LocalBlobs } = await import('../../src/providers/blobs.js');
   await create({ name: 'Bosch Oven' }, 'bob');
@@ -525,7 +525,7 @@ test('discovered names use only owner collisions and preserve existing or edited
 });
 
 test('failed PDF downloads preserve other results and retries skip saved files; HTML creates no attachment', async () => {
-  const { persistDiscovery } = await import('../../src/application/discovery.js');
+  const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
   const { ownedImport, targets } = await import('../../src/db/imports.js');
   const { LocalBlobs } = await import('../../src/providers/blobs.js');
   const accepted = await start('neff');

@@ -1,3 +1,4 @@
+import spec from '../../../openapi.json' with { type: 'json' };
 /**
  * Defines assistant function names and argument schemas shared by provider requests and
  * application-side tool validation.
@@ -17,7 +18,7 @@ const object = (properties: Record<string, unknown>) => ({
 const card = object({
   type: {
     type: 'string',
-    enum: ['thing', 'field', 'attachment', 'event', 'issue', 'purchasable'],
+    enum: spec.components.schemas.ResourceCard.oneOf.map((card) => card.properties.type.const),
   },
   id,
   fieldSetId: { type: ['string', 'null'] },
@@ -51,7 +52,7 @@ export const chatFunctions = [
   ],
   [
     'create_event',
-    'Create one suggested maintenance Event only when the message intent is create_event. Never invent a date; the user schedules the card. Reuse completed writes on retry.',
+    'Create one suggested maintenance Event only when the message intent is CREATE_EVENT. Never invent a date; the user schedules the card. Reuse completed writes on retry.',
     object({
       thingId: id,
       title: { type: 'string', minLength: 1, maxLength: 200 },
@@ -60,7 +61,7 @@ export const chatFunctions = [
   ],
   [
     'create_issue',
-    'Create one open Issue only when the message intent is create_issue. Reuse completed writes on retry.',
+    'Create one open Issue only when the message intent is CREATE_ISSUE. Reuse completed writes on retry.',
     object({
       thingId: id,
       title: { type: 'string', minLength: 1, maxLength: 200 },

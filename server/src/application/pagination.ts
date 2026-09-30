@@ -1,7 +1,3 @@
-/**
- * Decodes offset cursors and builds paginated responses from queries that fetch one extra row.
- */
-
 import { ensure } from './errors.js';
 
 export interface PageQuery {

@@ -1,8 +1,10 @@
+import { checkContract } from '../server/src/contracts/check.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import openapiTS, { astToString } from 'openapi-typescript';
 import SwaggerParser from '@apidevtools/swagger-parser';
 import ts from 'typescript';
 
+checkContract();
 await SwaggerParser.validate('openapi.json');
 const output = astToString(
   await openapiTS(new URL('../openapi.json', import.meta.url), {

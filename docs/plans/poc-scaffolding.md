@@ -48,17 +48,17 @@ Use UUIDs for owned records and stable text IDs for seeded registry records. Add
 | `imports`           | `id`, `owner_id`, `attachment_id`, `target_thing_id` nullable, `status`, `extraction jsonb`, `selection jsonb`, `result_thing_ids uuid[]`, `error`, `usage jsonb`, `started_at`, `finished_at`                                               |
 | `tags`              | `id`, `owner_id`, `name`; unique per owner                                                                                                                                                                                                   |
 | `thing_tags`        | `thing_id`, `tag_id`; composite primary key                                                                                                                                                                                                  |
-| `issues`            | `id`, `owner_id`, `thing_id`, `title`, `description`, `status` (open/resolved), `resolved_at` nullable                                                                                                                                       |
-| `events`            | `id`, `owner_id`, `thing_id`, `issue_id` nullable, `title`, `description`, `status` (suggested/scheduled/completed/dismissed), `starts_at` nullable, `completed_at` nullable, `source_refs jsonb`                                            |
-| `purchasables`      | `id`, `owner_id`, `thing_id`, `kind` (consumable/accessory/upgrade), `name`, `description`, `merchant_url`, `image_url` nullable, `price_amount` nullable, `currency` nullable, `source_refs jsonb`, `checked_at`                            |
+| `issues`            | `id`, `owner_id`, `thing_id`, `title`, `description`, `status` (OPEN/RESOLVED), `resolved_at` nullable                                                                                                                                       |
+| `events`            | `id`, `owner_id`, `thing_id`, `issue_id` nullable, `title`, `description`, `status` (SUGGESTED/SCHEDULED/COMPLETED/DISMISSED), `starts_at` nullable, `completed_at` nullable, `source_refs jsonb`                                            |
+| `purchasables`      | `id`, `owner_id`, `thing_id`, `kind` (CONSUMABLE/ACCESSORY/UPGRADE), `name`, `description`, `merchant_url`, `image_url` nullable, `price_amount` nullable, `currency` nullable, `source_refs jsonb`, `checked_at`                            |
 | `conversations`     | `id`, `owner_id`, `thing_id` nullable for dashboard-started chat                                                                                                                                                                             |
-| `messages`          | `id`, `conversation_id`, `request_id`, `role`, `text`, `cards jsonb`, `source_refs jsonb`, `tool_results jsonb`, `status` (queued/processing/complete/failed), `usage jsonb`, `error` nullable; unique `(conversation_id, request_id, role)` |
+| `messages`          | `id`, `conversation_id`, `request_id`, `role`, `text`, `cards jsonb`, `source_refs jsonb`, `tool_results jsonb`, `status` (QUEUED/PROCESSING/COMPLETE/FAILED), `usage jsonb`, `error` nullable; unique `(conversation_id, request_id, role)` |
 
 `things.data` stores set IDs, values keyed by field ID within each set, standalone values, undefined fields, and pinned field references. Definitions remain in the registry. JSONB keeps the POC small; application validation enforces the structure. Add normalized value tables when field-level querying warrants them.
 
 Missing values have no stored value entry; the detail response expands every selected set's field definitions and returns `value: null` for empty fields. Preserve `false`, `0`, and empty strings as actual values. Undefined fields have a local UUID, label, and value; they do not create registry definitions.
 
-Each stored value can carry `sourceRefs` (attachment ID and page/quote), and `origin: import | user`. Pinned references use `(fieldSetId, fieldId)` or an undefined-field ID. Initial pin suggestions come from the import; users can change them.
+Each stored value can carry `sourceRefs` (attachment ID and page/quote), and `origin: IMPORT | USER`. Pinned references use `(fieldSetId, fieldId)` or an undefined-field ID. Initial pin suggestions come from the import; users can change them.
 
 Use a suggested Event for a maintenance recommendation; scheduling it changes the same record's status/date. Support one Thing per issue/event/purchasable initially. Purchasables are contextual suggestions, without a shared product catalogue. Price requires currency and a source/check date. Persist chat messages for grounding and recovery within the active conversation; defer browsing or reopening previous chats.
 
@@ -68,33 +68,14 @@ Apply owner checks to every record operation, stream and attachment download. At
 
 ## Backend modules
 
-```text
-server/src/
-  app.ts                       # Fastify assembly
-  plugins/auth.ts              # Logto identity -> local user
-  routes/                      # resource routes and SSE endpoints
-  application/
-    registry.ts                # search, dependency expansion, registry validation
-    things.ts                  # CRUD, edits, complete detail projection
-    imports.ts                 # job states, confirmation, extraction/mapping, persistence
-    discovery.ts               # bounded manual/model/product lookup, cited results
-    activity.ts                # issues, suggested/scheduled events, purchasables
-    conversations.ts           # active chat, tools, messages and resource cards
-    streams.ts                 # authenticated Thing/chat snapshots and notifications
-  db/                          # SQL queries grouped by capability; migrations/seeds
-  providers/
-    ai.ts                      # extraction, tool-call loop, structured result
-    research.ts                # web search/fetch adapter for discovery and chat
-    blobs.ts                   # storage interface and local implementation
-  contracts/                   # generated OpenAPI types and runtime validation
-```
+See [the backend guide](../../server/AGENTS.md) for module boundaries and [README](../../README.md) for setup and validation.
 
-- Fastify plugins register dependencies; application modules own workflows. Add classes only where state or a client lifecycle warrants them.
-- Registry tools call the same application functions as registry HTTP routes. The model does not make internal HTTP requests.
-- Use one local background runner consuming persisted imports and queued chat messages. Record failure/timeouts; on restart mark interrupted work failed and expose retry. Defer queue infrastructure.
-- Keep each progressive write transactional and retry-safe. Retry resumes the same import and cannot create a second result. Initial fields remain read-only while processing; updating an existing Thing preserves user-entered values.
-- Field edits patch specified values under a row lock; they do not replace the entire Thing document from a stale client copy.
-- Publish stream updates after committing changes. A single-process notifier is sufficient initially; persisted records remain the source of truth.
+- `application/import/`, `application/conversations/` and `application/registry/` group feature workflows; shared discovery and activity rules stay in application modules.
+- `application/jobs/runner.ts` consumes persisted imports and messages in one process. Interrupted work is marked failed for retry. Each job gets bounded provider work.
+- `db/` owns SQL and typed persistence functions. Related writes share one transaction; chat records and retry receipts commit together.
+- `contracts/` derives runtime schemas and operation types from the authored OAS 3.1 contract. `routes/` owns HTTP error translation and SSE transport.
+- `routes/scaffolds/samples.ts` contains the opt-in demonstration workflow, including SQL. Production profile access is separate.
+- Publish owner changes after committed mutations. Subscribe before reading the first SSE snapshot; close streams on backpressure, shutdown or authentication renewal.
 
 ## Import and AI workflow
 

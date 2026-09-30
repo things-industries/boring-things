@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyData } from '../../shared/model.js';
 import { fields, sets } from '../src/db/registry-seed.js';
-import { Registry } from '../src/application/registry.js';
+import { Registry } from '../src/application/registry/registry.js';
 import { patchData, projectData, revealValue } from '../src/application/thing-data.js';
 const registry = new Registry(fields, sets);
 test('mandatory inclusion expands and a required dependency cannot be removed', () => {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAiImports } from '../src/providers/ai.js';
-import type { Usage } from '../src/application/import-types.js';
+import type { Usage } from '../src/application/import/types.js';
 
 test('discovery retains opened PDF URLs and structures a cited product identity', async (t) => {
   const source = 'https://manufacturer.example/oven';

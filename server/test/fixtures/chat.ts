@@ -3,7 +3,7 @@ import type {
   ChatInput,
   ChatContext,
   ChatToolResult,
-} from '../../src/application/chat-types.js';
+} from '../../src/application/conversations/types.js';
 export class FixtureChat implements ChatAi {
   calls = 0;
   pause?: Promise<void>;
@@ -33,16 +33,16 @@ export class FixtureChat implements ChatAi {
       attachments: { id: string }[];
     };
     await this.pause;
-    if (input.intent === 'create_event' || input.intent === 'create_issue')
-      await execute(input.intent, {
+    if (input.intent === 'CREATE_EVENT' || input.intent === 'CREATE_ISSUE')
+      await execute(input.intent.toLowerCase(), {
         thingId: thing.id,
-        title: input.intent === 'create_event' ? 'Check the filter' : 'Filter needs attention',
+        title: input.intent === 'CREATE_EVENT' ? 'Check the filter' : 'Filter needs attention',
         description: 'Synthetic assistant task',
       });
     await execute('show_cards', {
       cards: [
         {
-          type: 'thing',
+          type: 'THING',
           id: thing.id,
           fieldSetId: null,
           fieldId: null,
@@ -51,7 +51,7 @@ export class FixtureChat implements ChatAi {
         ...(thing.fieldSets.length
           ? [
               {
-                type: 'field',
+                type: 'FIELD',
                 id: thing.id,
                 fieldSetId: thing.fieldSets[0].id,
                 fieldId: thing.fieldSets[0].fields[0].id,
@@ -62,7 +62,7 @@ export class FixtureChat implements ChatAi {
         ...(attachments.length
           ? [
               {
-                type: 'attachment',
+                type: 'ATTACHMENT',
                 id: attachments[0].id,
                 fieldSetId: null,
                 fieldId: null,

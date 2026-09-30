@@ -1,33 +1,13 @@
+import type { FieldSearchLabel } from './registry.js';
 /**
  * Searches registry metadata for fields and sets, expanding mandatory dependencies and returning
  * bounded suggestions for AI mapping.
  */
 
-import type { Database } from '../db/connection.js';
-import { rows } from '../db/connection.js';
+import type { Database } from '../../db/connection.js';
+import { searchRegistry } from '../../db/registry.js';
 import type { Registry } from './registry.js';
-import { ensure } from './errors.js';
-
-export async function searchRegistry(
-  db: Database,
-  kind: 'fields' | 'field-sets',
-  terms: string[],
-  categoryId?: string,
-  limit = 12,
-  offset = 0,
-) {
-  // SQL identifiers come from fixed choices; search terms remain bound parameters.
-  const table = kind === 'fields' ? 'field_definitions' : 'field_sets';
-  const description = kind === 'fields' ? 'description' : 'eligibility';
-  const category = kind === 'field-sets' ? 'and ($4::text is null or category_id=$4)' : '';
-  const params: unknown[] = [terms.length ? terms : [''], limit, offset];
-  if (kind === 'field-sets') params.push(categoryId ?? null);
-  return rows<{ id: string }>(
-    db,
-    `select id from bt.${table} where exists(select 1 from unnest($1::text[]) term where term='' or to_tsvector('simple',name || ' ' || ${description} || ' ' || array_to_string(keywords,' ')) @@ plainto_tsquery('simple',term) or strpos(lower(id),lower(term))>0 or strpos(lower(name || ' ' || array_to_string(keywords,' ')),lower(term))>0) ${category} order by id limit $2 offset $3`,
-    params,
-  );
-}
+import { ensure } from '../errors.js';
 
 export async function searchFieldSets(
   db: Database,
@@ -67,11 +47,7 @@ export async function searchFieldSets(
   };
 }
 
-export async function searchFields(
-  db: Database,
-  registry: Registry,
-  labels: { label: string; context: string }[],
-) {
+export async function searchFields(db: Database, registry: Registry, labels: FieldSearchLabel[]) {
   ensure(
     labels.length > 0 &&
       labels.length <= 20 &&

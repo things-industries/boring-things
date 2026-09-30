@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'node:events';
 
-export class ThingChanges {
+export class OwnerChanges {
   private events = new EventEmitter();
 
   constructor() {

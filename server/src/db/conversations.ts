@@ -1,3 +1,7 @@
+type ChatAttachment = Pick<Schema['Attachment'], 'id' | 'filename' | 'mediaType' | 'byteSize'> & {
+  storageKey: string;
+};
+import { execute } from './connection.js';
 /**
  * Persists owner-scoped conversations and queued messages, reads assistant resources and records
  * transactional write receipts for retries.
@@ -24,7 +28,7 @@ export async function ownedConversation(db: Database, owner: string, id: string,
     `select id,thing_id from bt.conversations where id=$1 and owner_id=$2${lock ? ' for update' : ''}`,
     [id, owner],
   );
-  ensure(item, 'Conversation not found', 404);
+  ensure(item, 'Conversation not found', 'NOT_FOUND');
   return item;
 }
 
@@ -36,7 +40,7 @@ export async function conversation(
   const item = await ownedConversation(db, owner, id);
   const messages = await rows<Schema['Message']>(
     db,
-    "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,intent,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'user' then 0 else 1 end,id",
+    "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,intent,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'USER' then 0 else 1 end,id",
     [id],
   );
 
@@ -44,20 +48,20 @@ export async function conversation(
   for (const message of messages)
     for (const card of message.cards) {
       const table =
-        card.type === 'thing' || card.type === 'field'
+        card.type === 'THING' || card.type === 'FIELD'
           ? 'things'
-          : card.type === 'attachment'
+          : card.type === 'ATTACHMENT'
             ? 'attachments'
-            : card.type === 'event'
+            : card.type === 'EVENT'
               ? 'events'
-              : card.type === 'issue'
+              : card.type === 'ISSUE'
                 ? 'issues'
                 : 'purchasables';
 
-      const key = card.type === 'field' ? 'thingId' : `${card.type}Id`;
+      const key = card.type === 'FIELD' ? 'thingId' : `${card.type.toLowerCase()}Id`;
       const value = (card as unknown as Record<string, unknown>)[key];
       card.available = !!(
-        await db.query(`select 1 from bt.${table} where id=$1 and owner_id=$2`, [value, owner])
+        await execute(db, `select 1 from bt.${table} where id=$1 and owner_id=$2`, [value, owner])
       ).rowCount;
     }
 
@@ -79,26 +83,27 @@ export async function enqueueMessage(
       [id, input.requestId],
     );
 
-    const user = existing.find((m) => m.role === 'user');
-    const assistant = existing.find((m) => m.role === 'assistant');
+    const user = existing.find((m) => m.role === 'USER');
+    const assistant = existing.find((m) => m.role === 'ASSISTANT');
 
     if (user)
       ensure(
         user.text === input.text.trim() && user.intent === input.intent,
         'Request ID already used',
-        409,
+        'CONFLICT',
       );
 
-    if (assistant && assistant.status !== 'failed') return conversation(db, owner, id);
+    if (assistant && assistant.status !== 'FAILED') return conversation(db, owner, id);
     ensure(
       !(
-        await db.query(
-          "select 1 from bt.messages where conversation_id=$1 and role='assistant' and status in ('queued','processing')",
+        await execute(
+          db,
+          "select 1 from bt.messages where conversation_id=$1 and role='ASSISTANT' and status in ('QUEUED','PROCESSING')",
           [id],
         )
       ).rowCount,
       'A response is already in progress',
-      409,
+      'CONFLICT',
     );
 
     // Requeue the same message without clearing tool receipts, so successful writes survive a failed response.
@@ -106,21 +111,23 @@ export async function enqueueMessage(
       // Earlier failed turns cannot be retried after the conversation has moved on.
       const [latest] = await rows<{ id: string }>(
         db,
-        "select id from bt.messages where conversation_id=$1 and role='assistant' order by created_at desc,id desc limit 1",
+        "select id from bt.messages where conversation_id=$1 and role='ASSISTANT' order by created_at desc,id desc limit 1",
         [id],
       );
-      ensure(latest?.id === assistant.id, 'Only the latest response can be retried', 409);
-      await db.query("update bt.messages set status='queued',text='',error=null where id=$1", [
+      ensure(latest?.id === assistant.id, 'Only the latest response can be retried', 'CONFLICT');
+      await execute(db, "update bt.messages set status='QUEUED',text='',error=null where id=$1", [
         assistant.id,
       ]);
     } else {
       ensure(
-        (await db.query('select 1 from bt.messages where conversation_id=$1', [id])).rowCount! < 80,
+        (await execute(db, 'select 1 from bt.messages where conversation_id=$1', [id])).rowCount! <
+          80,
         'Conversation limit reached; start a new chat',
-        409,
+        'CONFLICT',
       );
-      await db.query(
-        "insert into bt.messages(conversation_id,request_id,role,text,status,intent) values($1,$2,'user',$3,'complete',$4),($1,$2,'assistant','','queued',$4)",
+      await execute(
+        db,
+        "insert into bt.messages(conversation_id,request_id,role,text,status,intent) values($1,$2,'USER',$3,'COMPLETE',$4),($1,$2,'ASSISTANT','','QUEUED',$4)",
         [id, input.requestId, input.text.trim(), input.intent],
       );
     }
@@ -132,8 +139,9 @@ export async function enqueueMessage(
 export type ChatJob = MessageRow & { ownerId: string; thingId: string | null };
 
 export async function recoverMessages(db: Database) {
-  await db.query(
-    "update bt.messages set status='failed',error='interrupted' where role='assistant' and status='processing'",
+  await execute(
+    db,
+    "update bt.messages set status='FAILED',error='interrupted' where role='ASSISTANT' and status='PROCESSING'",
   );
 }
 
@@ -141,7 +149,7 @@ export async function recoverMessages(db: Database) {
 export async function nextMessage(db: Database) {
   const [job] = await rows<ChatJob>(
     db,
-    "select m.*,c.owner_id,c.thing_id from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.role='assistant' and m.status='queued' order by m.created_at,m.id limit 1",
+    "select m.*,c.owner_id,c.thing_id from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.role='ASSISTANT' and m.status='QUEUED' order by m.created_at,m.id limit 1",
   );
 
   return job;
@@ -168,7 +176,8 @@ export async function saveMessage(
   const values = entries.map(([key, value]) =>
     ['cards', 'sourceRefs', 'toolResults', 'usage'].includes(key) ? JSON.stringify(value) : value,
   );
-  await db.query(
+  await execute(
+    db,
     `update bt.messages set ${entries.map(([key], i) => columns[key] + '=$' + (i + 1)).join(',')} where id=$${values.length + 1} and conversation_id in (select id from bt.conversations where owner_id=$${values.length + 2})`,
     [...values, job.id, job.ownerId],
   );
@@ -213,64 +222,37 @@ export async function chatResources(db: Database, owner: string, id: string) {
 }
 
 export async function chatAttachment(db: Database, owner: string, id: string) {
-  const [file] = await rows<{
-    id: string;
-    filename: string;
-    mediaType: string;
-    storageKey: string;
-    byteSize: number;
-  }>(db, 'select * from bt.attachments where id=$1 and owner_id=$2', [id, owner]);
+  const [file] = await rows<ChatAttachment>(
+    db,
+    'select id,filename,media_type,storage_key,byte_size from bt.attachments where id=$1 and owner_id=$2',
+    [id, owner],
+  );
 
   return file;
 }
 
-export async function createChatActivity(
+export async function processingMessage(db: Database, job: ChatJob): Promise<MessageRow> {
+  const [current] = await rows<MessageRow>(
+    db,
+    "select m.* from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.id=$1 and c.owner_id=$2 and m.status='PROCESSING' for update of m",
+    [job.id, job.ownerId],
+  );
+  ensure(current, 'Message is no longer processing', 'CONFLICT');
+  return current;
+}
+export async function createConversation(
   pool: pg.Pool,
-  job: ChatJob,
-  name: 'create_event' | 'create_issue',
-  input: { thingId: string; title: string; description: string },
-  signal: AbortSignal,
-) {
+  owner: string,
+  thingId?: string | null,
+): Promise<Schema['Conversation']> {
   return transaction(pool, async (db) => {
-    signal.throwIfAborted();
-    const [current] = await rows<MessageRow>(
+    if (thingId) await ownedThing(db, owner, thingId, true);
+    const [item] = await rows<{ id: string }>(
       db,
-      "select m.* from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.id=$1 and c.owner_id=$2 and m.status='processing' for update of m",
-      [job.id, job.ownerId],
+      'insert into bt.conversations(owner_id,thing_id) values($1,$2) returning id',
+      [owner, thingId ?? null],
     );
-    ensure(current, 'Message is no longer processing', 409);
-    ensure(current.intent === name, 'Message intent does not allow this write');
-    const previous = current.toolResults.find((r) => r.key === name);
-
-    if (previous) {
-      ensure(
-        (previous.result as { thingId: string }).thingId === input.thingId,
-        'One creation per message',
-      );
-
-      return previous;
-    }
-
-    await ownedThing(db, job.ownerId, input.thingId, true);
-    const table = name === 'create_event' ? 'events' : 'issues';
-    const [item] = await rows<{ id: string; thingId: string }>(
-      db,
-      `insert into bt.${table}(owner_id,thing_id,title,description) values($1,$2,$3,$4) returning id,thing_id`,
-      [job.ownerId, input.thingId, input.title.trim(), input.description],
-    );
-
-    const card: Schema['ResourceCard'] =
-      name === 'create_event'
-        ? { type: 'event', eventId: item.id }
-        : { type: 'issue', issueId: item.id };
-
-    const result = { key: name, result: item, card };
-    // Commit the record and receipt together, so retry can reuse its result.
-    await saveMessage(db, job, {
-      toolResults: [...current.toolResults, result],
-    });
-    await bumpThing(db, job.ownerId, input.thingId);
-    signal.throwIfAborted();
-    return result;
+    if (thingId) await bumpThing(db, owner, thingId);
+    return conversation(db, owner, item.id);
   });
 }

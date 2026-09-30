@@ -14,7 +14,7 @@ import type {
   MappingValue,
   RegistryTools,
   Source,
-} from '../application/import-types.js';
+} from '../application/import/types.js';
 import { ensure } from '../application/errors.js';
 
 const string = { type: 'string' };

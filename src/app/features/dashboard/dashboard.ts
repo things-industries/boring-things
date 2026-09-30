@@ -51,7 +51,7 @@ export class Dashboard {
         this.api.client
           .GET('/api/issues', {
             params: {
-              query: { status: 'open', limit: APP_CONFIG.activityLimit },
+              query: { status: 'OPEN', limit: APP_CONFIG.activityLimit },
             },
           })
           .then(apiData),
@@ -59,7 +59,7 @@ export class Dashboard {
           .GET('/api/events', {
             params: {
               query: {
-                status: 'scheduled',
+                status: 'SCHEDULED',
                 from: new Date().toISOString(),
                 limit: APP_CONFIG.activityLimit,
               },

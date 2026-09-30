@@ -1,3 +1,4 @@
+import { execute } from './connection.js';
 /**
  * Defines and upserts authored categories, fields and sets. Registry seeds update metadata;
  * existing Thing values require separate migrations.
@@ -5,7 +6,7 @@
 
 import type { FieldDefinition, FieldSet, Schema } from '../../../shared/model.js';
 import type { Database } from './connection.js';
-import { Registry } from '../application/registry.js';
+import { Registry } from '../application/registry/registry.js';
 
 const names = [
   'Appliances',
@@ -42,7 +43,7 @@ const field = (
   description: name,
   keywords: [],
   schema,
-  uiHint: 'text',
+  uiHint: 'TEXT',
   sensitive: false,
   ...extra,
 });
@@ -87,19 +88,19 @@ export const fields: FieldDefinition[] = [
     'vehicles.firstRegistered',
     'First registered',
     { type: 'string', format: 'date' },
-    { uiHint: 'date' },
+    { uiHint: 'DATE' },
   ),
   field(
     'vehicles.seats',
     'Seats',
     { type: 'integer', minimum: 1, maximum: 99 },
-    { uiHint: 'number' },
+    { uiHint: 'NUMBER' },
   ),
   field(
     'vehicles.payloadKg',
     'Load capacity (kg)',
     { type: 'number', minimum: 0 },
-    { uiHint: 'number' },
+    { uiHint: 'NUMBER' },
   ),
   field('insurance.provider', 'Insurance provider'),
   field('insurance.policyNumber', 'Policy number'),
@@ -107,34 +108,34 @@ export const fields: FieldDefinition[] = [
     'insurance.renewalDate',
     'Renewal date',
     { type: 'string', format: 'date' },
-    { uiHint: 'date' },
+    { uiHint: 'DATE' },
   ),
   field('insurance.sumInsured', 'Sum insured', moneySchema, {
-    uiHint: 'money',
+    uiHint: 'MONEY',
     description: 'Coverage limit, with currency; independent for each cover section.',
   }),
-  field('insurance.excess', 'Excess', moneySchema, { uiHint: 'money' }),
+  field('insurance.excess', 'Excess', moneySchema, { uiHint: 'MONEY' }),
   field('membership.provider', 'Museum'),
   field('membership.number', 'Membership number'),
   field(
     'membership.expires',
     'Expiry date',
     { type: 'string', format: 'date' },
-    { uiHint: 'date' },
+    { uiHint: 'DATE' },
   ),
-  field('membership.autoRenew', 'Automatically renew', { type: 'boolean' }, { uiHint: 'checkbox' }),
+  field('membership.autoRenew', 'Automatically renew', { type: 'boolean' }, { uiHint: 'CHECKBOX' }),
   field(
     'membership.level',
     'Membership level',
     { type: 'string', enum: ['Individual', 'Joint', 'Family'] },
-    { uiHint: 'select' },
+    { uiHint: 'SELECT' },
   ),
   field(
     'membership.accessPin',
     'Access PIN',
     { type: 'string', minLength: 4, maxLength: 12, pattern: '^[0-9]+$' },
     {
-      uiHint: 'password',
+      uiHint: 'PASSWORD',
       sensitive: true,
       description: 'Optional access code. Hidden until revealed.',
     },
@@ -236,19 +237,22 @@ export async function seedRegistry(db: Database) {
   new Registry(fields, sets);
 
   for (const c of categories)
-    await db.query(
+    await execute(
+      db,
       'insert into bt.categories(id,name,description,icon,default_image,sort_order) values($1,$2,$3,$4,$5,$6) on conflict(id) do update set name=excluded.name,description=excluded.description,icon=excluded.icon,default_image=excluded.default_image,sort_order=excluded.sort_order',
       [c.id, c.name, c.description, c.icon, c.defaultImage, c.sortOrder],
     );
 
   for (const f of fields)
-    await db.query(
+    await execute(
+      db,
       'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive) values($1,$2,$3,$4,$5,$6,$7) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive',
       [f.id, f.name, f.description, f.keywords, JSON.stringify(f.schema), f.uiHint, f.sensitive],
     );
 
   for (const s of sets)
-    await db.query(
+    await execute(
+      db,
       'insert into bt.field_sets(id,category_id,name,eligibility,keywords,includes,consider_alongside,field_ids) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(id) do update set category_id=excluded.category_id,name=excluded.name,eligibility=excluded.eligibility,keywords=excluded.keywords,includes=excluded.includes,consider_alongside=excluded.consider_alongside,field_ids=excluded.field_ids',
       [
         s.id,

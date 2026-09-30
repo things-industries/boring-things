@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Schema } from '../../../shared/model.js';
 import { FixtureAi } from '../fixtures/imports.js';
-import type { ImportAi } from '../../src/application/import-types.js';
+import type { ImportAi } from '../../src/application/import/types.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
@@ -89,11 +89,11 @@ async function setup(owner = 'alice') {
   >();
   return { thing, chat };
 }
-async function wait(id: string, statuses = ['complete', 'failed']) {
+async function wait(id: string, statuses = ['COMPLETE', 'FAILED']) {
   const deadline = Date.now() + 7000;
   while (Date.now() < deadline) {
     const chat = (await request('GET', `/conversations/${id}`)).json<Schema['Conversation']>();
-    const message = chat.messages.filter((m) => m.role === 'assistant').at(-1);
+    const message = chat.messages.filter((m) => m.role === 'ASSISTANT').at(-1);
     if (message && statuses.includes(message.status)) return { chat, message };
     await new Promise((r) => setTimeout(r, 20));
   }
@@ -104,7 +104,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   const input = {
     text: 'Create a filter check',
     requestId: randomUUID(),
-    intent: 'create_event',
+    intent: 'CREATE_EVENT',
   };
   ai.failOnce = true;
   assert.equal(
@@ -112,8 +112,8 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
     202,
   );
   const failed = await wait(chat.id);
-  assert.equal(failed.message.status, 'failed');
-  assert.equal(failed.message.cards.filter((c) => c.type === 'event').length, 1);
+  assert.equal(failed.message.status, 'FAILED');
+  assert.equal(failed.message.cards.filter((c) => c.type === 'EVENT').length, 1);
   const events = (await request('GET', `/events?thingId=${thing.id}`)).json<{
     items: Schema['Event'][];
   }>();
@@ -123,7 +123,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
     202,
   );
   const complete = await wait(chat.id);
-  assert.equal(complete.message.status, 'complete');
+  assert.equal(complete.message.status, 'COMPLETE');
   assert.equal(complete.chat.messages.length, 2);
   assert.equal(complete.message.text, 'The saved details are ready.');
   assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 1);
@@ -144,7 +144,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
       await request('POST', `/conversations/${chat.id}/messages`, {
         ...input,
         requestId: randomUUID(),
-        intent: 'create_issue',
+        intent: 'CREATE_ISSUE',
       })
     ).statusCode,
     202,
@@ -164,7 +164,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   assert.equal(
     (
       await request('PATCH', `/events/${events.items[0].id}`, {
-        status: 'scheduled',
+        status: 'SCHEDULED',
         startsAt,
       })
     ).statusCode,
@@ -172,8 +172,8 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   );
   const dashboard = (await request('POST', '/conversations', {})).json<Schema['Conversation']>();
   await pool.query(
-    "insert into bt.messages(conversation_id,request_id,role,text,cards,status) values($1,$2,'assistant','Saved record',$3,'complete')",
-    [dashboard.id, randomUUID(), JSON.stringify([{ type: 'thing', thingId: thing.id }])],
+    "insert into bt.messages(conversation_id,request_id,role,text,cards,status) values($1,$2,'ASSISTANT','Saved record',$3,'COMPLETE')",
+    [dashboard.id, randomUUID(), JSON.stringify([{ type: 'THING', thingId: thing.id }])],
   );
   await request('DELETE', `/things/${thing.id}`);
   assert.equal((await request('GET', `/conversations/${chat.id}`)).statusCode, 404);
@@ -190,11 +190,11 @@ test('single in-flight response, SSE snapshots and reconnect without duplicate t
   });
   const input = {
     text: 'Read the saved details',
-    intent: 'answer',
+    intent: 'ANSWER',
     requestId: randomUUID(),
   };
   await request('POST', `/conversations/${chat.id}/messages`, input);
-  await wait(chat.id, ['processing']);
+  await wait(chat.id, ['PROCESSING']);
   assert.equal(
     (
       await request('POST', `/conversations/${chat.id}/messages`, {
@@ -218,7 +218,18 @@ test('single in-flight response, SSE snapshots and reconnect without duplicate t
       const part = await reader.read();
       if (part.done) return;
       received += new TextDecoder().decode(part.value);
-      if (received.includes('conversation.delta') && received.includes('"status":"complete"'))
+      if (
+        received.includes('conversation.delta') &&
+        received
+          .split('\n')
+          .some(
+            (line) =>
+              line.startsWith('data: ') &&
+              (JSON.parse(line.slice(6)) as { messages?: Schema['Message'][] }).messages?.some(
+                (message) => message.role === 'ASSISTANT' && message.status === 'COMPLETE',
+              ),
+          )
+      )
         return;
     }
   })();
@@ -245,11 +256,11 @@ test('tool owner checks reject guessed Thing IDs and new writes need matching in
   ai.foreignThing = foreign.thing.id;
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Read another Thing',
-    intent: 'answer',
+    intent: 'ANSWER',
     requestId: randomUUID(),
   });
   const failed = await wait(chat.id);
-  assert.equal(failed.message.status, 'failed');
+  assert.equal(failed.message.status, 'FAILED');
   assert.equal(failed.message.text, '');
   ai.foreignThing = undefined;
 });
@@ -257,21 +268,21 @@ test('restart retains activity and marks interrupted messages retryable', async 
   const { chat, thing } = await setup();
   const input = {
     text: 'Create maintenance',
-    intent: 'create_event',
+    intent: 'CREATE_EVENT',
     requestId: randomUUID(),
   };
   await request('POST', `/conversations/${chat.id}/messages`, input);
   await wait(chat.id);
   await app.close();
   await pool.query(
-    "update bt.messages set status='processing',text='' where conversation_id=$1 and role='assistant'",
+    "update bt.messages set status='PROCESSING',text='' where conversation_id=$1 and role='ASSISTANT'",
     [chat.id],
   );
   await boot();
   const interrupted = await wait(chat.id);
   assert.equal(interrupted.message.error, 'interrupted');
   await request('POST', `/conversations/${chat.id}/messages`, input);
-  assert.equal((await wait(chat.id)).message.status, 'complete');
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
   assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 1);
 });
 
@@ -286,10 +297,10 @@ test('write intent and deadline are enforced even when the provider requests a w
   };
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Just answer a question',
-    intent: 'answer',
+    intent: 'ANSWER',
     requestId: randomUUID(),
   });
-  assert.equal((await wait(chat.id)).message.status, 'failed');
+  assert.equal((await wait(chat.id)).message.status, 'FAILED');
   assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 0);
   ai.probe = undefined;
   let release!: () => void;
@@ -298,7 +309,7 @@ test('write intent and deadline are enforced even when the provider requests a w
   });
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Create an event',
-    intent: 'create_event',
+    intent: 'CREATE_EVENT',
     requestId: randomUUID(),
   });
   assert.equal((await wait(chat.id)).message.error, 'timeout');
@@ -341,10 +352,10 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
   const chat = (await request('POST', '/conversations', {})).json<Schema['Conversation']>();
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Read the manual',
-    intent: 'answer',
+    intent: 'ANSWER',
     requestId: randomUUID(),
   });
-  assert.equal((await wait(chat.id)).message.status, 'complete');
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
   const bob = await setup('bob');
   ai.probe = async (_input, execute) => {
     await execute('read_attachment', { attachmentId: file.id });
@@ -352,7 +363,7 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
   const accepted = await request(
     'POST',
     `/conversations/${bob.chat.id}/messages`,
-    { text: 'Read another file', intent: 'answer', requestId: randomUUID() },
+    { text: 'Read another file', intent: 'ANSWER', requestId: randomUUID() },
     'bob',
   );
   assert.equal(accepted.statusCode, 202);
@@ -361,7 +372,7 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
       Schema['Conversation']
     >().messages;
     const message = messages.at(-1);
-    if (message?.status === 'failed') {
+    if (message?.status === 'FAILED') {
       assert.equal(message.text, '');
       break;
     }
@@ -405,14 +416,14 @@ test('product discovery is cited, bounded and reused after a response failure', 
   ai.failOnce = true;
   const input = {
     text: 'Find a filter',
-    intent: 'answer',
+    intent: 'ANSWER',
     requestId: randomUUID(),
   };
   await request('POST', `/conversations/${chat.id}/messages`, input);
-  assert.equal((await wait(chat.id)).message.status, 'failed');
+  assert.equal((await wait(chat.id)).message.status, 'FAILED');
   await request('POST', `/conversations/${chat.id}/messages`, input);
   const result = await wait(chat.id);
-  assert.equal(result.message.status, 'complete');
+  assert.equal(result.message.status, 'COMPLETE');
   assert.equal(discoveries, 1);
   const products = (await request('GET', `/purchasables?thingId=${thing.id}`)).json<{
     items: Schema['Purchasable'][];

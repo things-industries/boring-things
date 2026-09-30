@@ -29,7 +29,7 @@ export class ResourceCard {
   fieldAnchor = fieldAnchor;
   fieldSetId() {
     const card = this.card();
-    return card.type === 'field' ? card.fieldSetId : null;
+    return card.type === 'FIELD' ? card.fieldSetId : null;
   }
   formatValue = formatFieldValue;
   constructor() {
@@ -49,13 +49,13 @@ export class ResourceCard {
     this.purchase.set(null);
     try {
       if (card.available === false) return;
-      if (card.type === 'thing' || card.type === 'field') {
+      if (card.type === 'THING' || card.type === 'FIELD') {
         const thing = await this.api.client
           .GET('/api/things/{id}', { params: { path: { id: card.thingId } } })
           .then(apiData);
         if (card !== this.card()) return;
         this.thing.set(thing);
-        if (card.type === 'field') {
+        if (card.type === 'FIELD') {
           const field = (
             card.fieldSetId
               ? thing.fieldSets.find((s) => s.id === card.fieldSetId)?.fields
@@ -64,7 +64,7 @@ export class ResourceCard {
           this.field.set(field ?? null);
           if (!field) this.unavailable.set(true);
         }
-      } else if (card.type === 'attachment')
+      } else if (card.type === 'ATTACHMENT')
         this.file.set(
           await this.api.client
             .GET('/api/attachments/{id}', {
@@ -72,13 +72,13 @@ export class ResourceCard {
             })
             .then(apiData),
         );
-      else if (card.type === 'event')
+      else if (card.type === 'EVENT')
         this.events.set([
           await this.api.client
             .GET('/api/events/{id}', { params: { path: { id: card.eventId } } })
             .then(apiData),
         ]);
-      else if (card.type === 'issue')
+      else if (card.type === 'ISSUE')
         this.issues.set([
           await this.api.client
             .GET('/api/issues/{id}', { params: { path: { id: card.issueId } } })

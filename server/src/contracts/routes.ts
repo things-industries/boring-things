@@ -1,132 +1,142 @@
-/**
- * Derives Fastify validation, response schemas and route paths from the authored OpenAPI contract.
- */
-
-import type { FastifyInstance, FastifyReply, FastifyRequest, HTTPMethods } from 'fastify';
-import { Ajv, type AnySchema } from 'ajv';
-import addFormats from 'ajv-formats';
+import type { Server, IncomingMessage, ServerResponse } from 'node:http';
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  HTTPMethods,
+  RouteGenericInterface,
+  RouteHandlerMethod,
+} from 'fastify';
+import type { AnySchema } from 'ajv';
+import type { paths } from '../../../shared/api.js';
 import spec from '../../../openapi.json' with { type: 'json' };
 
-interface JsonSchema {
-  [key: string]: unknown;
+import { schemaRefs, schemas, createValidator, type JsonSchema } from './schemas.js';
+interface Reference {
+  $ref: string;
 }
-
+interface Parameter {
+  name: string;
+  in: string;
+  required?: boolean;
+  schema: JsonSchema;
+}
+interface Media {
+  schema: JsonSchema;
+}
+interface Response {
+  content?: Record<string, Media>;
+}
 interface Operation {
-  parameters?: {
-    name: string;
-    in: string;
-    required?: boolean;
-    schema: JsonSchema;
-  }[];
-  requestBody?: { content: Record<string, { schema: JsonSchema }> };
-  responses: Record<string, { content?: Record<string, { schema: JsonSchema }> }>;
+  parameters?: Parameter[];
+  requestBody?: { content: Record<string, Media> };
+  responses: Record<string, Response | Reference>;
 }
-
-// OpenAPI component references become standalone schema IDs for both AJV and Fastify serialization.
-function refs(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(refs);
-
-  if (value && typeof value === 'object')
-    return Object.fromEntries(
-      Object.entries(value).map(([key, value]) => [
-        key,
-        key === '$ref' && typeof value === 'string'
-          ? value.replace('#/components/schemas/', '') + '#'
-          : refs(value),
-      ]),
-    );
-
-  return value;
-}
+type Method = Lowercase<HTTPMethods> & keyof paths[keyof paths];
+type RoutePath<M extends Method> = {
+  [P in keyof paths]: Exclude<paths[P][M], undefined> extends never ? never : P;
+}[keyof paths];
+type OperationType<P extends keyof paths, M extends keyof paths[P]> = Exclude<
+  paths[P][M],
+  undefined
+>;
+type ParametersOf<O, K extends string> = O extends { parameters: infer P }
+  ? K extends keyof P
+    ? NonNullable<P[K]>
+    : never
+  : never;
+type BodyOf<O> = O extends { requestBody: { content: { 'application/json': infer B } } }
+  ? B
+  : never;
+type ResponseBody<R> = R extends { content: { 'application/json': infer B } }
+  ? B
+  : R extends { content: { 'application/octet-stream': unknown } }
+    ? NodeJS.ReadableStream
+    : void;
+type Replies<O> = O extends { responses: infer R } ? { [S in keyof R]: ResponseBody<R[S]> } : never;
+export type RouteTypes<P extends keyof paths, M extends keyof paths[P]> = {
+  Body: BodyOf<OperationType<P, M>>;
+  Params: ParametersOf<OperationType<P, M>, 'path'>;
+  Querystring: ParametersOf<OperationType<P, M>, 'query'>;
+  Reply: Replies<OperationType<P, M>>;
+};
+type Success<R> = {
+  [K in keyof R]: `${K & (number | string)}` extends `2${string}` ? R[K] : never;
+}[keyof R];
+type Handler<R extends RouteGenericInterface> = (
+  request: FastifyRequest<R>,
+  reply: FastifyReply<R>,
+) => Success<R['Reply']> | FastifyReply<R> | Promise<Success<R['Reply']> | FastifyReply<R>>;
 
 export function installContracts(app: FastifyInstance) {
-  // Body values retain their types, including identifier strings; only URL query parameters are coerced.
-  const bodyAjv = new Ajv({
-    strict: false,
-    coerceTypes: false,
-    removeAdditional: false,
-  });
-  const queryAjv = new Ajv({
-    strict: false,
-    coerceTypes: true,
-    removeAdditional: false,
-  });
-  for (const ajv of [bodyAjv, queryAjv]) addFormats.default(ajv);
-
-  for (const [name, schema] of Object.entries(spec.components.schemas)) {
-    const resolved = { ...(refs(schema) as JsonSchema), $id: name };
-    app.addSchema(resolved);
-    bodyAjv.addSchema(resolved);
-    queryAjv.addSchema(resolved);
-  }
-
+  const bodyAjv = createValidator();
+  const queryAjv = createValidator(true);
+  for (const schema of schemas) app.addSchema(schema);
   app.setValidatorCompiler(({ schema, httpPart }) =>
     (httpPart === 'querystring' ? queryAjv : bodyAjv).compile(schema as AnySchema),
   );
 }
 
-export interface Query {
-  limit?: number;
-  cursor?: string;
-  q?: string;
-  categoryId?: string;
-  tagId?: string;
-  thingId?: string;
-  status?: string;
-  kind?: string;
-  from?: string;
-  to?: string;
+export function fastifyPath(path: string) {
+  return path
+    .split(/(\{\w+\})/)
+    .map((part, index, parts) => {
+      if (part.startsWith('{'))
+        return ':' + part.slice(1, -1) + (parts[index + 1]?.startsWith(':') ? '([^:]+)' : '');
+      return part.replaceAll(':', '::');
+    })
+    .join('');
 }
 
-export type Request<B = unknown> = FastifyRequest<{
-  Body: B;
-  Params: { id: string; thingId: string };
-  Querystring: Query;
-}>;
+function responseSchema(response: Response | Reference): Response {
+  if (!('$ref' in response)) return response;
+  const prefix = '#/components/responses/';
+  const responses: Record<string, Response> = spec.components.responses;
+  const resolved =
+    response.$ref.startsWith(prefix) && responses[response.$ref.slice(prefix.length)];
+  if (!resolved) throw new Error(`Unsupported response reference: ${response.$ref}`);
+  return resolved;
+}
 
-export function route<B = unknown>(
+export function route<M extends Uppercase<Method>, P extends RoutePath<Lowercase<M>>>(
   app: FastifyInstance,
-  method: HTTPMethods,
-  path: string,
-  handler: (request: Request<B>, reply: FastifyReply) => unknown,
+  method: M,
+  path: P,
+  handler: Handler<RouteTypes<P, Lowercase<M>>>,
 ) {
   const paths = spec.paths as unknown as Record<string, Record<string, Operation>>;
   const operation = paths[path]?.[method.toLowerCase()];
   if (!operation) throw new Error(`No contract for ${method} ${path}`);
   const schema: Record<string, unknown> = {};
-
   for (const [location, key] of [
     ['path', 'params'],
     ['query', 'querystring'],
   ]) {
     const params = operation.parameters?.filter((p) => p.in === location) ?? [];
-
-    if (params.length)
-      schema[key] = {
-        type: 'object',
-        additionalProperties: false,
-        properties: Object.fromEntries(params.map((p) => [p.name, p.schema])),
-        required: params.filter((p) => p.required).map((p) => p.name),
-      };
+    schema[key] = {
+      type: 'object',
+      additionalProperties: false,
+      properties: Object.fromEntries(params.map((p) => [p.name, p.schema])),
+      required: params.filter((p) => p.required).map((p) => p.name),
+    };
   }
-
   const body = operation.requestBody?.content['application/json'];
   if (body) schema.body = body.schema;
   schema.response = Object.fromEntries(
     Object.entries(operation.responses)
-      .filter(([, r]) => r.content?.['application/json'])
-      .map(([status, r]) => [status, r.content!['application/json'].schema]),
+      .map(([status, response]) => [status, responseSchema(response)] as const)
+      .filter(([, response]) => response.content?.['application/json'])
+      .map(([status, response]) => [status, response.content!['application/json'].schema]),
   );
-  app.route({
-    method,
-    // Fastify treats colons as parameters; action suffixes need escaped literal colons.
-    url: path
-      .replace(/\{(\w+)\}/g, ':$1')
-      .replace(':id:reveal-field', ':id([^:]+)::reveal-field')
-      .replace(/:id:(confirm|retry)/g, ':id([^:]+)::$1')
-      .replace(':import', '::import')
-      .replace(':seed-samples', '::seed-samples'),
-    schema: refs(schema) as Record<string, unknown>,
-    handler,
+  app.route<RouteTypes<P, Lowercase<M>>>({
+    method: method as HTTPMethods,
+    url: fastifyPath(path),
+    schema: schemaRefs(schema) as JsonSchema,
+    handler: handler as RouteHandlerMethod<
+      Server,
+      IncomingMessage,
+      ServerResponse,
+      RouteTypes<P, Lowercase<M>>
+    >,
   });
 }

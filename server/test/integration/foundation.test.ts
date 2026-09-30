@@ -228,7 +228,7 @@ test('shared attachments, authorized downloads, unlinking and retained-import de
   assert.equal((await request('GET', `/attachments/${file.id}/content`)).body, 'manual');
   assert.equal((await request('DELETE', `/attachments/${file.id}/things/${b.id}`)).statusCode, 204);
   const owner = (await request('GET', '/profile')).json().id;
-  await pool.query("insert into bt.imports(owner_id,attachment_id,status) values($1,$2,'failed')", [
+  await pool.query("insert into bt.imports(owner_id,attachment_id,status) values($1,$2,'FAILED')", [
     owner,
     file.id,
   ]);
@@ -252,7 +252,7 @@ test('activity transitions and conversation/message persistence are owner-scoped
       await request('POST', '/events', {
         thingId: thing.id,
         title: 'Task',
-        status: 'scheduled',
+        status: 'SCHEDULED',
       })
     ).statusCode,
     422,
@@ -265,13 +265,13 @@ test('activity transitions and conversation/message persistence are owner-scoped
     })
   ).json();
   const changed = await request('PATCH', `/events/${event.id}`, {
-    status: 'scheduled',
+    status: 'SCHEDULED',
     startsAt: '2026-10-01T09:00:00Z',
   });
   assert.equal(changed.statusCode, 200, changed.body);
   const conversation = (await request('POST', '/conversations', { thingId: thing.id })).json();
   await pool.query(
-    "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'user','A stored message','complete')",
+    "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER','A stored message','COMPLETE')",
     [conversation.id, randomUUID()],
   );
   assert.equal(

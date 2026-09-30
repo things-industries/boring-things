@@ -1,9 +1,10 @@
+import type { FieldSearchLabel } from '../registry/registry.js';
 /**
  * Defines import extraction, mapping, discovery and provider interfaces, plus shared usage tracking
  * and active job states.
  */
 
-import type { Schema, Value } from '../../../shared/model.js';
+import type { Schema, Value } from '../../../../shared/model.js';
 
 export interface Fact {
   id: string;
@@ -67,7 +68,7 @@ export interface AiContext {
 
 export interface RegistryTools {
   searchFieldSets(categoryId: string, terms: string[]): Promise<unknown>;
-  searchFields(labels: { label: string; context: string }[]): Promise<unknown>;
+  searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
 }
 
 export interface ImportAi {
@@ -82,11 +83,11 @@ export interface ImportAi {
 
 // Awaiting selection still locks the Thing until the owner confirms which candidates to import.
 export const activeStatuses = [
-  'queued',
-  'extracting',
-  'awaiting_selection',
-  'mapping',
-  'discovering',
+  'QUEUED',
+  'EXTRACTING',
+  'AWAITING_SELECTION',
+  'MAPPING',
+  'DISCOVERING',
 ];
 
 export const blankUsage = (model = ''): Usage => ({
