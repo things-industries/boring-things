@@ -4,7 +4,7 @@ import { NgIcon } from '@ng-icons/core';
 @Component({
   selector: 'button[btIconButton], a[btIconButton]',
   imports: [NgIcon],
-  templateUrl: './icon-button.html',
+  template: `<ng-icon [name]="icon()" aria-hidden="true" />`,
   styleUrl: './icon-button.scss',
   host: {
     '[attr.aria-label]': 'label()',
