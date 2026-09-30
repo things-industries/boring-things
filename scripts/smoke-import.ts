@@ -179,12 +179,12 @@ try {
       })
     ).json<Schema['Conversation']>();
     const messages: Schema['Message'][] = [];
-    const send = async (text: string, intent: Schema['MessageInput']['intent']) => {
+    const send = async (text: string) => {
       const accepted = await app!.inject({
         method: 'POST',
         url: `/api/conversations/${chat.id}/messages`,
         headers,
-        payload: { text, intent, requestId: randomUUID() },
+        payload: { text, requestId: randomUUID() },
       });
       assert.equal(accepted.statusCode, 202, accepted.body);
       const end = Date.now() + config.chatTimeoutMs + 10000;
@@ -216,15 +216,11 @@ try {
       }
       throw new Error('Assistant smoke timed out');
     };
-    const answer = await send(
-      'What is the stored Z-number? Cite the field and source document.',
-      'ANSWER',
-    );
+    const answer = await send('What is the stored Z-number? Cite the field and source document.');
     assert.match(answer.text, /0015/);
     assert.ok(answer.cards.some((c) => c.type === 'FIELD' || c.type === 'ATTACHMENT'));
     const maintenance = await send(
       'Create a maintenance event titled Review hob care instructions. It should remind the owner to read the saved manual before cleaning.',
-      'CREATE_EVENT',
     );
     const event = maintenance.cards.find((c) => c.type === 'EVENT');
     assert.ok(event && event.type === 'EVENT');
@@ -245,7 +241,6 @@ try {
     if (purchases.items.length) {
       const products = await send(
         'Show a saved compatible accessory, consumable or upgrade with its merchant link and supporting source. Do not invent products.',
-        'ANSWER',
       );
       assert.ok(products.cards.some((c) => c.type === 'PURCHASABLE'));
     }

@@ -1006,7 +1006,7 @@ export interface components {
             checkedAt: string | null;
             isSample: boolean;
         };
-        /** @description Persisted conversation message with intent, citations, cards and execution state. */
+        /** @description Persisted conversation message with citations, cards and execution state. */
         Message: {
             /** Format: uuid */
             id: string;
@@ -1023,7 +1023,6 @@ export interface components {
             createdAt: string;
             error?: string | null;
             usage?: components["schemas"]["ImportUsage"] | null;
-            intent: components["schemas"]["MessageIntentEnum"];
         };
         /** @description Active owner-scoped conversation and its persisted messages. */
         Conversation: {
@@ -1180,12 +1179,11 @@ export interface components {
             purchasableId: string;
             available?: boolean;
         };
-        /** @description Idempotent message request with explicit authorisation intent for write tools. */
+        /** @description Idempotent message request. The assistant infers requested actions from the conversation. */
         MessageInput: {
             text: string;
             /** Format: uuid */
             requestId: string;
-            intent: components["schemas"]["MessageIntentEnum"];
         };
         /** @description Transient text update identified by message and text offset. */
         ConversationDelta: {
@@ -1289,11 +1287,6 @@ export interface components {
          * @enum {string}
          */
         MessageStatusEnum: "QUEUED" | "PROCESSING" | "COMPLETE" | "FAILED";
-        /**
-         * @description Message intent.
-         * @enum {string}
-         */
-        MessageIntentEnum: "ANSWER" | "CREATE_EVENT" | "CREATE_ISSUE";
         /**
          * @description Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED.
          * @enum {string}

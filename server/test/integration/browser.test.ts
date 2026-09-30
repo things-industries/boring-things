@@ -71,11 +71,12 @@ test(
       }
       await transaction(pool, seedRegistry);
       const importAi = new FixtureAi();
+      const chatAi = new FixtureChat('create_event');
       app = await buildApp({
         pool,
         config,
         importAi,
-        chatAi: new FixtureChat(),
+        chatAi,
       });
       const base = await app.listen({ host: '127.0.0.1', port: 0 });
       const accessToken = await token();
@@ -173,15 +174,25 @@ test(
       });
       await page.getByRole('link', { name: 'Ask about this thing' }).click();
       await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
+      await expect(page.getByLabel('Action', { exact: true })).toHaveCount(0);
+      chatAi.failOnce = true;
       await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
-      await page.getByLabel('Action', { exact: true }).selectOption('CREATE_EVENT');
       await page.getByRole('button', { name: 'Send', exact: true }).click();
+      await page.getByRole('button', { name: 'Retry response', exact: true }).click();
       await expect(
         page.getByRole('heading', { name: 'Check the filter', exact: true }),
       ).toBeVisible();
       await expect(
         page.locator('.message-text').filter({ hasText: 'The saved details are ready.' }),
       ).toHaveCount(1);
+      assert.equal(
+        (
+          await pool.query('select count(*)::int as count from bt.events where thing_id=$1', [
+            membershipId,
+          ])
+        ).rows[0].count,
+        1,
+      );
       await page.getByLabel('Schedule for').fill('2026-10-01T09:00');
       await page.getByRole('button', { name: 'Schedule', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();

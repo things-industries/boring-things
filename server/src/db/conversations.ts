@@ -14,7 +14,6 @@ import { ownedThing, bumpThing } from './things.js';
 import { ensure } from '../application/errors.js';
 
 export type MessageRow = Schema['Message'] & {
-  intent: Schema['MessageInput']['intent'];
   toolResults: {
     key: string;
     result: unknown;
@@ -40,7 +39,7 @@ export async function conversation(
   const item = await ownedConversation(db, owner, id);
   const messages = await rows<Schema['Message']>(
     db,
-    "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,intent,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'USER' then 0 else 1 end,id",
+    "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'USER' then 0 else 1 end,id",
     [id],
   );
 
@@ -86,12 +85,7 @@ export async function enqueueMessage(
     const user = existing.find((m) => m.role === 'USER');
     const assistant = existing.find((m) => m.role === 'ASSISTANT');
 
-    if (user)
-      ensure(
-        user.text === input.text.trim() && user.intent === input.intent,
-        'Request ID already used',
-        'CONFLICT',
-      );
+    if (user) ensure(user.text === input.text.trim(), 'Request ID already used', 'CONFLICT');
 
     if (assistant && assistant.status !== 'FAILED') return conversation(db, owner, id);
     ensure(
@@ -127,8 +121,8 @@ export async function enqueueMessage(
       );
       await execute(
         db,
-        "insert into bt.messages(conversation_id,request_id,role,text,status,intent) values($1,$2,'USER',$3,'COMPLETE',$4),($1,$2,'ASSISTANT','','QUEUED',$4)",
-        [id, input.requestId, input.text.trim(), input.intent],
+        "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
+        [id, input.requestId, input.text.trim()],
       );
     }
 

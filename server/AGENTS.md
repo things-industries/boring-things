@@ -64,7 +64,7 @@ Use typed functions accepting a database executor, owner ID and named input wher
 
 Read root `docs/plans/poc-scaffolding.md` when implementing imports, discovery, streams or assistant execution. Imports, discovery, Thing/conversation SSE and assistant execution are implemented. `application/conversations/assistant.ts` owns the bounded tool workflow; `db/conversations.ts` owns message state and transactional write receipts; `providers/chat.ts` adapts streamed Responses calls. The shared job runner consumes imports and queued chat messages.
 
-- Enforce message intent before Event/Issue tools. Commit created records and tool receipts together; retain receipts on retry. Conversation history/resumption remains deferred.
+- Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history/resumption remains deferred.
 - Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
