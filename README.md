@@ -171,9 +171,12 @@ pnpm format                      # apply Prettier formatting
 pnpm format:check                # check formatting without writing
 CI=true pnpm check               # formatting, contract drift, lint, types, unit tests, build
 pnpm test:integration            # requires local Supabase and a built frontend
+pnpm preview --samples           # screenshot pages in a signed-in browser; needs the same
 ```
 
-Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed. Screenshots are saved under ignored `test-results/`.
+Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed; `/opt/pw-browsers/chromium` is used when present and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides both. Screenshots are saved under ignored `test-results/`.
+
+`pnpm preview` starts the built app against a temporary database with fixture AI providers and a signed test session, then screenshots routes at mobile and desktop widths into `test-results/preview/`, reporting page errors, failed requests and horizontal overflow. `--samples` adds sample Things and `--hold` keeps the app running for scripted interaction; run `pnpm preview --help` for options. Where Docker is unavailable, such as cloud agent sessions, `./scripts/cloud-postgres.sh` starts the machine's PostgreSQL on port 55432 for previews and integration checks.
 
 `pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. Production hosting and operating configuration are separate work.
 

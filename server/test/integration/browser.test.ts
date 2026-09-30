@@ -5,7 +5,8 @@ import { once } from 'node:events';
 import { readdir, readFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { chromium, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { launchBrowser } from '../support/browser-app.js';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
@@ -63,7 +64,7 @@ test(
         .setExpirationTime(exp)
         .sign(key);
     let app: Awaited<ReturnType<typeof buildApp>> | undefined;
-    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+    let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
     try {
       const migrations = new URL('../../../supabase/migrations/', import.meta.url);
       for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
@@ -104,7 +105,7 @@ test(
           ).statusCode,
           401,
         );
-      browser = await chromium.launch();
+      browser = await launchBrowser();
       const context = await browser.newContext({
         viewport: { width: 1440, height: 1100 },
       });

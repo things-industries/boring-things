@@ -44,7 +44,7 @@ After changing a route, request, response or status code, update OpenAPI and run
 
 ## Development and validation
 
-Follow `README.md` for first setup. Preserve an existing `.env`. Local Supabase uses Postgres port `55432` and Studio at `http://127.0.0.1:55423`; application tables are in `bt`.
+Follow `README.md` for first setup. Preserve an existing `.env`. Local Supabase uses Postgres port `55432` (`./scripts/cloud-postgres.sh` provides it in cloud sessions without Docker) and Studio at `http://127.0.0.1:55423`; application tables are in `bt`.
 
 ```bash
 pnpm db:start             # Start this repository's local Supabase stack
@@ -61,6 +61,7 @@ pnpm test                # Node unit tests
 CI=true pnpm typecheck   # Server types and Angular development build
 CI=true pnpm check       # Formatting, contract, lint, types, unit tests and build
 pnpm test:integration    # Requires local Supabase and built frontend
+pnpm preview --samples   # Screenshot pages signed in; see .claude/skills/preview/SKILL.md
 CI=true pnpm build       # Build both targets
 pnpm start               # Serve built application
 pnpm db:stop             # Stop local Supabase, preserving data

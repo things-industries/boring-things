@@ -102,6 +102,9 @@ CI=true pnpm dev:web
 CI=true pnpm typecheck
 CI=true pnpm check
 pnpm test:integration
+pnpm preview --samples
 ```
 
 The existing tests use Node's test runner and Playwright under `server/test/`; there is no Angular unit-test builder configured. Update relevant browser checks when a user journey changes. Integration checks require local Supabase and a built frontend, and use isolated databases plus signed test tokens. Verify changed flows at mobile and desktop widths; report live Logto verification separately.
+
+Preview visible changes with `pnpm preview`, which screenshots pages in a signed-in headless browser against a temporary database, locally or in cloud sessions. Setup, options and interactive use: `.claude/skills/preview/SKILL.md`.

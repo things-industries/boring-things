@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit -p server/tsconfig.json && ng build --configuration development",
     "test": "node --import tsx --test server/test/*.test.ts",
     "test:integration": "node --import tsx --env-file-if-exists=.env --test --test-concurrency=1 server/test/integration/*.test.ts",
+    "preview": "node --import tsx scripts/preview.ts",
     "check": "pnpm format:check && pnpm api:check && pnpm lint && pnpm exec tsc --noEmit -p server/tsconfig.json && pnpm test && pnpm build",
     "db:start": "supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor",
     "db:stop": "supabase stop",
