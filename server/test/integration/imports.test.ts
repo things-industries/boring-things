@@ -10,6 +10,7 @@ import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
 import { seedRegistry } from '../../src/db/registry-seed.js';
+import { PDFDocument } from 'pdf-lib';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -111,6 +112,78 @@ async function wait(
   } while (Date.now() < deadline);
   throw new Error('Import timed out');
 }
+test('PDF uploads derive page counts and extraction preserves metadata edits and clears across retries', async () => {
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  pdf.addPage();
+  const bytes = Buffer.from(await pdf.save());
+  const boundary = 'metadata-boundary';
+  const uploaded = await app.inject({
+    method: 'POST',
+    url: '/api/attachments',
+    headers: {
+      authorization: 'Bearer alice',
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="source.pdf"\r\nContent-Type: application/pdf\r\n\r\n`,
+      ),
+      bytes,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(uploaded.statusCode, 201, uploaded.body);
+  const file = uploaded.json<Schema['Attachment']>();
+  assert.equal(file.pageCount, 2);
+  const path = `/attachments/${file.id}`;
+  try {
+    ai.metadata = {
+      title: 'Imported manual',
+      documentType: 'MANUAL',
+      publisher: 'Maker',
+      documentDate: null,
+    };
+    ai.failOnce = true;
+    const started = (await request('POST', '/things:import', { attachmentId: file.id })).json<
+      Schema['ImportAccepted']
+    >();
+    assert.equal((await wait(started.importId)).status, 'INCOMPLETE');
+    const extracted = (await request('GET', path)).json<Schema['Attachment']>();
+    assert.equal(extracted.title, 'Imported manual');
+    assert.deepEqual(extracted.metadataSources.publisher, {
+      origin: 'IMPORT',
+      sourceRefs: [{ attachmentId: file.id }],
+    });
+    assert.equal(
+      (await request('PATCH', path, { title: 'My manual', publisher: null })).statusCode,
+      200,
+    );
+    await request('POST', `/imports/${started.importId}:retry`);
+    assert.equal((await wait(started.importId)).status, 'COMPLETE');
+    ai.metadata = {
+      title: 'Replacement title',
+      publisher: 'Replacement publisher',
+      documentType: 'OTHER',
+      documentDate: '2022-03-12',
+    };
+    const second = (
+      await request('POST', '/things:import', { attachmentId: file.id, thingId: started.thingId })
+    ).json<Schema['ImportAccepted']>();
+    assert.equal((await wait(second.importId)).status, 'COMPLETE');
+    const saved = (await request('GET', path)).json<Schema['Attachment']>();
+    assert.equal(saved.title, 'My manual');
+    assert.equal(saved.publisher, null);
+    assert.equal(saved.documentType, 'MANUAL');
+    assert.equal(saved.documentDate, '2022-03-12');
+    assert.equal(saved.metadataSources.publisher?.origin, 'USER');
+    assert.equal(saved.pageCount, 2);
+    assert.deepEqual((await request('GET', `${path}/content`)).rawPayload, bytes);
+  } finally {
+    ai.metadata = undefined;
+    ai.failOnce = false;
+  }
+});
 test('immediate skeleton, progressive empty sets, source retention, string IDs and unknown fields', async () => {
   let release!: () => void;
   ai.pause = new Promise((resolve) => {
@@ -381,6 +454,12 @@ test('discovery persists cited resources once and preserves edits on repeated wr
         description: 'Synthetic model source',
         url: 'https://example.com/manual',
         sourceUrl: 'https://example.com/manual',
+        metadata: {
+          title: 'Oven manual',
+          documentType: 'MANUAL' as const,
+          publisher: 'Example maker',
+          documentDate: '2022-03-12',
+        },
       },
       {
         kind: 'maintenance' as const,
@@ -400,7 +479,9 @@ test('discovery persists cited resources once and preserves edits on repeated wr
   };
   const blobs = new LocalBlobs(directory);
   const options = { maxBytes: 4096, signal: new AbortController().signal };
-  const pdf = Buffer.from('%PDF-1.7\nSynthetic manual\n%%EOF');
+  const document = await PDFDocument.create();
+  document.addPage();
+  const pdf = Buffer.from(await document.save());
   let downloads = 0;
   const download = async () => {
     downloads++;
@@ -416,6 +497,21 @@ test('discovery persists cited resources once and preserves edits on repeated wr
   >().items;
   const manual = files.find((file) => file.mediaType === 'application/pdf')!;
   assert.equal(manual.filename, 'Manual reference.pdf');
+  assert.equal(manual.title, 'Oven manual');
+  assert.equal(manual.documentType, 'MANUAL');
+  assert.equal(manual.publisher, 'Example maker');
+  assert.equal(manual.documentDate, '2022-03-12');
+  assert.equal(manual.pageCount, 1);
+  assert.deepEqual(manual.metadataSources.title, {
+    origin: 'DISCOVERY',
+    sourceRefs: [{ url: 'https://example.com/manual' }],
+  });
+  await request('PATCH', `/attachments/${manual.id}`, { title: 'My oven manual', publisher: null });
+  await persistDiscovery(pool, blobs, job, target, discovery, options, download);
+  const edited = (await request('GET', `/attachments/${manual.id}`)).json<Schema['Attachment']>();
+  assert.equal(edited.title, 'My oven manual');
+  assert.equal(edited.publisher, null);
+  assert.equal(downloads, 1);
   assert.equal(manual.sourceUrl, 'https://example.com/manual');
   assert.deepEqual((await request('GET', `/attachments/${manual.id}/content`)).rawPayload, pdf);
   assert.equal(

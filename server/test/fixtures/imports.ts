@@ -59,18 +59,23 @@ const sets: Record<string, string[]> = {
   insurance: ['insurance.combined'],
 };
 export class FixtureAi implements ImportAi {
+  metadata?: Extraction['metadata'];
   failOnce = false;
   arbitraryId = false;
   exhaustTools = false;
   pause?: Promise<void>;
   async extract(source: Source): Promise<Extraction> {
-    const name = source.content.toString();
+    const name = source.mediaType === 'text/plain' ? source.content.toString() : 'neff';
     if (name === 'bad') throw new Error('synthetic extraction failure');
     const chosen =
       name === 'two'
         ? [candidates.neff, { ...candidates.policy, id: 'candidate-2' }]
         : [candidates[name] ?? candidates.neff];
-    return structuredClone({ text: name, candidates: chosen });
+    return structuredClone({
+      text: name,
+      candidates: chosen,
+      ...(this.metadata ? { metadata: this.metadata } : {}),
+    });
   }
   async *map(
     candidate: Candidate,

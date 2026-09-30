@@ -6,16 +6,20 @@ import { ensure } from '../application/errors.js';
 import { ownedThing } from './things.js';
 import { page, pageResult } from '../application/pagination.js';
 
-export type AttachmentRow = Schema['Attachment'] & { storageKey: string };
+export type AttachmentRow = Omit<Schema['Attachment'], 'pageCount'> & {
+  storageKey: string;
+  pageCount: number | null;
+};
 export type AttachmentQuery = RouteTypes<'/api/attachments', 'get'>['Querystring'];
 export interface AttachmentInput {
   filename: string;
   mediaType: string;
   byteSize: number;
   storageKey: string;
+  pageCount?: number | null;
 }
 const columns =
-  "a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.created_at,coalesce((select jsonb_agg(thing_id order by thing_id) from bt.thing_attachments where attachment_id=a.id),'[]') as thing_ids";
+  "a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.created_at,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count,a.metadata_sources,coalesce((select jsonb_agg(thing_id order by thing_id) from bt.thing_attachments where attachment_id=a.id),'[]') as thing_ids";
 export async function attachment(
   db: Database,
   owner: string,
@@ -57,10 +61,31 @@ export async function insertAttachment(
 ): Promise<AttachmentRow> {
   const [row] = await rows<{ id: string }>(
     db,
-    'insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key) values($1,$2,$3,$4,$5) returning id',
-    [owner, file.filename, file.mediaType, file.byteSize, file.storageKey],
+    'insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,page_count) values($1,$2,$3,$4,$5,$6) returning id',
+    [owner, file.filename, file.mediaType, file.byteSize, file.storageKey, file.pageCount ?? null],
   );
   return attachment(db, owner, row.id);
+}
+export async function saveAttachmentMetadata(
+  db: Database,
+  owner: string,
+  file: AttachmentRow,
+): Promise<Schema['Attachment']> {
+  await execute(
+    db,
+    'update bt.attachments set title=$1,document_type=$2,publisher=$3,document_date=$4,metadata_sources=$5,page_count=$6 where id=$7 and owner_id=$8',
+    [
+      file.title,
+      file.documentType,
+      file.publisher,
+      file.documentDate,
+      JSON.stringify(file.metadataSources),
+      file.pageCount,
+      file.id,
+      owner,
+    ],
+  );
+  return publicAttachment(file);
 }
 export async function deleteAttachment(
   db: Database,

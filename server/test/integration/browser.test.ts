@@ -422,8 +422,17 @@ test(
       await expect(
         page.locator('bt-field').filter({ hasText: 'Installer reference' }),
       ).toContainText('ABC-12');
+      const purchaseDate = page.locator('bt-field').filter({ hasText: 'Purchase date' });
+      await purchaseDate.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(purchaseDate.getByLabel('Purchase date')).toHaveAttribute('type', 'date');
+      await purchaseDate.getByLabel('Purchase date').fill('2022-03-12');
+      await purchaseDate.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(purchaseDate).toContainText('2022-03-12');
+      await purchaseDate.getByRole('button', { name: 'Pin Purchase date', exact: true }).click();
+      await expect(page.locator('.pinned-summary')).toContainText('Purchase date');
       await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
       await page.reload();
+      await expect(purchaseDate).toContainText('2022-03-12');
       await expect(
         page.locator('bt-field').filter({ hasText: 'Serial number (Z-Nr)' }),
       ).toContainText('0015');

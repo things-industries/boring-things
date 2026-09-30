@@ -26,6 +26,7 @@ export interface Candidate {
 export interface Extraction {
   text: string;
   candidates: Candidate[];
+  metadata?: Schema['AttachmentPatch'] | null;
 }
 
 export interface Source {
@@ -51,6 +52,7 @@ export interface DiscoveryItem {
   description: string;
   url: string;
   sourceUrl: string;
+  metadata?: Schema['AttachmentPatch'] | null;
 }
 
 export interface Discovery {

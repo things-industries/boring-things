@@ -17,6 +17,12 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
         description: 'Applies to the identified model',
         url: pdf,
         sourceUrl: source,
+        metadata: {
+          title: 'User manual',
+          documentType: 'MANUAL',
+          publisher: 'Bosch',
+          documentDate: null,
+        },
       },
     ],
   };
