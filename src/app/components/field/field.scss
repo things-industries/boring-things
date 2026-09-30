@@ -33,6 +33,7 @@
   min-width: 0;
 }
 .placeholder {
+  color: tokens.color(primary-muted);
   font-size: 13px;
   font-style: italic;
 }

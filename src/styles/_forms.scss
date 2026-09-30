@@ -1,0 +1,65 @@
+@use 'tokens';
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 550;
+  color: tokens.color(text-label);
+  margin-bottom: 14px;
+}
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  border: 1px solid tokens.color(border-input);
+  background: tokens.color(surface);
+  border-radius: 7px;
+  padding: 11px tokens.space(3);
+  color: tokens.color(text-input);
+  min-width: 0;
+}
+label > input,
+label > select,
+label > textarea {
+  margin-top: 7px;
+}
+textarea {
+  resize: vertical;
+}
+input[type='checkbox'] {
+  width: auto;
+}
+input[type='file'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+}
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
+}
+.check-label input {
+  margin: 0;
+}
+details {
+  border-top: 1px solid tokens.color(border);
+  margin-top: tokens.space(5);
+  padding-top: tokens.space(4);
+}
+summary {
+  font-size: 13px;
+  color: tokens.color(primary);
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+bt-field {
+  display: block;
+}

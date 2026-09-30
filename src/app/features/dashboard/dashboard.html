@@ -15,8 +15,8 @@
   <bt-error-message [code]="error()" /><button class="quiet" (click)="load()">Retry</button>
 }
 @if (issues().length || events().length) {
-  <section class="section">
-    <div class="section-title">
+  <section class="page-section">
+    <div class="page-section-title">
       <h2>A little attention</h2>
       <span>What’s coming up</span>
     </div>
@@ -29,7 +29,7 @@
     />
   </section>
 }
-<section class="section">
+<section class="page-section">
   <div class="toolbar">
     <form class="search" (ngSubmit)="search()">
       <ng-icon name="searchThings" aria-hidden="true" /><input
@@ -47,12 +47,12 @@
     </select>
   </div>
   <div class="category-list">
-    <button class="chip" [class.active]="!categoryId" (click)="chooseCategory('')">
+    <button class="filter-chip" [class.active]="!categoryId" (click)="chooseCategory('')">
       All things
     </button>
     @for (category of categories(); track category.id) {
       <button
-        class="chip"
+        class="filter-chip"
         [class.active]="categoryId === category.id"
         (click)="chooseCategory(category.id)"
       >
@@ -64,8 +64,8 @@
   @if (!loaded()) {
     <bt-dashboard-skeleton />
   } @else if (!things().length) {
-    <div class="empty">
-      <div class="empty-icon">
+    <div class="empty-state">
+      <div class="empty-state-icon">
         <ng-icon name="addThing" aria-hidden="true" />
       </div>
       <h2>
