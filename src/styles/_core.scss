@@ -4,7 +4,7 @@
 @use 'typography';
 :root {
   @include tokens.properties;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: typography.$font-family;
   color: tokens.color(text);
   background: tokens.color(background);
   font-synthesis: none;
@@ -70,7 +70,7 @@ button,
 h1,
 h2,
 h3 {
-  font-family: 'Manrope', system-ui;
+  font-family: typography.$font-family;
   line-height: 1.2;
 }
 h1 {
@@ -344,9 +344,81 @@ ng-icon {
   flex-shrink: 0;
 }
 @each $name, $value in tokens.$colors {
-  @if string.index($name, 'text') == 1 {
-    .#{$name} {
-      color: tokens.color($name);
+  @if not tokens.is-contrast($name) {
+    @if string.index($name, 'text-') == 1 or string.index($name, 'icon-') == 1 {
+      .#{$name} {
+        color: tokens.color($name);
+      }
     }
   }
+}
+@each $name, $value in tokens.$figma-colors {
+  @if string.index($name, 'surface-') == 1 and not tokens.is-contrast($name) {
+    .bg-#{string.slice($name, 9)} {
+      background: tokens.color($name);
+      color: tokens.color('#{$name}-contrast');
+    }
+  }
+}
+@each $name, $value in tokens.$icon-sizes {
+  .icon-#{$name} {
+    @include mixins.icon-size($name);
+  }
+}
+.button-primary,
+.button-secondary,
+.button-accent,
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.button-primary,
+.button-secondary,
+.button-accent {
+  border: 1px solid transparent;
+  border-radius: tokens.radius(pill);
+  min-height: tokens.size(control-md);
+  padding: 0 tokens.space(5);
+  gap: tokens.space(2);
+  @include typography.role(body);
+  font-weight: 600;
+  @include mixins.icon-size(md);
+}
+.button-primary {
+  background: tokens.color(surface-primary);
+  color: tokens.color(surface-primary-contrast);
+}
+.button-secondary {
+  background: transparent;
+  border-color: tokens.color(border-primary);
+  color: tokens.color(text-primary);
+}
+.button-accent {
+  background: tokens.color(surface-accent);
+  color: tokens.color(surface-accent-contrast);
+}
+.button-link {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  gap: tokens.space(1);
+  color: tokens.color(text-green-600);
+  @include typography.role(label);
+  font-weight: 600;
+  @include mixins.icon-size(sm);
+}
+.button-sm {
+  min-height: tokens.size(control-sm);
+  padding: 0 tokens.space(3);
+  gap: tokens.space(1);
+  @include typography.role(label);
+  font-weight: 600;
+  @include mixins.icon-size(sm);
+}
+.button-lg {
+  min-height: tokens.size(control-lg);
+  padding: 0 tokens.space(6);
 }

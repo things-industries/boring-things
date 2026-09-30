@@ -14,6 +14,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/runtime-config.ts`: typed injection token for server-supplied public configuration.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
 - `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`.
+- `app/core/mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
 - `app/core/services/`: application-wide authentication, route guard and API services.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
 - `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it.
@@ -77,7 +78,7 @@ Keep feature-only components and data services beside their feature. Move code i
 - each color should also have a dedicated css class for text and backgrounds eg .text-danger, .text-primary, .bg-primary etc for easy use in templates. prefer these in templates if no other styles are needed for the element, otherwise use color tokens in the created class.
 - Reuse semantic colour, spacing and radius tokens. Keep shared rules in `styles/_core.scss`; put page/component-only rules in its stylesheet.
 - Import shared Sass with `@use 'tokens'`, `@use 'typography'` and `@use 'mixins'`; `src/styles` is on the Sass include path.
-- Read tokens through `tokens.color(...)`, `tokens.space(...)` and `tokens.radius(...)`. Unknown names fail compilation. Give fill roles a matching contrast role and use text roles for text.
+- Read tokens through `tokens.color(...)`, `tokens.space(...)`, `tokens.radius(...)`, `tokens.shadow(...)`, `tokens.icon-size(...)` and `tokens.size(...)`. Unknown names fail compilation. Give fill roles a matching contrast role and use text roles for text.
 - Typography roles use `@include typography.role(...)`. Use `typography.tabular-numerals` where figures should align.
 - Token, typography and mixin modules emit no CSS on import. Global base styles emit once through `styles.scss`.
 - Preserve Boring Things' visual identity when extending the shared style system.

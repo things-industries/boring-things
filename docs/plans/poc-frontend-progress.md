@@ -6,25 +6,30 @@ Status values: `Not started`, `In progress`, `Done`, `Blocked`.
 
 ## Stages
 
-| Stage                      | Status      | Notes |
-| -------------------------- | ----------- | ----- |
-| 0. Design foundation       | Not started |       |
-| 1. Shell and navigation    | Not started |       |
-| 2. Sign in                 | Not started |       |
-| 3. Home                    | Not started |       |
-| 4. Add Thing               | Not started |       |
-| 5. Thing detail            | Not started |       |
-| 6. View all details        | Not started |       |
-| 7. Chat                    | Not started |       |
-| 8. Things list and Profile | Not started |       |
-| 9. Clean-up                | Not started |       |
+| Stage                      | Status      | Notes                                                                                                                                                                        |
+| -------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0. Design foundation       | Done        | Figma colour, type, spacing, radius, shadow, icon-size and size tokens; Inter; utility and button classes; icon catalogue additions; mocks convention. Legacy roles aliased. |
+| 1. Shell and navigation    | Not started |                                                                                                                                                                              |
+| 2. Sign in                 | Not started |                                                                                                                                                                              |
+| 3. Home                    | Not started |                                                                                                                                                                              |
+| 4. Add Thing               | Not started |                                                                                                                                                                              |
+| 5. Thing detail            | Not started |                                                                                                                                                                              |
+| 6. View all details        | Not started |                                                                                                                                                                              |
+| 7. Chat                    | Not started |                                                                                                                                                                              |
+| 8. Things list and Profile | Not started |                                                                                                                                                                              |
+| 9. Clean-up                | Not started |                                                                                                                                                                              |
 
 ## Shared components and styles
 
 Record each shared component, mixin or token group when added: name, path, first used in.
 
-| Name | Path | Stage |
-| ---- | ---- | ----- |
+| Name                                                                          | Path                          | Stage |
+| ----------------------------------------------------------------------------- | ----------------------------- | ----- |
+| Colour, space, radius, shadow, icon-size and size tokens                      | `src/styles/_tokens.scss`     | 0     |
+| Typography roles and `$font-family`                                           | `src/styles/_typography.scss` | 0     |
+| `.text-*`, `.icon-*`, `.bg-*`, `.icon-sm/md/lg` utilities                     | `src/styles/_core.scss`       | 0     |
+| Button classes `.button-primary/secondary/accent/link`, sizes `.button-sm/lg` | `src/styles/_core.scss`       | 0     |
+| Mixins `icon-size`, `list-row`, `key-value-row`                               | `src/styles/_mixins.scss`     | 0     |
 
 ## Mocks
 
@@ -60,3 +65,12 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 ## Decisions
 
 Decisions made during implementation that refine the plan.
+
+- Inter loads from Google Fonts in `src/index.html` (weights 400–700).
+- `display` is 32px; the Figma display sizes above 26px snap to it.
+- Button styles: `.button-primary` is the dark pill, `.button-accent` uses `surface-accent` with dark text.
+- Icon catalogue: nav, row, status, attachment, menu and chat icons are mapped from Lucide names implied by the screen descriptions. Stages 1–7 check each against its Figma frame and swap where the frame uses a different glyph.
+
+## Unverified
+
+- Stage 0: no Figma visual comparison; the Figma frames were not readable from the implementation environment. Token values come from the Design alignment table.

@@ -1,19 +1,51 @@
 @use 'sass:map';
-$colors: (
-  'text': #242722,
-  'primary': #254d3d,
-  'text-muted': #70776b,
-  'border': #e1e5dc,
-  'background': #f7f8f3,
-  'surface': #fff,
-  'primary-contrast': #fff,
-  'surface-contrast': #242722,
+@use 'sass:string';
+
+// Figma POC variables. Fill roles pair with a `-contrast` foreground role.
+$figma-colors: (
+  'text-primary': #273238,
+  'text-muted': #76817d,
+  'text-neutral-200': #c8d0cd,
+  'text-green-600': #438d69,
+  'icon-muted': #76817d,
+  'surface-primary': #273238,
+  'surface-primary-contrast': #fff,
+  'surface-accent': #79c9a1,
+  'surface-accent-contrast': #273238,
+  'surface-green-100': #e0f3e9,
+  'surface-green-100-contrast': #438d69,
+  'surface-blue-50': #e4f0f6,
+  'surface-blue-50-contrast': #273238,
+  'surface-secondary': #e3e8e5,
+  'surface-secondary-contrast': #273238,
+  'surface-canvas': #f2f4f2,
+  'surface-canvas-contrast': #273238,
+  'surface-white': #fff,
+  'surface-white-contrast': #273238,
+  'surface-chip': #17212614,
+  'surface-chip-contrast': #273238,
+  'background-canvas': #f2f4f2,
+  'border-primary': #273238,
+  'border-muted': #76817d,
+  'border-accent': #79c9a1,
+  'border-neutral-100': #d9dfdb,
+);
+
+// Roles used by screens not yet migrated to the Figma design. Remove each once unused.
+$legacy-colors: (
+  'text': map.get($figma-colors, 'text-primary'),
+  'primary': map.get($figma-colors, 'surface-primary'),
+  'primary-contrast': map.get($figma-colors, 'surface-primary-contrast'),
+  'border': map.get($figma-colors, 'border-neutral-100'),
+  'background': map.get($figma-colors, 'background-canvas'),
+  'surface': map.get($figma-colors, 'surface-white'),
+  'surface-contrast': map.get($figma-colors, 'surface-white-contrast'),
+  'surface-subtle': map.get($figma-colors, 'surface-secondary'),
+  'surface-subtle-contrast': map.get($figma-colors, 'surface-secondary-contrast'),
+  'skeleton': map.get($figma-colors, 'border-neutral-100'),
   'danger': #893f2f,
   'danger-contrast': #fff,
   'text-placeholder': #909785,
-  'surface-subtle': #edf0e7,
-  'surface-subtle-contrast': #242722,
-  'skeleton': #e1e5dc,
   'text-input': #333d2b,
   'text-label': #59634e,
   'text-chip': #5c6654,
@@ -64,8 +96,10 @@ $colors: (
   'error-contrast': #893f2f,
   'destructive-contrast': #fff,
 );
+$colors: map.merge($legacy-colors, $figma-colors);
 $spaces: (
   0: 0,
+  half: 2px,
   1: 4px,
   2: 8px,
   3: 12px,
@@ -79,8 +113,27 @@ $spaces: (
 );
 $radii: (
   control: 9px,
-  card: 16px,
+  tile: 12px,
+  card: 18px,
+  sheet: 28px,
   pill: 999px,
+);
+$shadows: (
+  raised: 0 4px 4px rgb(0 0 0 / 25%),
+  floating: 0 4px 14px rgb(0 0 0 / 13%),
+  sheet: 0 -8px 24px rgb(0 0 0 / 8%),
+);
+$icon-sizes: (
+  sm: 16px,
+  md: 20px,
+  lg: 24px,
+);
+$sizes: (
+  control-sm: 32px,
+  control-md: 44px,
+  control-lg: 52px,
+  list-row: 58px,
+  key-value-row: 39px,
 );
 @function color($name) {
   @if not map.has-key($colors, $name) {
@@ -100,6 +153,28 @@ $radii: (
   }
   @return var(--radius-#{$name});
 }
+@function shadow($name) {
+  @if not map.has-key($shadows, $name) {
+    @error 'Unknown shadow: #{$name}';
+  }
+  @return var(--shadow-#{$name});
+}
+@function icon-size($name) {
+  @if not map.has-key($icon-sizes, $name) {
+    @error 'Unknown icon size: #{$name}';
+  }
+  @return var(--icon-size-#{$name});
+}
+@function size($name) {
+  @if not map.has-key($sizes, $name) {
+    @error 'Unknown size: #{$name}';
+  }
+  @return var(--size-#{$name});
+}
+@function is-contrast($name) {
+  $length: string.length($name);
+  @return $length > 9 and string.slice($name, $length - 8) == '-contrast';
+}
 @mixin properties {
   @each $name, $value in $colors {
     --color-#{$name}: #{$value};
@@ -109,5 +184,14 @@ $radii: (
   }
   @each $name, $value in $radii {
     --radius-#{$name}: #{$value};
+  }
+  @each $name, $value in $shadows {
+    --shadow-#{$name}: #{$value};
+  }
+  @each $name, $value in $icon-sizes {
+    --icon-size-#{$name}: #{$value};
+  }
+  @each $name, $value in $sizes {
+    --size-#{$name}: #{$value};
   }
 }
