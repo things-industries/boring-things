@@ -99,6 +99,13 @@ Boring Things does not need to replace every adjacent product to be useful. In m
 
 ## Features
 
+### Thing fields
+
+- Fields capture durable attributes and contractual terms. Upcoming event dates belong to a separate event primitive. Transient observations, account balances and physical-item locations are outside the field registry.
+- Documents belong to attachments.
+- Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
+- Store physical dimensions as separate width, height, length and depth measurements, as applicable.
+
 ### User stories
 
 As a Boring things user, I must be able to:

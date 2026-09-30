@@ -295,7 +295,7 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Browser test policy', exact: true }),
       ).toBeVisible();
-      const buildings = page.locator('section.panel').filter({
+      const buildings = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Buildings cover',
           exact: true,
@@ -311,7 +311,7 @@ test(
       await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('500000');
       await sum.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(sum).toContainText('£500,000.00');
-      const contents = page.locator('section.panel').filter({
+      const contents = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Contents cover',
           exact: true,
@@ -427,26 +427,28 @@ test(
           exact: true,
         }),
       ).toBeVisible();
-      await expect(
-        page.locator('bt-field').filter({ hasText: 'Serial number (Z-Nr)' }),
-      ).toContainText('0015');
+      await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
+        '0015',
+      );
       await expect(
         page.locator('bt-field').filter({ hasText: 'Installer reference' }),
       ).toContainText('ABC-12');
-      const purchaseDate = page.locator('bt-field').filter({ hasText: 'Purchase date' });
-      await purchaseDate.getByRole('button', { name: 'Add', exact: true }).click();
-      await expect(purchaseDate.getByLabel('Purchase date')).toHaveAttribute('type', 'date');
-      await purchaseDate.getByLabel('Purchase date').fill('2022-03-12');
-      await purchaseDate.getByRole('button', { name: 'Save', exact: true }).click();
-      await expect(purchaseDate).toContainText('2022-03-12');
-      await purchaseDate.getByRole('button', { name: 'Pin Purchase date', exact: true }).click();
-      await expect(page.locator('.pinned-summary')).toContainText('Purchase date');
+      await page.getByRole('combobox', { name: /^Section/ }).selectOption('appliances.ownership');
+      await page.getByRole('button', { name: 'Add section', exact: true }).click();
+      const acquiredOn = page.locator('bt-field').filter({ hasText: 'Acquired on' });
+      await acquiredOn.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(acquiredOn.getByLabel('Acquired on')).toHaveAttribute('type', 'date');
+      await acquiredOn.getByLabel('Acquired on').fill('2022-03-12');
+      await acquiredOn.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(acquiredOn).toContainText('2022-03-12');
+      await acquiredOn.getByRole('button', { name: 'Pin Acquired on', exact: true }).click();
+      await expect(page.locator('.pinned-summary')).toContainText('Acquired on');
       await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
       await page.reload();
-      await expect(purchaseDate).toContainText('2022-03-12');
-      await expect(
-        page.locator('bt-field').filter({ hasText: 'Serial number (Z-Nr)' }),
-      ).toContainText('0015');
+      await expect(acquiredOn).toContainText('2022-03-12');
+      await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
+        '0015',
+      );
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
