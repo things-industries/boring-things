@@ -1217,6 +1217,66 @@
         ],
         "tags": ["Attachments"],
         "summary": "Delete attachment"
+      },
+      "patch": {
+        "operationId": "patchAttachment",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Id."
+          }
+        ],
+        "tags": ["Attachments"],
+        "summary": "Edit attachment metadata",
+        "description": "Owner-scoped partial update shared across all linked Things. User edits and clears take precedence over later extraction.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachmentPatch"
+              }
+            }
+          }
+        }
       }
     },
     "/api/attachments/{id}/content": {
@@ -2739,6 +2799,12 @@
           },
           "sensitive": {
             "type": "boolean"
+          },
+          "icon": {
+            "type": ["string", "null"],
+            "maxLength": 80,
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$",
+            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys."
           }
         },
         "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"],
@@ -2793,6 +2859,12 @@
             "items": {
               "$ref": "#/components/schemas/SourceRef"
             }
+          },
+          "icon": {
+            "type": ["string", "null"],
+            "maxLength": 80,
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$",
+            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys."
           }
         },
         "required": [
@@ -3597,6 +3669,43 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "title": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Display title; null displays the original filename."
+          },
+          "documentType": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttachmentDocumentTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publisher": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Manufacturer, retailer or organisation that issued the document."
+          },
+          "documentDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Original document date, independent of upload time.",
+            "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "pageCount": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "readOnly": true,
+            "description": "PDF page count derived from the file. Null for non-PDF, unparsed, malformed or encrypted files."
+          },
+          "metadataSources": {
+            "$ref": "#/components/schemas/AttachmentMetadataSources"
           }
         },
         "required": [
@@ -3606,7 +3715,13 @@
           "byteSize",
           "sourceUrl",
           "thingIds",
-          "createdAt"
+          "createdAt",
+          "title",
+          "documentType",
+          "publisher",
+          "documentDate",
+          "pageCount",
+          "metadataSources"
         ],
         "description": "Private attachment metadata and linked Things; excludes storage keys."
       },
@@ -4542,6 +4657,79 @@
         "required": ["accessCount", "lastViewedAt"],
         "description": "Usage metadata returned after recording a user view."
       },
+      "AttachmentPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "title": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Display title; null displays the original filename."
+          },
+          "documentType": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttachmentDocumentTypeEnum"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publisher": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Manufacturer, retailer or organisation that issued the document."
+          },
+          "documentDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Original document date, independent of upload time.",
+            "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
+        },
+        "description": "Specified attachment metadata updates. Omitted properties are preserved; null clears a value and protects that clear from automated extraction. Filename, content and page count are not editable."
+      },
+      "AttachmentMetadataSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "origin": {
+            "$ref": "#/components/schemas/AttachmentMetadataOriginEnum"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "maxItems": 8
+          }
+        },
+        "required": ["origin", "sourceRefs"],
+        "description": "Origin and supporting document or URL for a metadata value. USER entries also preserve explicit clears."
+      },
+      "AttachmentMetadataSources": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "$ref": "#/components/schemas/AttachmentMetadataSource"
+          },
+          "documentType": {
+            "$ref": "#/components/schemas/AttachmentMetadataSource"
+          },
+          "publisher": {
+            "$ref": "#/components/schemas/AttachmentMetadataSource"
+          },
+          "documentDate": {
+            "$ref": "#/components/schemas/AttachmentMetadataSource"
+          }
+        },
+        "description": "Per-property metadata provenance; absent entries indicate unknown origin. Raw extracted quotes are omitted."
+      },
       "IssueStatusEnum": {
         "type": "string",
         "description": "Issue status.",
@@ -4630,6 +4818,16 @@
         "type": "string",
         "enum": ["UPDATED", "RECENTLY_VIEWED", "MOST_VIEWED"],
         "description": "Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED."
+      },
+      "AttachmentDocumentTypeEnum": {
+        "type": "string",
+        "enum": ["MANUAL", "RECEIPT", "INVOICE", "INSTALLATION_GUIDE", "SPECIFICATION", "OTHER"],
+        "description": "Document classification; null on Attachment means unknown."
+      },
+      "AttachmentMetadataOriginEnum": {
+        "type": "string",
+        "enum": ["USER", "IMPORT", "DISCOVERY"],
+        "description": "Source of attachment metadata."
       }
     },
     "responses": {

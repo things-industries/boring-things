@@ -90,6 +90,35 @@ test('all private routes require authentication and unknown tokens fail', async 
   assert.equal((await request('GET', '/things', undefined, 'bad')).statusCode, 401);
   assert.equal((await app.inject('/api/config')).statusCode, 200);
 });
+test('appliance purchase details persist through reseeding with registry icons', async () => {
+  const values = [
+    { fieldId: 'appliances.purchaseDate', value: '2022-03-12' },
+    { fieldId: 'appliances.warrantyEnd', value: '2027-03-12' },
+    { fieldId: 'appliances.retailer', value: 'Example retailer' },
+  ].map((value) => ({ ...value, fieldSetId: 'appliances.appliance' }));
+  const thing = await create({
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.bosch'],
+    values,
+    pinnedFields: [{ fieldSetId: 'appliances.appliance', fieldId: 'appliances.purchaseDate' }],
+  });
+  await transaction(pool, seedRegistry);
+  const saved = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  const appliance = saved.fieldSets.find((set) => set.id === 'appliances.appliance')!;
+  for (const value of values) {
+    const field = appliance.fields.find((field) => field.id === value.fieldId)!;
+    assert.equal(field.value, value.value);
+    assert.ok(field.icon);
+    const definition = (await request('GET', `/fields/${value.fieldId}`)).json();
+    assert.equal(definition.icon, field.icon);
+  }
+  assert.deepEqual(saved.pinnedFields, thing.pinnedFields);
+  const invalid = await request('PATCH', `/things/${thing.id}`, {
+    values: [{ ...values[0], value: '2022-02-30' }],
+  });
+  assert.equal(invalid.statusCode, 422, invalid.body);
+  assert.equal((await request('GET', `/things/${thing.id}`, undefined, 'bob')).statusCode, 404);
+});
 test('isolation covers reads, edits, reveal, lists and relationships', async () => {
   const thing = await create({
     categoryId: 'memberships',
@@ -240,6 +269,62 @@ test('upload limits and content type checks are enforced', async () => {
   assert.equal((await upload('x'.repeat(100))).statusCode, 413);
   assert.equal((await upload('not a png', 'image/png')).statusCode, 415);
   assert.equal((await upload('<svg/>', 'image/svg+xml')).statusCode, 415);
+});
+test('attachment metadata edits are partial, owner-scoped and shared without changing downloads', async () => {
+  const file = (await upload()).json<Schema['Attachment']>();
+  assert.equal(file.title, null);
+  assert.equal(file.pageCount, null);
+  assert.deepEqual(file.metadataSources, {});
+  const a = await create(),
+    b = await create();
+  for (const thing of [a, b]) await request('PUT', `/attachments/${file.id}/things/${thing.id}`);
+  const revisions = await Promise.all(
+    [a, b].map(async (thing) => (await request('GET', `/things/${thing.id}`)).json().revision),
+  );
+  const path = `/attachments/${file.id}`;
+  assert.equal((await request('PATCH', path, { title: 'Foreign edit' }, 'bob')).statusCode, 404);
+  assert.equal(
+    (await app.inject({ method: 'PATCH', url: '/api' + path, payload: { title: 'Anonymous' } }))
+      .statusCode,
+    401,
+  );
+  for (const patch of [
+    { pageCount: 44 },
+    { filename: 'changed.pdf' },
+    { metadataSources: {} },
+    { documentType: 'UNKNOWN' },
+    { documentDate: '2026-02-30' },
+    { documentDate: '0000-01-01' },
+    { title: '   ' },
+    {},
+  ])
+    assert.equal((await request('PATCH', path, patch)).statusCode, 422);
+  const edits = await Promise.all([
+    request('PATCH', path, { title: '  Owner manual  ', documentType: 'MANUAL' }),
+    request('PATCH', path, { publisher: 'Example manufacturer', documentDate: '2022-03-12' }),
+  ]);
+  for (const edit of edits) assert.equal(edit.statusCode, 200, edit.body);
+  const saved = (await request('GET', path)).json<Schema['Attachment']>();
+  assert.equal(saved.title, 'Owner manual');
+  assert.equal(saved.publisher, 'Example manufacturer');
+  assert.equal(saved.documentDate, '2022-03-12');
+  assert.deepEqual(saved.metadataSources.title, { origin: 'USER', sourceRefs: [] });
+  for (const [index, thing] of [a, b].entries()) {
+    assert.ok((await request('GET', `/things/${thing.id}`)).json().revision > revisions[index]);
+    assert.equal(
+      (await request('GET', `/attachments?thingId=${thing.id}`)).json().items[0].title,
+      saved.title,
+    );
+  }
+  const cleared = (await request('PATCH', path, { title: null })).json<Schema['Attachment']>();
+  assert.equal(cleared.title, null);
+  assert.equal(cleared.publisher, saved.publisher);
+  assert.equal(cleared.metadataSources.title?.origin, 'USER');
+  assert.equal(cleared.filename, file.filename);
+  const download = await request('GET', `${path}/content`);
+  assert.equal(download.body, 'manual');
+  assert.ok(String(download.headers['content-disposition']).includes(file.filename));
+  assert.ok(!JSON.stringify(cleared).includes('storageKey'));
 });
 test('activity transitions and conversation/message persistence are owner-scoped', async () => {
   const thing = await create();

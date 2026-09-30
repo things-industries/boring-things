@@ -45,6 +45,7 @@ const field = (
   schema,
   uiHint: 'TEXT',
   sensitive: false,
+  icon: 'fieldDefault',
   ...extra,
 });
 
@@ -68,67 +69,89 @@ export const moneySchema: FieldDefinition['schema'] = {
 };
 
 export const fields: FieldDefinition[] = [
-  field('common.manufacturer', 'Manufacturer'),
-  field('common.model', 'Model'),
+  field('common.manufacturer', 'Manufacturer', undefined, { icon: 'fieldManufacturer' }),
+  field('common.model', 'Model', undefined, { icon: 'fieldModel' }),
+  field(
+    'appliances.purchaseDate',
+    'Purchase date',
+    { type: 'string', format: 'date' },
+    { uiHint: 'DATE', icon: 'fieldDate' },
+  ),
+  field(
+    'appliances.warrantyEnd',
+    'Warranty end',
+    { type: 'string', format: 'date' },
+    { uiHint: 'DATE', icon: 'fieldInsurance' },
+  ),
+  field('appliances.retailer', 'Retailer', undefined, { icon: 'fieldRetailer' }),
   field('appliances.eNumber', 'E-number', undefined, {
     description: 'Model identifier, including any slash suffix.',
     keywords: ['E-Nr', 'model'],
+    icon: 'fieldModel',
   }),
   field('appliances.fdNumber', 'FD number', undefined, {
     description: 'Production identifier. Preserve leading zeroes.',
     keywords: ['FD'],
+    icon: 'fieldSerial',
   }),
   field('appliances.zNumber', 'Serial number (Z-Nr)', undefined, {
     description: 'Manufacturer Z-number; not globally unique.',
     keywords: ['Z-Nr', 'serial'],
+    icon: 'fieldSerial',
   }),
-  field('vehicles.registration', 'Registration'),
-  field('vehicles.vin', 'VIN'),
+  field('vehicles.registration', 'Registration', undefined, { icon: 'fieldVehicle' }),
+  field('vehicles.vin', 'VIN', undefined, { icon: 'fieldSerial' }),
   field(
     'vehicles.firstRegistered',
     'First registered',
     { type: 'string', format: 'date' },
-    { uiHint: 'DATE' },
+    { uiHint: 'DATE', icon: 'fieldDate' },
   ),
   field(
     'vehicles.seats',
     'Seats',
     { type: 'integer', minimum: 1, maximum: 99 },
-    { uiHint: 'NUMBER' },
+    { uiHint: 'NUMBER', icon: 'fieldSeats' },
   ),
   field(
     'vehicles.payloadKg',
     'Load capacity (kg)',
     { type: 'number', minimum: 0 },
-    { uiHint: 'NUMBER' },
+    { uiHint: 'NUMBER', icon: 'fieldWeight' },
   ),
-  field('insurance.provider', 'Insurance provider'),
-  field('insurance.policyNumber', 'Policy number'),
+  field('insurance.provider', 'Insurance provider', undefined, { icon: 'fieldInsurance' }),
+  field('insurance.policyNumber', 'Policy number', undefined, { icon: 'fieldPolicy' }),
   field(
     'insurance.renewalDate',
     'Renewal date',
     { type: 'string', format: 'date' },
-    { uiHint: 'DATE' },
+    { uiHint: 'DATE', icon: 'fieldDate' },
   ),
   field('insurance.sumInsured', 'Sum insured', moneySchema, {
     uiHint: 'MONEY',
+    icon: 'fieldInsurance',
     description: 'Coverage limit, with currency; independent for each cover section.',
   }),
-  field('insurance.excess', 'Excess', moneySchema, { uiHint: 'MONEY' }),
-  field('membership.provider', 'Museum'),
-  field('membership.number', 'Membership number'),
+  field('insurance.excess', 'Excess', moneySchema, { uiHint: 'MONEY', icon: 'fieldMoney' }),
+  field('membership.provider', 'Museum', undefined, { icon: 'fieldManufacturer' }),
+  field('membership.number', 'Membership number', undefined, { icon: 'fieldMembership' }),
   field(
     'membership.expires',
     'Expiry date',
     { type: 'string', format: 'date' },
-    { uiHint: 'DATE' },
+    { uiHint: 'DATE', icon: 'fieldDate' },
   ),
-  field('membership.autoRenew', 'Automatically renew', { type: 'boolean' }, { uiHint: 'CHECKBOX' }),
+  field(
+    'membership.autoRenew',
+    'Automatically renew',
+    { type: 'boolean' },
+    { uiHint: 'CHECKBOX', icon: 'fieldRenewal' },
+  ),
   field(
     'membership.level',
     'Membership level',
     { type: 'string', enum: ['Individual', 'Joint', 'Family'] },
-    { uiHint: 'SELECT' },
+    { uiHint: 'SELECT', icon: 'fieldLevel' },
   ),
   field(
     'membership.accessPin',
@@ -136,6 +159,7 @@ export const fields: FieldDefinition[] = [
     { type: 'string', minLength: 4, maxLength: 12, pattern: '^[0-9]+$' },
     {
       uiHint: 'PASSWORD',
+      icon: 'fieldAccessCode',
       sensitive: true,
       description: 'Optional access code. Hidden until revealed.',
     },
@@ -164,6 +188,9 @@ export const sets: FieldSet[] = [
   set('appliances.appliance', 'Appliance', 'A household appliance.', [
     'common.manufacturer',
     'common.model',
+    'appliances.purchaseDate',
+    'appliances.warrantyEnd',
+    'appliances.retailer',
   ]),
   set(
     'appliances.neff',
@@ -246,8 +273,17 @@ export async function seedRegistry(db: Database) {
   for (const f of fields)
     await execute(
       db,
-      'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive) values($1,$2,$3,$4,$5,$6,$7) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive',
-      [f.id, f.name, f.description, f.keywords, JSON.stringify(f.schema), f.uiHint, f.sensitive],
+      'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive,icon) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive,icon=excluded.icon',
+      [
+        f.id,
+        f.name,
+        f.description,
+        f.keywords,
+        JSON.stringify(f.schema),
+        f.uiHint,
+        f.sensitive,
+        f.icon ?? null,
+      ],
     );
 
   for (const s of sets)

@@ -9,6 +9,7 @@ import type { Registry } from '../registry/registry.js';
 import type { ThingData, StoredValue } from '../../../../shared/model.js';
 import { ensure } from '../errors.js';
 import { schemaValidator } from '../../contracts/schemas.js';
+import { validateAttachmentMetadata } from '../attachments.js';
 const valueValidator = schemaValidator('Value');
 
 export function validateExtraction(input: Extraction, categories: string[]): Extraction {
@@ -24,6 +25,7 @@ export function validateExtraction(input: Extraction, categories: string[]): Ext
 
   return {
     text: input.text,
+    ...(input.metadata ? { metadata: validateAttachmentMetadata(input.metadata) } : {}),
     candidates: input.candidates.map((c, i) => {
       ensure(
         typeof c.name === 'string' &&

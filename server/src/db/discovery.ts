@@ -3,10 +3,12 @@ import { rows, type Database } from './connection.js';
 import { ownedThing, bumpThing } from './things.js';
 import type { DiscoveryItem } from '../application/import/types.js';
 import { ensure } from '../application/errors.js';
+import type { Schema } from '../../../shared/model.js';
 
 interface DownloadedDocument {
   storageKey: string;
   byteSize: number;
+  pageCount?: number | null;
 }
 export async function discoveryAttachment(
   db: Database,
@@ -33,6 +35,11 @@ export async function saveDiscoveryItem(
   let used = false;
   const refs = JSON.stringify([{ url: item.sourceUrl }]);
   if (item.kind === 'reference') {
+    const metadata = item.metadata ?? { title: item.title };
+    const metadataSources: Schema['AttachmentMetadataSources'] = {};
+    for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
+      if (metadata[key] != null)
+        metadataSources[key] = { origin: 'DISCOVERY', sourceRefs: [{ url: item.sourceUrl }] };
     const filename =
       (item.title
         .replace(/[^\p{L}\p{N} ._-]/gu, '')
@@ -42,8 +49,21 @@ export async function saveDiscoveryItem(
     const inserted = document
       ? await rows<{ id: string }>(
           db,
-          "insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key) values($1,$2,'application/pdf',$3,$4,$5,$6) on conflict(import_key) do nothing returning id",
-          [owner, filename, document.byteSize, document.storageKey, item.url, key],
+          "insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key,title,document_type,publisher,document_date,page_count,metadata_sources) values($1,$2,'application/pdf',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict(import_key) do nothing returning id",
+          [
+            owner,
+            filename,
+            document.byteSize,
+            document.storageKey,
+            item.url,
+            key,
+            metadata.title ?? null,
+            metadata.documentType ?? null,
+            metadata.publisher ?? null,
+            metadata.documentDate ?? null,
+            document.pageCount ?? null,
+            JSON.stringify(metadataSources),
+          ],
         )
       : [];
     used = inserted.length > 0;
