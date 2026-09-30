@@ -1,0 +1,100 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+button,
+.button {
+  border: 0;
+  border-radius: tokens.radius(control);
+  padding: tokens.space(3) tokens.space(5);
+  background: tokens.color(primary);
+  color: tokens.color(primary-contrast);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: tokens.space(3);
+  white-space: nowrap;
+  &.secondary {
+    background: tokens.color(surface-subtle);
+    color: tokens.color(primary);
+  }
+  &.quiet {
+    color: tokens.color(primary);
+    background: transparent;
+    padding: tokens.space(2) 10px;
+  }
+  &.small {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  &.danger {
+    color: tokens.color(destructive);
+  }
+  &.danger-button {
+    background: tokens.color(destructive);
+  }
+}
+.button-primary,
+.button-secondary,
+.button-accent,
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.button-primary,
+.button-secondary,
+.button-accent {
+  border: 1px solid transparent;
+  border-radius: tokens.radius(pill);
+  min-height: tokens.size(control-md);
+  padding: 0 tokens.space(5);
+  gap: tokens.space(2);
+  @include typography.role(body);
+  font-weight: 600;
+  @include mixins.icon-size(md);
+}
+.button-primary {
+  background: tokens.color(primary);
+  color: tokens.color(primary-contrast);
+}
+.button-secondary {
+  background: transparent;
+  border-color: tokens.color(primary);
+  color: tokens.color(primary);
+}
+.button-accent {
+  background: tokens.color(accent-muted);
+  color: tokens.color(primary);
+}
+.button-link {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  gap: tokens.space(1);
+  color: tokens.color(accent);
+  @include typography.role(label);
+  font-weight: 600;
+  @include mixins.icon-size(sm);
+}
+.button-sm {
+  min-height: tokens.size(control-sm);
+  padding: 0 tokens.space(3);
+  gap: tokens.space(1);
+  @include typography.role(label);
+  font-weight: 600;
+  @include mixins.icon-size(sm);
+}
+.button-lg {
+  min-height: tokens.size(control-lg);
+  padding: 0 tokens.space(6);
+}

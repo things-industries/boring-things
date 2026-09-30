@@ -24,7 +24,7 @@
       <span class="eyebrow">{{ isNew() ? 'MAKE A LITTLE SPACE' : category()?.name }}</span>
       <h1>{{ isNew() ? ('addThing' | term) : thing()?.name }}</h1>
       @if (thing()?.isSample) {
-        <span class="sample">Sample data</span>
+        <span class="sample-label">Sample data</span>
       }
     </div>
   </div>
@@ -32,7 +32,9 @@
     <bt-import-panel />
   }
   @if (streamFailed()) {
-    <p class="notice" role="status">Connection interrupted. Reconnecting to saved details…</p>
+    <p class="notice-banner" role="status">
+      Connection interrupted. Reconnecting to saved details…
+    </p>
   }
   @if (!isNew() && config.chatEnabled) {
     <p>
@@ -43,7 +45,7 @@
   }
   <fieldset class="editor-content" [disabled]="processing()">
     @if (pinnedDetails().length) {
-      <section class="panel pinned-summary">
+      <section class="content-panel pinned-summary">
         <h2>Pinned details</h2>
         <dl>
           @for (field of pinnedDetails(); track field.anchor) {
@@ -74,7 +76,7 @@
 
     <div class="detail-layout">
       <div>
-        <section class="panel">
+        <section class="content-panel">
           <h2>{{ isNew() ? 'Enter details manually' : 'The basics' }}</h2>
           <form (ngSubmit)="saveBasics()" class="basics-form">
             <label
@@ -95,7 +97,7 @@
                   <option [value]="category.id">{{ category.name }}</option>
                 }
               </select></label
-            ><label class="full-width"
+            ><label class="grid-full-width"
               >Description<textarea
                 name="description"
                 [(ngModel)]="description"
@@ -105,7 +107,7 @@
               ></textarea>
             </label>
             @if (isNew()) {
-              <label class="full-width"
+              <label class="grid-full-width"
                 >Details to include<select
                   name="initialSet"
                   aria-label="Details to include"
@@ -119,12 +121,12 @@
               >
             }
             @if (!isNew() && categoryId !== thing()?.categoryId) {
-              <p class="notice full-width">
+              <p class="notice-banner grid-full-width">
                 Changing category keeps populated fields from incompatible sections as custom
                 fields.
               </p>
             }
-            <div class="full-width">
+            <div class="grid-full-width">
               <button [disabled]="processing() || busy()" type="submit">
                 {{ isNew() ? 'Create thing' : 'Save basics' }}
               </button>
@@ -133,8 +135,8 @@
         </section>
         @if (thing(); as t) {
           @for (section of sections(); track section.id) {
-            <section class="panel field-section">
-              <div class="section-title">
+            <section class="content-panel field-section">
+              <div class="page-section-title">
                 <h2>{{ section.name }}</h2>
                 <button
                   class="quiet small"
@@ -163,13 +165,13 @@
                   />
                 }
                 @if (!set.fields.length) {
-                  <p class="muted">Details are held in the included sections below.</p>
+                  <p class="text-primary-muted">Details are held in the included sections below.</p>
                 }
               }
             </section>
           }
           @if (t.standaloneFields.length) {
-            <section class="panel">
+            <section class="content-panel">
               <h2>Other details</h2>
               @for (field of t.standaloneFields; track field.id) {
                 <bt-field
@@ -185,7 +187,7 @@
             </section>
           }
           @if (t.undefinedFields.length) {
-            <section class="panel">
+            <section class="content-panel">
               <h2>Custom fields</h2>
               @for (field of t.undefinedFields; track field.id) {
                 <bt-field
@@ -201,7 +203,7 @@
               }
             </section>
           }
-          <section class="panel">
+          <section class="content-panel">
             <h2>Add details</h2>
             <label
               >Section<select [(ngModel)]="selectedSet">
@@ -253,7 +255,7 @@
             </details>
           </section>
           @if (issues().length || events().length) {
-            <section class="section">
+            <section class="page-section">
               <h2>Tasks & activity</h2>
               <bt-activity
                 class="activity-grid detail-activity"
@@ -265,7 +267,7 @@
             </section>
           }
           @if (purchasables().length) {
-            <section class="section">
+            <section class="page-section">
               <h2>For this thing</h2>
               @for (group of purchaseGroups(); track group.kind) {
                 <h3>
@@ -283,11 +285,11 @@
                 </h3>
                 <div class="purchase-grid">
                   @for (item of group.items; track item.id) {
-                    <article class="panel purchase">
+                    <article class="content-panel purchase">
                       <div class="card-top">
                         <span class="eyebrow">{{ item.kind.toLowerCase() }}</span>
                         @if (item.isSample) {
-                          <span class="sample">Sample</span>
+                          <span class="sample-label">Sample</span>
                         }
                       </div>
                       <h3>{{ item.name }}</h3>
@@ -304,7 +306,7 @@
                           >View at merchant <ng-icon name="open" aria-hidden="true"
                         /></a>
                       } @else {
-                        <span class="muted">Example suggestion</span>
+                        <span class="text-primary-muted">Example suggestion</span>
                       }
                     </article>
                   }
@@ -326,11 +328,11 @@
       </div>
       <aside>
         @if (thing(); as t) {
-          <section class="panel">
+          <section class="content-panel">
             <h2>Documents & photos</h2>
-            <p class="muted">Keep the useful bits together.</p>
+            <p class="text-primary-muted">Keep the useful bits together.</p>
             @if (config.importEnabled) {
-              <p class="muted">
+              <p class="text-primary-muted">
                 Upload a file, then choose Extract details to send it to OpenAI. Review imported
                 values before relying on them.
               </p>
@@ -339,7 +341,7 @@
               <div class="attachment">
                 <button class="file-name quiet" (click)="download(file)">
                   ↧ {{ file.filename }}</button
-                ><span class="muted">{{ (file.byteSize / 1024).toFixed(1) }} KB</span>
+                ><span class="text-primary-muted">{{ (file.byteSize / 1024).toFixed(1) }} KB</span>
                 @if (file.sourceUrl) {
                   <a [href]="file.sourceUrl" target="_blank" rel="noopener noreferrer"
                     >Open source</a
@@ -376,7 +378,7 @@
                 </div>
               </div>
             } @empty {
-              <p class="empty-small">No documents yet.</p>
+              <p class="empty-state-inline">No documents yet.</p>
             }
             <label class="upload-label"
               ><ng-icon name="uploadFile" aria-hidden="true" /> Upload a file<input
@@ -384,7 +386,7 @@
                 [accept]="config.supportedMediaTypes.join(',')"
                 [disabled]="processing() || busy()"
                 (change)="upload($event)" /></label
-            ><small class="muted"
+            ><small class="hint-text"
               >PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB</small
             >
             <button class="quiet small" (click)="loadLibrary()">Link from your library</button>
@@ -423,12 +425,12 @@
               </button>
             }
           </section>
-          <section class="panel">
+          <section class="content-panel">
             <h2>Filed under</h2>
             <div class="tag-list">
               @for (tag of tags(); track tag.id) {
                 <button
-                  class="chip"
+                  class="filter-chip"
                   [class.active]="t.tagIds.includes(tag.id)"
                   [disabled]="processing() || busy()"
                   (click)="toggleTag(tag.id)"
@@ -455,7 +457,7 @@
             </form>
           </section>
         } @else {
-          <section class="panel hint-panel">
+          <section class="content-panel hint-panel">
             <span class="eyebrow">START WITH WHAT YOU KNOW</span>
             <h2>A name is a good start.</h2>
             <p>You can fill in the details and attach documents once your thing has a home.</p>

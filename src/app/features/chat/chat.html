@@ -9,9 +9,9 @@
   }
 </div>
 @if (!config.chatEnabled) {
-  <p class="notice">The assistant is not configured.</p>
+  <p class="notice-banner">The assistant is not configured.</p>
 } @else {
-  <p class="muted">
+  <p class="text-primary-muted">
     Questions and relevant records or documents are sent to OpenAI. Review answers and sources.
     Starting another chat starts a new conversation.
   </p>
@@ -22,12 +22,14 @@
     }
   }
   @if (disconnected()) {
-    <p class="notice" role="status">Connection interrupted. Reconnecting to saved messages…</p>
+    <p class="notice-banner" role="status">
+      Connection interrupted. Reconnecting to saved messages…
+    </p>
   }
   @if (conversation(); as chat) {
     <div class="messages">
       @for (message of chat.messages; track message.id) {
-        <article class="panel message" [class.user]="message.role === 'USER'">
+        <article class="content-panel message" [class.user]="message.role === 'USER'">
           <h2>{{ message.role === 'USER' ? 'You' : 'Assistant' }}</h2>
           <p class="message-text">{{ message.text }}</p>
           @for (card of message.cards; track $index) {
@@ -51,12 +53,14 @@
             }
           </div>
           @if (message.status === 'QUEUED' || message.status === 'PROCESSING') {
-            <p role="status" class="muted">
+            <p role="status" class="text-primary-muted">
               {{ message.status === 'QUEUED' ? 'Waiting to respond…' : 'Preparing an answer…' }}
             </p>
           }
           @if (message.status === 'FAILED') {
-            <p class="notice">The response was interrupted. Saved actions remain available.</p>
+            <p class="notice-banner">
+              The response was interrupted. Saved actions remain available.
+            </p>
             @if ($last) {
               <button
                 class="secondary small"
@@ -69,10 +73,12 @@
           }
         </article>
       } @empty {
-        <p class="panel">Ask about a detail, a manual, maintenance or compatible products.</p>
+        <p class="content-panel">
+          Ask about a detail, a manual, maintenance or compatible products.
+        </p>
       }
     </div>
-    <form class="panel composer" (ngSubmit)="send()">
+    <form class="content-panel composer" (ngSubmit)="send()">
       <label
         >Message<textarea
           name="message"

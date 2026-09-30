@@ -1,0 +1,11 @@
+@use 'sass:map';
+@use 'tokens';
+
+@each $name, $value in map.merge(tokens.$palette, tokens.$theme) {
+  .text-#{$name} {
+    color: tokens.color($name);
+  }
+  .bg-#{$name} {
+    background: tokens.color($name);
+  }
+}
