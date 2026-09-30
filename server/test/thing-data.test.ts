@@ -7,7 +7,7 @@ import { patchData, projectData, revealValue } from '../src/application/thing-da
 const registry = new Registry(fields, sets);
 test('mandatory inclusion expands and a required dependency cannot be removed', () => {
   const data = patchData(emptyData(), { addFieldSetIds: ['vehicles.van'] }, 'vehicles', registry);
-  assert.deepEqual(data.setIds, ['vehicles.vehicle', 'vehicles.van']);
+  assert.deepEqual(data.setIds, ['vehicles.vehicle', 'vehicles.roadMotor', 'vehicles.van']);
   assert.throws(
     () => patchData(data, { removeFieldSetIds: ['vehicles.vehicle'] }, 'vehicles', registry),
     /still required/,
@@ -19,7 +19,7 @@ test('mandatory inclusion expands and a required dependency cannot be removed', 
 });
 test('cycles and bad alongside references are rejected', () => {
   const bad = structuredClone(sets);
-  bad[0].includes = [bad[1].id];
+  bad.find((set) => set.id === 'vehicles.vehicle')!.includes = ['vehicles.van'];
   assert.throws(() => new Registry(fields, bad), /cycle/);
   const badLinks = structuredClone(sets);
   badLinks[0].considerAlongside = ['missing'];
@@ -48,15 +48,21 @@ test('shared definitions have independent set-scoped values', () => {
   );
   const projection = projectData(data, registry);
   assert.deepEqual(
-    projection.fieldSets.find((s) => s.id === 'insurance.buildings')!.fields[0].value,
+    projection.fieldSets
+      .find((s) => s.id === 'insurance.buildings')!
+      .fields.find((field) => field.id === 'insurance.sumInsured')!.value,
     { amountMinor: 50000000, currency: 'GBP' },
   );
   assert.deepEqual(
-    projection.fieldSets.find((s) => s.id === 'insurance.contents')!.fields[0].value,
+    projection.fieldSets
+      .find((s) => s.id === 'insurance.contents')!
+      .fields.find((field) => field.id === 'insurance.sumInsured')!.value,
     { amountMinor: 6000000, currency: 'GBP' },
   );
   assert.equal(
-    projection.fieldSets.find((s) => s.id === 'insurance.contents')!.fields[1].value,
+    projection.fieldSets
+      .find((s) => s.id === 'insurance.contents')!
+      .fields.find((field) => field.id === 'insurance.excess')!.value,
     null,
   );
 });
@@ -64,10 +70,10 @@ test('false, zero and empty strings are values; null clears', () => {
   let data = patchData(
     emptyData(),
     {
-      addFieldSetIds: ['memberships.museum'],
+      addFieldSetIds: ['memberships.museum', 'memberships.access'],
       values: [
         {
-          fieldSetId: 'memberships.museum',
+          fieldSetId: 'memberships.membership',
           fieldId: 'membership.autoRenew',
           value: false,
         },
@@ -78,7 +84,7 @@ test('false, zero and empty strings are values; null clears', () => {
     'memberships',
     registry,
   );
-  assert.equal(data.values['memberships.museum']['membership.autoRenew'].value, false);
+  assert.equal(data.values['memberships.membership']['membership.autoRenew'].value, false);
   assert.equal(data.standalone['vehicles.payloadKg'].value, 0);
   assert.equal(data.standalone['common.model'].value, '');
   data = patchData(
@@ -94,7 +100,8 @@ test('identifier types, membership, bounds, dates, enums and money are validated
   registry.validate('appliances.zNumber', '00015');
   assert.throws(() => registry.validate('vehicles.payloadKg', -1), /Invalid value/);
   assert.throws(() => registry.validate('membership.expires', '2026-02-30'), /Invalid value/);
-  assert.throws(() => registry.validate('membership.level', 'Invented'), /Invalid value/);
+  registry.validate('membership.level', 'Corporate');
+  assert.throws(() => registry.validate('membership.level', 3), /Invalid value/);
   assert.throws(
     () =>
       registry.validate('insurance.excess', {
@@ -127,25 +134,25 @@ test('masked fields require reveal; category changes preserve sensitivity, prove
   let data = patchData(
     emptyData(),
     {
-      addFieldSetIds: ['memberships.museum'],
+      addFieldSetIds: ['memberships.museum', 'memberships.access'],
       values: [
         {
-          fieldSetId: 'memberships.museum',
+          fieldSetId: 'memberships.access',
           fieldId: 'membership.accessPin',
           value: '0042',
         },
       ],
-      pinnedFields: [{ fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin' }],
+      pinnedFields: [{ fieldSetId: 'memberships.access', fieldId: 'membership.accessPin' }],
     },
     'memberships',
     registry,
   );
-  data.values['memberships.museum']['membership.accessPin'].sourceRefs = [{ quote: 'PIN 0042' }];
+  data.values['memberships.access']['membership.accessPin'].sourceRefs = [{ quote: 'PIN 0042' }];
   assert.ok(!JSON.stringify(projectData(data, registry)).includes('0042'));
   assert.equal(
     revealValue(
       data,
-      { fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin' },
+      { fieldSetId: 'memberships.access', fieldId: 'membership.accessPin' },
       registry,
     ),
     '0042',

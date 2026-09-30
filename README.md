@@ -80,27 +80,58 @@ Sharing, hosted deployment, checkout, repair booking, calendar sync and conversa
 
 ## Fields and privacy
 
-The Appliance field set includes purchase date, warranty end and retailer. Registry fields carry optional semantic keys in `icon` (for example `fieldDate`). The existing field editor supports the new Appliance fields without client changes. Field icon rendering is available for frontend integration. Map the keys to `@ng-icons/remixicon` exports below, using `fieldDefault` for missing or unknown keys and custom fields.
+The registry contains 165 fieldsets and 413 definitions across seven categories. Ownership, warranty, support and maintenance compose with product or service types. Manufacturer identifiers and coverage components retain separate semantics and set-scoped values. `Other` supports custom fields.
 
-| API icon key                  | Remix export                |
-| ----------------------------- | --------------------------- |
-| `fieldDefault`, `fieldPolicy` | `remixFileListLine`         |
-| `fieldManufacturer`           | `remixBuildingLine`         |
-| `fieldModel`                  | `remixHashtag`              |
-| `fieldSerial`                 | `remixBarcodeLine`          |
-| `fieldDate`                   | `remixCalendarLine`         |
-| `fieldInsurance`              | `remixShieldCheckLine`      |
-| `fieldRetailer`               | `remixStore2Line`           |
-| `fieldVehicle`                | `remixCarLine`              |
-| `fieldSeats`                  | `remixGroupLine`            |
-| `fieldWeight`                 | `remixScalesLine`           |
-| `fieldMoney`                  | `remixMoneyPoundCircleLine` |
-| `fieldMembership`             | `remixTicketLine`           |
-| `fieldRenewal`                | `remixRefreshLine`          |
-| `fieldLevel`                  | `remixVipCrownLine`         |
-| `fieldAccessCode`             | `remixLockPasswordLine`     |
+Registry fields carry semantic keys in `icon` (for example `fieldDate`). `src/app/core/app-icons.ts` exports the corresponding ng-icons Remix icons below. Field icon rendering remains available for frontend integration; clients use `fieldDefault` for missing or unknown keys and custom fields.
+
+| API icon key        | Remix export                |
+| ------------------- | --------------------------- |
+| `fieldDefault`      | `remixFileListLine`         |
+| `fieldPolicy`       | `remixFileListLine`         |
+| `fieldManufacturer` | `remixBuildingLine`         |
+| `fieldModel`        | `remixHashtag`              |
+| `fieldSerial`       | `remixBarcodeLine`          |
+| `fieldDate`         | `remixCalendarLine`         |
+| `fieldInsurance`    | `remixShieldCheckLine`      |
+| `fieldRetailer`     | `remixStore2Line`           |
+| `fieldVehicle`      | `remixCarLine`              |
+| `fieldSeats`        | `remixGroupLine`            |
+| `fieldWeight`       | `remixScalesLine`           |
+| `fieldMoney`        | `remixMoneyPoundCircleLine` |
+| `fieldMembership`   | `remixTicketLine`           |
+| `fieldRenewal`      | `remixRefreshLine`          |
+| `fieldLevel`        | `remixVipCrownLine`         |
+| `fieldAccessCode`   | `remixLockPasswordLine`     |
+| `fieldDimensions`   | `remixRulerLine`            |
+| `fieldSupport`      | `remixCustomerService2Line` |
+| `fieldPhone`        | `remixPhoneLine`            |
+| `fieldLink`         | `remixLinksLine`            |
+| `fieldEmail`        | `remixMailLine`             |
+| `fieldPerson`       | `remixUserLine`             |
+| `fieldAddress`      | `remixMapPinLine`           |
+| `fieldService`      | `remixToolsLine`            |
+| `fieldPower`        | `remixFlashlightLine`       |
+| `fieldBattery`      | `remixBattery2ChargeLine`   |
+| `fieldWater`        | `remixWaterFlashLine`       |
+| `fieldTemperature`  | `remixTempHotLine`          |
+| `fieldNetwork`      | `remixWifiLine`             |
+| `fieldStorage`      | `remixHardDrive3Line`       |
+| `fieldDisplay`      | `remixComputerLine`         |
+| `fieldTime`         | `remixTimeLine`             |
+| `fieldSettings`     | `remixSettings3Line`        |
+| `fieldDelivery`     | `remixTruckLine`            |
+| `fieldPrint`        | `remixPrinterLine`          |
+| `fieldSpeed`        | `remixSpeedUpLine`          |
+| `fieldFuel`         | `remixGasStationLine`       |
+| `fieldAccount`      | `remixAccountCircleLine`    |
+| `fieldCount`        | `remixListOrdered2`         |
+| `fieldCheck`        | `remixCheckboxCircleLine`   |
 
 Registry seeds are authored in `server/src/db/registry-seed.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
+
+Apply `20260930040000_expanded_fieldsets.sql` with `pnpm db:migrate`, then restart the API. The migration installs the catalogue and moves existing appliance ownership/warranty, vehicle registration/VIN and museum membership values into their new sets. It preserves source references, sensitivity, user edits and pins. Conflicts and retired renewal dates become custom fields. Legacy standalone appliance fields migrate to the shared definitions. Re-running `pnpm db:seed` keeps the same catalogue metadata.
+
+Dimensions are separate width, height, depth or length fields where applicable. Measurements and rates use text to retain units, precision and allowance bases; counts, full dates, booleans and simple monetary amounts use typed schemas. Partial manufacture dates remain text. Membership types accept provider-specific names. Upcoming activities belong in events and documents in attachments.
 
 Supported schemas: string (length, pattern, enum, date/date-time), number/integer (bounds), boolean, and a money object with `amountMinor` and `currency` (`GBP`, `EUR`, `USD`, all using two decimal places). Identifiers stay strings. Missing values have no stored entry; responses expand them to `null`. `false`, `0` and empty text are actual values. Clearing a field sends `null`.
 

@@ -84,12 +84,12 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     await add(
       'Museum membership',
       'memberships',
-      ['memberships.museum'],
+      ['memberships.museum', 'memberships.access'],
       [
-        v('memberships.museum', 'membership.provider', 'Example Museum'),
-        v('memberships.museum', 'membership.level', 'Individual'),
-        v('memberships.museum', 'membership.autoRenew', false),
-        v('memberships.museum', 'membership.accessPin', '0000'),
+        v('memberships.account', 'membership.provider', 'Example Museum'),
+        v('memberships.membership', 'membership.level', 'Individual'),
+        v('memberships.membership', 'membership.autoRenew', false),
+        v('memberships.access', 'membership.accessPin', '0000'),
       ],
     );
     const [tag] = await rows<{ id: string }>(
