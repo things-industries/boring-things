@@ -1,6 +1,6 @@
 import { createChatActivity } from './messages.js';
 /**
- * Runs queued assistant messages with bounded tools, owner-scoped resource access, intent-gated
+ * Runs queued assistant messages with bounded tools, owner-scoped resource access, transactional
  * writes and streamed progress.
  */
 
@@ -247,12 +247,6 @@ export class Assistant {
         output = { discovery: found, context: await readThing(thing.id) };
         this.changes.publish(job.ownerId);
       } else if (name === 'create_event' || name === 'create_issue') {
-        // Creation requires the persisted message intent; prompts and model tool selection cannot grant write permission.
-        ensure(
-          job.intent === name.toUpperCase(),
-          'Select the matching creation intent',
-          'INVALID_INPUT',
-        );
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');
         const kind = name === 'create_event' ? 'event' : 'issue';
@@ -345,7 +339,6 @@ export class Assistant {
           {
             messages,
             thingId: job.thingId,
-            intent: job.intent,
             completedWrites: job.toolResults.filter((r) => r.key.startsWith('create_')),
           },
           execute,

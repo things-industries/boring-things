@@ -176,6 +176,8 @@ See the `UI Inspiration` folder for ideas for specific components
 - **Assistant**:
     - **List of previous chats**
     - **Conversation view**
+        - Users send natural-language messages. The assistant infers requested actions from the conversation and asks a follow-up when the action, Thing or required details are ambiguous.
+        - The current backend supports one suggested maintenance Event or open Issue creation per message. Events are scheduled through their cards. Model judgement determines the requested action; application checks enforce ownership, valid inputs and retry-safe writes.
 - **Insights**:
     - **Dashboard**
     - **Cost analysis**
