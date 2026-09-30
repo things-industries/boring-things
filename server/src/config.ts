@@ -27,15 +27,15 @@ export interface Config {
 
 export function readConfig(): Config {
   return {
-    chatTimeoutMs: positive('CHAT_TIMEOUT_MS', 180000),
-    chatToolCalls: positive('CHAT_TOOL_CALLS', 12),
+    chatTimeoutMs: numberOrFallback('CHAT_TIMEOUT_MS', 180000),
+    chatToolCalls: numberOrFallback('CHAT_TOOL_CALLS', 12),
     openaiApiKey: process.env.OPENAI_API_KEY ?? '',
     openaiModel: process.env.OPENAI_MODEL ?? '',
-    importTimeoutMs: positive('IMPORT_TIMEOUT_MS', 180000),
-    importToolRounds: positive('IMPORT_TOOL_ROUNDS', 4),
-    discoveryTimeoutMs: positive('DISCOVERY_TIMEOUT_MS', 90000),
-    discoverySearchCalls: positive('DISCOVERY_SEARCH_CALLS', 3),
-    aiMaxOutputTokens: positive('AI_MAX_OUTPUT_TOKENS', 12000),
+    importTimeoutMs: numberOrFallback('IMPORT_TIMEOUT_MS', 180000),
+    importToolRounds: numberOrFallback('IMPORT_TOOL_ROUNDS', 4),
+    discoveryTimeoutMs: numberOrFallback('DISCOVERY_TIMEOUT_MS', 90000),
+    discoverySearchCalls: numberOrFallback('DISCOVERY_SEARCH_CALLS', 3),
+    aiMaxOutputTokens: numberOrFallback('AI_MAX_OUTPUT_TOKENS', 12000),
     port: Number(process.env.PORT ?? 3000),
     host: process.env.HOST ?? '127.0.0.1',
     databaseUrl:
@@ -50,7 +50,7 @@ export function readConfig(): Config {
   };
 }
 
-function positive(name: string, fallback: number) {
+function numberOrFallback(name: string, fallback: number) {
   const n = Number(process.env[name] ?? fallback);
   if (!Number.isSafeInteger(n) || n < 1) throw new Error(`Invalid ${name}`);
   return n;

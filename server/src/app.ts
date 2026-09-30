@@ -54,6 +54,7 @@ export async function buildApp(
       : false,
     bodyLimit: 1048576,
   });
+  
   // Only pools created here belong to the app; callers manage the lifetime of injected pools.
   if (!options.pool) app.addHook('onClose', () => pool.end());
   installContracts(app);
