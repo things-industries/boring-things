@@ -1,0 +1,32 @@
+@use 'sass:color';
+@use 'sass:map';
+@use 'palette';
+
+// Semantic roles. A string names a palette shade; a colour is a derived value.
+$theme: (
+  'text': 'neutral-900',
+  'text-muted': 'neutral-500',
+  'text-subtle': 'neutral-300',
+  'text-accent': 'green-600',
+  'text-inverse': 'white',
+  'text-danger': 'red-700',
+  'text-warning': 'amber-600',
+  'background': 'neutral-50',
+  'surface': 'white',
+  'surface-muted': 'neutral-100',
+  'tint': color.change(map.get(palette.$palette, 'neutral-950'), $alpha: 0.08),
+  'primary': 'neutral-900',
+  'primary-contrast': 'white',
+  'accent': 'green-400',
+  'accent-contrast': 'neutral-900',
+  'accent-subtle': 'green-100',
+  'accent-subtle-contrast': 'green-600',
+  'info-subtle': 'blue-50',
+  'danger-subtle': 'red-50',
+  'warning-subtle': 'amber-100',
+  'border': 'neutral-200',
+  'border-muted': 'neutral-500',
+  'border-strong': 'neutral-900',
+  'border-accent': 'green-400',
+  'skeleton': 'neutral-200',
+);

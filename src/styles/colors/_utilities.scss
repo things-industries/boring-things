@@ -1,0 +1,24 @@
+@use 'sass:map';
+@use 'sass:string';
+@use 'tokens';
+@each $name, $value in tokens.$theme {
+  $contrast: '#{$name}-contrast';
+  @if string.index($name, 'text-') == 1 {
+    .#{$name} {
+      color: tokens.color($name);
+    }
+  } @else if
+    string.index($name, 'border') !=
+    1 and
+    string.index($name, 'text') !=
+    1 and not
+    string.index($name, '-contrast')
+  {
+    .bg-#{$name} {
+      background: tokens.color($name);
+      @if map.has-key(tokens.$theme, $contrast) {
+        color: tokens.color($contrast);
+      }
+    }
+  }
+}

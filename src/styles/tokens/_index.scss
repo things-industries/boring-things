@@ -1,0 +1,112 @@
+@use 'sass:map';
+@use 'sass:meta';
+@use '../colors/palette';
+@use '../colors/theme';
+@use '../colors/legacy';
+
+$palette: palette.$palette;
+$theme: theme.$theme;
+$colors: map.merge(map.merge($palette, legacy.$legacy), $theme);
+$spaces: (
+  0: 0,
+  half: 2px,
+  1: 4px,
+  2: 8px,
+  3: 12px,
+  4: 16px,
+  5: 20px,
+  6: 24px,
+  7: 32px,
+  8: 40px,
+  9: 48px,
+  10: 64px,
+);
+$radii: (
+  control: 9px,
+  tile: 12px,
+  card: 18px,
+  sheet: 28px,
+  pill: 999px,
+);
+$shadows: (
+  raised: 0 4px 4px rgb(0 0 0 / 25%),
+  floating: 0 4px 14px rgb(0 0 0 / 13%),
+  sheet: 0 -8px 24px rgb(0 0 0 / 8%),
+);
+$icon-sizes: (
+  sm: 16px,
+  md: 20px,
+  lg: 24px,
+);
+$sizes: (
+  control-sm: 32px,
+  control-md: 44px,
+  control-lg: 52px,
+  list-row: 58px,
+  key-value-row: 39px,
+);
+@function color($name) {
+  @if not map.has-key($colors, $name) {
+    @error 'Unknown color: #{$name}';
+  }
+  @return var(--color-#{$name});
+}
+@function space($name) {
+  @if not map.has-key($spaces, $name) {
+    @error 'Unknown space: #{$name}';
+  }
+  @return var(--space-#{$name});
+}
+@function radius($name) {
+  @if not map.has-key($radii, $name) {
+    @error 'Unknown radius: #{$name}';
+  }
+  @return var(--radius-#{$name});
+}
+@function shadow($name) {
+  @if not map.has-key($shadows, $name) {
+    @error 'Unknown shadow: #{$name}';
+  }
+  @return var(--shadow-#{$name});
+}
+@function icon-size($name) {
+  @if not map.has-key($icon-sizes, $name) {
+    @error 'Unknown icon size: #{$name}';
+  }
+  @return var(--icon-size-#{$name});
+}
+@function size($name) {
+  @if not map.has-key($sizes, $name) {
+    @error 'Unknown size: #{$name}';
+  }
+  @return var(--size-#{$name});
+}
+@function -color-value($value) {
+  @if meta.type-of($value) == 'string' {
+    @return var(--color-#{$value});
+  }
+  @return $value;
+}
+@mixin properties {
+  @each $name, $value in $palette {
+    --color-#{$name}: #{$value};
+  }
+  @each $name, $value in map.merge(legacy.$legacy, $theme) {
+    --color-#{$name}: #{-color-value($value)};
+  }
+  @each $name, $value in $spaces {
+    --space-#{$name}: #{$value};
+  }
+  @each $name, $value in $radii {
+    --radius-#{$name}: #{$value};
+  }
+  @each $name, $value in $shadows {
+    --shadow-#{$name}: #{$value};
+  }
+  @each $name, $value in $icon-sizes {
+    --icon-size-#{$name}: #{$value};
+  }
+  @each $name, $value in $sizes {
+    --size-#{$name}: #{$value};
+  }
+}

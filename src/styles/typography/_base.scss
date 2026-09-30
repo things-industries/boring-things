@@ -1,0 +1,47 @@
+@use 'tokens';
+@use 'typography';
+h1,
+h2,
+h3 {
+  font-family: typography.$font-family;
+  line-height: 1.2;
+}
+h1 {
+  @include typography.role(display);
+  letter-spacing: -1.8px;
+  margin: 10px 0 tokens.space(3);
+}
+h2 {
+  @include typography.role(title);
+  letter-spacing: -0.55px;
+  margin: 0 0 tokens.space(5);
+}
+h3 {
+  @include typography.role(heading);
+  margin: tokens.space(4) 0 10px;
+}
+p {
+  line-height: 1.6;
+  color: tokens.color(text-muted);
+  margin: 10px 0;
+}
+.eyebrow {
+  @include typography.role(eyebrow);
+  letter-spacing: 1.5px;
+  color: tokens.color(text-eyebrow);
+  text-transform: uppercase;
+}
+small.muted {
+  display: block;
+  font-size: 10px;
+  line-height: 1.7;
+  margin-bottom: tokens.space(4);
+}
+@media (max-width: 650px) {
+  h1 {
+    font-size: 34px;
+  }
+  .eyebrow {
+    font-size: 9px;
+  }
+}

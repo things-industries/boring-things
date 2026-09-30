@@ -1,77 +1,107 @@
 # Shared styles
 
-`styles.scss` emits the shared base stylesheet once. Components import token, typography and mixin modules with `@use`; these modules emit no CSS by themselves. Values follow the [Boring Things POC Figma file](https://www.figma.com/design/SV6xV538vbD2Vn5f1EF1rR/Boring-Things-POC?node-id=0-1); alignment rules are in [`docs/plans/poc-frontend.md`](../../docs/plans/poc-frontend.md#design-alignment).
+The Boring Things design system. `styles.scss` emits the global stylesheet once. Components import `tokens`, `typography` and `mixins` with `@use`; these modules emit no CSS by themselves.
+
+## Layout
+
+One folder per style scope. A new scope gets a new folder.
+
+| Path                     | Contents                                                                                      | Emits CSS |
+| ------------------------ | --------------------------------------------------------------------------------------------- | --------- |
+| `_core.scss`             | Page structure: `:root` properties, `html`/`body`, box sizing, `[hidden]`, `.visually-hidden` | Yes       |
+| `tokens/`                | `tokens.*` functions and space, radius, shadow, icon-size and size maps                       | No        |
+| `colors/_palette.scss`   | Shade scales                                                                                  | No        |
+| `colors/_theme.scss`     | Semantic colour roles                                                                         | No        |
+| `colors/_legacy.scss`    | Roles used by screens built before the current theme                                          | No        |
+| `colors/_utilities.scss` | `.text-*` and `.bg-*` classes                                                                 | Yes       |
+| `typography/_index.scss` | Type roles, `role()` mixin, `$font-family`                                                    | No        |
+| `typography/_base.scss`  | Headings, paragraphs, eyebrow                                                                 | Yes       |
+| `buttons/`               | Button classes                                                                                | Yes       |
+| `icons/`                 | `ng-icon` defaults and icon size classes                                                      | Yes       |
+| `forms/`                 | Labels, inputs, selects, textareas, details                                                   | Yes       |
+| `layout/`                | Page sections, grids, panels, empty states                                                    | Yes       |
+| `status/`                | Badges, chips, samples, errors, notices                                                       | Yes       |
+| `_mixins.scss`           | Shared mixins                                                                                 | No        |
 
 Component styles use tokens only: no literal colours, font sizes, weights, spacing, radii, shadows or icon sizes.
 
 ## Colours
 
-Read with `tokens.color(name)`. In templates, prefer the utility class when the element needs no other styles.
+`tokens.color(name)` accepts a theme role or a palette shade. Prefer a theme role; use a shade directly when no role fits (for example a specific border or button background). In templates, prefer the utility class when the element needs no other styles.
 
-### Text and icons
+### Palette
 
-| Role               | Value     | Class               | Use                              |
-| ------------------ | --------- | ------------------- | -------------------------------- |
-| `text-primary`     | `#273238` | `.text-primary`     | Headings, body, values           |
-| `text-muted`       | `#76817d` | `.text-muted`       | Subtitles, meta lines, labels    |
-| `text-neutral-200` | `#c8d0cd` | `.text-neutral-200` | Faint text, placeholders on dark |
-| `text-green-600`   | `#438d69` | `.text-green-600`   | Links, positive status           |
-| `icon-muted`       | `#76817d` | `.icon-muted`       | Secondary icons                  |
+`white` is `#ffffff`. `neutral-950` is `#172126`.
 
-### Surfaces
+| Hue       | 50        | 100       | 200       | 300       | 400       | 500       | 600       | 700       | 800       | 900       |
+| --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- |
+| `neutral` | `#f2f4f2` | `#e3e8e5` | `#d9dfdb` | `#c8d0cd` | `#9fa8a5` | `#76817d` | `#626d6c` | `#4e5a5a` | `#3b4649` | `#273238` |
+| `green`   | `#f0f9f4` | `#e0f3e9` | `#bee5d1` | `#9bd7b9` | `#79c9a1` | `#5eab85` | `#438d69` | `#367456` | `#295c43` | `#1c4330` |
+| `blue`    | `#e4f0f6` | `#d3e6ef` | `#b2d1e1` | `#91bcd4` | `#70a8c6` | `#4f93b8` | `#427d9d` | `#356783` | `#285268` | `#1b3c4e` |
+| `red`     | `#fff0e9` | `#fae3d9` | `#efc9ba` | `#dbac9c` | `#c88f7e` | `#b47261` | `#a05543` | `#893f2f` | `#6b3023` | `#4c2118` |
+| `amber`   | `#fdf5ea` | `#fbebd6` | `#e7d1b4` | `#d3b793` | `#c09d71` | `#ac8350` | `#98692e` | `#7d5625` | `#62431c` | `#463014` |
 
-Each surface has a `-contrast` role for its foreground. The `.bg-*` class sets both.
+### Theme
 
-| Role                | Value       | Contrast  | Class           | Use                                  |
-| ------------------- | ----------- | --------- | --------------- | ------------------------------------ |
-| `surface-primary`   | `#273238`   | `#ffffff` | `.bg-primary`   | Primary buttons, promo card          |
-| `surface-accent`    | `#79c9a1`   | `#273238` | `.bg-accent`    | Accent buttons, highlights           |
-| `surface-green-100` | `#e0f3e9`   | `#438d69` | `.bg-green-100` | Green icon badges, status tiles      |
-| `surface-blue-50`   | `#e4f0f6`   | `#273238` | `.bg-blue-50`   | Blue icon badges, notices            |
-| `surface-secondary` | `#e3e8e5`   | `#273238` | `.bg-secondary` | Neutral icon badges, secondary fills |
-| `surface-canvas`    | `#f2f4f2`   | `#273238` | `.bg-canvas`    | Inset areas on white cards           |
-| `surface-white`     | `#ffffff`   | `#273238` | `.bg-white`     | Cards, sheets, rows                  |
-| `surface-chip`      | `#17212614` | `#273238` | `.bg-chip`      | Category chips                       |
-| `background-canvas` | `#f2f4f2`   | —         | set on `:root`  | Page background                      |
+| Role                     | Shade               | Class                | Use                                |
+| ------------------------ | ------------------- | -------------------- | ---------------------------------- |
+| `text`                   | `neutral-900`       | —                    | Default text                       |
+| `text-muted`             | `neutral-500`       | `.text-muted`        | Subtitles, meta lines, labels      |
+| `text-subtle`            | `neutral-300`       | `.text-subtle`       | Faint text                         |
+| `text-accent`            | `green-600`         | `.text-accent`       | Links, positive status             |
+| `text-inverse`           | `white`             | `.text-inverse`      | Text on dark fills                 |
+| `text-danger`            | `red-700`           | `.text-danger`       | Errors                             |
+| `text-warning`           | `amber-600`         | `.text-warning`      | Warnings                           |
+| `background`             | `neutral-50`        | `.bg-background`     | Page background                    |
+| `surface`                | `white`             | `.bg-surface`        | Cards, sheets, rows                |
+| `surface-muted`          | `neutral-100`       | `.bg-surface-muted`  | Neutral fills, neutral icon badges |
+| `tint`                   | `neutral-950` at 8% | `.bg-tint`           | Translucent chip fill              |
+| `primary`                | `neutral-900`       | `.bg-primary`        | Primary buttons, dark cards        |
+| `primary-contrast`       | `white`             | —                    | Foreground on `primary`            |
+| `accent`                 | `green-400`         | `.bg-accent`         | Accent buttons, highlights         |
+| `accent-contrast`        | `neutral-900`       | —                    | Foreground on `accent`             |
+| `accent-subtle`          | `green-100`         | `.bg-accent-subtle`  | Green icon badges, status tiles    |
+| `accent-subtle-contrast` | `green-600`         | —                    | Foreground on `accent-subtle`      |
+| `info-subtle`            | `blue-50`           | `.bg-info-subtle`    | Blue icon badges, notices          |
+| `danger-subtle`          | `red-50`            | `.bg-danger-subtle`  | Error fills                        |
+| `warning-subtle`         | `amber-100`         | `.bg-warning-subtle` | Warning fills                      |
+| `border`                 | `neutral-200`       | —                    | Dividers, card outlines            |
+| `border-muted`           | `neutral-500`       | —                    | Strong dividers, inputs            |
+| `border-strong`          | `neutral-900`       | —                    | Outline buttons                    |
+| `border-accent`          | `green-400`         | —                    | Accent outlines                    |
+| `skeleton`               | `neutral-200`       | `.bg-skeleton`       | Loading placeholders               |
 
-### Borders
-
-| Role                 | Value     | Use                           |
-| -------------------- | --------- | ----------------------------- |
-| `border-primary`     | `#273238` | Secondary outline buttons     |
-| `border-muted`       | `#76817d` | Strong dividers, inputs       |
-| `border-accent`      | `#79c9a1` | Accent outlines, focus accent |
-| `border-neutral-100` | `#d9dfdb` | Row dividers, card outlines   |
+`.bg-*` sets the role's `-contrast` colour as the foreground when one exists.
 
 ### Legacy roles
 
-Screens not yet migrated use legacy roles from `$legacy-colors` in `_tokens.scss` (for example `text`, `primary`, `border`, `surface`, `danger`, category artwork roles). Core legacy roles alias the Figma roles above. Do not use legacy roles in new work; each is removed once no screen uses it.
+`colors/_legacy.scss` keeps role names used by screens built before the current theme (for example `danger`, `destructive`, `badge`, `sample-banner` and category artwork roles), each mapped to a palette shade. Do not use them in new work; each is removed once no screen uses it.
 
 ## Typography
 
 `@include typography.role(name)` sets size, weight, line height and letter spacing. Font: Inter (`typography.$font-family`).
 
-| Role      | Size | Weight | Use                               |
-| --------- | ---- | ------ | --------------------------------- |
-| `display` | 32px | 700    | Sign-in and Add Thing headlines   |
-| `title`   | 26px | 700    | Page and Thing titles             |
-| `section` | 17px | 700    | Section headers                   |
-| `body`    | 14px | 400    | Default text, row titles          |
-| `label`   | 12px | 500    | Field labels, links, small button |
-| `caption` | 11px | 400    | Meta lines, subtitles, badges     |
-| `micro`   | 9px  | 600    | Date tile month only              |
+| Role      | Size | Weight | Use                                |
+| --------- | ---- | ------ | ---------------------------------- |
+| `display` | 32px | 700    | Sign-in and Add Thing headlines    |
+| `title`   | 26px | 700    | Page and Thing titles              |
+| `section` | 17px | 700    | Section headers                    |
+| `body`    | 14px | 400    | Default text, row titles           |
+| `label`   | 12px | 500    | Field labels, links, small buttons |
+| `caption` | 11px | 400    | Meta lines, subtitles, badges      |
+| `micro`   | 9px  | 600    | Date tile month only               |
 
-`typography.tabular-numerals` aligns figures. Legacy roles `heading` and `eyebrow` remain for unmigrated screens.
+`typography.tabular-numerals` aligns figures. Legacy roles `heading` and `eyebrow` remain for screens built before the current type scale.
 
 ## Spacing, radii, shadows and sizes
 
 - `tokens.space(name)`: `0` 0, `half` 2px (tight text stacks only), `1` 4, `2` 8, `3` 12, `4` 16, `5` 20, `6` 24, `7` 32, `8` 40, `9` 48, `10` 64 pixels.
-- `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (Thing sheet), `pill` 999px (buttons, badges). `control` (9px) is legacy.
-- `tokens.shadow(name)`: `raised` (promo card), `floating` (controls over images), `sheet` (sheet over hero).
+- `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges). `control` (9px) is legacy.
+- `tokens.shadow(name)`: `raised` (call-to-action cards), `floating` (controls over images), `sheet` (sheet over an image).
 - `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px.
 - `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `key-value-row` 39px.
 
-Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`.
+Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; theme roles resolve to their palette variable.
 
 ## Mixins
 
@@ -79,29 +109,27 @@ Unknown keys fail Sass compilation. CSS custom properties are emitted through `t
 - `mixins.list-row`: flex row with the list-row minimum height.
 - `mixins.key-value-row`: flex row with the key/value minimum height.
 - `mixins.skeleton`: placeholder surface and radius.
-- `mixins.visually-hidden`: accessible offscreen content; `.visually-hidden` is available globally.
+- `mixins.visually-hidden`: accessible offscreen content.
 - Legacy: `mixins.category-art`, `mixins.thing-art-size`.
 
 ## Buttons
 
 Combine one style with an optional size. Use on `<button>` for actions and `<a>` for navigation.
 
-| Class               | Look                                  |
-| ------------------- | ------------------------------------- |
-| `.button-primary`   | Dark pill, white text                 |
-| `.button-secondary` | Outline pill, primary border and text |
-| `.button-accent`    | Green accent pill, dark text          |
-| `.button-link`      | Green text link, no padding           |
-| `.button-sm`        | 32px high, label text, small icons    |
-| `.button-lg`        | 52px high, wider padding              |
+| Class               | Look                                      |
+| ------------------- | ----------------------------------------- |
+| `.button-primary`   | Dark pill, white text                     |
+| `.button-secondary` | Outline pill, strong border, default text |
+| `.button-accent`    | Green accent pill, dark text              |
+| `.button-link`      | Accent text link, no padding              |
+| `.button-sm`        | 32px high, label text, small icons        |
+| `.button-lg`        | 52px high, wider padding                  |
 
-Default pill height is 44px with body text and medium icons.
-
-Legacy button classes remain for unmigrated screens: `button`, `secondary`, `quiet`, `small`, `danger-button`.
+Default pill height is 44px with body text and medium icons. Legacy button classes remain for screens built before the current system: `button`, `secondary`, `quiet`, `small`, `danger-button`.
 
 ## Legacy shared classes
 
-- Layout: `section`, `section-title`, `panel`, `things-grid`, `activity-grid`, `detail-layout`, `full-width`.
-- Status: `badge`, `warning`, `sample`, `error`, `notice`, `muted`.
+- Layout: `section`, `section-title`, `panel`, `things-grid`, `activity-grid`, `detail-layout`, `full-width`, `empty`.
+- Status: `badge`, `warning`, `sample`, `chip`, `error`, `notice`, `muted`, `danger`.
 
 Page and component styles live beside their templates.

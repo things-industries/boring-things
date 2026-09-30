@@ -1,0 +1,11 @@
+@use 'tokens';
+@use 'mixins';
+ng-icon {
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+@each $name, $value in tokens.$icon-sizes {
+  .icon-#{$name} {
+    @include mixins.icon-size($name);
+  }
+}
