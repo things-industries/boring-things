@@ -17,12 +17,13 @@ export async function createChatActivity(
     signal.throwIfAborted();
     const current = await processingMessage(db, job);
     ensure(current, 'Message is no longer processing', 'CONFLICT');
-    ensure(current.intent === name.toUpperCase(), 'Message intent does not allow this write');
-    const previous = current.toolResults.find((r) => r.key === name);
+    const previous = current.toolResults.find(
+      (r) => r.key === 'create_event' || r.key === 'create_issue',
+    );
 
     if (previous) {
       ensure(
-        (previous.result as { thingId: string }).thingId === input.thingId,
+        previous.key === name && (previous.result as { thingId: string }).thingId === input.thingId,
         'One creation per message',
       );
 

@@ -75,7 +75,7 @@ test(
         pool,
         config,
         importAi,
-        chatAi: new FixtureChat(),
+        chatAi: new FixtureChat('create_event'),
       });
       const base = await app.listen({ host: '127.0.0.1', port: 0 });
       const accessToken = await token();
@@ -174,7 +174,6 @@ test(
       await page.getByRole('link', { name: 'Ask about this thing' }).click();
       await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
       await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
-      await page.getByLabel('Action', { exact: true }).selectOption('CREATE_EVENT');
       await page.getByRole('button', { name: 'Send', exact: true }).click();
       await expect(
         page.getByRole('heading', { name: 'Check the filter', exact: true }),

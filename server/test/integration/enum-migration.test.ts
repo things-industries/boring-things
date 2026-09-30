@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { createPool } from '../../src/db/connection.js';
 
 // The fixture starts with the released lowercase representation, including nested private values.
-test('domain enum migration preserves values, receipts, defaults and in-flight uniqueness', async () => {
+test('enum and chat migrations preserve values, receipts, defaults and in-flight uniqueness', async () => {
   const url = new URL(
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
@@ -135,6 +135,20 @@ test('domain enum migration preserves values, receipts, defaults and in-flight u
         [owner, thing],
       ),
       { code: '23514' },
+    );
+    for (const file of files.filter((file) => file > '20260930000000_domain_enums.sql'))
+      await pool.query(await readFile(new URL(file, directory), 'utf8'));
+    const messages = (
+      await pool.query('select * from bt.messages where conversation_id=$1', [conversation])
+    ).rows;
+    assert.equal(messages.length, 1);
+    const current = messages[0];
+    assert.equal(Object.hasOwn(current, 'intent'), false);
+    for (const key of ['role', 'status', 'text', 'cards', 'tool_results'] as const)
+      assert.deepEqual(current[key], message[key]);
+    await pool.query(
+      "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER','Add a task','COMPLETE')",
+      [conversation, randomUUID()],
     );
   } finally {
     await pool.end();

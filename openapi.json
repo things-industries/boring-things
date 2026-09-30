@@ -3972,9 +3972,6 @@
                 "type": "null"
               }
             ]
-          },
-          "intent": {
-            "$ref": "#/components/schemas/MessageIntentEnum"
           }
         },
         "required": [
@@ -3986,10 +3983,9 @@
           "cards",
           "sourceRefs",
           "status",
-          "createdAt",
-          "intent"
+          "createdAt"
         ],
-        "description": "Persisted conversation message with intent, citations, cards and execution state."
+        "description": "Persisted conversation message with citations, cards and execution state."
       },
       "Conversation": {
         "type": "object",
@@ -4497,13 +4493,10 @@
           "requestId": {
             "type": "string",
             "format": "uuid"
-          },
-          "intent": {
-            "$ref": "#/components/schemas/MessageIntentEnum"
           }
         },
-        "required": ["text", "requestId", "intent"],
-        "description": "Idempotent message request with explicit authorisation intent for write tools."
+        "required": ["text", "requestId"],
+        "description": "Idempotent message request. The assistant infers requested actions from the conversation."
       },
       "ConversationDelta": {
         "type": "object",
@@ -4620,11 +4613,6 @@
         "type": "string",
         "description": "Message status.",
         "enum": ["QUEUED", "PROCESSING", "COMPLETE", "FAILED"]
-      },
-      "MessageIntentEnum": {
-        "type": "string",
-        "description": "Message intent.",
-        "enum": ["ANSWER", "CREATE_EVENT", "CREATE_ISSUE"]
       },
       "ThingSortEnum": {
         "type": "string",

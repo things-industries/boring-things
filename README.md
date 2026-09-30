@@ -159,7 +159,13 @@ Provider implementation references: [file inputs](https://developers.openai.com/
 
 ### Assistant verification and demo
 
+The chat API accepts `{ text, requestId }`. The model selects Event/Issue creation from the user request and conversation, asking a follow-up when ambiguous. One creation per message is enforced transactionally across both tools; retries reuse the saved result. Ownership, input validation, deadlines and read-before-write checks remain application rules. Intent recognition is model judgement.
+
+Frontend integration is pending: the existing composer still selects and sends `intent`, which the API rejects. Its intent type references also prevent an Angular build against the regenerated contract. Update the composer and retry payloads before running the browser demo below.
+
 `node --import tsx --env-file=.env scripts/smoke-import.ts --assistant` runs the **paid live** synthetic import, cited field answer, maintenance creation/scheduling and restart check. `node --import tsx --env-file=.env scripts/smoke-assistant-products.ts` checks product-focused discovery using a synthetic Miele dishwasher record. Both use temporary local databases and remove them afterwards. Reports go to ignored `test-results/assistant-smoke.json` and `test-results/assistant-products-smoke.json`.
+
+`node --import tsx --env-file=.env scripts/smoke-chat-actions.ts` runs nine **paid live** model checks with synthetic conversations and simulated tools: questions, troubleshooting, Event/Issue requests, ambiguity, contextual confirmation, negation, document instructions and completed actions. It accesses no application records. Results and usage are saved to ignored `test-results/chat-actions-smoke.json`; the command exits unsuccessfully if any scenario fails. All nine scenarios passed locally on 30 September with `gpt-5.6-sol`. This bounded smoke check does not establish general intent-recognition reliability.
 
 Validated locally on 29 September with `gpt-5.6-sol`: three-Thing import; Z-number `0015` cited from the field/source; chat-created Event scheduled and retained after API restart; three cited merchant links for the Miele product check. These are smoke results, not a quality benchmark. The hob import produced no supported products. Discovery depends on available sources and may return none.
 
@@ -168,10 +174,10 @@ Demo after applying migrations and configuring Logto/OpenAI:
 1. Sign in, select **Add a thing**, then upload a source or paste text. Confirm candidates if prompted.
 2. Watch fields populate; inspect documents, grouped sections and pins.
 3. Select **Ask about this thing** and ask for a saved detail or manual instruction. Open the cited field/document card.
-4. Select **Create maintenance event**, describe the task, send, and schedule its card using local date/time.
+4. Describe the maintenance task to create, send, and schedule its card using local date/time.
 5. Ask for compatible consumables/accessories/upgrades. Open a supported merchant link when one is found.
 6. Return to the Thing and reload. The scheduled Event, imported fields and discovered products remain.
 
 Integration checks cover shared attachments, user-edit preservation, grouping, duplicate-free write/discovery retry, owner isolation, deadlines, stream reconnect and restart recovery. Browser checks exercise signed JWT authentication, mobile/desktop chat cards and scheduling. Live Logto redirect/login/logout and physical-device camera capture remain manual; they have not been repeated for step 3.
 
-API domain enums use UPPER_SNAKE_CASE. Run `pnpm db:migrate` before starting this version against an existing database: the migration updates statuses, intents, roles, UI hints, stored field origins and resource cards, preserving user values and retry receipts. Frontend and backend must be updated together. JSON Schema type/format names and external provider protocol values keep their standard spelling.
+API domain enums use UPPER_SNAKE_CASE. Run `pnpm db:migrate` before starting this version against an existing database: the migrations update domain enums and remove stored message intent, preserving user values, message content and retry receipts. Frontend and backend must be updated together. JSON Schema type/format names and external provider protocol values keep their standard spelling.

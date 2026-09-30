@@ -23,7 +23,6 @@ export interface ChatMessage {
 export interface ChatInput {
   messages: ChatMessage[];
   thingId: string | null;
-  intent: Schema['MessageInput']['intent'];
   completedWrites: unknown[];
 }
 
