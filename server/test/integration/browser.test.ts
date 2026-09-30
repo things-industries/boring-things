@@ -284,7 +284,7 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Browser test policy', exact: true }),
       ).toBeVisible();
-      const buildings = page.locator('section.panel').filter({
+      const buildings = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Buildings cover',
           exact: true,
@@ -300,7 +300,7 @@ test(
       await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('500000');
       await sum.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(sum).toContainText('£500,000.00');
-      const contents = page.locator('section.panel').filter({
+      const contents = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Contents cover',
           exact: true,
