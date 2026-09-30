@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import type { Schema } from '../../../../shared/model';
 import { Api } from '../../core/services/api.service';
 import { Auth } from '../../core/services/auth.service';
@@ -12,9 +12,10 @@ import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { TermPipe } from '../../pipes/term.pipe';
 import { ResourceCard } from './resource-card';
+import { TopBar } from '../../components/top-bar/top-bar';
 @Component({
   selector: 'bt-chat',
-  imports: [FormsModule, RouterLink, ErrorMessage, ResourceCard, TermPipe],
+  imports: [FormsModule, ErrorMessage, ResourceCard, TermPipe, TopBar],
   templateUrl: './chat.html',
   styleUrl: './chat.scss',
 })
@@ -33,8 +34,8 @@ export class ChatPage implements OnDestroy {
       this.conversation()?.messages.some((m) => ['QUEUED', 'PROCESSING'].includes(m.status)) ??
       false,
   );
+  readonly thingId = this.route.snapshot.paramMap.get('id');
   text = '';
-  intent: Schema['MessageInput']['intent'] = 'ANSWER';
   // Keep the request ID through uncertain network outcomes as well as server failures.
   private pending: Schema['MessageInput'] | null = null;
   constructor() {
@@ -53,7 +54,7 @@ export class ChatPage implements OnDestroy {
     if (!this.config.chatEnabled) return;
     this.error.set(null);
     try {
-      const thingId = this.route.snapshot.queryParamMap.get('thingId');
+      const thingId = this.thingId;
       const chat = await this.api.client
         .POST('/api/conversations', { body: thingId ? { thingId } : {} })
         .then(apiData);
@@ -116,12 +117,10 @@ export class ChatPage implements OnDestroy {
         ? {
             text: user.text,
             requestId: retry.requestId,
-            intent: retry.intent ?? 'ANSWER',
           }
         : (this.pending ?? {
             text: this.text.trim(),
             requestId: crypto.randomUUID(),
-            intent: this.intent,
           });
     if (!input.text) return;
     this.pending = input;

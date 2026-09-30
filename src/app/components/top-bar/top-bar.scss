@@ -1,0 +1,27 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-areas: 'start title end';
+  align-items: center;
+  gap: tokens.space(3);
+  min-height: tokens.size(control-lg);
+  padding: tokens.space(2) 0;
+}
+.top-bar-start {
+  grid-area: start;
+  display: flex;
+}
+.top-bar-title {
+  grid-area: title;
+  margin: 0;
+  text-align: center;
+  @include typography.role(section);
+}
+.top-bar-end {
+  grid-area: end;
+  display: flex;
+  justify-content: flex-end;
+  gap: tokens.space(2);
+}

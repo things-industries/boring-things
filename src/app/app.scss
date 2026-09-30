@@ -1,83 +1,11 @@
 @use 'tokens';
-.app-header {
-  height: 88px;
-  border-bottom: 1px solid tokens.color(border);
-  padding: 0 max(tokens.space(7), calc((100vw - 1200px) / 2));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: tokens.color(surface);
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: tokens.space(3);
-  font:
-    750 22px 'Manrope',
-    system-ui;
-  letter-spacing: -1px;
-}
-.brand-mark {
-  font-size: 24px;
-  background: tokens.color(brand);
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  letter-spacing: -2px;
-  padding-right: 3px;
-}
-.app-header nav {
-  display: flex;
-  align-items: center;
-  gap: tokens.space(7);
-  font-size: 14px;
-}
-main {
-  max-width: 1200px;
-  margin: auto;
-  padding: 52px 0 80px;
-  min-height: calc(100vh - 148px);
-}
-footer {
-  max-width: 1200px;
-  margin: auto;
-  border-top: 1px solid tokens.color(border);
-  padding: tokens.space(6) 0;
-  color: tokens.color(text-muted);
-  font-size: 12px;
-}
-@media (max-width: 1270px) {
-  main,
-  footer {
-    margin-left: tokens.space(7);
-    margin-right: tokens.space(7);
-  }
-  .app-header {
-    padding: 0 tokens.space(7);
-  }
-}
-@media (max-width: 650px) {
-  main {
-    padding-top: 30px;
-    margin: 0 18px;
-  }
-  .app-header {
-    height: 72px;
-    padding: 0 18px;
-  }
-  .brand {
-    font-size: 18px;
-  }
-  .app-header nav {
-    gap: tokens.space(2);
-    font-size: 12px;
-  }
-  .app-header nav > a {
-    display: none;
-  }
-  footer {
-    margin: 0 18px;
+.app-main {
+  max-width: tokens.size(content-max);
+  margin: 0 auto;
+  padding: tokens.space(2) tokens.space(4) tokens.space(8);
+  &.with-bottom-nav {
+    padding-bottom: calc(
+      #{tokens.size(bottom-nav)} + #{tokens.space(6)} + env(safe-area-inset-bottom)
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test';
+import { test, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -63,6 +63,13 @@ before(async () => {
   await transaction(pool, seedRegistry);
   await boot();
 });
+beforeEach(() => {
+  ai.creation = undefined;
+  ai.probe = undefined;
+  ai.pause = undefined;
+  ai.foreignThing = undefined;
+  ai.failOnce = false;
+});
 after(async () => {
   await app?.close();
   await pool.end();
@@ -104,8 +111,8 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   const input = {
     text: 'Create a filter check',
     requestId: randomUUID(),
-    intent: 'CREATE_EVENT',
   };
+  ai.creation = 'create_event';
   ai.failOnce = true;
   assert.equal(
     (await request('POST', `/conversations/${chat.id}/messages`, input)).statusCode,
@@ -139,12 +146,13 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
     ).statusCode,
     409,
   );
+  ai.creation = 'create_issue';
   assert.equal(
     (
       await request('POST', `/conversations/${chat.id}/messages`, {
         ...input,
+        text: 'Report a filter issue',
         requestId: randomUUID(),
-        intent: 'CREATE_ISSUE',
       })
     ).statusCode,
     202,
@@ -190,7 +198,6 @@ test('single in-flight response, SSE snapshots and reconnect without duplicate t
   });
   const input = {
     text: 'Read the saved details',
-    intent: 'ANSWER',
     requestId: randomUUID(),
   };
   await request('POST', `/conversations/${chat.id}/messages`, input);
@@ -250,13 +257,12 @@ test('single in-flight response, SSE snapshots and reconnect without duplicate t
   assert.match(snapshot, /The saved details are ready\./);
   assert.doesNotMatch(snapshot, /ready\.The/);
 });
-test('tool owner checks reject guessed Thing IDs and new writes need matching intent', async () => {
+test('tool owner checks reject guessed Thing IDs', async () => {
   const foreign = await setup('bob');
   const { chat } = await setup();
   ai.foreignThing = foreign.thing.id;
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Read another Thing',
-    intent: 'ANSWER',
     requestId: randomUUID(),
   });
   const failed = await wait(chat.id);
@@ -265,10 +271,10 @@ test('tool owner checks reject guessed Thing IDs and new writes need matching in
   ai.foreignThing = undefined;
 });
 test('restart retains activity and marks interrupted messages retryable', async () => {
+  ai.creation = 'create_event';
   const { chat, thing } = await setup();
   const input = {
     text: 'Create maintenance',
-    intent: 'CREATE_EVENT',
     requestId: randomUUID(),
   };
   await request('POST', `/conversations/${chat.id}/messages`, input);
@@ -286,30 +292,15 @@ test('restart retains activity and marks interrupted messages retryable', async 
   assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 1);
 });
 
-test('write intent and deadline are enforced even when the provider requests a write', async () => {
+test('deadline prevents a late model-selected write', async () => {
   const { thing, chat } = await setup();
-  ai.probe = async (_input, execute) => {
-    await execute('create_event', {
-      thingId: thing.id,
-      title: 'Unauthorised',
-      description: '',
-    });
-  };
-  await request('POST', `/conversations/${chat.id}/messages`, {
-    text: 'Just answer a question',
-    intent: 'ANSWER',
-    requestId: randomUUID(),
-  });
-  assert.equal((await wait(chat.id)).message.status, 'FAILED');
-  assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 0);
-  ai.probe = undefined;
+  ai.creation = 'create_event';
   let release!: () => void;
   ai.pause = new Promise((r) => {
     release = r;
   });
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Create an event',
-    intent: 'CREATE_EVENT',
     requestId: randomUUID(),
   });
   assert.equal((await wait(chat.id)).message.error, 'timeout');
@@ -317,6 +308,111 @@ test('write intent and deadline are enforced even when the provider requests a w
   ai.pause = undefined;
   await new Promise((r) => setTimeout(r, 50));
   assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 0);
+});
+test('text-only questions return messages without intent or new activity', async () => {
+  const { thing, chat } = await setup();
+  assert.equal(
+    (
+      await request('POST', `/conversations/${chat.id}/messages`, {
+        text: 'How do I clean the filter?',
+        requestId: randomUUID(),
+        intent: 'ANSWER',
+      })
+    ).statusCode,
+    422,
+  );
+  const response = await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'How do I clean the filter?',
+    requestId: randomUUID(),
+  });
+  assert.equal(response.statusCode, 202);
+  const result = await wait(chat.id);
+  assert.equal(result.message.status, 'COMPLETE');
+  assert.ok(result.chat.messages.every((message) => !Object.hasOwn(message, 'intent')));
+  for (const resource of ['events', 'issues'])
+    assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
+});
+test('writes require a retrieved owned Thing and valid arguments', async () => {
+  const { thing } = await setup();
+  const foreign = await setup('bob');
+  for (const input of [
+    { thingId: thing.id, title: 'Unread Thing' },
+    { thingId: foreign.thing.id, title: 'Foreign Thing' },
+    { title: '   ' },
+    { title: 'x'.repeat(201) },
+  ]) {
+    const current = await setup();
+    ai.probe = async (_input, execute) => {
+      await execute('create_issue', {
+        thingId: current.thing.id,
+        description: '',
+        ...input,
+      });
+    };
+    await request('POST', `/conversations/${current.chat.id}/messages`, {
+      text: 'Log an issue for the leak',
+      requestId: randomUUID(),
+    });
+    assert.equal((await wait(current.chat.id)).message.status, 'FAILED');
+    assert.equal(
+      (await request('GET', `/issues?thingId=${current.thing.id}`)).json().items.length,
+      0,
+    );
+  }
+  assert.equal((await request('GET', `/issues?thingId=${thing.id}`)).json().items.length, 0);
+  assert.equal(
+    (await request('GET', `/issues?thingId=${foreign.thing.id}`, undefined, 'bob')).json().items
+      .length,
+    0,
+  );
+});
+test('one creation spans both tools and targets, including retries after a completed write', async () => {
+  const other = await setup();
+  for (const first of ['create_event', 'create_issue'] as const) {
+    for (const change of ['type', 'target'] as const) {
+      const { thing, chat } = await setup();
+      const input = { text: 'Add the requested activity', requestId: randomUUID() };
+      ai.creation = first;
+      ai.failOnce = true;
+      await request('POST', `/conversations/${chat.id}/messages`, input);
+      assert.equal((await wait(chat.id)).message.status, 'FAILED');
+      ai.creation = undefined;
+      let replayed = false;
+      ai.probe = async (context, execute) => {
+        assert.equal(context.completedWrites.length, 1);
+        await execute('read_thing', { thingId: other.thing.id });
+        const args = { thingId: thing.id, title: 'Repeated creation', description: '' };
+        const saved = await execute(first, args);
+        assert.deepEqual(await execute(first, args), saved);
+        replayed = true;
+        await execute(
+          change === 'type' ? (first === 'create_event' ? 'create_issue' : 'create_event') : first,
+          {
+            ...args,
+            thingId: change === 'target' ? other.thing.id : thing.id,
+          },
+        );
+      };
+      await request('POST', `/conversations/${chat.id}/messages`, input);
+      assert.equal((await wait(chat.id)).message.status, 'FAILED');
+      assert.equal(replayed, true);
+      for (const resource of ['events', 'issues']) {
+        const expected = (first === 'create_event' ? 'events' : 'issues') === resource ? 1 : 0;
+        assert.equal(
+          (await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length,
+          expected,
+        );
+        assert.equal(
+          (await request('GET', `/${resource}?thingId=${other.thing.id}`)).json().items.length,
+          0,
+        );
+      }
+      ai.probe = undefined;
+      ai.creation = first;
+      await request('POST', `/conversations/${chat.id}/messages`, input);
+      assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+    }
+  }
 });
 test('shared attachments can ground dashboard chat while foreign files stay inaccessible', async () => {
   const first = await setup();
@@ -352,7 +448,6 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
   const chat = (await request('POST', '/conversations', {})).json<Schema['Conversation']>();
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Read the manual',
-    intent: 'ANSWER',
     requestId: randomUUID(),
   });
   assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
@@ -363,7 +458,7 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
   const accepted = await request(
     'POST',
     `/conversations/${bob.chat.id}/messages`,
-    { text: 'Read another file', intent: 'ANSWER', requestId: randomUUID() },
+    { text: 'Read another file', requestId: randomUUID() },
     'bob',
   );
   assert.equal(accepted.statusCode, 202);
@@ -416,7 +511,6 @@ test('product discovery is cited, bounded and reused after a response failure', 
   ai.failOnce = true;
   const input = {
     text: 'Find a filter',
-    intent: 'ANSWER',
     requestId: randomUUID(),
   };
   await request('POST', `/conversations/${chat.id}/messages`, input);

@@ -11,9 +11,10 @@ test(
   { timeout: 90000 },
   async () => {
     const env = await startTestApp();
-    const { app, pool, importAi, issuer, signToken, accessToken, base } = env;
+    const { app, pool, importAi, chatAi, issuer, signToken, accessToken, base } = env;
     let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
     try {
+      chatAi.creation = 'create_event';
       const other = await generateKeyPair('RS256');
       for (const invalid of [
         await signToken({ audience: 'wrong' }),
@@ -85,15 +86,25 @@ test(
       });
       await page.getByRole('link', { name: 'Ask about this thing' }).click();
       await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
+      await expect(page.getByLabel('Action', { exact: true })).toHaveCount(0);
+      chatAi.failOnce = true;
       await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
-      await page.getByLabel('Action', { exact: true }).selectOption('CREATE_EVENT');
       await page.getByRole('button', { name: 'Send', exact: true }).click();
+      await page.getByRole('button', { name: 'Retry response', exact: true }).click();
       await expect(
         page.getByRole('heading', { name: 'Check the filter', exact: true }),
       ).toBeVisible();
       await expect(
         page.locator('.message-text').filter({ hasText: 'The saved details are ready.' }),
       ).toHaveCount(1);
+      assert.equal(
+        (
+          await pool.query('select count(*)::int as count from bt.events where thing_id=$1', [
+            membershipId,
+          ])
+        ).rows[0].count,
+        1,
+      );
       await page.getByLabel('Schedule for').fill('2026-10-01T09:00');
       await page.getByRole('button', { name: 'Schedule', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
@@ -196,7 +207,7 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Browser test policy', exact: true }),
       ).toBeVisible();
-      const buildings = page.locator('section.panel').filter({
+      const buildings = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Buildings cover',
           exact: true,
@@ -212,7 +223,7 @@ test(
       await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('500000');
       await sum.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(sum).toContainText('£500,000.00');
-      const contents = page.locator('section.panel').filter({
+      const contents = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Contents cover',
           exact: true,
@@ -328,26 +339,28 @@ test(
           exact: true,
         }),
       ).toBeVisible();
-      await expect(
-        page.locator('bt-field').filter({ hasText: 'Serial number (Z-Nr)' }),
-      ).toContainText('0015');
+      await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
+        '0015',
+      );
       await expect(
         page.locator('bt-field').filter({ hasText: 'Installer reference' }),
       ).toContainText('ABC-12');
-      const purchaseDate = page.locator('bt-field').filter({ hasText: 'Purchase date' });
-      await purchaseDate.getByRole('button', { name: 'Add', exact: true }).click();
-      await expect(purchaseDate.getByLabel('Purchase date')).toHaveAttribute('type', 'date');
-      await purchaseDate.getByLabel('Purchase date').fill('2022-03-12');
-      await purchaseDate.getByRole('button', { name: 'Save', exact: true }).click();
-      await expect(purchaseDate).toContainText('2022-03-12');
-      await purchaseDate.getByRole('button', { name: 'Pin Purchase date', exact: true }).click();
-      await expect(page.locator('.pinned-summary')).toContainText('Purchase date');
+      await page.getByRole('combobox', { name: /^Section/ }).selectOption('appliances.ownership');
+      await page.getByRole('button', { name: 'Add section', exact: true }).click();
+      const acquiredOn = page.locator('bt-field').filter({ hasText: 'Acquired on' });
+      await acquiredOn.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(acquiredOn.getByLabel('Acquired on')).toHaveAttribute('type', 'date');
+      await acquiredOn.getByLabel('Acquired on').fill('2022-03-12');
+      await acquiredOn.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(acquiredOn).toContainText('2022-03-12');
+      await acquiredOn.getByRole('button', { name: 'Pin Acquired on', exact: true }).click();
+      await expect(page.locator('.pinned-summary')).toContainText('Acquired on');
       await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
       await page.reload();
-      await expect(purchaseDate).toContainText('2022-03-12');
-      await expect(
-        page.locator('bt-field').filter({ hasText: 'Serial number (Z-Nr)' }),
-      ).toContainText('0015');
+      await expect(acquiredOn).toContainText('2022-03-12');
+      await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
+        '0015',
+      );
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,

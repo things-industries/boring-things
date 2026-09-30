@@ -1,0 +1,9 @@
+<div class="top-bar-start">
+  @if (back(); as link) {
+    <a btIconButton icon="back" [label]="backLabel()" [routerLink]="link"></a>
+  }
+</div>
+@if (title()) {
+  <h1 class="top-bar-title">{{ title() }}</h1>
+}
+<div class="top-bar-end"><ng-content /></div>

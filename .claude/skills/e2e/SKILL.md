@@ -28,7 +28,7 @@ pnpm test:e2e -g "Thing page"          # matching tests
 
 Playwright starts the app itself on port 4300, or reuses one already started with `pnpm e2e:serve`. Specs live in `e2e/`; import `test` and `expect` from `e2e/fixtures.ts`, which fails a test on page errors, app console errors and 5xx responses. Every test saves a full-page screenshot under `test-results/e2e/results/<test>/`; failures also keep a trace. Tests share one database, so create uniquely named data rather than changing samples other tests read.
 
-Import and chat use fixtures from `server/test/fixtures/`: pasted text `two` returns two Things, `bad` fails extraction, and chat messages need an Action selected.
+Import and chat use fixtures from `server/test/fixtures/`: pasted text `two` returns two Things, `bad` fails extraction, and the chat fixture only creates an event or issue when its `creation` mode is set.
 
 ## 3. Screenshot pages
 

@@ -1,0 +1,21 @@
+@use 'tokens';
+@use 'mixins';
+.placeholder-page-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: tokens.space(3);
+  padding: tokens.space(10) tokens.space(4);
+  text-align: center;
+}
+.placeholder-page-icon {
+  display: grid;
+  place-items: center;
+  width: tokens.size(control-lg);
+  height: tokens.size(control-lg);
+  margin-bottom: tokens.space(2);
+  border-radius: tokens.radius(pill);
+  background: tokens.color(info-subtle);
+  color: tokens.color(info);
+  @include mixins.icon-size(lg);
+}

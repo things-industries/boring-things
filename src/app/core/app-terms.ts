@@ -4,4 +4,6 @@ export const APP_TERMS = {
   addThing: 'Add a thing',
   login: 'Sign in',
   assistant: 'Assistant',
+  timeline: 'Timeline',
+  profile: 'Profile',
 } as const;

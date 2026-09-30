@@ -6,7 +6,7 @@ import { Auth } from '../../core/services/auth.service';
 import { ThingSkeleton } from './thing-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { back, open, uploadFile, addTag } from '../../core/app-icons';
+import { open, uploadFile, addTag } from '../../core/app-icons';
 import { apiData } from '../../core/api/api-client';
 import {
   Component,
@@ -28,11 +28,12 @@ import { UiError } from '../../utils/error.util';
 import { errorCode } from '../../utils/error.util';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../../components/error-message/error-message';
+import { TopBar } from '../../components/top-bar/top-bar';
 import { FieldEditor } from '../../components/field/field';
 import { Activity } from '../../components/activity/activity';
 import type { ActivityAction } from '../../interfaces/activity.interface';
 @Component({
-  viewProviders: [provideIcons({ open, uploadFile, addTag, back })],
+  viewProviders: [provideIcons({ open, uploadFile, addTag })],
   selector: 'bt-thing',
   imports: [
     ThingSkeleton,
@@ -44,6 +45,7 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
     ErrorMessage,
     NgIcon,
     TermPipe,
+    TopBar,
   ],
   templateUrl: './thing.html',
   styleUrl: './thing.scss',

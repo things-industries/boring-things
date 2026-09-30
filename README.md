@@ -80,27 +80,58 @@ Sharing, hosted deployment, checkout, repair booking, calendar sync and conversa
 
 ## Fields and privacy
 
-The Appliance field set includes purchase date, warranty end and retailer. Registry fields carry optional semantic keys in `icon` (for example `fieldDate`). The existing field editor supports the new Appliance fields without client changes. Field icon rendering is available for frontend integration. Map the keys to `@ng-icons/remixicon` exports below, using `fieldDefault` for missing or unknown keys and custom fields.
+The registry contains 165 fieldsets and 413 definitions across seven categories. Ownership, warranty, support and maintenance compose with product or service types. Manufacturer identifiers and coverage components retain separate semantics and set-scoped values. `Other` supports custom fields.
 
-| API icon key                  | Remix export                |
-| ----------------------------- | --------------------------- |
-| `fieldDefault`, `fieldPolicy` | `remixFileListLine`         |
-| `fieldManufacturer`           | `remixBuildingLine`         |
-| `fieldModel`                  | `remixHashtag`              |
-| `fieldSerial`                 | `remixBarcodeLine`          |
-| `fieldDate`                   | `remixCalendarLine`         |
-| `fieldInsurance`              | `remixShieldCheckLine`      |
-| `fieldRetailer`               | `remixStore2Line`           |
-| `fieldVehicle`                | `remixCarLine`              |
-| `fieldSeats`                  | `remixGroupLine`            |
-| `fieldWeight`                 | `remixScalesLine`           |
-| `fieldMoney`                  | `remixMoneyPoundCircleLine` |
-| `fieldMembership`             | `remixTicketLine`           |
-| `fieldRenewal`                | `remixRefreshLine`          |
-| `fieldLevel`                  | `remixVipCrownLine`         |
-| `fieldAccessCode`             | `remixLockPasswordLine`     |
+Registry fields carry semantic keys in `icon` (for example `fieldDate`). The table below maps these keys to `@ng-icons/remixicon` exports for frontend integration; clients use `fieldDefault` for missing or unknown keys and custom fields.
+
+| API icon key        | Remix export                |
+| ------------------- | --------------------------- |
+| `fieldDefault`      | `remixFileListLine`         |
+| `fieldPolicy`       | `remixFileListLine`         |
+| `fieldManufacturer` | `remixBuildingLine`         |
+| `fieldModel`        | `remixHashtag`              |
+| `fieldSerial`       | `remixBarcodeLine`          |
+| `fieldDate`         | `remixCalendarLine`         |
+| `fieldInsurance`    | `remixShieldCheckLine`      |
+| `fieldRetailer`     | `remixStore2Line`           |
+| `fieldVehicle`      | `remixCarLine`              |
+| `fieldSeats`        | `remixGroupLine`            |
+| `fieldWeight`       | `remixScalesLine`           |
+| `fieldMoney`        | `remixMoneyPoundCircleLine` |
+| `fieldMembership`   | `remixTicketLine`           |
+| `fieldRenewal`      | `remixRefreshLine`          |
+| `fieldLevel`        | `remixVipCrownLine`         |
+| `fieldAccessCode`   | `remixLockPasswordLine`     |
+| `fieldDimensions`   | `remixRulerLine`            |
+| `fieldSupport`      | `remixCustomerService2Line` |
+| `fieldPhone`        | `remixPhoneLine`            |
+| `fieldLink`         | `remixLinksLine`            |
+| `fieldEmail`        | `remixMailLine`             |
+| `fieldPerson`       | `remixUserLine`             |
+| `fieldAddress`      | `remixMapPinLine`           |
+| `fieldService`      | `remixToolsLine`            |
+| `fieldPower`        | `remixFlashlightLine`       |
+| `fieldBattery`      | `remixBattery2ChargeLine`   |
+| `fieldWater`        | `remixWaterFlashLine`       |
+| `fieldTemperature`  | `remixTempHotLine`          |
+| `fieldNetwork`      | `remixWifiLine`             |
+| `fieldStorage`      | `remixHardDrive3Line`       |
+| `fieldDisplay`      | `remixComputerLine`         |
+| `fieldTime`         | `remixTimeLine`             |
+| `fieldSettings`     | `remixSettings3Line`        |
+| `fieldDelivery`     | `remixTruckLine`            |
+| `fieldPrint`        | `remixPrinterLine`          |
+| `fieldSpeed`        | `remixSpeedUpLine`          |
+| `fieldFuel`         | `remixGasStationLine`       |
+| `fieldAccount`      | `remixAccountCircleLine`    |
+| `fieldCount`        | `remixListOrdered2`         |
+| `fieldCheck`        | `remixCheckboxCircleLine`   |
 
 Registry seeds are authored in `server/src/db/registry-seed.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
+
+Apply `20260930040000_expanded_fieldsets.sql` with `pnpm db:migrate`, then restart the API. The migration installs the catalogue and moves existing appliance ownership/warranty, vehicle registration/VIN and museum membership values into their new sets. It preserves source references, sensitivity, user edits and pins. Conflicts and retired renewal dates become custom fields. Legacy standalone appliance fields migrate to the shared definitions. Re-running `pnpm db:seed` keeps the same catalogue metadata.
+
+Dimensions are separate width, height, depth or length fields where applicable. Measurements and rates use text to retain units, precision and allowance bases; counts, full dates, booleans and simple monetary amounts use typed schemas. Partial manufacture dates remain text. Membership types accept provider-specific names. Upcoming activities belong in events and documents in attachments.
 
 Supported schemas: string (length, pattern, enum, date/date-time), number/integer (bounds), boolean, and a money object with `amountMinor` and `currency` (`GBP`, `EUR`, `USD`, all using two decimal places). Identifiers stay strings. Missing values have no stored entry; responses expand them to `null`. `false`, `0` and empty text are actual values. Clearing a field sends `null`.
 
@@ -190,7 +221,13 @@ Provider implementation references: [file inputs](https://developers.openai.com/
 
 ### Assistant verification and demo
 
+The chat API accepts `{ text, requestId }`. The model selects Event/Issue creation from the user request and conversation, asking a follow-up when ambiguous. One creation per message is enforced transactionally across both tools; retries reuse the saved result. Ownership, input validation, deadlines and read-before-write checks remain application rules. Intent recognition is model judgement.
+
+The composer sends text and a request ID, including on retry. The assistant selects actions from the conversation; created Events and Issues appear as resource cards.
+
 `node --import tsx --env-file=.env scripts/smoke-import.ts --assistant` runs the **paid live** synthetic import, cited field answer, maintenance creation/scheduling and restart check. `node --import tsx --env-file=.env scripts/smoke-assistant-products.ts` checks product-focused discovery using a synthetic Miele dishwasher record. Both use temporary local databases and remove them afterwards. Reports go to ignored `test-results/assistant-smoke.json` and `test-results/assistant-products-smoke.json`.
+
+`node --import tsx --env-file=.env scripts/smoke-chat-actions.ts` runs nine **paid live** model checks with synthetic conversations and simulated tools: questions, troubleshooting, Event/Issue requests, ambiguity, contextual confirmation, negation, document instructions and completed actions. It accesses no application records. Results and usage are saved to ignored `test-results/chat-actions-smoke.json`; the command exits unsuccessfully if any scenario fails. All nine scenarios passed locally on 30 September with `gpt-5.6-sol`. This bounded smoke check does not establish general intent-recognition reliability.
 
 Validated locally on 29 September with `gpt-5.6-sol`: three-Thing import; Z-number `0015` cited from the field/source; chat-created Event scheduled and retained after API restart; three cited merchant links for the Miele product check. These are smoke results, not a quality benchmark. The hob import produced no supported products. Discovery depends on available sources and may return none.
 
@@ -199,10 +236,10 @@ Demo after applying migrations and configuring Logto/OpenAI:
 1. Sign in, select **Add a thing**, then upload a source or paste text. Confirm candidates if prompted.
 2. Watch fields populate; inspect documents, grouped sections and pins.
 3. Select **Ask about this thing** and ask for a saved detail or manual instruction. Open the cited field/document card.
-4. Select **Create maintenance event**, describe the task, send, and schedule its card using local date/time.
+4. Describe the maintenance task to create, send, and schedule its card using local date/time.
 5. Ask for compatible consumables/accessories/upgrades. Open a supported merchant link when one is found.
 6. Return to the Thing and reload. The scheduled Event, imported fields and discovered products remain.
 
 Integration checks cover shared attachments, user-edit preservation, grouping, duplicate-free write/discovery retry, owner isolation, deadlines, stream reconnect and restart recovery. Browser checks exercise signed JWT authentication, mobile/desktop chat cards and scheduling. Live Logto redirect/login/logout and physical-device camera capture remain manual; they have not been repeated for step 3.
 
-API domain enums use UPPER_SNAKE_CASE. Run `pnpm db:migrate` before starting this version against an existing database: the migration updates statuses, intents, roles, UI hints, stored field origins and resource cards, preserving user values and retry receipts. Frontend and backend must be updated together. JSON Schema type/format names and external provider protocol values keep their standard spelling.
+API domain enums use UPPER_SNAKE_CASE. Run `pnpm db:migrate` before starting this version against an existing database: the migrations update domain enums and remove stored message intent, preserving user values, message content and retry receipts. Frontend and backend must be updated together. JSON Schema type/format names and external provider protocol values keep their standard spelling.
