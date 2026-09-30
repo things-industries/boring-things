@@ -6,7 +6,7 @@ import { readdir, readFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { expect } from '@playwright/test';
-import { launchBrowser } from '../support/browser-app.js';
+import { launchBrowser } from '../support/test-app.js';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';

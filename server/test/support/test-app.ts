@@ -1,6 +1,7 @@
 /**
- * Starts the built application against an isolated temporary database with fixture AI providers,
- * a local JWKS issuer and a signed-in Playwright browser, for browser checks and page previews.
+ * Starts the built application against an isolated temporary database with fixture AI providers
+ * and a local JWKS issuer, and signs Playwright browsers in with a verified test token. Used by the
+ * e2e suite, the screenshot tool and browser integration checks.
  */
 
 import { createServer } from 'node:http';
@@ -9,7 +10,8 @@ import { existsSync } from 'node:fs';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { chromium, type Browser, type BrowserContext } from '@playwright/test';
+import { chromium, type Browser } from '@playwright/test';
+import { chromiumExecutable } from '../../../e2e/state.js';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
@@ -18,26 +20,14 @@ import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
 import { seedRegistry } from '../../src/db/registry-seed.js';
 
-export const viewports = {
-  mobile: { width: 390, height: 844 },
-  desktop: { width: 1440, height: 1100 },
-};
-
 const appId = 'browser-test';
 const subject = 'browser-alice';
-// Cloud sessions ship a preinstalled Chromium that may not match the Playwright revision.
-const preinstalledChromium = '/opt/pw-browsers/chromium';
 
 export async function launchBrowser(): Promise<Browser> {
-  const executablePath =
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ??
-    (!existsSync(chromium.executablePath()) && existsSync(preinstalledChromium)
-      ? preinstalledChromium
-      : undefined);
-  return chromium.launch({ executablePath });
+  return chromium.launch({ executablePath: chromiumExecutable() });
 }
 
-export async function startBrowserApp(options: { samples?: boolean } = {}) {
+export async function startTestApp(options: { samples?: boolean; port?: number } = {}) {
   const url = new URL(
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
@@ -52,11 +42,19 @@ export async function startBrowserApp(options: { samples?: boolean } = {}) {
     for (const step of cleanup.reverse()) await step();
   };
   try {
-    // Supabase provides these roles; plain PostgreSQL needs them for the migrations' grants.
-    await admin.query(`do $$ begin
-      if not exists (select from pg_roles where rolname='anon') then create role anon nologin; end if;
-      if not exists (select from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
-    end $$`);
+    try {
+      // Supabase provides these roles; plain PostgreSQL needs them for the migrations' grants.
+      await admin.query(`do $$ begin
+        if not exists (select from pg_roles where rolname='anon') then create role anon nologin; end if;
+        if not exists (select from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+      end $$`);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ECONNREFUSED')
+        throw new Error(
+          `No PostgreSQL at ${url.host}. Run pnpm db:start, or ./scripts/cloud-postgres.sh where Docker is unavailable.`,
+        );
+      throw error;
+    }
     await admin.query(`create database ${dbName}`);
     cleanup.push(() => admin.query(`drop database ${dbName} with (force)`));
     url.pathname = '/' + dbName;
@@ -95,16 +93,17 @@ export async function startBrowserApp(options: { samples?: boolean } = {}) {
     const importAi = new FixtureAi();
     const chatAi = new FixtureChat();
     const app = await buildApp({ pool, config, importAi, chatAi });
-    const base = await app.listen({ host: '127.0.0.1', port: 0 });
+    const base = await app.listen({ host: '127.0.0.1', port: options.port ?? 0 });
     cleanup.push(() => app.close());
 
+    const expiresAt = Math.floor(Date.now() / 1000) + 12 * 3600;
     const accessToken = await new SignJWT({})
       .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
       .setSubject(subject)
       .setAudience(config.apiResource)
       .setIssuer(issuer + '/oidc')
       .setIssuedAt()
-      .setExpirationTime('12h')
+      .setExpirationTime(expiresAt)
       .sign(privateKey);
     const authorization = 'Bearer ' + accessToken;
     const profile = await app.inject({ url: '/api/profile', headers: { authorization } });
@@ -118,43 +117,36 @@ export async function startBrowserApp(options: { samples?: boolean } = {}) {
       if (seeded.statusCode !== 200) throw new Error('Sample seeding failed: ' + seeded.body);
     }
 
-    const browser = await launchBrowser();
-    cleanup.push(() => browser.close());
-    // Seed a session only in this test browser; the API still validates the signed access token through JWKS.
-    const signIn = (context: BrowserContext) =>
-      context.addInitScript(
-        ({ appId, accessToken, resource }) => {
-          localStorage.setItem(`logto:${appId}:idToken`, 'test-session');
-          localStorage.setItem(
-            `logto:${appId}:accessToken`,
-            JSON.stringify({
-              ['@' + resource]: {
-                token: accessToken,
-                scope: '',
-                expiresAt: Date.now() / 1000 + 43200,
-              },
-            }),
-          );
+    // A Logto session exists only in browsers given this state; the API still validates the signed
+    // access token through JWKS.
+    const storageState = {
+      cookies: [],
+      origins: [
+        {
+          origin: base,
+          localStorage: [
+            { name: `logto:${appId}:idToken`, value: 'test-session' },
+            {
+              name: `logto:${appId}:accessToken`,
+              value: JSON.stringify({
+                ['@' + config.apiResource]: { token: accessToken, scope: '', expiresAt },
+              }),
+            },
+          ],
         },
-        { appId, accessToken, resource: config.apiResource },
-      );
-    const newContext = async (signedIn = true) => {
-      const context = await browser.newContext({ viewport: viewports.desktop });
-      if (signedIn) await signIn(context);
-      return context;
+      ],
     };
 
     return {
       base,
       app,
       pool,
-      browser,
       config,
       importAi,
       chatAi,
       accessToken,
       authorization,
-      newContext,
+      storageState,
       close,
     };
   } catch (error) {
@@ -163,4 +155,4 @@ export async function startBrowserApp(options: { samples?: boolean } = {}) {
   }
 }
 
-export type BrowserApp = Awaited<ReturnType<typeof startBrowserApp>>;
+export type TestApp = Awaited<ReturnType<typeof startTestApp>>;
