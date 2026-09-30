@@ -1,3 +1,8 @@
+/**
+ * Defines and upserts authored categories, fields and sets. Registry seeds update metadata;
+ * existing Thing values require separate migrations.
+ */
+
 import type { FieldDefinition, FieldSet, Schema } from '../../../shared/model.js';
 import type { Database } from './connection.js';
 import { Registry } from '../application/registry.js';
@@ -12,6 +17,7 @@ const names = [
   'Insurance',
   'Other',
 ];
+
 export const categories = names.map(
   (name, i) =>
     ({
@@ -24,6 +30,7 @@ export const categories = names.map(
       thingCount: 0,
     }) satisfies Schema['Category'],
 );
+
 const field = (
   id: string,
   name: string,
@@ -39,15 +46,26 @@ const field = (
   sensitive: false,
   ...extra,
 });
+
+// Amounts use integer minor units; the supported currencies currently have two decimal places.
 export const moneySchema: FieldDefinition['schema'] = {
   type: 'object',
   additionalProperties: false,
   required: ['amountMinor', 'currency'],
   properties: {
-    amountMinor: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
-    currency: { type: 'string', pattern: '^[A-Z]{3}$', enum: ['GBP', 'EUR', 'USD'] },
+    amountMinor: {
+      type: 'integer',
+      minimum: 0,
+      maximum: Number.MAX_SAFE_INTEGER,
+    },
+    currency: {
+      type: 'string',
+      pattern: '^[A-Z]{3}$',
+      enum: ['GBP', 'EUR', 'USD'],
+    },
   },
 };
+
 export const fields: FieldDefinition[] = [
   field('common.manufacturer', 'Manufacturer'),
   field('common.model', 'Model'),
@@ -122,6 +140,7 @@ export const fields: FieldDefinition[] = [
     },
   ),
 ];
+
 const set = (
   id: string,
   name: string,
@@ -139,6 +158,7 @@ const set = (
   considerAlongside: alongside,
   keywords: name.toLowerCase().split(' '),
 });
+
 export const sets: FieldSet[] = [
   set('appliances.appliance', 'Appliance', 'A household appliance.', [
     'common.manufacturer',
@@ -210,18 +230,23 @@ export const sets: FieldSet[] = [
     'membership.accessPin',
   ]),
 ];
+
 export async function seedRegistry(db: Database) {
+  // Validate definitions and inclusion dependencies before writing registry metadata.
   new Registry(fields, sets);
+
   for (const c of categories)
     await db.query(
       'insert into bt.categories(id,name,description,icon,default_image,sort_order) values($1,$2,$3,$4,$5,$6) on conflict(id) do update set name=excluded.name,description=excluded.description,icon=excluded.icon,default_image=excluded.default_image,sort_order=excluded.sort_order',
       [c.id, c.name, c.description, c.icon, c.defaultImage, c.sortOrder],
     );
+
   for (const f of fields)
     await db.query(
       'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive) values($1,$2,$3,$4,$5,$6,$7) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive',
       [f.id, f.name, f.description, f.keywords, JSON.stringify(f.schema), f.uiHint, f.sensitive],
     );
+
   for (const s of sets)
     await db.query(
       'insert into bt.field_sets(id,category_id,name,eligibility,keywords,includes,consider_alongside,field_ids) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(id) do update set category_id=excluded.category_id,name=excluded.name,eligibility=excluded.eligibility,keywords=excluded.keywords,includes=excluded.includes,consider_alongside=excluded.consider_alongside,field_ids=excluded.field_ids',

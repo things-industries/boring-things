@@ -1,3 +1,7 @@
+/**
+ * Builds short imported Thing names, adding a model or numeric suffix when existing names collide.
+ */
+
 import type { Candidate } from './import-types.js';
 
 export function candidateModel(candidate: Candidate) {
@@ -13,6 +17,7 @@ export function importedName(name: string, model: string | undefined, existing: 
   const base = name.trim().slice(0, 200);
   const used = new Set(existing.map((value) => value.trim().toLowerCase()));
   if (!used.has(base.toLowerCase())) return base;
+  // Keep the short name when available; add model details only after a case-insensitive collision.
   const specific =
     model && !base.toLowerCase().includes(model.toLowerCase())
       ? `${base.slice(0, 140)} (${model.slice(0, 50)})`

@@ -5,13 +5,19 @@ import type { IncomingMessage } from 'node:http';
 import { documentUrl, downloadPdf, publicAddress } from '../src/providers/documents.js';
 
 const pdf = Buffer.from('%PDF-1.7\nsynthetic document\n%%EOF');
-const options = () => ({ maxBytes: 1024, signal: new AbortController().signal });
+const options = () => ({
+  maxBytes: 1024,
+  signal: new AbortController().signal,
+});
 function response(
   body = pdf,
   headers: IncomingMessage['headers'] = { 'content-type': 'application/pdf' },
   statusCode = 200,
 ) {
-  return Object.assign(Readable.from([body]), { headers, statusCode }) as IncomingMessage;
+  return Object.assign(Readable.from([body]), {
+    headers,
+    statusCode,
+  }) as IncomingMessage;
 }
 
 test('documents reject local, reserved, mapped and obfuscated addresses', () => {
@@ -62,7 +68,9 @@ test('downloads verify bytes and accept PDF endpoints without extensions', async
   );
   assert.equal(
     await downloadPdf('https://example.com/manual', options(), async () =>
-      response(Buffer.from('<html>summary</html>'), { 'content-type': 'text/html' }),
+      response(Buffer.from('<html>summary</html>'), {
+        'content-type': 'text/html',
+      }),
     ),
     null,
   );

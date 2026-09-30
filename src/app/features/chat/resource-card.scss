@@ -1,0 +1,14 @@
+@use 'tokens';
+:host {
+  display: block;
+  margin-block: tokens.space(3);
+}
+.resource {
+  padding: tokens.space(4);
+  border: 1px solid tokens.color('border');
+  border-radius: tokens.radius(card);
+  overflow-wrap: anywhere;
+}
+.resource a {
+  margin-right: tokens.space(3);
+}

@@ -1,3 +1,8 @@
+/**
+ * Persists import state, allocates candidate targets, guards edits and exposes import summaries
+ * without raw extracted content.
+ */
+
 import { isDeepStrictEqual } from 'node:util';
 import type pg from 'pg';
 import { emptyData, type Schema } from '../../../shared/model.js';
@@ -20,6 +25,7 @@ export async function availableImportName(
     'select name from bt.things where owner_id=$1 and ($2::uuid is null or id<>$2) and starts_with(lower(name),lower($3))',
     [owner, id, name.trim().slice(0, 140)],
   );
+
   return importedName(
     name,
     model,
@@ -40,6 +46,7 @@ export interface ImportRow {
   error: string | null;
   usage: Usage | null;
 }
+
 export interface Target {
   candidateId: string;
   thingId: string;
@@ -49,6 +56,7 @@ export interface Target {
   discovered: boolean;
   discovery: Discovery | null;
 }
+
 export async function ownedImport(db: Database, owner: string, id: string, lock = false) {
   const [job] = await rows<ImportRow>(
     db,
@@ -58,6 +66,8 @@ export async function ownedImport(db: Database, owner: string, id: string, lock 
   ensure(job, 'Import not found', 404);
   return job;
 }
+
+// Extraction includes raw source text and secrets; ordinary HTTP and SSE responses expose only this projection.
 export function projectImport(job: ImportRow): Schema['Import'] {
   return {
     id: job.id,
@@ -77,18 +87,22 @@ export function projectImport(job: ImportRow): Schema['Import'] {
     usage: job.usage ?? blankUsage(),
   };
 }
+
 export async function thingImport(db: Database, owner: string, id: string) {
   const [job] = await rows<ImportRow>(
     db,
     `select i.* from bt.imports i where i.owner_id=$1 and (i.target_thing_id=$2 or i.skeleton_id=$2 or exists(select 1 from bt.import_targets t where t.import_id=i.id and t.thing_id=$2)) order by (i.status=any($3::text[])) desc,i.created_at desc limit 1`,
     [owner, id, activeStatuses],
   );
+
   return job ? projectImport(job) : null;
 }
+
 export async function assertEditable(db: Database, owner: string, id: string) {
   const job = await thingImport(db, owner, id);
   ensure(!job || !activeStatuses.includes(job.status), 'Thing is processing an import', 409);
 }
+
 export async function touchImportThings(db: Database, job: ImportRow) {
   const ids = [
     ...new Set(
@@ -97,6 +111,7 @@ export async function touchImportThings(db: Database, job: ImportRow) {
   ];
   for (const id of ids) await bumpThing(db, job.ownerId, id);
 }
+
 export async function setImportStatus(
   pool: pg.Pool,
   owner: string,
@@ -113,6 +128,7 @@ export async function setImportStatus(
     await touchImportThings(db, job);
   });
 }
+
 export async function startImport(
   pool: pg.Pool,
   owner: string,
@@ -131,6 +147,7 @@ export async function startImport(
       404,
     );
     let thingId = target;
+
     if (thingId) {
       await ownedThing(db, owner, thingId, true);
       await assertEditable(db, owner, thingId);
@@ -142,6 +159,7 @@ export async function startImport(
       );
       thingId = thing.id;
     }
+
     await db.query(
       'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
       [thingId, attachment, owner],
@@ -155,6 +173,7 @@ export async function startImport(
     return { importId: job.id, thingId, status: 'queued' as const };
   });
 }
+
 export async function allocateTargets(
   db: Database,
   job: ImportRow,
@@ -166,6 +185,7 @@ export async function allocateTargets(
       new Set(selections.map((s) => s.candidateId)).size === selections.length,
     'Invalid candidates',
   );
+
   // Lock all existing targets in stable order, then validate before creating anything.
   for (const id of [
     ...new Set(selections.flatMap((s) => (s.targetThingId ? [s.targetThingId] : []))),
@@ -178,20 +198,26 @@ export async function allocateTargets(
       409,
     );
   }
+
+  // Reuse the placeholder for the first new candidate so its ID stays stable when extraction finishes.
   let skeletonAvailable = !!job.skeletonId;
   const ids: string[] = [];
+
   for (const selection of selections) {
     const candidate = job.extraction.candidates.find((c) => c.id === selection.candidateId);
     ensure(candidate, 'Unknown candidate');
     let id = selection.targetThingId;
     const isNew = id === null;
+
     if (!id && skeletonAvailable) {
       id = job.skeletonId;
       skeletonAvailable = false;
     }
+
     const name = isNew
       ? await availableImportName(db, job.ownerId, id, candidate.name, candidateModel(candidate))
       : candidate.name;
+
     if (!id) {
       const [thing] = await rows<{ id: string }>(
         db,
@@ -200,6 +226,7 @@ export async function allocateTargets(
       );
       id = thing.id;
     }
+
     if (isNew) {
       const current = await ownedThing(db, job.ownerId, id, true);
       await db.query('update bt.things set name=$1,category_id=$2 where id=$3 and owner_id=$4', [
@@ -209,6 +236,7 @@ export async function allocateTargets(
         job.ownerId,
       ]);
     }
+
     await db.query(
       'insert into bt.import_targets(import_id,candidate_id,thing_id,owner_id,is_new) values($1,$2,$3,$4,$5)',
       [job.id, candidate.id, id, job.ownerId, isNew],
@@ -220,6 +248,7 @@ export async function allocateTargets(
     ids.push(id);
     await bumpThing(db, job.ownerId, id);
   }
+
   // The processing lock prevents edits. Still verify that this is the untouched skeleton.
   if (skeletonAvailable && job.skeletonId && !ids.includes(job.skeletonId)) {
     const skeleton = await ownedThing(db, job.ownerId, job.skeletonId, true);
@@ -227,10 +256,12 @@ export async function allocateTargets(
       'select 1 from bt.thing_attachments where thing_id=$1 and attachment_id<>$2',
       [job.skeletonId, job.attachmentId],
     );
+
     const activity = await db.query(
       'select 1 from bt.issues where thing_id=$1 union all select 1 from bt.events where thing_id=$1 union all select 1 from bt.purchasables where thing_id=$1 union all select 1 from bt.conversations where thing_id=$1 limit 1',
       [job.skeletonId],
     );
+
     if (
       !activity.rowCount &&
       skeleton.description === '' &&
@@ -246,11 +277,13 @@ export async function allocateTargets(
       ]);
     }
   }
+
   await db.query(
     "update bt.imports set selection=$1,result_thing_ids=$2,target_thing_id=$3,status='queued' where id=$4 and owner_id=$5",
     [JSON.stringify(selections), [...new Set(ids)], ids[0], job.id, job.ownerId],
   );
 }
+
 export async function targets(db: Database, job: ImportRow) {
   return rows<Target>(
     db,

@@ -1,3 +1,8 @@
+/**
+ * Registers Thing listing, creation, editing, deletion and explicit field reveal, keeping stored
+ * sensitive data out of list responses.
+ */
+
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import type { Schema } from '../../../shared/model.js';
@@ -9,6 +14,7 @@ import { detail, writeThing } from '../application/things.js';
 import { assertEditable } from '../db/imports.js';
 import { ownedThing } from '../db/things.js';
 import { revealValue } from '../application/thing-data.js';
+
 export function thingRoutes(app: FastifyInstance, db: pg.Pool, registry: Registry) {
   route(app, 'GET', '/api/things', async (req) => {
     const { limit, offset } = page(req.query);
@@ -24,6 +30,7 @@ export function thingRoutes(app: FastifyInstance, db: pg.Pool, registry: Registr
         offset,
       ],
     );
+
     // Explicitly omit stored data; sensitive values never enter list responses.
     return pageResult(
       result.map((t) => ({
@@ -41,14 +48,18 @@ export function thingRoutes(app: FastifyInstance, db: pg.Pool, registry: Registr
       req.query,
     );
   });
+
   route<Schema['ThingCreate']>(app, 'POST', '/api/things', async (req, reply) => {
     reply.code(201);
     return writeThing(db, req.ownerId, req.body, registry);
   });
+
   route(app, 'GET', '/api/things/{id}', (req) => detail(db, req.ownerId, req.params.id, registry));
+
   route<Schema['ThingPatch']>(app, 'PATCH', '/api/things/{id}', (req) =>
     writeThing(db, req.ownerId, req.body, registry, req.params.id),
   );
+
   route(app, 'DELETE', '/api/things/{id}', async (req, reply) => {
     await transaction(db, async (tx) => {
       await ownedThing(tx, req.ownerId, req.params.id, true);
@@ -60,6 +71,7 @@ export function thingRoutes(app: FastifyInstance, db: pg.Pool, registry: Registr
     });
     reply.code(204).send();
   });
+
   route<Schema['Pin']>(app, 'POST', '/api/things/{id}:reveal-field', async (req) => ({
     value: revealValue((await ownedThing(db, req.ownerId, req.params.id)).data, req.body, registry),
   }));

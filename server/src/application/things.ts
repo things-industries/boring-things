@@ -1,3 +1,8 @@
+/**
+ * Builds Thing detail responses and coordinates transactional creation and patching with category,
+ * tag and image validation.
+ */
+
 import type pg from 'pg';
 import { emptyData, type Schema, type ThingPatch } from '../../../shared/model.js';
 import { rows, transaction, type Database } from '../db/connection.js';
@@ -22,6 +27,7 @@ export async function detail(
     ...(await relatedIds(db, owner, id)),
   };
 }
+
 export async function writeThing(
   pool: pg.Pool,
   owner: string,
@@ -30,6 +36,7 @@ export async function writeThing(
   id?: string,
 ) {
   return transaction(pool, async (db) => {
+    // Lock the stored Thing before merging a patch so concurrent writes cannot replace each other with stale data.
     let thing = id ? await ownedThing(db, owner, id, true) : undefined;
     if (thing) await assertEditable(db, owner, thing.id);
     const category = input.categoryId ?? thing?.categoryId;
@@ -39,6 +46,7 @@ export async function writeThing(
     );
     ensure((input.name ?? thing?.name)?.trim(), 'Name cannot be blank');
     const data = patchData(thing?.data ?? emptyData(), input, category, registry);
+
     if (!thing) {
       const [created] = await rows<{ id: string }>(
         db,
@@ -47,8 +55,10 @@ export async function writeThing(
       );
       thing = await ownedThing(db, owner, created.id);
     }
+
     const image =
       input.imageAttachmentId === undefined ? thing.imageAttachmentId : input.imageAttachmentId;
+
     if (image)
       ensure(
         (
@@ -59,6 +69,7 @@ export async function writeThing(
         ).rowCount,
         'Image must be a linked image attachment',
       );
+
     await db.query(
       'update bt.things set name=$1,description=$2,category_id=$3,data=$4,image_attachment_id=$5,revision=revision+1 where id=$6 and owner_id=$7',
       [
@@ -71,6 +82,7 @@ export async function writeThing(
         owner,
       ],
     );
+
     if (input.tagIds) {
       const ids = [...new Set(input.tagIds)];
       ensure(
@@ -86,6 +98,7 @@ export async function writeThing(
         thing.id,
         owner,
       ]);
+
       for (const tag of ids)
         await db.query('insert into bt.thing_tags(thing_id,tag_id,owner_id) values($1,$2,$3)', [
           thing.id,
@@ -93,6 +106,7 @@ export async function writeThing(
           owner,
         ]);
     }
+
     return detail(db, owner, thing.id, registry);
   });
 }

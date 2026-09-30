@@ -1,6 +1,6 @@
 # Frontend agent guide
 
-The Angular client manages Things, fields, documents and activity through relative `/api` URLs. Read root `README.md` for implemented behaviour and `docs/requirements/product/PRODUCT.md` for product intent. Read `docs/plans/poc-scaffolding.md` when implementing registry sections, imports or assistant work; later steps remain planned.
+The Angular client manages Things, fields, documents and activity through relative `/api` URLs. Read root `README.md` for implemented behaviour and `docs/requirements/product/PRODUCT.md` for product intent. Read `docs/plans/poc-scaffolding.md` when implementing registry sections, imports or assistant work; the three scaffold steps are implemented, with manual identity/device checks noted in the plan.
 
 ## Structure
 
@@ -19,6 +19,8 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it.
 - `app/features/dashboard/`: Things, filters, sample-data action and activity overview.
 - `app/features/things/`: manual creation, details, field edits, pins, tags and attachments; `import-panel.*` handles uploads, confirmation and retry.
+- `app/features/chat/`: active conversations, streamed text, retry and typed resource cards. New entry starts a new chat; no conversation history/resumption.
+- `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
 - `app/features/login/`: sign-in and setup-pending screen.
 - `app/components/`: reusable field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.

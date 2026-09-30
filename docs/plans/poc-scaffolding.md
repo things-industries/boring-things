@@ -9,7 +9,7 @@ Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../
 - Step 1 uses one Logto Cloud tenant as the identity source for local development and production. Pause for user setup before validating live login.
 - Author initial registry seeds from this plan; use a museum membership example.
 - Sensitive fields are masked by default. Normal detail responses omit their values and source quotes; an owner-authorized reveal action returns the value with `Cache-Control: private, no-store`. This is display/access control, not encrypted vault storage.
-- Issues, events and purchasables use labelled sample data for UI work. Real extraction and reasoning initially focus on defining Things. Activity/product discovery and assistant execution remain deferred pending further instruction.
+- Issues, events and purchasables use labelled sample data for UI work. Real extraction and reasoning initially focus on defining Things. Activity/product discovery was implemented in step 2; assistant execution is implemented in step 3.
 - The initial field subset supports strings, numbers, integers, booleans, enums, dates, bounds and patterns. Money uses integer minor units and GBP/EUR/USD. `null` clears a value.
 - Step 1 includes manual creation, set selection, every empty field, tags and attachments. Sections remain one per set until the later grouping work.
 - A Thing can select a linked image attachment as its image. Category artwork is the fallback.
@@ -36,23 +36,23 @@ Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../
 
 Use UUIDs for owned records and stable text IDs for seeded registry records. Add `created_at`/`updated_at` to mutable records. Foreign keys for ordinary relations; validate registry ID arrays and Thing JSON against the registry in application code.
 
-| Table | Proposed columns |
-| --- | --- |
-| `users` | `id`, `auth_subject` unique, `display_name` |
-| `categories` | `id`, `name`, `description`, `icon`, `default_image`, `sort_order` |
-| `field_definitions` | `id`, `name`, `description`, `keywords text[]`, `schema jsonb` (supported JSON Schema subset), `ui_hint` |
-| `field_sets` | `id`, `category_id`, `name`, `eligibility`, `keywords text[]`, `includes text[]`, `consider_alongside text[]`, `field_ids text[]` in display order |
-| `things` | `id`, `owner_id`, `category_id`, `name`, `description`, `data jsonb`, `revision bigint` for stream ordering |
-| `attachments` | `id`, `owner_id`, `filename`, `media_type`, `byte_size`, `storage_key`, `source_url` nullable |
-| `thing_attachments` | `thing_id`, `attachment_id`; composite primary key |
-| `imports` | `id`, `owner_id`, `attachment_id`, `target_thing_id` nullable, `status`, `extraction jsonb`, `selection jsonb`, `result_thing_ids uuid[]`, `error`, `usage jsonb`, `started_at`, `finished_at` |
-| `tags` | `id`, `owner_id`, `name`; unique per owner |
-| `thing_tags` | `thing_id`, `tag_id`; composite primary key |
-| `issues` | `id`, `owner_id`, `thing_id`, `title`, `description`, `status` (open/resolved), `resolved_at` nullable |
-| `events` | `id`, `owner_id`, `thing_id`, `issue_id` nullable, `title`, `description`, `status` (suggested/scheduled/completed/dismissed), `starts_at` nullable, `completed_at` nullable, `source_refs jsonb` |
-| `purchasables` | `id`, `owner_id`, `thing_id`, `kind` (consumable/accessory/upgrade), `name`, `description`, `merchant_url`, `image_url` nullable, `price_amount` nullable, `currency` nullable, `source_refs jsonb`, `checked_at` |
-| `conversations` | `id`, `owner_id`, `thing_id` nullable for dashboard-started chat |
-| `messages` | `id`, `conversation_id`, `request_id`, `role`, `text`, `cards jsonb`, `source_refs jsonb`, `tool_results jsonb`, `status` (queued/processing/complete/failed), `usage jsonb`, `error` nullable; unique `(conversation_id, request_id, role)` |
+| Table               | Proposed columns                                                                                                                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`             | `id`, `auth_subject` unique, `display_name`                                                                                                                                                                                                  |
+| `categories`        | `id`, `name`, `description`, `icon`, `default_image`, `sort_order`                                                                                                                                                                           |
+| `field_definitions` | `id`, `name`, `description`, `keywords text[]`, `schema jsonb` (supported JSON Schema subset), `ui_hint`                                                                                                                                     |
+| `field_sets`        | `id`, `category_id`, `name`, `eligibility`, `keywords text[]`, `includes text[]`, `consider_alongside text[]`, `field_ids text[]` in display order                                                                                           |
+| `things`            | `id`, `owner_id`, `category_id`, `name`, `description`, `data jsonb`, `revision bigint` for stream ordering                                                                                                                                  |
+| `attachments`       | `id`, `owner_id`, `filename`, `media_type`, `byte_size`, `storage_key`, `source_url` nullable                                                                                                                                                |
+| `thing_attachments` | `thing_id`, `attachment_id`; composite primary key                                                                                                                                                                                           |
+| `imports`           | `id`, `owner_id`, `attachment_id`, `target_thing_id` nullable, `status`, `extraction jsonb`, `selection jsonb`, `result_thing_ids uuid[]`, `error`, `usage jsonb`, `started_at`, `finished_at`                                               |
+| `tags`              | `id`, `owner_id`, `name`; unique per owner                                                                                                                                                                                                   |
+| `thing_tags`        | `thing_id`, `tag_id`; composite primary key                                                                                                                                                                                                  |
+| `issues`            | `id`, `owner_id`, `thing_id`, `title`, `description`, `status` (open/resolved), `resolved_at` nullable                                                                                                                                       |
+| `events`            | `id`, `owner_id`, `thing_id`, `issue_id` nullable, `title`, `description`, `status` (suggested/scheduled/completed/dismissed), `starts_at` nullable, `completed_at` nullable, `source_refs jsonb`                                            |
+| `purchasables`      | `id`, `owner_id`, `thing_id`, `kind` (consumable/accessory/upgrade), `name`, `description`, `merchant_url`, `image_url` nullable, `price_amount` nullable, `currency` nullable, `source_refs jsonb`, `checked_at`                            |
+| `conversations`     | `id`, `owner_id`, `thing_id` nullable for dashboard-started chat                                                                                                                                                                             |
+| `messages`          | `id`, `conversation_id`, `request_id`, `role`, `text`, `cards jsonb`, `source_refs jsonb`, `tool_results jsonb`, `status` (queued/processing/complete/failed), `usage jsonb`, `error` nullable; unique `(conversation_id, request_id, role)` |
 
 `things.data` stores set IDs, values keyed by field ID within each set, standalone values, undefined fields, and pinned field references. Definitions remain in the registry. JSONB keeps the POC small; application validation enforces the structure. Add normalized value tables when field-level querying warrants them.
 
@@ -104,10 +104,10 @@ server/src/
 
 Tool surface:
 
-| Tool | Input | Output |
-| --- | --- | --- |
-| `search_field_sets` | `categoryId`, `terms[]` | Bounded matches, included dependencies, and one hop of alongside suggestions, with eligibility and field definitions |
-| `search_fields` | Batched observed labels plus surrounding text | Bounded field matches with definitions and set membership summaries |
+| Tool                | Input                                         | Output                                                                                                               |
+| ------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `search_field_sets` | `categoryId`, `terms[]`                       | Bounded matches, included dependencies, and one hop of alongside suggestions, with eligibility and field definitions |
+| `search_fields`     | Batched observed labels plus surrounding text | Bounded field matches with definitions and set membership summaries                                                  |
 
 Return definitions with search results initially, avoiding an extra metadata-fetch round trip. Application code expands mandatory dependencies and deduplicates results. Alongside suggestions remain optional. Make truncation visible; permit a refined search within the tool budget.
 
@@ -128,29 +128,29 @@ Use structured responses, stable prompts and batched searches. Record model, inp
 
 Author `openapi.json` first. All routes use `/api` and authenticated owner scope. Lists accept `limit` and `cursor`; registry endpoints are read-only. Invalid references/values return 422; invalid import-state actions return 409. Limits on file size and supported media types are configured and reflected in the UI.
 
-| Route | Operation |
-| --- | --- |
-| `GET /profile` | Current user; create the local user on first authenticated access |
-| `GET /categories` | Static categories and current user's Thing counts |
-| `GET /field-sets?categoryId=&q=`; `GET /field-sets/{id}` | Registry search/detail, including relation IDs and field definitions |
-| `GET /fields?q=`; `GET /fields/{id}` | Individual definition search/detail |
-| `GET /things?categoryId=&tagId=&q=`; `POST /things` | List or create from literal data |
-| `GET /things/{id}`; `PATCH /things/{id}`; `DELETE /things/{id}` | Expanded detail; edit basics, tags, pins and changed values; delete |
-| `GET /things/{thingId}/stream` | SSE snapshots of progressive Thing state and related record IDs |
-| `POST /things:import` | `{attachmentId, thingId?}`; create/use skeleton and return 202 with `importId` and `thingId` |
-| `GET /imports/{id}` | Status, candidate selection request, results or error |
-| `POST /imports/{id}:confirm` | Submit accepted candidates and optional existing target Thing IDs |
-| `POST /imports/{id}:retry` | Retry a failed/incomplete import without duplicating results |
-| `GET /attachments?thingId=`; `POST /attachments` | List or upload a top-level source; upload returns its ID |
-| `GET /attachments/{id}`; `GET /attachments/{id}/content`; `DELETE /attachments/{id}` | Metadata, authorized download, delete if unreferenced |
-| `PUT /attachments/{id}/things/{thingId}`; `DELETE /attachments/{id}/things/{thingId}` | Idempotently link/unlink; retain other Thing links |
-| `GET /tags`; `POST /tags`; `PATCH /tags/{id}`; `DELETE /tags/{id}` | User-defined filing tags; deletion removes associations |
-| `GET /issues?thingId=&status=`; `POST /issues`; `GET /issues/{id}`; `PATCH /issues/{id}` | Open/list/update/resolve issues |
-| `GET /events?thingId=&status=&from=&to=`; `POST /events`; `GET /events/{id}`; `PATCH /events/{id}` | Suggestions, upcoming/past events, scheduling and completion |
-| `GET /purchasables?thingId=&kind=`; `GET /purchasables/{id}` | Cited consumable/accessory/upgrade suggestions populated by discovery |
-| `POST /conversations`; `GET /conversations/{id}` | Start a chat with optional `thingId`; fetch the active conversation |
-| `POST /conversations/{id}/messages` | `{text, requestId}`; enqueue a response, return 202; reuse request ID for retry |
-| `GET /conversations/{id}/stream` | SSE active-conversation snapshot, text deltas, cards, completion/error |
+| Route                                                                                              | Operation                                                                                    |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `GET /profile`                                                                                     | Current user; create the local user on first authenticated access                            |
+| `GET /categories`                                                                                  | Static categories and current user's Thing counts                                            |
+| `GET /field-sets?categoryId=&q=`; `GET /field-sets/{id}`                                           | Registry search/detail, including relation IDs and field definitions                         |
+| `GET /fields?q=`; `GET /fields/{id}`                                                               | Individual definition search/detail                                                          |
+| `GET /things?categoryId=&tagId=&q=`; `POST /things`                                                | List or create from literal data                                                             |
+| `GET /things/{id}`; `PATCH /things/{id}`; `DELETE /things/{id}`                                    | Expanded detail; edit basics, tags, pins and changed values; delete                          |
+| `GET /things/{thingId}/stream`                                                                     | SSE snapshots of progressive Thing state and related record IDs                              |
+| `POST /things:import`                                                                              | `{attachmentId, thingId?}`; create/use skeleton and return 202 with `importId` and `thingId` |
+| `GET /imports/{id}`                                                                                | Status, candidate selection request, results or error                                        |
+| `POST /imports/{id}:confirm`                                                                       | Submit accepted candidates and optional existing target Thing IDs                            |
+| `POST /imports/{id}:retry`                                                                         | Retry a failed/incomplete import without duplicating results                                 |
+| `GET /attachments?thingId=`; `POST /attachments`                                                   | List or upload a top-level source; upload returns its ID                                     |
+| `GET /attachments/{id}`; `GET /attachments/{id}/content`; `DELETE /attachments/{id}`               | Metadata, authorized download, delete if unreferenced                                        |
+| `PUT /attachments/{id}/things/{thingId}`; `DELETE /attachments/{id}/things/{thingId}`              | Idempotently link/unlink; retain other Thing links                                           |
+| `GET /tags`; `POST /tags`; `PATCH /tags/{id}`; `DELETE /tags/{id}`                                 | User-defined filing tags; deletion removes associations                                      |
+| `GET /issues?thingId=&status=`; `POST /issues`; `GET /issues/{id}`; `PATCH /issues/{id}`           | Open/list/update/resolve issues                                                              |
+| `GET /events?thingId=&status=&from=&to=`; `POST /events`; `GET /events/{id}`; `PATCH /events/{id}` | Suggestions, upcoming/past events, scheduling and completion                                 |
+| `GET /purchasables?thingId=&kind=`; `GET /purchasables/{id}`                                       | Cited consumable/accessory/upgrade suggestions populated by discovery                        |
+| `POST /conversations`; `GET /conversations/{id}`                                                   | Start a chat with optional `thingId`; fetch the active conversation                          |
+| `POST /conversations/{id}/messages`                                                                | `{text, requestId}`; enqueue a response, return 202; reuse request ID for retry              |
+| `GET /conversations/{id}/stream`                                                                   | SSE active-conversation snapshot, text deltas, cards, completion/error                       |
 
 PATCH field updates use `(fieldSetId, fieldId)`; `fieldSetId: null` means standalone. `value: null` clears a value. Undefined fields use their local ID. Selected sets can be added/removed by ID; included sets cannot be removed while required. Preserve populated fields from removed sets as labelled undefined fields for the POC; richer remapping is deferred. Category correction clears incompatible set assignments using the same preservation rule.
 
@@ -227,7 +227,12 @@ Owned-record IDs below are abbreviated. The response embeds definitions to avoid
   ],
   "standaloneFields": [],
   "undefinedFields": [{ "id": "local-1", "label": "Installer reference", "value": "ABC-12" }],
-  "pinnedFields": [{ "fieldSetId": "appliances.neffIdentifiers", "fieldId": "appliances.zNumber" }],
+  "pinnedFields": [
+    {
+      "fieldSetId": "appliances.neffIdentifiers",
+      "fieldId": "appliances.zNumber"
+    }
+  ],
   "attachmentIds": ["attachment-1"],
   "issueIds": [],
   "eventIds": [],
@@ -244,7 +249,11 @@ Owned-record IDs below are abbreviated. The response embeds definitions to avoid
   "status": "awaiting_selection",
   "candidates": [
     { "id": "candidate-1", "name": "Dishwasher", "categoryId": "appliances" },
-    { "id": "candidate-2", "name": "Appliance protection policy", "categoryId": "insurance" }
+    {
+      "id": "candidate-2",
+      "name": "Appliance protection policy",
+      "categoryId": "insurance"
+    }
   ]
 }
 ```
@@ -295,13 +304,13 @@ Examples are illustrative; discovery must supply real sources and merchant links
 
 ## UI views
 
-| View | Scaffold behaviour |
-| --- | --- |
-| Login | Logto login/register flow and authenticated app shell |
-| Things dashboard | Up to three active issues and upcoming events; search, category counts, tag filters, recent Things, add/start-chat actions; empty states |
-| Add Thing | Paste text or choose file/photo; after upload/import acceptance navigate directly to the skeleton Thing. Show candidate selection only when several Things are detected |
+| View              | Scaffold behaviour                                                                                                                                                                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Login             | Logto login/register flow and authenticated app shell                                                                                                                                                                                                                                                                    |
+| Things dashboard  | Up to three active issues and upcoming events; search, category counts, tag filters, recent Things, add/start-chat actions; empty states                                                                                                                                                                                 |
+| Add Thing         | Paste text or choose file/photo; after upload/import acceptance navigate directly to the skeleton Thing. Show candidate selection only when several Things are detected                                                                                                                                                  |
 | Thing view/editor | Populate progressively through SSE: source/discovered documents, fields, active issues, suggested tasks, upcoming/past events, purchasables grouped as consumables/accessories/upgrades, start-chat action. Name/category/image, pins and set sections; fields read-only during initial processing, then inline editable |
-| Chat / Assistant | Start from dashboard or Thing; active multi-message conversation, streamed responses, cited documents and interactive resource cards; loading/error/retry states. No previous-conversation list/resumption |
+| Chat / Assistant  | Start from dashboard or Thing; active multi-message conversation, streamed responses, cited documents and interactive resource cards; loading/error/retry states. No previous-conversation list/resumption                                                                                                               |
 
 Use inline controls on cards to schedule/complete an Event or resolve an Issue. Chat cards can open a Thing, highlight a field, open a document, schedule an Event, or open a merchant link. No separate Field details, tag management, Timeline or Insights screens. Tags remain available for filtering and basic assignment within the Thing editor.
 
@@ -337,10 +346,16 @@ Validation: recorded synthetic extraction/mapping plus fixtures for Z-number, va
 
 ### 3. Assistant, usable UI and handoff
 
+Implemented locally (29 September). Dashboard/Thing chat entry points create an active conversation with streamed answers, masked record reads, private attachment reads, focused discovery and typed resource cards. The message Action control selects answer/Event/Issue intent; application code enforces that intent before a write. Events start suggested and can be scheduled on the card. One persisted runner serves imports and messages. Request IDs, atomic write receipts, discovery receipts and interruption recovery prevent duplicate results on retry. Previous-chat browsing/resumption remains deferred.
+
+Field grouping collapses unbranched inclusion chains while preserving sibling/shared sections and field ownership. All fields and pins retain their edit targets. Purchasables are grouped by kind. Thing streams refresh chat-created Events and Issues.
+
+Validation: generated-contract check, lint, development/production types, unit tests and build; database integration checks for owner isolation, shared attachments, intent checks, deadlines, retry, discovery reuse, SSE and restart; desktop/mobile browser checks for cited cards, scheduling and Thing reload. Paid synthetic checks with `gpt-5.6-sol` verified import → cited Z-number answer → maintenance creation/scheduling → restart, plus three cited merchant links from a separate product-focused Miele query. The hob import returned no products. Reports are ignored local artifacts under `test-results/`; commands and limits are in README. Live Logto redirects and physical camera capture remain manual and were not repeated for this step.
+
 - Finish direct-to-Thing upload/confirmation flows, section grouping, all-field rendering, pinning, activity/purchasable cards and error recovery.
 - Implement dashboard/Thing chat entry points, grounded read/discovery tools, Event/Issue write tools, resource cards and streamed responses; no previous-chat resumption.
 - Add meaningful integration checks for inclusion/sibling grouping, shared attachments, user-edit preservation, duplicate-free retry, SSE reconnection/owner isolation, and chat-created Events appearing on the Thing.
 - Run generated-contract checks, lint, types, tests and build; use `CI=true` for Angular CLI and wrapper commands in the macOS sandbox.
 - Document startup, environment variables, seed editing, supported file limits and deferred features. Demo login → upload → progressively populated Thing → cited answer → scheduled maintenance → consumable/upgrade link → reload.
 
-Done means this flow runs locally against real AI and persists across restart. Hosted deployment, sharing, checkout, calendar sync and conversation history remain subsequent work.
+The local real-AI flow and restart persistence have been verified with synthetic data; live identity redirects remain a manual handoff check. Hosted deployment, sharing, checkout, calendar sync and conversation history remain subsequent work.

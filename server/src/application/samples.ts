@@ -1,9 +1,15 @@
+/**
+ * Reads owner profiles and creates labelled demonstration Things and activity once per owner when
+ * sample creation is enabled.
+ */
+
 import type pg from 'pg';
 import type { Schema, ThingPatch, Value } from '../../../shared/model.js';
 import { emptyData } from '../../../shared/model.js';
 import { patchData } from './thing-data.js';
 import type { Registry } from './registry.js';
 import { rows, transaction, type Database } from '../db/connection.js';
+
 export async function profile(db: Database, owner: string) {
   return (
     await rows<Schema['Profile']>(
@@ -13,14 +19,17 @@ export async function profile(db: Database, owner: string) {
     )
   )[0];
 }
+
 export async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
   return transaction(pool, async (db) => {
+    // Lock the owner row so repeated or concurrent requests cannot create multiple sample collections.
     const [user] = await rows<Schema['Profile']>(
       db,
       'select id,display_name,samples_added from bt.users where id=$1 for update',
       [owner],
     );
     if (user.samplesAdded) return user;
+
     const add = async (
       name: string,
       categoryId: string,
@@ -34,13 +43,16 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
         'insert into bt.things(owner_id,category_id,name,description,data,is_sample) values($1,$2,$3,$4,$5,true) returning id',
         [owner, categoryId, name, 'Sample data for exploring the interface.', JSON.stringify(data)],
       );
+
       return item.id;
     };
+
     const v = (fieldSetId: string, fieldId: string, value: Value) => ({
       fieldSetId,
       fieldId,
       value,
     });
+
     const hob = await add(
       'Kitchen hob',
       'appliances',
@@ -68,7 +80,10 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
           amountMinor: 50000000,
           currency: 'GBP',
         }),
-        v('insurance.contents', 'insurance.sumInsured', { amountMinor: 6000000, currency: 'GBP' }),
+        v('insurance.contents', 'insurance.sumInsured', {
+          amountMinor: 6000000,
+          currency: 'GBP',
+        }),
       ],
     );
     await add(
@@ -87,12 +102,14 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
       "insert into bt.tags(owner_id,name) values($1,'Home') on conflict(owner_id,name) do update set name=excluded.name returning id",
       [owner],
     );
+
     for (const id of [hob, insurance])
       await db.query('insert into bt.thing_tags(thing_id,tag_id,owner_id) values($1,$2,$3)', [
         id,
         tag.id,
         owner,
       ]);
+
     await db.query(
       "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true)",
       [owner, hob],
@@ -105,6 +122,7 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
       "insert into bt.events(owner_id,thing_id,title,description,is_sample) values($1,$2,'Check the hob manual','Example task for exploring maintenance cards.',true)",
       [owner, hob],
     );
+
     for (const [kind, name] of [
       ['consumable', 'Hob cleaner'],
       ['accessory', 'Cookware set'],
@@ -121,6 +139,7 @@ export async function seedSamples(pool: pg.Pool, owner: string, registry: Regist
           'https://example.com',
         ],
       );
+
     await db.query('update bt.users set samples_added=true where id=$1', [owner]);
     return profile(db, owner);
   });

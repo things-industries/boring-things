@@ -1,3 +1,8 @@
+/**
+ * Validates cited discovery results and saves names, PDF attachments, maintenance suggestions and
+ * products with retry deduplication.
+ */
+
 import type pg from 'pg';
 import { createHash } from 'node:crypto';
 import type { BlobStorage } from '../providers/blobs.js';
@@ -12,6 +17,8 @@ import {
 import { ensure } from './errors.js';
 import { rows, transaction } from '../db/connection.js';
 import { ownedThing, bumpThing } from '../db/things.js';
+
+// This validates citation links only; PDF downloads also enforce DNS and address restrictions in the document provider.
 export function publicUrl(value: string) {
   try {
     const u = new URL(value);
@@ -25,11 +32,12 @@ export function publicUrl(value: string) {
     return false;
   }
 }
+
 export async function persistDiscovery(
   pool: pg.Pool,
   blobs: BlobStorage,
-  job: ImportRow,
-  target: Target,
+  job: Pick<ImportRow, 'id' | 'ownerId'>,
+  target: Pick<Target, 'thingId' | 'candidateId' | 'isNew'>,
   discovery: Discovery,
   options: DocumentOptions,
   download: DocumentDownload = downloadPdf,
@@ -40,6 +48,7 @@ export async function persistDiscovery(
       Array.isArray(discovery.sources),
     'Invalid discovery',
   );
+
   if (discovery.identity) {
     const { name, sourceUrl } = discovery.identity;
     ensure(
@@ -58,10 +67,12 @@ export async function persistDiscovery(
         ...Object.entries(thing.data.standalone),
         ...Object.values(thing.data.values).flatMap(Object.entries),
       ];
+
       const model = values.find(
         ([id, value]) =>
           ['appliances.eNumber', 'common.model'].includes(id) && typeof value.value === 'string',
       )?.[1].value as string | undefined;
+
       const chosen = await availableImportName(db, job.ownerId, thing.id, name, model);
       await db.query(
         'update bt.things set name=$1,revision=revision+1 where id=$2 and owner_id=$3',
@@ -69,8 +80,10 @@ export async function persistDiscovery(
       );
     });
   }
+
   let failed = false;
   let references = 0;
+
   for (const item of discovery.items) {
     ensure(
       ['reference', 'maintenance', 'consumable', 'accessory', 'upgrade'].includes(item.kind) &&
@@ -88,22 +101,28 @@ export async function persistDiscovery(
         discovery.sources.includes(item.sourceUrl),
       'Uncited discovery',
     );
+
     if (!['reference', 'maintenance'].includes(item.kind))
       ensure(
         !new URL(item.url).pathname.toLowerCase().endsWith('.pdf'),
         'Product requires a merchant page',
       );
+
+    // A stable import key deduplicates repeated discovery results when a job resumes after partial success.
     const key = createHash('sha256')
       .update(
         `${job.id}:${target.candidateId}:${item.kind}:${item.url}:${item.kind === 'reference' ? '' : item.title}`,
       )
       .digest('hex');
+
     const refs = JSON.stringify([{ url: item.sourceUrl }]);
     let blob: string | undefined;
     let used = false;
+
     try {
       options.signal.throwIfAborted();
       let content: Buffer | null = null;
+
       if (item.kind === 'reference') {
         if (++references > 3) continue;
         const [existing] = await rows<{ id: string }>(
@@ -111,6 +130,7 @@ export async function persistDiscovery(
           'select id from bt.attachments where import_key=$1 and owner_id=$2',
           [key, job.ownerId],
         );
+
         if (!existing) {
           content = await download(item.url, options);
           // HTML support pages remain citations; they are never manufactured into text files.
@@ -119,9 +139,11 @@ export async function persistDiscovery(
           blob = await blobs.put(content);
         }
       }
+
       await transaction(pool, async (db) => {
         options.signal.throwIfAborted();
         await ownedThing(db, job.ownerId, target.thingId, true);
+
         if (item.kind === 'reference') {
           const inserted = blob
             ? await rows<{ id: string }>(
@@ -175,6 +197,7 @@ export async function persistDiscovery(
             ],
           );
         }
+
         await bumpThing(db, job.ownerId, target.thingId);
       });
     } catch {
@@ -182,7 +205,10 @@ export async function persistDiscovery(
       failed = true;
       continue;
     }
+
+    // A concurrent insert may win after the download; remove the unused blob after the metadata transaction commits.
     if (blob && !used) await blobs.remove(blob);
   }
+
   ensure(!failed, 'Discovery download failed');
 }

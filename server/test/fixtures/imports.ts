@@ -42,8 +42,14 @@ export const candidates: Record<string, Candidate> = {
     categoryId: 'insurance',
     terms: ['combined'],
     facts: [
-      fact('fact-1', 'Buildings sum insured', { amountMinor: 40000000, currency: 'GBP' }),
-      fact('fact-2', 'Contents sum insured', { amountMinor: 5000000, currency: 'GBP' }),
+      fact('fact-1', 'Buildings sum insured', {
+        amountMinor: 40000000,
+        currency: 'GBP',
+      }),
+      fact('fact-2', 'Contents sum insured', {
+        amountMinor: 5000000,
+        currency: 'GBP',
+      }),
     ],
   },
 };

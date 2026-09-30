@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
@@ -70,7 +71,12 @@ test(
       }
       await transaction(pool, seedRegistry);
       const importAi = new FixtureAi();
-      app = await buildApp({ pool, config, importAi });
+      app = await buildApp({
+        pool,
+        config,
+        importAi,
+        chatAi: new FixtureChat(),
+      });
       const base = await app.listen({ host: '127.0.0.1', port: 0 });
       const accessToken = await token();
       assert.equal(
@@ -99,7 +105,9 @@ test(
           401,
         );
       browser = await chromium.launch();
-      const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 1100 },
+      });
       // Seed a session only in this test browser; the API still validates the signed access token through JWKS.
       await context.addInitScript(
         ({ accessToken, resource }) => {
@@ -137,7 +145,10 @@ test(
         await applianceArt.evaluate((element) => getComputedStyle(element).backgroundColor),
       );
       await mkdir('test-results', { recursive: true });
-      await page.screenshot({ path: 'test-results/dashboard.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/dashboard.png',
+        fullPage: true,
+      });
       await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
       const pin = page.locator('bt-field').filter({ hasText: 'Access PIN' });
       await expect(pin).toContainText('••••••••');
@@ -146,7 +157,48 @@ test(
       await expect(pin).toContainText('0000');
       await pin.getByRole('button', { name: 'Hide', exact: true }).click();
       await expect(pin).not.toContainText('0000');
-      await page.screenshot({ path: 'test-results/membership.png', fullPage: true });
+      await pin.getByRole('button', { name: 'Pin Access PIN', exact: true }).click();
+      await expect(page.locator('.pinned-summary')).toContainText('Access PIN');
+      await expect(page.locator('.pinned-summary')).not.toContainText('0000');
+      await page.screenshot({
+        path: 'test-results/membership.png',
+        fullPage: true,
+      });
+      await page.getByRole('link', { name: 'Ask about this thing' }).click();
+      await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
+      await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
+      await page.getByLabel('Action', { exact: true }).selectOption('create_event');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Check the filter', exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.locator('.message-text').filter({ hasText: 'The saved details are ready.' }),
+      ).toHaveCount(1);
+      await page.getByLabel('Schedule for').fill('2026-10-01T09:00');
+      await page.getByRole('button', { name: 'Schedule', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
+      await page.screenshot({
+        path: 'test-results/chat-desktop.png',
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+        false,
+      );
+      await page.screenshot({
+        path: 'test-results/chat-mobile.png',
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 1440, height: 1100 });
+      await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Check the filter', exact: true }),
+      ).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
+
       await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
       await expect(
@@ -162,7 +214,10 @@ test(
       }
       await expect(page.getByLabel('Paste text', { exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Enter details manually' })).toBeVisible();
-      await page.screenshot({ path: 'test-results/add-thing-desktop.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/add-thing-desktop.png',
+        fullPage: true,
+      });
       await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Browser test policy');
       await page.getByLabel('Category', { exact: true }).selectOption('insurance');
       await page.getByLabel('Details to include').selectOption('insurance.combined');
@@ -170,9 +225,12 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Browser test policy', exact: true }),
       ).toBeVisible();
-      const buildings = page
-        .locator('section.panel')
-        .filter({ has: page.getByRole('heading', { name: 'Buildings cover', exact: true }) });
+      const buildings = page.locator('section.panel').filter({
+        has: page.getByRole('heading', {
+          name: 'Buildings cover',
+          exact: true,
+        }),
+      });
       const sum = buildings.locator('bt-field').filter({ hasText: 'Sum insured' });
       await sum.getByRole('button', { name: 'Add', exact: true }).click();
       await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('1.234');
@@ -183,9 +241,12 @@ test(
       await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('500000');
       await sum.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(sum).toContainText('£500,000.00');
-      const contents = page
-        .locator('section.panel')
-        .filter({ has: page.getByRole('heading', { name: 'Contents cover', exact: true }) });
+      const contents = page.locator('section.panel').filter({
+        has: page.getByRole('heading', {
+          name: 'Contents cover',
+          exact: true,
+        }),
+      });
       await expect(contents.locator('bt-field').filter({ hasText: 'Sum insured' })).toContainText(
         'Add a value',
       );
@@ -210,7 +271,9 @@ test(
         releaseImport = resolve;
       });
       await page.getByRole('button', { name: 'Extract details', exact: true }).click();
-      const progress = page.getByRole('progressbar', { name: 'AI import in progress' });
+      const progress = page.getByRole('progressbar', {
+        name: 'AI import in progress',
+      });
       await expect(progress).toBeVisible();
       assert.equal(await progress.getAttribute('aria-valuenow'), null);
       await expect(
@@ -226,9 +289,15 @@ test(
         await progress.evaluate((el) => getComputedStyle(el, '::after').animationName),
         /import-progress$/,
       );
-      await page.screenshot({ path: 'test-results/import-progress-desktop.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/import-progress-desktop.png',
+        fullPage: true,
+      });
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.screenshot({ path: 'test-results/import-progress-mobile.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/import-progress-mobile.png',
+        fullPage: true,
+      });
       await page.emulateMedia({ reducedMotion: 'reduce' });
       assert.equal(
         await progress.evaluate((el) => getComputedStyle(el, '::after').animationName),
@@ -239,7 +308,9 @@ test(
       releaseImport();
       importAi.pause = undefined;
       await expect(
-        page.getByText('Import complete. Review the details below.', { exact: true }),
+        page.getByText('Import complete. Review the details below.', {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(progress).toHaveCount(0);
       await expect(sum).toContainText('£500,000.00');
@@ -250,14 +321,20 @@ test(
       await page.locator('form.inline-form').getByRole('button').click();
       await expect(page.getByRole('button', { name: 'Paperwork', exact: true })).toBeVisible();
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.screenshot({ path: 'test-results/thing-mobile.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/thing-mobile.png',
+        fullPage: true,
+      });
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
       );
       await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
-      await page.screenshot({ path: 'test-results/add-thing-mobile.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/add-thing-mobile.png',
+        fullPage: true,
+      });
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
@@ -265,13 +342,20 @@ test(
       await page.getByLabel('Paste text', { exact: true }).fill('two');
       await page.getByRole('button', { name: 'Import text', exact: true }).click();
       await expect(
-        page.getByRole('heading', { name: 'Which Things would you like to keep?' }),
+        page.getByRole('heading', {
+          name: 'Which Things would you like to keep?',
+        }),
       ).toBeVisible();
       await expect(progress).toHaveCount(0);
-      await page.screenshot({ path: 'test-results/import-selection-mobile.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/import-selection-mobile.png',
+        fullPage: true,
+      });
       await page.getByRole('button', { name: 'Keep selected Things', exact: true }).click();
       await expect(
-        page.getByText('Import complete. Review the details below.', { exact: true }),
+        page.getByText('Import complete. Review the details below.', {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(
         page.locator('bt-field').filter({ hasText: 'Serial number (Z-Nr)' }),
@@ -288,17 +372,29 @@ test(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
       );
-      await page.screenshot({ path: 'test-results/import-complete-mobile.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/import-complete-mobile.png',
+        fullPage: true,
+      });
       await page.setViewportSize({ width: 1440, height: 1100 });
-      await page.screenshot({ path: 'test-results/import-complete-desktop.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/import-complete-desktop.png',
+        fullPage: true,
+      });
       assert.deepEqual(errors, []);
       const fresh = await browser.newContext();
       const signedOut = await fresh.newPage();
       await signedOut.goto(base);
       await expect(
-        signedOut.getByRole('button', { name: 'Sign in or create an account', exact: false }),
+        signedOut.getByRole('button', {
+          name: 'Sign in or create an account',
+          exact: false,
+        }),
       ).toBeVisible();
-      await signedOut.screenshot({ path: 'test-results/login.png', fullPage: true });
+      await signedOut.screenshot({
+        path: 'test-results/login.png',
+        fullPage: true,
+      });
       await fresh.close();
     } finally {
       await browser?.close();

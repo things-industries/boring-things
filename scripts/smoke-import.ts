@@ -52,8 +52,8 @@ const recorded: ImportAi = {
       yield result;
     }
   },
-  async discover(candidate, context) {
-    const result = await ai.discover(candidate, context);
+  async discover(candidate, context, focus) {
+    const result = await ai.discover(candidate, context, focus);
     trace.push({ stage: 'discovery', result });
     return result;
   },
@@ -78,7 +78,10 @@ try {
   const upload = await app.inject({
     method: 'POST',
     url: '/api/attachments',
-    headers: { ...headers, 'content-type': 'multipart/form-data; boundary=' + boundary },
+    headers: {
+      ...headers,
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="synthetic.txt"\r\nContent-Type: text/plain\r\n\r\n${source}\r\n--${boundary}--\r\n`,
   });
   assert.equal(upload.statusCode, 201, upload.body);
@@ -95,7 +98,11 @@ try {
   let job: Schema['Import'] | undefined;
   while (Date.now() < deadline) {
     job = (
-      await app.inject({ method: 'GET', url: `/api/imports/${accepted.importId}`, headers })
+      await app.inject({
+        method: 'GET',
+        url: `/api/imports/${accepted.importId}`,
+        headers,
+      })
     ).json();
     if (job!.status !== previous) {
       console.log({ status: job!.status, elapsedMs: job!.usage.elapsedMs });
@@ -108,7 +115,10 @@ try {
         url: `/api/imports/${job!.id}:confirm`,
         headers,
         payload: {
-          selections: job!.candidates.map((c) => ({ candidateId: c.id, targetThingId: null })),
+          selections: job!.candidates.map((c) => ({
+            candidateId: c.id,
+            targetThingId: null,
+          })),
         },
       });
       assert.equal(confirm.statusCode, 200, confirm.body);
@@ -158,6 +168,117 @@ try {
     { amountMinor: 5000000, currency: 'GBP' },
   );
   assert.ok(things.some((t) => t.undefinedFields.some((f) => f.value === 'ABC-12')));
+  if (process.argv.includes('--assistant')) {
+    const thing = things.find((t) => t.categoryId === 'appliances')!;
+    const chat = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/conversations',
+        headers,
+        payload: { thingId: thing.id },
+      })
+    ).json<Schema['Conversation']>();
+    const messages: Schema['Message'][] = [];
+    const send = async (text: string, intent: Schema['MessageInput']['intent']) => {
+      const accepted = await app!.inject({
+        method: 'POST',
+        url: `/api/conversations/${chat.id}/messages`,
+        headers,
+        payload: { text, intent, requestId: randomUUID() },
+      });
+      assert.equal(accepted.statusCode, 202, accepted.body);
+      const end = Date.now() + config.chatTimeoutMs + 10000;
+      while (Date.now() < end) {
+        const current = (
+          await app!.inject({
+            method: 'GET',
+            url: `/api/conversations/${chat.id}`,
+            headers,
+          })
+        ).json<Schema['Conversation']>();
+        const message = current.messages.filter((m) => m.role === 'assistant').at(-1)!;
+        if (['complete', 'failed'].includes(message.status)) {
+          messages.push(message);
+          await writeFile(
+            'test-results/assistant-smoke.json',
+            JSON.stringify({ model: config.openaiModel, messages }, null, 2),
+          );
+          console.log({
+            assistant: message.status,
+            error: message.error,
+            usage: message.usage,
+            cardTypes: message.cards.map((c) => c.type),
+          });
+          assert.equal(message.status, 'complete');
+          return message;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      throw new Error('Assistant smoke timed out');
+    };
+    const answer = await send(
+      'What is the stored Z-number? Cite the field and source document.',
+      'answer',
+    );
+    assert.match(answer.text, /0015/);
+    assert.ok(answer.cards.some((c) => c.type === 'field' || c.type === 'attachment'));
+    const maintenance = await send(
+      'Create a maintenance event titled Review hob care instructions. It should remind the owner to read the saved manual before cleaning.',
+      'create_event',
+    );
+    const event = maintenance.cards.find((c) => c.type === 'event');
+    assert.ok(event && event.type === 'event');
+    const scheduled = await app.inject({
+      method: 'PATCH',
+      url: `/api/events/${event.eventId}`,
+      headers,
+      payload: { status: 'scheduled', startsAt: '2026-10-01T09:00:00Z' },
+    });
+    assert.equal(scheduled.statusCode, 200, scheduled.body);
+    const purchases = (
+      await app.inject({
+        method: 'GET',
+        url: `/api/purchasables?thingId=${thing.id}`,
+        headers,
+      })
+    ).json<{ items: Schema['Purchasable'][] }>();
+    if (purchases.items.length) {
+      const products = await send(
+        'Show a saved compatible accessory, consumable or upgrade with its merchant link and supporting source. Do not invent products.',
+        'answer',
+      );
+      assert.ok(products.cards.some((c) => c.type === 'purchasable'));
+    }
+    await app.close();
+    app = await buildApp({
+      pool,
+      config: { ...config, blobDirectory: directory },
+      verifyIdentity: async () => ({ subject: 'synthetic-smoke' }),
+    });
+    const reloaded = (
+      await app.inject({
+        method: 'GET',
+        url: `/api/things/${thing.id}`,
+        headers,
+      })
+    ).json<Schema['Thing']>();
+    assert.ok(reloaded.eventIds.includes(event.eventId));
+    assert.equal(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/events/${event.eventId}`,
+          headers,
+        })
+      ).json().status,
+      'scheduled',
+    );
+    console.log({
+      assistantArtifact: 'test-results/assistant-smoke.json',
+      restartVerified: true,
+      merchantLinks: purchases.items.length,
+    });
+  }
 } finally {
   await app?.close();
   await pool.end();

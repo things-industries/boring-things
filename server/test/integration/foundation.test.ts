@@ -94,7 +94,13 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
   const thing = await create({
     categoryId: 'memberships',
     addFieldSetIds: ['memberships.museum'],
-    values: [{ fieldSetId: 'memberships.museum', fieldId: 'membership.accessPin', value: '0098' }],
+    values: [
+      {
+        fieldSetId: 'memberships.museum',
+        fieldId: 'membership.accessPin',
+        value: '0098',
+      },
+    ],
   });
   for (const [method, path, body] of [
     ['GET', `/things/${thing.id}`, undefined],
@@ -135,8 +141,13 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
 });
 test('contract rejects unknown properties and invalid references; category counts are owner-scoped', async () => {
   assert.equal(
-    (await request('POST', '/things', { name: 'x', categoryId: 'other', ownerId: randomUUID() }))
-      .statusCode,
+    (
+      await request('POST', '/things', {
+        name: 'x',
+        categoryId: 'other',
+        ownerId: randomUUID(),
+      })
+    ).statusCode,
     422,
   );
   assert.equal(
@@ -152,7 +163,10 @@ test('contract rejects unknown properties and invalid references; category count
   assert.equal((await request('GET', '/things?limit=0')).statusCode, 422);
 });
 test('concurrent field patches preserve each other and insurance values stay independent', async () => {
-  const thing = await create({ categoryId: 'insurance', addFieldSetIds: ['insurance.combined'] });
+  const thing = await create({
+    categoryId: 'insurance',
+    addFieldSetIds: ['insurance.combined'],
+  });
   const edits = await Promise.all(
     ['buildings', 'contents'].map((part, i) =>
       request('PATCH', `/things/${thing.id}`, {
@@ -234,12 +248,21 @@ test('activity transitions and conversation/message persistence are owner-scoped
   ).json();
   assert.equal((await request('GET', `/issues/${issue.id}`, undefined, 'bob')).statusCode, 404);
   assert.equal(
-    (await request('POST', '/events', { thingId: thing.id, title: 'Task', status: 'scheduled' }))
-      .statusCode,
+    (
+      await request('POST', '/events', {
+        thingId: thing.id,
+        title: 'Task',
+        status: 'scheduled',
+      })
+    ).statusCode,
     422,
   );
   const event = (
-    await request('POST', '/events', { thingId: thing.id, title: 'Task', issueId: issue.id })
+    await request('POST', '/events', {
+      thingId: thing.id,
+      title: 'Task',
+      issueId: issue.id,
+    })
   ).json();
   const changed = await request('PATCH', `/events/${event.id}`, {
     status: 'scheduled',

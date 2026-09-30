@@ -38,7 +38,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Category and field-set registry; mandatory dependencies, separate set-scoped values, inline edits and empty-field prompts.
 - Manual Thing creation/deletion, category correction, pins, tags and custom fields.
 - Top-level uploads, downloads, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
-- Issue/Event endpoints, purchasable reads, and conversation/message persistence. No message generation endpoint yet.
+- Issue/Event endpoints, purchasable reads, and active multi-message chat with cited resource cards, streamed answers and persisted retry recovery.
 - Optional **Add sample data** action. It creates four sample Things with labelled issues, events and purchasables once per owner. Merchant actions are disabled for sample suggestions.
 
 ## AI imports
@@ -58,7 +58,21 @@ On an existing Thing, **Add details from a source** starts another import. Uploa
 - Limits: 10 candidates per source, 100 facts per candidate, 200,000 characters of model-extracted text; value groups contain up to 20 facts. Sources remain subject to the configured upload limit. Oversized/invalid extraction fails without deleting the source.
 - `GET /api/imports/{id}` reports status, candidates, results, sanitized errors and cumulative model/token/tool/elapsed-time metrics. Full extraction is retained in `bt.imports.extraction`, omitted from ordinary API/SSE responses because it can contain secrets.
 
-Chat, section grouping, assistant execution, sharing and hosted deployment remain planned in step 3 and subsequent work.
+## Assistant
+
+Choose **Ask the assistant** on the dashboard or **Ask about this thing** on a Thing. Each entry starts a new conversation. The active conversation supports follow-up messages; navigating away or reloading starts a new chat. Messages remain stored for recovery and audit, with no conversation browser or previous-chat resumption.
+
+- Answers use masked Thing details, linked attachment content and owner-scoped search. Chat may send relevant private documents to OpenAI; document content can contain information beyond the masked field projection. The model is instructed to omit secrets. Source documents and tool results are treated as untrusted evidence.
+- Select **Ask a question**, **Create maintenance event** or **Report issue** before sending. The selected action authorises the matching write tool. Each message can create one suggested Event or one open Issue; scheduling and completion use the existing card controls. These are application records, without calendar sync or external booking.
+- Typed cards open Things, highlight set-scoped fields, download private documents, schedule/complete Events, resolve Issues and open cited merchant pages. Deleted resources show as unavailable. Sample merchant actions stay disabled.
+- Discovery chooses a reference, maintenance or product focus. It searches only stored public manufacturer/model identifiers, with the configured search/time budgets. Unsupported compatibility and prices remain absent. A missing model can prevent discovery; record-based answers remain available.
+- The same local runner handles imports and queued messages, with one response in flight per conversation. Completed writes and their retry receipts commit together. Retrying the latest failed response reuses its request ID and completed writes. Queued work resumes on restart; interrupted responses become retryable failures.
+- Authenticated conversation SSE sends snapshots plus text deltas identified by message and offset. Reconnect restores the saved conversation and current transient response; disconnecting does not cancel work. Navigation/logout aborts the client stream.
+- Per-message limits: 8,000 input characters, 100,000 response characters, 24 resource cards, 12 function calls by default, three attachment reads and one discovery operation. Chats allow 40 user messages. Related-resource tool results are capped at 30 per kind and report truncation. Usage includes model, input/output/cached tokens, tool calls and elapsed time.
+
+Field sections collapse unbranched inclusion chains under the specialist name. Sibling and shared-dependency sections remain separate. Every field keeps its original set ID for editing, citations and pins. Pinned details appear together above the editor, with sensitive values masked. Purchasables are grouped as consumables, accessories and upgrades.
+
+Sharing, hosted deployment, checkout, repair booking, calendar sync and conversation history remain deferred.
 
 ## Fields and privacy
 
@@ -93,23 +107,25 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 
 ## Configuration
 
-| Variable             | Purpose                                                     |
-| -------------------- | ----------------------------------------------------------- |
-| `DATABASE_URL`       | Backend Postgres connection; local default uses port 55432  |
-| `LOGTO_ENDPOINT`     | Tenant endpoint, without `/oidc`                            |
-| `LOGTO_APP_ID`       | SPA application ID; public identifier                       |
-| `LOGTO_API_RESOURCE` | API audience; `https://api.boring-things.local`             |
-| `BLOB_DIRECTORY`     | Local blob directory; default `.data/blobs`                 |
-| `MAX_UPLOAD_BYTES`   | Upload limit; default 20971520                              |
-| `ENABLE_SAMPLE_DATA` | Enables the authenticated sample-data action; default false |
-| `OPENAI_API_KEY` | Server-only OpenAI credential |
-| `OPENAI_MODEL` | Configurable model; required for imports |
-| `IMPORT_TIMEOUT_MS` | Extraction/mapping attempt deadline; default 180000 |
-| `IMPORT_TOOL_ROUNDS` | Registry tool-call budget per candidate; default 4 |
-| `DISCOVERY_TIMEOUT_MS` | Discovery deadline per candidate; default 90000 |
-| `DISCOVERY_SEARCH_CALLS` | Web tool-call budget per discovery; default 3 |
-| `AI_MAX_OUTPUT_TOKENS` | Output token limit per provider response; default 12000 |
-| `HOST`, `PORT`       | API bind address; default `127.0.0.1:3000`                  |
+| Variable                 | Purpose                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| `DATABASE_URL`           | Backend Postgres connection; local default uses port 55432  |
+| `LOGTO_ENDPOINT`         | Tenant endpoint, without `/oidc`                            |
+| `LOGTO_APP_ID`           | SPA application ID; public identifier                       |
+| `LOGTO_API_RESOURCE`     | API audience; `https://api.boring-things.local`             |
+| `BLOB_DIRECTORY`         | Local blob directory; default `.data/blobs`                 |
+| `MAX_UPLOAD_BYTES`       | Upload limit; default 20971520                              |
+| `ENABLE_SAMPLE_DATA`     | Enables the authenticated sample-data action; default false |
+| `OPENAI_API_KEY`         | Server-only OpenAI credential                               |
+| `OPENAI_MODEL`           | Configurable model; required for imports and chat           |
+| `IMPORT_TIMEOUT_MS`      | Extraction/mapping attempt deadline; default 180000         |
+| `IMPORT_TOOL_ROUNDS`     | Registry tool-call budget per candidate; default 4          |
+| `DISCOVERY_TIMEOUT_MS`   | Discovery deadline per candidate; default 90000             |
+| `DISCOVERY_SEARCH_CALLS` | Web tool-call budget per discovery; default 3               |
+| `CHAT_TIMEOUT_MS`        | Assistant attempt deadline; default 180000                  |
+| `CHAT_TOOL_CALLS`        | Function-call budget per assistant response; default 12     |
+| `AI_MAX_OUTPUT_TOKENS`   | Output token limit per provider response; default 12000     |
+| `HOST`, `PORT`           | API bind address; default `127.0.0.1:3000`                  |
 
 One tenant can supply identities to both local and production environments. Database records and files remain environment-specific. The API returns public auth configuration to the frontend at startup, so Logto settings do not require rebuilding Angular.
 
@@ -117,7 +133,9 @@ One tenant can supply identities to both local and production environments. Data
 
 ```sh
 pnpm api:generate                # after editing openapi.json
-CI=true pnpm check               # contract drift, lint, types, unit tests, build
+pnpm format                      # apply Prettier formatting
+pnpm format:check                # check formatting without writing
+CI=true pnpm check               # formatting, contract drift, lint, types, unit tests, build
 pnpm test:integration            # requires local Supabase and a built frontend
 ```
 
@@ -132,3 +150,20 @@ Integration checks create and remove isolated temporary databases; they do not r
 Run `node --import tsx --env-file=.env scripts/smoke-import.ts` for a **paid live** check using the configured model and synthetic hob/van/policy data. It creates and removes a temporary local database and blob directory; it does not change application records. Its trace and usage report are saved under ignored `test-results/import-smoke.json`. Live Logto redirects and physical-device camera capture require separate manual checks.
 
 Provider implementation references: [file inputs](https://developers.openai.com/api/docs/guides/file-inputs), [function calling](https://developers.openai.com/api/docs/guides/function-calling), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [web search](https://developers.openai.com/api/docs/guides/tools-web-search).
+
+### Assistant verification and demo
+
+`node --import tsx --env-file=.env scripts/smoke-import.ts --assistant` runs the **paid live** synthetic import, cited field answer, maintenance creation/scheduling and restart check. `node --import tsx --env-file=.env scripts/smoke-assistant-products.ts` checks product-focused discovery using a synthetic Miele dishwasher record. Both use temporary local databases and remove them afterwards. Reports go to ignored `test-results/assistant-smoke.json` and `test-results/assistant-products-smoke.json`.
+
+Validated locally on 29 September with `gpt-5.6-sol`: three-Thing import; Z-number `0015` cited from the field/source; chat-created Event scheduled and retained after API restart; three cited merchant links for the Miele product check. These are smoke results, not a quality benchmark. The hob import produced no supported products. Discovery depends on available sources and may return none.
+
+Demo after applying migrations and configuring Logto/OpenAI:
+
+1. Sign in, select **Add a thing**, then upload a source or paste text. Confirm candidates if prompted.
+2. Watch fields populate; inspect documents, grouped sections and pins.
+3. Select **Ask about this thing** and ask for a saved detail or manual instruction. Open the cited field/document card.
+4. Select **Create maintenance event**, describe the task, send, and schedule its card using local date/time.
+5. Ask for compatible consumables/accessories/upgrades. Open a supported merchant link when one is found.
+6. Return to the Thing and reload. The scheduled Event, imported fields and discovered products remain.
+
+Integration checks cover shared attachments, user-edit preservation, grouping, duplicate-free write/discovery retry, owner isolation, deadlines, stream reconnect and restart recovery. Browser checks exercise signed JWT authentication, mobile/desktop chat cards and scheduling. Live Logto redirect/login/logout and physical-device camera capture remain manual; they have not been repeated for step 3.
