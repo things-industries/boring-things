@@ -1,6 +1,6 @@
 @use 'sass:map';
 $font-family: 'Inter', system-ui, sans-serif;
-$figma-roles: (
+$roles: (
   display: (
     size: 32px,
     weight: 700,
@@ -44,7 +44,7 @@ $figma-roles: (
     letter-spacing: 0.02em,
   ),
 );
-// Roles used by screens not yet migrated to the Figma design. Remove each once unused.
+// Roles used by screens built before the current type scale. Remove each once unused.
 $legacy-roles: (
   heading: (
     size: 16px,
@@ -59,12 +59,12 @@ $legacy-roles: (
     letter-spacing: 0,
   ),
 );
-$roles: map.merge($legacy-roles, $figma-roles);
+$all-roles: map.merge($legacy-roles, $roles);
 @mixin role($name) {
-  @if not map.has-key($roles, $name) {
+  @if not map.has-key($all-roles, $name) {
     @error 'Unknown typography role: #{$name}';
   }
-  $role: map.get($roles, $name);
+  $role: map.get($all-roles, $name);
   font-size: map.get($role, size);
   font-weight: map.get($role, weight);
   line-height: map.get($role, line-height);
