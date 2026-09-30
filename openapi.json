@@ -488,10 +488,19 @@
               "maxLength": 400
             },
             "description": "Text used to search matching records."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ThingSortEnum"
+            },
+            "description": "Sort order; defaults to UPDATED. Applied before pagination."
           }
         ],
         "tags": ["Things"],
-        "summary": "List thing summarys"
+        "summary": "List thing summarys",
+        "description": "Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days."
       },
       "post": {
         "operationId": "createThing",
@@ -1699,10 +1708,21 @@
               "format": "date-time"
             },
             "description": "Inclusive upper start-time bound."
+          },
+          {
+            "name": "timeZone",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "UTC"
+            },
+            "description": "IANA timezone used to compare date-only events to from/to and order mixed schedules. Defaults to UTC."
           }
         ],
         "tags": ["Activity"],
-        "summary": "List events"
+        "summary": "List events",
+        "description": "Events ordered by schedule ascending, then ID; unscheduled events last. Date-only events sort at midnight in timeZone. Bounds are inclusive: timed events compare instants; date-only events compare the calendar date of each bound in timeZone, including the entire matching day."
       },
       "post": {
         "operationId": "createEvent",
@@ -2485,6 +2505,50 @@
         "tags": ["Conversations"],
         "summary": "Stream conversation"
       }
+    },
+    "/api/things/{id}:view": {
+      "post": {
+        "operationId": "recordThingView",
+        "summary": "Record a user view",
+        "description": "Call once when a user opens a Thing page. Atomically increments accessCount and records server time in lastViewedAt. Reads and stream refreshes do not record views. Does not change updatedAt or content revision. Each successful request counts once; clients must not automatically retry.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated access metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThingAccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3073,6 +3137,16 @@
           },
           "isSample": {
             "type": "boolean"
+          },
+          "accessCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of explicit user views recorded for this Thing."
+          },
+          "lastViewedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Most recent explicit user view; null until first viewed."
           }
         },
         "required": [
@@ -3085,7 +3159,9 @@
           "tagIds",
           "createdAt",
           "updatedAt",
-          "isSample"
+          "isSample",
+          "accessCount",
+          "lastViewedAt"
         ],
         "description": "Public Thing metadata excluding stored field values."
       },
@@ -3244,6 +3320,16 @@
               "error",
               "usage"
             ]
+          },
+          "accessCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of explicit user views recorded for this Thing."
+          },
+          "lastViewedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Most recent explicit user view; null until first viewed."
           }
         },
         "required": [
@@ -3265,7 +3351,9 @@
           "issueIds",
           "eventIds",
           "purchasableIds",
-          "conversationIds"
+          "conversationIds",
+          "accessCount",
+          "lastViewedAt"
         ],
         "description": "Owner-scoped Thing detail with masked fields, links and current import state."
       },
@@ -3549,6 +3637,16 @@
           },
           "isSample": {
             "type": "boolean"
+          },
+          "statusText": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "description": "Optional freeform status shown on an Issue card. Null clears it."
+          },
+          "dueDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Optional calendar due date, without a time or timezone. Null clears it."
           }
         },
         "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"],
@@ -3573,6 +3671,16 @@
           },
           "status": {
             "$ref": "#/components/schemas/IssueStatusEnum"
+          },
+          "statusText": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "description": "Optional freeform status shown on an Issue card. Null clears it."
+          },
+          "dueDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Optional calendar due date, without a time or timezone. Null clears it."
           }
         },
         "required": ["thingId", "title"],
@@ -3593,6 +3701,16 @@
           },
           "status": {
             "$ref": "#/components/schemas/IssueStatusEnum"
+          },
+          "statusText": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "description": "Optional freeform status shown on an Issue card. Null clears it."
+          },
+          "dueDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Optional calendar due date, without a time or timezone. Null clears it."
           }
         },
         "description": "Specified issue updates; resolving retains the first resolution timestamp."
@@ -3638,6 +3756,11 @@
           },
           "isSample": {
             "type": "boolean"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
           }
         },
         "required": [
@@ -3650,9 +3773,10 @@
           "startsAt",
           "completedAt",
           "sourceRefs",
-          "isSample"
+          "isSample",
+          "startsOn"
         ],
-        "description": "Suggested or scheduled Thing task with lifecycle timestamps and provenance."
+        "description": "Suggested or scheduled Thing task with lifecycle timestamps and provenance. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
       },
       "EventInput": {
         "type": "object",
@@ -3681,10 +3805,15 @@
           "startsAt": {
             "type": ["string", "null"],
             "format": "date-time"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
           }
         },
         "required": ["thingId", "title"],
-        "description": "New Thing event; SCHEDULED requires a start time."
+        "description": "New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
       },
       "EventPatch": {
         "type": "object",
@@ -3709,9 +3838,14 @@
           "startsAt": {
             "type": ["string", "null"],
             "format": "date-time"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
           }
         },
-        "description": "Specified event updates; null clears optional links or dates."
+        "description": "Specified event updates; null clears optional links or dates. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
       },
       "Purchasable": {
         "type": "object",
@@ -4390,6 +4524,24 @@
         "required": ["messageId", "offset", "text"],
         "description": "Transient text update identified by message and text offset."
       },
+      "ThingAccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accessCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of explicit user views recorded for this Thing."
+          },
+          "lastViewedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Most recent explicit user view; null until first viewed."
+          }
+        },
+        "required": ["accessCount", "lastViewedAt"],
+        "description": "Usage metadata returned after recording a user view."
+      },
       "IssueStatusEnum": {
         "type": "string",
         "description": "Issue status.",
@@ -4473,6 +4625,11 @@
         "type": "string",
         "description": "Message intent.",
         "enum": ["ANSWER", "CREATE_EVENT", "CREATE_ISSUE"]
+      },
+      "ThingSortEnum": {
+        "type": "string",
+        "enum": ["UPDATED", "RECENTLY_VIEWED", "MOST_VIEWED"],
+        "description": "Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED."
       }
     },
     "responses": {

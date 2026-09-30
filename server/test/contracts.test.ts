@@ -57,6 +57,7 @@ test('OpenAPI 3.1 nulls, response omission and action-path validation work in Fa
     description: '',
     status: 'SUGGESTED' as const,
     startsAt: req.body.startsAt ?? null,
+    startsOn: req.body.startsOn ?? null,
     completedAt: null,
     issueId: null,
     sourceRefs: [],

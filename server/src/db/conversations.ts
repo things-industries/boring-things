@@ -209,7 +209,7 @@ export async function chatResources(db: Database, owner: string, id: string) {
   ] as const) {
     activity[table] = await rows<{ id: string }>(
       db,
-      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : 'id,thing_id,title,description,status,is_sample'}${kind === 'event' ? ',starts_at,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
+      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ''}`}${kind === 'event' ? ',starts_at,starts_on::text,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
       [id, owner],
     );
   }

@@ -6,7 +6,7 @@ Review my current git diff, write a clear and descriptive but brief commit messa
 
 Do not write whole paragraphs of text below the main commit message. Include dot point summary if the main commit message cannot address everything in a few words.
 
-An example might be: 
+An example might be:
 feat(push-notifications): implement Firebase messaging support for iOS
 
 - add remote notification handling in AppDelegate

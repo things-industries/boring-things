@@ -39,6 +39,10 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Manual Thing creation/deletion, category correction, pins, tags and custom fields.
 - Top-level uploads, downloads, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
 - Issue/Event endpoints, purchasable reads, and active multi-message chat with cited resource cards, streamed answers and persisted retry recovery.
+- Issue cards support optional freeform `statusText` and date-only `dueDate`, including a local-calendar countdown. Omitted patch fields are preserved; `null` clears them.
+- Events can use a date-only `startsOn` or an instant `startsAt`. Scheduling requires one; switching formats requires clearing the other. Event lists order by schedule, then ID, and accept `timeZone` (default UTC) for date-only ordering and inclusive date-range filtering. Date-only events remain upcoming throughout their local day.
+- Thing summaries/detail expose `accessCount` and `lastViewedAt`. `POST /api/things/{id}:view` records one page open, without changing edit timestamps or content revision; reads, assistant tools and stream refreshes do not count. Each successful request increments once, so clients must not automatically retry. List sorting supports `UPDATED` (default), `RECENTLY_VIEWED` and `MOST_VIEWED`, before pagination. Unviewed Things sort last for recent views; frequency ties use last-view time, then ID.
+- Thing cards use category names and show **New** while creation age is less than seven days. Attention cards use stored Issues; automatic deadline-derived Issue creation and recurring Events remain outside the implemented scope.
 - Optional **Add sample data** action. It creates four sample Things with labelled issues, events and purchasables once per owner. Merchant actions are disabled for sample suggestions.
 
 ## AI imports

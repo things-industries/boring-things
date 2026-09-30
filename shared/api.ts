@@ -142,7 +142,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List thing summarys */
+        /**
+         * List thing summarys
+         * @description Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days.
+         */
         get: operations["listThingSummarys"];
         put?: never;
         /** Create thing */
@@ -339,7 +342,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List events */
+        /**
+         * List events
+         * @description Events ordered by schedule ascending, then ID; unscheduled events last. Date-only events sort at midnight in timeZone. Bounds are inclusive: timed events compare instants; date-only events compare the calendar date of each bound in timeZone, including the entire matching day.
+         */
         get: operations["listEvents"];
         put?: never;
         /** Create event */
@@ -558,6 +564,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/things/{id}:view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a user view
+         * @description Call once when a user opens a Thing page. Atomically increments accessCount and records server time in lastViewedAt. Reads and stream refreshes do not record views. Does not change updatedAt or content revision. Each successful request counts once; clients must not automatically retry.
+         */
+        post: operations["recordThingView"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -720,6 +746,13 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             isSample: boolean;
+            /** @description Number of explicit user views recorded for this Thing. */
+            accessCount: number;
+            /**
+             * Format: date-time
+             * @description Most recent explicit user view; null until first viewed.
+             */
+            lastViewedAt: string | null;
         };
         /** @description Owner-scoped Thing detail with masked fields, links and current import state. */
         Thing: {
@@ -759,6 +792,13 @@ export interface components {
                 error: string | null;
                 usage: components["schemas"]["ImportUsage"];
             } | null;
+            /** @description Number of explicit user views recorded for this Thing. */
+            accessCount: number;
+            /**
+             * Format: date-time
+             * @description Most recent explicit user view; null until first viewed.
+             */
+            lastViewedAt: string | null;
         };
         /** @description Set or standalone field update; null clears the stored value. */
         ValuePatch: {
@@ -835,6 +875,13 @@ export interface components {
             /** Format: date-time */
             resolvedAt: string | null;
             isSample: boolean;
+            /** @description Optional freeform status shown on an Issue card. Null clears it. */
+            statusText?: string | null;
+            /**
+             * Format: date
+             * @description Optional calendar due date, without a time or timezone. Null clears it.
+             */
+            dueDate?: string | null;
         };
         /** @description New Thing issue; defaults to OPEN. */
         IssueInput: {
@@ -843,14 +890,28 @@ export interface components {
             title: string;
             description?: string;
             status?: components["schemas"]["IssueStatusEnum"];
+            /** @description Optional freeform status shown on an Issue card. Null clears it. */
+            statusText?: string | null;
+            /**
+             * Format: date
+             * @description Optional calendar due date, without a time or timezone. Null clears it.
+             */
+            dueDate?: string | null;
         };
         /** @description Specified issue updates; resolving retains the first resolution timestamp. */
         IssuePatch: {
             title?: string;
             description?: string;
             status?: components["schemas"]["IssueStatusEnum"];
+            /** @description Optional freeform status shown on an Issue card. Null clears it. */
+            statusText?: string | null;
+            /**
+             * Format: date
+             * @description Optional calendar due date, without a time or timezone. Null clears it.
+             */
+            dueDate?: string | null;
         };
-        /** @description Suggested or scheduled Thing task with lifecycle timestamps and provenance. */
+        /** @description Suggested or scheduled Thing task with lifecycle timestamps and provenance. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         Event: {
             /** Format: uuid */
             id: string;
@@ -867,8 +928,13 @@ export interface components {
             completedAt: string | null;
             sourceRefs: components["schemas"]["SourceRef"][];
             isSample: boolean;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn: string | null;
         };
-        /** @description New Thing event; SCHEDULED requires a start time. */
+        /** @description New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         EventInput: {
             /** Format: uuid */
             thingId: string;
@@ -879,8 +945,13 @@ export interface components {
             status?: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt?: string | null;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn?: string | null;
         };
-        /** @description Specified event updates; null clears optional links or dates. */
+        /** @description Specified event updates; null clears optional links or dates. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         EventPatch: {
             /** Format: uuid */
             issueId?: string | null;
@@ -889,6 +960,11 @@ export interface components {
             status?: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt?: string | null;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn?: string | null;
         };
         /** @description Cited consumable, accessory or upgrade suggestion; sample actions are disabled. */
         Purchasable: {
@@ -1097,6 +1173,16 @@ export interface components {
             offset: number;
             text: string;
         };
+        /** @description Usage metadata returned after recording a user view. */
+        ThingAccess: {
+            /** @description Number of explicit user views recorded for this Thing. */
+            accessCount: number;
+            /**
+             * Format: date-time
+             * @description Most recent explicit user view; null until first viewed.
+             */
+            lastViewedAt: string | null;
+        };
         /**
          * @description Issue status.
          * @enum {string}
@@ -1162,6 +1248,11 @@ export interface components {
          * @enum {string}
          */
         MessageIntentEnum: "ANSWER" | "CREATE_EVENT" | "CREATE_ISSUE";
+        /**
+         * @description Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED.
+         * @enum {string}
+         */
+        ThingSortEnum: "UPDATED" | "RECENTLY_VIEWED" | "MOST_VIEWED";
     };
     responses: {
         /** @description A valid bearer token is required. */
@@ -1478,6 +1569,8 @@ export interface operations {
                 tagId?: string;
                 /** @description Text used to search matching records. */
                 q?: string;
+                /** @description Sort order; defaults to UPDATED. Applied before pagination. */
+                sort?: components["schemas"]["ThingSortEnum"];
             };
             header?: never;
             path?: never;
@@ -2116,6 +2209,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive upper start-time bound. */
                 to?: string;
+                /** @description IANA timezone used to compare date-only events to from/to and order mixed schedules. Defaults to UTC. */
+                timeZone?: string;
             };
             header?: never;
             path?: never;
@@ -2555,6 +2650,33 @@ export interface operations {
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    recordThingView: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated access metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThingAccess"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
         };
     };
 }

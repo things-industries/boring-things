@@ -25,6 +25,9 @@ export async function writeIssue(
       title,
       description: input.description ?? existing?.description ?? '',
       status,
+      statusText:
+        input.statusText === undefined ? (existing?.statusText ?? null) : input.statusText,
+      dueDate: input.dueDate === undefined ? (existing?.dueDate ?? null) : input.dueDate,
       resolvedAt: status === 'RESOLVED' ? (existing?.resolvedAt ?? new Date().toISOString()) : null,
     },
     id,
@@ -46,8 +49,10 @@ export async function writeEvent(
   ensure(title, 'Title cannot be blank');
   const status = input.status ?? existing?.status ?? 'SUGGESTED';
   const startsAt = input.startsAt === undefined ? (existing?.startsAt ?? null) : input.startsAt;
+  const startsOn = input.startsOn === undefined ? (existing?.startsOn ?? null) : input.startsOn;
+  ensure(!(startsAt && startsOn), 'Choose one schedule');
   const issueId = input.issueId === undefined ? (existing?.issueId ?? null) : input.issueId;
-  ensure(status !== 'SCHEDULED' || startsAt, 'Scheduled events need a date');
+  ensure(status !== 'SCHEDULED' || startsAt || startsOn, 'Scheduled events need a date');
   if (issueId)
     ensure(
       (await ownedActivity(db, owner, 'issues', issueId)).thingId === thingId,
@@ -62,6 +67,7 @@ export async function writeEvent(
       description: input.description ?? existing?.description ?? '',
       status,
       startsAt,
+      startsOn,
       issueId,
       completedAt:
         status === 'COMPLETED' ? (existing?.completedAt ?? new Date().toISOString()) : null,

@@ -18,7 +18,7 @@ export async function ownedThing(
 ): Promise<ThingRow> {
   const [thing] = await rows<ThingRow>(
     db,
-    `select id,owner_id,category_id,name,description,data,image_attachment_id,is_sample,created_at,updated_at,revision::integer from bt.things where id=$1 and owner_id=$2 ${lock ? 'for update' : ''}`,
+    `select id,owner_id,category_id,name,description,data,image_attachment_id,is_sample,created_at,updated_at,access_count,last_viewed_at,revision::integer from bt.things where id=$1 and owner_id=$2 ${lock ? 'for update' : ''}`,
     [id, owner],
   );
   ensure(thing, 'Thing not found', 'NOT_FOUND');
@@ -65,9 +65,14 @@ export async function listThings(
   query: ThingQuery,
 ): Promise<Schema['ThingSummaryList']> {
   const { limit, offset } = page(query);
+  const order = {
+    UPDATED: 'updated_at desc,id',
+    RECENTLY_VIEWED: 'last_viewed_at desc nulls last,id',
+    MOST_VIEWED: 'access_count desc,last_viewed_at desc nulls last,id',
+  }[query.sort ?? 'UPDATED'];
   const result = await rows<Schema['ThingSummary']>(
     db,
-    `select t.*,revision::integer, coalesce((select jsonb_agg(tag_id order by tag_id) from bt.thing_tags where thing_id=t.id),'[]') as tag_ids from bt.things t where owner_id=$1 and ($2::text is null or category_id=$2) and ($3::uuid is null or exists(select 1 from bt.thing_tags where thing_id=t.id and tag_id=$3)) and ($4='' or strpos(lower(name || ' ' || description),lower($4))>0) order by updated_at desc,id limit $5 offset $6`,
+    `select t.*,revision::integer, coalesce((select jsonb_agg(tag_id order by tag_id) from bt.thing_tags where thing_id=t.id),'[]') as tag_ids from bt.things t where owner_id=$1 and ($2::text is null or category_id=$2) and ($3::uuid is null or exists(select 1 from bt.thing_tags where thing_id=t.id and tag_id=$3)) and ($4='' or strpos(lower(name || ' ' || description),lower($4))>0) order by ${order} limit $5 offset $6`,
     [owner, query.categoryId ?? null, query.tagId ?? null, query.q ?? '', limit + 1, offset],
   );
 
@@ -83,6 +88,8 @@ export async function listThings(
       tagIds: t.tagIds,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
+      accessCount: t.accessCount,
+      lastViewedAt: t.lastViewedAt,
       isSample: t.isSample,
     })),
     query,
@@ -153,4 +160,18 @@ export async function renameThing(
     'update bt.things set name=$1,revision=revision+1 where id=$2 and owner_id=$3',
     [name, id, owner],
   );
+}
+
+export async function recordThingView(
+  db: Database,
+  owner: string,
+  id: string,
+): Promise<Schema['ThingAccess']> {
+  const [access] = await rows<Schema['ThingAccess']>(
+    db,
+    'update bt.things set access_count=access_count+1,last_viewed_at=clock_timestamp() where id=$1 and owner_id=$2 returning access_count,last_viewed_at',
+    [id, owner],
+  );
+  ensure(access, 'Thing not found', 'NOT_FOUND');
+  return access;
 }

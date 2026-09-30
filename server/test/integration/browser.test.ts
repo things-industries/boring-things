@@ -150,6 +150,12 @@ test(
         fullPage: true,
       });
       await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
+      await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+      const membershipId = new URL(page.url()).pathname.split('/').at(-1)!;
+      const accessCount = async () =>
+        (await pool.query('select access_count from bt.things where id=$1', [membershipId])).rows[0]
+          .access_count;
+      await expect.poll(accessCount).toBe(1);
       const pin = page.locator('bt-field').filter({ hasText: 'Access PIN' });
       await expect(pin).toContainText('••••••••');
       await expect(pin).not.toContainText('0000');
@@ -160,6 +166,7 @@ test(
       await pin.getByRole('button', { name: 'Pin Access PIN', exact: true }).click();
       await expect(page.locator('.pinned-summary')).toContainText('Access PIN');
       await expect(page.locator('.pinned-summary')).not.toContainText('0000');
+      assert.equal(await accessCount(), 1);
       await page.screenshot({
         path: 'test-results/membership.png',
         fullPage: true,
@@ -198,6 +205,58 @@ test(
       ).toBeVisible();
       await page.reload();
       await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
+      await expect.poll(accessCount).toBe(3);
+      const dateTask = await app.inject({
+        method: 'POST',
+        url: '/api/events',
+        headers: { authorization: 'Bearer ' + accessToken },
+        payload: { thingId: membershipId, title: 'Date-only maintenance' },
+      });
+      assert.equal(dateTask.statusCode, 201, dateTask.body);
+      const issue = await app.inject({
+        method: 'POST',
+        url: '/api/issues',
+        headers: { authorization: 'Bearer ' + accessToken },
+        payload: {
+          thingId: membershipId,
+          title: 'Renewal attention',
+          statusText: 'Renewal due',
+          dueDate: '2026-10-12',
+        },
+      });
+      assert.equal(issue.statusCode, 201, issue.body);
+      await page.reload();
+      const taskCard = page
+        .locator('article.activity-card')
+        .filter({ hasText: 'Date-only maintenance' });
+      await taskCard.getByLabel('Date only', { exact: true }).check();
+      await expect(taskCard.getByLabel('Schedule for')).toHaveAttribute('type', 'date');
+      await taskCard.getByLabel('Schedule for').fill('2026-10-18');
+      await taskCard.getByRole('button', { name: 'Schedule', exact: true }).click();
+      await expect(taskCard).toContainText('18 October 2026');
+      await expect(taskCard.getByRole('button', { name: 'Mark complete' })).toBeVisible();
+      const savedDate = (
+        await app.inject({
+          url: '/api/events/' + dateTask.json().id,
+          headers: { authorization: 'Bearer ' + accessToken },
+        })
+      ).json();
+      assert.equal(savedDate.startsOn, '2026-10-18');
+      assert.equal(savedDate.startsAt, null);
+      assert.equal(await accessCount(), 4);
+      const issueCard = page
+        .locator('article.activity-card')
+        .filter({ hasText: 'Renewal attention' });
+      await expect(issueCard).toContainText('Renewal due');
+      await expect(issueCard).toContainText('12 October 2026');
+      await expect(issueCard.locator('.date')).toContainText(/day/);
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
+      await page.screenshot({ path: 'test-results/date-only-mobile.png', fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 1100 });
 
       await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
