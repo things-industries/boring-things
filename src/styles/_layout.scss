@@ -1,18 +1,18 @@
 @use 'tokens';
-.section {
+.page-section {
   margin-bottom: 38px;
 }
-.section-title {
+.page-section-title {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: tokens.space(4);
   margin-bottom: tokens.space(5);
 }
-.section-title h2 {
+.page-section-title h2 {
   margin: 0;
 }
-.section-title > span {
+.page-section-title > span {
   font-size: 12px;
   color: tokens.color(text-muted);
 }
@@ -26,11 +26,11 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 22px;
 }
-.empty {
+.empty-state {
   text-align: center;
   padding: 65px tokens.space(5);
 }
-.empty-icon {
+.empty-state-icon {
   margin: 0 auto tokens.space(5);
   width: 60px;
   height: 60px;
@@ -41,10 +41,10 @@
   place-items: center;
   font-size: 28px;
 }
-.empty p {
+.empty-state p {
   margin-bottom: tokens.space(6);
 }
-.empty h2 {
+.empty-state h2 {
   margin-bottom: 6px;
 }
 .detail-layout {
@@ -52,17 +52,17 @@
   grid-template-columns: minmax(0, 1fr) 310px;
   gap: 30px;
 }
-.panel {
+.content-panel {
   border: 1px solid tokens.color(border);
   border-radius: 14px;
   background: white;
   padding: 26px;
   margin-bottom: 22px;
 }
-.panel h2 {
+.content-panel h2 {
   font-size: 18px;
 }
-.full-width {
+.grid-full-width {
   grid-column: 1/-1;
 }
 @media (max-width: 900px) {
@@ -76,7 +76,7 @@
     grid-template-columns: minmax(0, 1fr) 270px;
     gap: 18px;
   }
-  .panel {
+  .content-panel {
     padding: 21px;
   }
 }

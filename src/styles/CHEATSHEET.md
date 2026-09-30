@@ -113,11 +113,12 @@ Combine one style with an optional size. Use on `<button>` for actions and `<a>`
 | `.button-sm`        | 32px high, label text, small icons |
 | `.button-lg`        | 52px high, wider padding           |
 
-Default pill height is 44px with body text and medium icons. Legacy button classes remain for screens built before the current system: `button`, `secondary`, `quiet`, `small`, `danger-button`.
+Default pill height is 44px with body text and medium icons. Legacy button modifiers are nested under `button, .button` and only apply there: `.secondary`, `.quiet`, `.small`, `.danger`, `.danger-button`.
 
 ## Legacy shared classes
 
-- Layout: `section`, `section-title`, `panel`, `things-grid`, `activity-grid`, `detail-layout`, `full-width`, `empty`.
-- Status: `badge`, `warning`, `sample`, `chip`, `error`, `notice`, `muted`, `danger`.
+- Layout: `page-section`, `page-section-title`, `content-panel`, `things-grid`, `activity-grid`, `detail-layout`, `grid-full-width`, `empty-state`, `empty-state-icon`.
+- Status: `status-badge` (with `.warning`), `sample-label`, `filter-chip` (with `.active`), `error-banner`, `notice-banner`, `empty-state-inline`.
+- Text: `eyebrow`, `hint-text` (on `small`).
 
 Page and component styles live beside their templates.

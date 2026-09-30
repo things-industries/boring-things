@@ -1,5 +1,5 @@
 @use 'tokens';
-.badge {
+.status-badge {
   border-radius: 5px;
   background: tokens.color(badge);
   color: tokens.color(badge-contrast);
@@ -7,18 +7,18 @@
   font-size: 10px;
   text-transform: capitalize;
 }
-.badge.warning {
+.status-badge.warning {
   background: tokens.color(warning-subtle);
   color: tokens.color(warning);
 }
-.sample {
+.sample-label {
   font-size: 10px;
   color: tokens.color(text-sample);
   border: 1px dashed tokens.color(border-sample);
   padding: 3px 7px;
   border-radius: 4px;
 }
-.chip {
+.filter-chip {
   background: transparent;
   border: 1px solid tokens.color(border);
   border-radius: 24px;
@@ -28,16 +28,16 @@
   font-weight: 500;
   gap: 7px;
 }
-.chip.active {
+.filter-chip.active {
   background: tokens.color(primary);
   border-color: tokens.color(primary);
   color: tokens.color(primary-contrast);
 }
-.chip > span {
+.filter-chip > span {
   opacity: 0.65;
   font-size: 10px;
 }
-.error {
+.error-banner {
   background: tokens.color(error);
   border: 1px solid tokens.color(border-error);
   color: tokens.color(danger);
@@ -46,25 +46,18 @@
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-.notice {
+.notice-banner {
   background: tokens.color(notice);
   padding: tokens.space(4);
   border-radius: 8px;
   font-size: 13px;
 }
-.placeholder,
-.muted {
-  color: tokens.color(text-muted);
-}
-.empty-small {
+.empty-state-inline {
   font-size: 13px;
   margin: tokens.space(5) 0;
 }
-.danger {
-  color: tokens.color(destructive);
-}
 @media (max-width: 650px) {
-  .chip {
+  .filter-chip {
     font-size: 11px;
     padding: tokens.space(2) 10px;
   }

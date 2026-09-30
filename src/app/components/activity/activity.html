@@ -1,11 +1,11 @@
 @for (issue of issues(); track issue.id) {
   <article class="activity-card">
     <div class="card-top">
-      <span class="badge warning">{{
+      <span class="status-badge warning">{{
         issue.status === 'OPEN' ? 'Needs attention' : 'Resolved'
       }}</span>
       @if (issue.isSample) {
-        <span class="sample">Sample</span>
+        <span class="sample-label">Sample</span>
       }
     </div>
     <h3>
@@ -57,9 +57,9 @@
 @for (event of events(); track event.id) {
   <article class="activity-card">
     <div class="card-top">
-      <span class="badge">{{ event.status }}</span>
+      <span class="status-badge">{{ event.status }}</span>
       @if (event.isSample) {
-        <span class="sample">Sample</span>
+        <span class="sample-label">Sample</span>
       }
     </div>
     <h3>

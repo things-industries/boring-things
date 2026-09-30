@@ -2,7 +2,7 @@
   @if (loading()) {
     <span role="status">Loading resource…</span>
   } @else if (unavailable()) {
-    <p class="muted">This resource is unavailable.</p>
+    <p class="text-primary-muted">This resource is unavailable.</p>
     <button class="quiet small" (click)="load(card())">Retry</button>
   } @else {
     @if (thing(); as thing) {
@@ -34,7 +34,7 @@
       <h3>{{ item.name }}</h3>
       <p>{{ item.description }}</p>
       @if (item.isSample) {
-        <span class="sample">Sample · example suggestion</span>
+        <span class="sample-label">Sample · example suggestion</span>
       } @else {
         <a [href]="item.merchantUrl" target="_blank" rel="noopener noreferrer">View at merchant</a>
       }
@@ -46,6 +46,6 @@
     }
   }
   @if (actionFailed()) {
-    <p class="error" role="alert">The action could not be completed. Try again.</p>
+    <p class="error-banner" role="alert">The action could not be completed. Try again.</p>
   }
 </div>

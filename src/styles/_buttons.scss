@@ -21,22 +21,25 @@ button,
   justify-content: center;
   gap: tokens.space(3);
   white-space: nowrap;
-}
-.secondary {
-  background: tokens.color(surface-subtle);
-  color: tokens.color(primary);
-}
-.quiet {
-  color: tokens.color(primary);
-  background: transparent;
-  padding: tokens.space(2) 10px;
-}
-.small {
-  font-size: 12px;
-  padding: 7px 10px;
-}
-.danger-button {
-  background: tokens.color(destructive);
+  &.secondary {
+    background: tokens.color(surface-subtle);
+    color: tokens.color(primary);
+  }
+  &.quiet {
+    color: tokens.color(primary);
+    background: transparent;
+    padding: tokens.space(2) 10px;
+  }
+  &.small {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  &.danger {
+    color: tokens.color(destructive);
+  }
+  &.danger-button {
+    background: tokens.color(destructive);
+  }
 }
 .button-primary,
 .button-secondary,

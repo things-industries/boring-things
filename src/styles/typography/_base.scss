@@ -31,8 +31,9 @@ p {
   color: tokens.color(text-eyebrow);
   text-transform: uppercase;
 }
-small.muted {
+small.hint-text {
   display: block;
+  color: tokens.color(primary-muted);
   font-size: 10px;
   line-height: 1.7;
   margin-bottom: tokens.space(4);
