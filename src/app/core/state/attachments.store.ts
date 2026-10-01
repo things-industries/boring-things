@@ -2,13 +2,19 @@ import { computed, inject } from '@angular/core';
 import { signalStore, withComputed, withFeature, withMethods, withProps } from '@ngrx/signals';
 import type { Schema } from '../../../../shared/model';
 import { AttachmentsService } from '../data/attachments.service';
+import { CONFIG } from '../runtime-config';
+import { Toasts } from '../services/toasts.service';
 import { removing, updating } from './optimistic';
 import { withEntityCollection } from './with-entity-collection';
 
 export const AttachmentsStore = signalStore(
   { providedIn: 'root' },
 
-  withProps(() => ({ _service: inject(AttachmentsService) })),
+  withProps(() => ({
+    _service: inject(AttachmentsService),
+    _config: inject(CONFIG),
+    _toasts: inject(Toasts),
+  })),
 
   withFeature((store) =>
     withEntityCollection<Schema['Attachment']>({
@@ -30,6 +36,11 @@ export const AttachmentsStore = signalStore(
   withMethods((store) => ({
     /** Uploads a file and links it to a Thing when given. The server computes the result. */
     async upload(file: File, thingId?: string) {
+      if (file.size > store._config.maxUploadBytes) {
+        store._toasts.error('uploadFile', 'too-large');
+        return { ok: false, code: 'too-large' } as const;
+      }
+
       const result = await store.mutate('uploadFile', [], async () => {
         const attachment = await store._service.upload(file);
 
@@ -62,6 +73,19 @@ export const AttachmentsStore = signalStore(
         {
           refetch: () => store.loadOne(id),
         },
+      );
+    },
+
+    /** Unlinks a file from its only Thing and deletes it. */
+    discard(id: string, thingId: string) {
+      return store.mutate(
+        'deleteFile',
+        [store.stage(id, removing)],
+        async () => {
+          await store._service.unlink(id, thingId);
+          await store._service.remove(id);
+        },
+        { refetch: () => store.loadOne(id) },
       );
     },
 

@@ -69,7 +69,7 @@ Three states of one page, driven by the Thing stream.
 - **Ready**:
   - Hero: Thing image (or category artwork) with top scrim, back and overflow buttons.
   - Resting sheet overlapping the hero: category, name, model subtitle (`common.model`), **Ask** pill opening Thing chat.
-  - Status summary: Warranty, Age, Manual tiles, derived from warranty-end and purchase-date fields and a manual attachment.
+  - Status summary: Warranty, Age, Manual tiles. Not shown in the POC: the backend does not provide its data. The component is kept for later.
   - **Key details**: pinned fields as icon/label/value rows. **Copy** copies the rows as text to the clipboard. **See all** opens View all details.
   - **Upcoming tasks**: next scheduled Event card. **See all** inert.
   - **Suggested tasks**: suggested Events with icon badge, title, recurrence; **+** schedules via a date picker (existing schedule behaviour). **See all** inert.
@@ -124,8 +124,9 @@ Prefix `bt-`. Built in the stage listed; later stages reuse.
 | `bt-hero`             | Full-bleed image with scrim, overlay controls, discovering gradient | 5     |
 | `bt-sheet`            | Rounded sheet overlapping the hero                                  | 5     |
 | `bt-key-value-row`    | Optional icon, label, value or skeleton                             | 5     |
-| `bt-status-summary`   | Row of tinted metric tiles                                          | 5     |
+| `bt-status-summary`   | Row of tinted metric tiles (`bt-status-tile`); built, not placed    | 5     |
 | `bt-menu`             | Overflow action menu                                                | 5     |
+| `bt-dialog`           | Modal dialog with title, close and actions                          | 5     |
 | Skeleton mixins       | Line, circle and row placeholders                                   | 5     |
 | `bt-thing-card`       | Thing context card for chat                                         | 7     |
 | `bt-chat-bubble`      | User and assistant message layouts                                  | 7     |
@@ -340,10 +341,74 @@ Validation: `CI=true pnpm check`; e2e Add Thing spec (tiles, manual creation sho
 
 ### 5. Thing detail
 
-- Hero, sheet, status summary, Key details, tasks, products, attachments, overflow menu.
-- Discovering and processing states with skeletons; multi-Thing confirmation restyled.
-- Mocks: field icons, event recurrence and kind, attachment title/kind/pages/publisher, product image, warranty/ownership fields.
-- Move the page onto the stores. It reads the Thing from `ThingsStore` (`loadOne`, `watch`, `view`) and its Issues, Events, attachments and purchasables from the child stores' selectors. Every write goes through a store method: Thing fields, pins, category, tags and delete; Tag create; attachment upload, link, unlink and delete; Issue resolve; Event schedule and complete; reveal. No direct `Api` calls remain on the page.
+Two pages in `features/things/`, neither with the bottom nav.
+
+| Route                 | Page                                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `/things/:id`         | Thing detail (`thing.*`): the designed page in three states                                                                        |
+| `/things/:id/details` | All details (`thing-details.*`): the existing name, description, section, field and custom-field editor, until stage 6 restyles it |
+
+Data: the page reads the Thing from `ThingsStore` (`loadOne`, `watch`, `view` once per visit), Issues, Events and attachments from `issuesByThing`, `eventsByThing` and `attachmentsByThing`, purchasables from `PurchasablesStore.loadForThing`, categories from `categoriesView()` and tags from `TagsStore`. A stream snapshot with a new revision reloads the Thing's child collections inside `ThingsStore.watch`, so discovery results appear without the page asking. A failed first load shows `bt-error-message` with Retry; a missing Thing shows "This thing is unavailable." with a link home.
+
+States, chosen from the Thing's import (`detail.import`):
+
+| State       | When                                                                            | Shows                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Discovering | Import `QUEUED` or `EXTRACTING` and the Thing has no field values or image      | Full-height hero gradient, back and overflow controls, centred "Identifying your Thing…" (`title`, regular weight) over `bt-import-steps` in a `role="status"` region |
+| Processing  | Import `QUEUED`, `EXTRACTING`, `MAPPING`, `DISCOVERING` or `AWAITING_SELECTION` | Ready layout; busy `bt-notice` under the title holding `bt-import-steps`; Key details rows without values and empty sections show skeleton rows                       |
+| Ready       | Otherwise                                                                       | Ready layout; a `FAILED` or `INCOMPLETE` import shows a warning `bt-notice` with **Retry import** under the title                                                     |
+
+`AWAITING_SELECTION` replaces the processing notice with the multi-Thing confirmation (candidate selects and **Keep selected Things**), restyled inside the sheet. Writes from the overflow and attachment menus are disabled while an import runs.
+
+Ready layout, top to bottom:
+
+- `bt-hero`: Thing image, or the category icon at `artwork` size, on `secondary-muted`; top scrim; elevated back link (to `/`) and surface overflow menu over it.
+- `bt-sheet` overlapping the hero by `hero-overlap`, holding everything below:
+  - Category name in `caption`, semibold, `primary-muted`; Thing name as page `h1` in `title` at regular weight; model subtitle from the `common.model` field in `label`, `primary-muted`; **Sample** label when `isSample`. **Ask** pill (`.button-primary` with the chat icon, `accent-muted` text) linking to `/things/:id/chat` when chat is enabled.
+  - Import notice or confirmation (see States).
+  - **Needs attention** (only with open Issues): list rows with the Issue kind badge (#9 mock), status and due-date subtitle and a trailing **Resolve** button.
+  - **Key details**: section header with inline **Copy** and trailing **See all** link to `/things/:id/details`. Pinned fields as `bt-key-value-row`s: field icon, label, value (masked values as dots, `false` as No, missing as "Not recorded"). Copy writes "Label: value" lines for unmasked pinned values to the clipboard and shows "Copied" for `copiedMs` in a `role="status"` region. Without pins: "Pin details to see them here." with the See all link.
+  - **Upcoming tasks**: header with inert **See all** (#19); every scheduled Event, earliest first, as a `bt-event-card` with the event icon, title, "Due {date} · {relative time}" and a trailing **Mark complete** icon button. Empty: "Nothing scheduled."
+  - **Suggested tasks**: header with inert **See all** (#19); suggested Events as list rows with a kind badge, title, recurrence subtitle (#11 mock, omitted when unknown) and a trailing **+** icon button that opens the schedule dialog. Hidden when empty and not processing.
+  - **Compatible products**: header with inert **See all** (#20); purchasables as list rows with an `accent` badge, name, description and a trailing `.button-accent.button-sm` **Buy** link opening `merchantUrl` in a new tab; sample rows show a disabled **Buy** and "Sample" in the subtitle. Hidden when empty and not processing.
+  - **Attachments**: header with an **Add** link opening the Add a file dialog (Upload a file; library files to link, unlinked ones also deletable); list rows with an icon and tone by `documentType`, `title` or filename, meta "{format} · {n} pages · {publisher or document date}", a trailing download icon button and an attachment menu. Empty: "No documents yet."
+- Overflow menu: **Edit details** (link to `/things/:id/details`), **Add details from a source** (when imports are enabled), **Change category**, **Tags**, **Delete**.
+- Attachment menu: **Set as image** (images; **Use category image** on the current image), **Extract details** (supported types with imports enabled), **Unlink**, **Delete**.
+
+Dialogs (`bt-dialog`):
+
+- **Add details from a source**: option tiles Camera, Photos, Files and Text; Text shows a textarea and **Import text**. Calls `ThingsStore.startImport(file, thingId)`; when the import makes another Thing, the page navigates to it.
+- **Change category**: category select, the notice that populated fields from incompatible sections are kept as custom fields, **Save**.
+- **Tags**: tag toggle chips and a new-tag input; toggles call `ThingsStore.update({ tagIds })`; new tags call `TagsStore.create` and then add the tag.
+- **Delete**: "Delete this thing and its activity? Uploaded files stay in your library." with `.button-danger` **Delete thing** and **Keep it**. Deleting navigates to `/`.
+- **Schedule**: date input with an optional time; **Schedule** calls `EventsStore.schedule`.
+- **Link a file**: library attachments not linked to the Thing as rows with **Link**; unlinked files also offer **Delete**.
+
+All details page: `bt-top-bar` titled "All details" with back to the Thing; the existing basics (name, description), sections, standalone fields, custom fields and "Add details" controls. Pins, values, sections and custom fields save through `ThingsStore.update`; `bt-field` reveals through `ThingsStore.reveal`. Category and tags move to the Thing page's dialogs.
+
+Components (`src/app/components/<name>/`):
+
+- `bt-hero`: full-bleed block of height `hero`, `secondary-muted` fill, top scrim (`mixins.hero-scrim`). Inputs `imageId`, `category` (icon key) and `discovering` (full viewport height, no image). Image shown through `bt-thing-thumbnail` at size `fill`. Projected `[heroStart]` and `[heroEnd]` controls in a top row; default content centred.
+- `bt-sheet`: white, full-bleed, top corners `sheet` radius, `sheet` shadow, pulled up by `hero-overlap`, filling the rest of the viewport. `arrive` slides it up from below the viewport as it first renders (none under reduced motion). The Thing page sets it only when the same visit saw the Discovering state, so the sheet arrives with the first details but not on a plain visit.
+- `bt-import-steps` (things feature): the current import stage in words ("Waiting to start", "Reading your source", "Waiting for your choice", "Adding details", "Finding useful details", prefixed for screen readers with "Step n of 3") over a three-segment track: read the source (`QUEUED`, `EXTRACTING`), add details (`AWAITING_SELECTION`, `MAPPING`), find more (`DISCOVERING`). Done and current segments are `accent`, the current one pulses; upcoming segments are `secondary`.
+- `bt-status-summary` and `bt-status-tile`: a three-column row of tiles; each tile has `icon`, `label`, `tone` (`accent` or `neutral`) and projected value in `label`, bold. Not placed on the Thing page, since the backend does not provide its data; `warrantyStatus` and `thingAge` in `thing.view.ts` derive tile values from `common.warrantyEnds` and `common.acquiredOn` for when it returns.
+- `bt-key-value-row`: key/value mixin row with optional `icon` (`sm`, `primary-muted`), `label` in `label`, `primary-muted`, projected value in `label`, right-aligned; `loading` shows a skeleton line. Adjacent rows are divided.
+- `bt-menu`: icon-button trigger (`icon`, `label`, `variant`) and a popover of projected `button[btMenuItem]`/`a[btMenuItem]` items with `role="menu"`. Opens below the trigger aligned to its end; arrow keys move focus; Escape, an outside click or choosing an item closes it and returns focus to the trigger.
+- `bt-dialog`: native modal `<dialog>` with an `h2` title, a close icon button and projected content and `[dialogActions]`. `open` input; `closed` output on Escape, backdrop click or close. White, radius `card`, `space(5)` padding, width capped at `content-max`.
+- Skeleton mixins: `mixins.skeleton-line` and `mixins.skeleton-circle(size)` on `secondary-muted`, radius `pill`. The page's skeleton rows (`thing-skeleton`) use them in the shape of list rows and key/value rows.
+
+Styles: size tokens `hero` (400px) and `hero-overlap` (104px); icon size `artwork` (96px); `bt-thing-thumbnail` size `fill`; `.button-danger`; `mixins.hero-scrim`.
+
+Icons: field icons keyed by `Field.icon` (README mapping) through `fieldIcon()` in `app/utils/field-icon.util.ts`, `fieldDefault` for unknown keys and custom fields; attachment kind icons; suggested task kind icons; `upcomingEvent` on the event card.
+
+Mocks: `event-recurrence.mock.ts` (#11) infers kind from the Event title and recurrence from "every {n} {unit}" in its description. Field icons (#7), attachment metadata (#12) and the warranty and ownership fields (#6) are delivered; the Thing image (#13) needs no mock.
+
+Stores:
+
+- `ThingsStore.watch` reloads the Issues, Events and attachments collections and the Thing's purchasables when a snapshot brings a new revision.
+- Every page write goes through a store method: Thing fields, pins, category, tags and delete (`ThingsStore`); Tag create (`TagsStore`); upload, link, unlink and delete (`AttachmentsStore`); Issue resolve (`IssuesStore`); Event schedule and complete (`EventsStore`); reveal (`ThingsStore.reveal`). No `Api` calls remain on either page or in `bt-field`.
+
+Validation: `CI=true pnpm check`; e2e Thing detail spec (ready layout sections for a sample Thing, Key details from a pin, overflow Change category and Tags, schedule and complete a suggested task, a failed rename reverting with a toast, delete returning Home); the sensitive-field spec moved to All details; integration browser test updated for the new pages and menus; mobile (390px) and desktop screenshots of the ready, processing and discovering states compared with the design frames.
 
 ### 6. View all details
 

@@ -1,9 +1,8 @@
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { pinField, pinnedField } from '../../core/app-icons';
 import { dateTimeInput } from '../../utils/date.util';
-import { fieldValue, formatFieldValue } from '../../utils/field.util';
+import { fieldValue, formatFieldValue, sameValue } from '../../utils/field.util';
 import { fieldValueValidator } from '../../validators/field-value.validator';
-import { apiData } from '../../core/api/api-client';
 import {
   Component,
   EventEmitter,
@@ -16,8 +15,7 @@ import {
 } from '@angular/core';
 import { FormControl, FormsModule } from '@angular/forms';
 import type { Schema, Value } from '../../../../shared/model';
-import { Api } from '../../core/services/api.service';
-import { errorCode } from '../../utils/error.util';
+import { ThingsStore } from '../../core/state/things.store';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../error-message/error-message';
 @Component({
@@ -36,7 +34,7 @@ export class FieldEditor implements OnChanges {
   @Input() disabled = false;
   @Output() valueChange = new EventEmitter<Value | null>();
   @Output() pin = new EventEmitter<void>();
-  private api = inject(Api);
+  private things = inject(ThingsStore);
   editing = signal(false);
   revealed = signal(false);
   busy = signal(false);
@@ -44,8 +42,17 @@ export class FieldEditor implements OnChanges {
   private secret: Value | null = null;
   draft = '';
   currency: Schema['Money']['currency'] = 'GBP';
+  /** Discards edits when the field, its value or the Thing changes; a refreshed copy keeps them. */
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['field'] || changes['thingId']) this.cancel();
+    const previous: Schema['Field'] | undefined = changes['field']?.previousValue;
+    const changed =
+      !!changes['field'] &&
+      (!previous ||
+        previous.id !== this.field.id ||
+        previous.masked !== this.field.masked ||
+        !sameValue(previous.value, this.field.value));
+
+    if (changed || changes['thingId']) this.cancel();
   }
   visibleValue() {
     return this.revealed() ? this.secret : this.field.value;
@@ -61,22 +68,16 @@ export class FieldEditor implements OnChanges {
     }
     this.busy.set(true);
     this.error.set(null);
-    try {
-      const result = await this.api.client
-        .POST('/api/things/{id}:reveal-field', {
-          params: { path: { id: this.thingId } },
-          body: this.localId
-            ? { undefinedFieldId: this.localId }
-            : { fieldSetId: this.setId, fieldId: this.field.id },
-        })
-        .then(apiData);
-      this.secret = result.value;
-      this.revealed.set(true);
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      this.busy.set(false);
-    }
+    const value = await this.things.reveal(
+      this.thingId,
+      this.localId
+        ? { undefinedFieldId: this.localId }
+        : { fieldSetId: this.setId, fieldId: this.field.id },
+    );
+    this.busy.set(false);
+    if (value === undefined) return;
+    this.secret = value;
+    this.revealed.set(true);
   }
   edit() {
     this.error.set(null);

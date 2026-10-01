@@ -5,11 +5,12 @@ import { provideIcons } from '@ng-icons/core';
 import { privacyNotice } from '../../core/app-icons';
 import { ThingsStore } from '../../core/state/things.store';
 import { Notice } from '../../components/notice/notice';
+import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { TopBar } from '../../components/top-bar/top-bar';
 
 @Component({
   selector: 'bt-paste-text',
-  imports: [FormsModule, Notice, TopBar],
+  imports: [FormsModule, Notice, ScrollContainer, TopBar],
   viewProviders: [provideIcons({ privacyNotice })],
   templateUrl: './paste-text.html',
   styleUrl: './paste-text.scss',

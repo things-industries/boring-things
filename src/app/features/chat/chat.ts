@@ -13,10 +13,11 @@ import type { UiErrorCode } from '../../interfaces/error.interface';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { TermPipe } from '../../pipes/term.pipe';
 import { ResourceCard } from './resource-card';
+import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { TopBar } from '../../components/top-bar/top-bar';
 @Component({
   selector: 'bt-chat',
-  imports: [FormsModule, ErrorMessage, ResourceCard, TermPipe, TopBar],
+  imports: [FormsModule, ErrorMessage, ResourceCard, TermPipe, ScrollContainer, TopBar],
   templateUrl: './chat.html',
   styleUrl: './chat.scss',
 })

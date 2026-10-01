@@ -1,12 +1,17 @@
-@use 'mixins';
 @use 'tokens';
-.skeleton-heading {
-  @include mixins.skeleton;
-  height: 100px;
-  margin-bottom: tokens.space(6);
+@use 'mixins';
+.skeleton-sheet {
+  @include mixins.hero-sheet;
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
 }
-.skeleton-row {
-  @include mixins.skeleton;
-  height: 48px;
-  margin-bottom: tokens.space(4);
+.skeleton-name {
+  @include mixins.skeleton-line;
+  width: 60%;
+  height: tokens.space(6);
+}
+.skeleton-model {
+  @include mixins.skeleton-line;
+  width: 30%;
 }

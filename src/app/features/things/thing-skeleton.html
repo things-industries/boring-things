@@ -1,10 +1,7 @@
-<div class="skeleton-heading" aria-hidden="true"></div>
-<div class="detail-layout" aria-hidden="true">
-  <div class="content-panel">
-    @for (row of rows; track row) {
-      <div class="skeleton-row"></div>
-    }
-  </div>
-  <div class="content-panel"><div class="skeleton-row"></div></div>
+<div class="skeleton-sheet">
+  <span class="skeleton-name"></span>
+  <span class="skeleton-model"></span>
+  <bt-row-skeleton kind="key-value" [rows]="4" />
+  <bt-row-skeleton [rows]="3" />
 </div>
 <span class="visually-hidden" role="status">Loading thing details…</span>

@@ -1,0 +1,28 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  @include mixins.key-value-row;
+  padding: tokens.space(2) 0;
+  border-bottom: 1px solid tokens.color(secondary);
+  @include typography.role(label);
+  font-weight: typography.weight(regular);
+}
+.key-value-icon {
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
+}
+.key-value-label {
+  flex: 1;
+  min-width: 0;
+  color: tokens.color(primary-muted);
+}
+.key-value-value {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.key-value-skeleton {
+  @include mixins.skeleton-line;
+  width: 30%;
+}

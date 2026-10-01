@@ -10,4 +10,5 @@ export const APP_CONFIG = {
   downloadUrlLifetimeMs: 1000,
   toastMs: 6000,
   toastLimit: 3,
+  copiedMs: 2000,
 } as const;

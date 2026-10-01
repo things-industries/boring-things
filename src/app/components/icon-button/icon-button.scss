@@ -21,3 +21,6 @@
 :host(.plain) {
   background: transparent;
 }
+:host(.accent) {
+  background: tokens.color(accent-subtle);
+}

@@ -1,0 +1,44 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: tokens.space(3);
+  &:empty {
+    display: none;
+  }
+  > div[role='status'] {
+    align-self: stretch;
+    &:empty {
+      display: none;
+    }
+  }
+}
+.import-steps {
+  margin-bottom: tokens.space(1);
+}
+.import-heading {
+  margin: 0;
+  @include typography.role(section);
+}
+.import-candidates {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: tokens.space(3);
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: tokens.space(1);
+  }
+}
+.import-things {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: tokens.space(3);
+  margin: 0;
+  @include typography.role(label);
+  color: tokens.color(primary-muted);
+}

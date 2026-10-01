@@ -1,4 +1,4 @@
-import type { Schema } from '../../../shared/model';
+import type { Pin, Schema } from '../../../shared/model';
 // Only a single-parent, single-child inclusion edge can collapse. Shared dependencies
 // and branches retain their own sections and every field retains its set identity.
 export function fieldSections(sets: Schema['Thing']['fieldSets']) {
@@ -28,4 +28,14 @@ export function fieldSections(sets: Schema['Thing']['fieldSets']) {
 }
 export function fieldAnchor(setId: string | null, fieldId: string) {
   return 'field-' + encodeURIComponent(JSON.stringify([setId, fieldId]));
+}
+/** Whether two pins point at the same field, whatever their key order. */
+export function samePin(a: Pin, b: Pin) {
+  if ('undefinedFieldId' in a || 'undefinedFieldId' in b)
+    return (
+      'undefinedFieldId' in a &&
+      'undefinedFieldId' in b &&
+      a.undefinedFieldId === b.undefinedFieldId
+    );
+  return (a.fieldSetId ?? null) === (b.fieldSetId ?? null) && a.fieldId === b.fieldId;
 }

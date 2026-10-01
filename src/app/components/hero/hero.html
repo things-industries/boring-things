@@ -1,0 +1,10 @@
+@if (!discovering() && (imageId() || category())) {
+  <bt-thing-thumbnail
+    class="hero-image"
+    size="fill"
+    [imageId]="imageId()"
+    [category]="category()"
+  />
+}
+<div class="hero-scrim" aria-hidden="true"></div>
+<div class="hero-content"><ng-content /></div>

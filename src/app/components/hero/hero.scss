@@ -1,0 +1,41 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  @include mixins.hero-backdrop;
+  display: block;
+  overflow: hidden;
+}
+:host(.discovering) {
+  height: auto;
+  bottom: 0;
+}
+.hero-image {
+  position: absolute;
+  inset: 0 0 tokens.size(hero-overlap);
+  animation: hero-image-in 0.5s ease-out;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+.hero-scrim {
+  position: absolute;
+  inset: 0 0 auto;
+  height: calc(#{tokens.size(hero)} * 0.55);
+  @include mixins.hero-scrim;
+}
+.hero-content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  padding: calc(#{tokens.size(top-bar)} + #{tokens.space(10)}) tokens.space(6) 0;
+  text-align: center;
+  &:empty {
+    display: none;
+  }
+}
+@keyframes hero-image-in {
+  from {
+    opacity: 0;
+    transform: translateY(tokens.space(9)) scale(0.8);
+  }
+}

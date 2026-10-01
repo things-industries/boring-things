@@ -4,6 +4,7 @@
   margin: 0 auto;
   padding: tokens.space(2) tokens.space(4) tokens.space(8);
   &.with-bottom-nav {
+    --page-bottom-inset: calc(#{tokens.size(bottom-nav)} + env(safe-area-inset-bottom));
     padding-bottom: calc(
       #{tokens.size(bottom-nav)} + #{tokens.space(6)} + env(safe-area-inset-bottom)
     );

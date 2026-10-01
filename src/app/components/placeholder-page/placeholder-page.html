@@ -1,5 +1,7 @@
 <bt-top-bar [title]="title()" [back]="back()" />
-<section class="placeholder-page-body">
-  <span class="placeholder-page-icon"><ng-icon [name]="icon()" aria-hidden="true" /></span>
-  <ng-content />
-</section>
+<bt-scroll-container>
+  <section class="placeholder-page-body">
+    <span class="placeholder-page-icon"><ng-icon [name]="icon()" aria-hidden="true" /></span>
+    <ng-content />
+  </section>
+</bt-scroll-container>

@@ -1,9 +1,7 @@
 @use 'tokens';
 @use 'mixins';
 :host {
-  display: block;
-  max-width: 56rem;
-  margin: auto;
+  @include mixins.viewport-page;
 }
 .messages {
   display: grid;

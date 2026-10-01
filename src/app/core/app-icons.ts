@@ -55,6 +55,47 @@ import {
   remixLoopRightLine,
   remixFlashlightLine,
   remixShieldLine,
+  remixFileListLine,
+  remixBuildingLine,
+  remixHashtag,
+  remixBarcodeLine,
+  remixStore2Line,
+  remixGroupLine,
+  remixScalesLine,
+  remixMoneyPoundCircleLine,
+  remixTicketLine,
+  remixRefreshLine,
+  remixVipCrownLine,
+  remixLockPasswordLine,
+  remixRulerLine,
+  remixCustomerService2Line,
+  remixPhoneLine,
+  remixLinksLine,
+  remixUserLine,
+  remixMapPinLine,
+  remixBattery2ChargeLine,
+  remixWaterFlashLine,
+  remixTempHotLine,
+  remixWifiLine,
+  remixHardDrive3Line,
+  remixComputerLine,
+  remixSettings3Line,
+  remixTruckLine,
+  remixPrinterLine,
+  remixSpeedUpLine,
+  remixGasStationLine,
+  remixListOrdered2,
+  remixCheckboxCircleLine,
+  remixSparkling2Line,
+  remixSearchEyeLine,
+  remixHammerLine,
+  remixSwapLine,
+  remixCalendarCheckLine,
+  remixBillLine,
+  remixFileList3Line,
+  remixFileSettingsLine,
+  remixFileInfoLine,
+  remixLinkM,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftSLine;
@@ -119,6 +160,22 @@ export const deleteItem = remixDeleteBinLine;
 export const setAsImage = remixImageEditLine;
 export const extractDetails = remixFileSearchLine;
 export const unlinkAttachment = remixLinkUnlink;
+export const linkAttachment = remixLinkM;
+export const resolveIssue = remixCheckLine;
+export const scheduleTask = remixAddLine;
+export const attachmentManual = remixFileTextLine;
+export const attachmentReceipt = remixBillLine;
+export const attachmentInvoice = remixFileList3Line;
+export const attachmentGuide = remixFileSettingsLine;
+export const attachmentSpecification = remixFileInfoLine;
+export const attachmentImage = remixImageLine;
+export const attachmentFile = remixFileLine;
+export const taskCleaning = remixSparkling2Line;
+export const taskInspection = remixSearchEyeLine;
+export const taskRepair = remixHammerLine;
+export const taskReplacement = remixSwapLine;
+export const taskService = remixToolsLine;
+export const taskOther = remixCalendarCheckLine;
 
 // Chat
 export const attachToMessage = remixAttachment2;
@@ -134,4 +191,48 @@ export const categoryIcons = {
   categoryUtility: remixFlashlightLine,
   categoryInsurance: remixShieldLine,
   categoryOther: remixFileTextLine,
+};
+
+// Fields, keyed by the registry's `Field.icon`. Read through `fieldIcon()`.
+export const fieldIcons = {
+  fieldDefault: remixFileListLine,
+  fieldPolicy: remixFileListLine,
+  fieldManufacturer: remixBuildingLine,
+  fieldModel: remixHashtag,
+  fieldSerial: remixBarcodeLine,
+  fieldDate: remixCalendarLine,
+  fieldInsurance: remixShieldCheckLine,
+  fieldRetailer: remixStore2Line,
+  fieldVehicle: remixCarLine,
+  fieldSeats: remixGroupLine,
+  fieldWeight: remixScalesLine,
+  fieldMoney: remixMoneyPoundCircleLine,
+  fieldMembership: remixTicketLine,
+  fieldRenewal: remixRefreshLine,
+  fieldLevel: remixVipCrownLine,
+  fieldAccessCode: remixLockPasswordLine,
+  fieldDimensions: remixRulerLine,
+  fieldSupport: remixCustomerService2Line,
+  fieldPhone: remixPhoneLine,
+  fieldLink: remixLinksLine,
+  fieldEmail: remixMailLine,
+  fieldPerson: remixUserLine,
+  fieldAddress: remixMapPinLine,
+  fieldService: remixToolsLine,
+  fieldPower: remixFlashlightLine,
+  fieldBattery: remixBattery2ChargeLine,
+  fieldWater: remixWaterFlashLine,
+  fieldTemperature: remixTempHotLine,
+  fieldNetwork: remixWifiLine,
+  fieldStorage: remixHardDrive3Line,
+  fieldDisplay: remixComputerLine,
+  fieldTime: remixTimeLine,
+  fieldSettings: remixSettings3Line,
+  fieldDelivery: remixTruckLine,
+  fieldPrint: remixPrinterLine,
+  fieldSpeed: remixSpeedUpLine,
+  fieldFuel: remixGasStationLine,
+  fieldAccount: remixAccountCircleLine,
+  fieldCount: remixListOrdered2,
+  fieldCheck: remixCheckboxCircleLine,
 };

@@ -37,7 +37,7 @@ export function withEntityCollection<T extends { id: string }>(
       loadOne(id: string): Promise<UiErrorCode | null> {
         const { get } = options;
 
-        if (get) return store.refresh(id, () => get(id));
+        if (get) return store.refresh(id, () => get(id), options.merge);
         return store.reload().then(() => store.error());
       },
 

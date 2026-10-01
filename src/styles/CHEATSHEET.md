@@ -91,8 +91,8 @@ Each set has four tokens, and optionally a fifth. The element decides where each
 - `tokens.space(name)`: `0` 0, `half` 2px (tight text stacks only), `1` 4, `2` 8, `3` 12, `4` 16, `5` 20, `6` 24, `7` 32, `8` 40, `9` 48, `10` 64 pixels.
 - `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges). `control` (9px) is legacy.
 - `tokens.shadow(name)`: `raised` (call-to-action cards), `floating` (controls over images), `sheet` (sheet over an image).
-- `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px.
-- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `bottom-nav` 64px, `content-max` 480px (page column width).
+- `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px, `artwork` 96px (category artwork in the hero).
+- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `hero` 400px, `hero-overlap` 104px (sheet over the hero image), `top-bar` 60px, `bottom-nav` 64px, `content-max` 480px (page column width).
 
 Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; set tokens resolve to their palette variable.
 
@@ -102,6 +102,12 @@ Unknown keys fail Sass compilation. CSS custom properties are emitted through `t
 - `mixins.list-row`: flex row with the list-row minimum height.
 - `mixins.key-value-row`: flex row with the key/value minimum height.
 - `mixins.skeleton`: placeholder surface and radius.
+- `mixins.skeleton-line`: a skeleton text line; `mixins.skeleton-circle($size)`: a round skeleton, such as an icon badge.
+- `mixins.viewport-page`: page host that fills the viewport above the bottom nav, with a `bt-top-bar` over a `bt-scroll-container`. Only the container scrolls.
+- `mixins.page-gutter`: inline padding that centres content in the page column on a full-width element.
+- `mixins.hero-backdrop`: fixed image area at the top of a `viewport-page`, behind its top bar and content (`bt-hero`).
+- `mixins.hero-scrim`: dark-to-clear gradient at the top of the hero, behind the top bar controls.
+- `mixins.hero-sheet`: white sheet that scrolls over the `hero-backdrop` (`bt-sheet`, the Thing skeleton). Its scroll container needs no top padding.
 - `mixins.visually-hidden`: accessible offscreen content.
 - Legacy: `mixins.category-art`, `mixins.thing-art-size`.
 
@@ -115,6 +121,7 @@ Combine one style with an optional size. Use on `<button>` for actions and `<a>`
 | `.button-secondary` | Outline pill in `primary`          |
 | `.button-accent`    | Green accent pill, dark text       |
 | `.button-link`      | Accent text link, no padding       |
+| `.button-danger`    | Red pill, white text               |
 | `.button-sm`        | 32px high, label text, small icons |
 | `.button-lg`        | 52px high, wider padding           |
 

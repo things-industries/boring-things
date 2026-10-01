@@ -29,10 +29,13 @@ test('Things list shows sample Things', async ({ page }) => {
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 });
 
-test('Thing page masks sensitive fields until revealed', async ({ page }) => {
+test('All details masks sensitive fields until revealed', async ({ page }) => {
   await page.goto('/things');
   await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Edit details' }).click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+\/details$/);
   const pin = page.locator('bt-field').filter({ hasText: 'Access PIN' });
   await expect(pin).toContainText('••••••••');
   await pin.getByRole('button', { name: 'Reveal', exact: true }).click();

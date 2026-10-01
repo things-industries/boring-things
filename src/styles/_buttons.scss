@@ -44,6 +44,7 @@ button,
 .button-primary,
 .button-secondary,
 .button-accent,
+.button-danger,
 .button-link {
   display: inline-flex;
   align-items: center;
@@ -53,7 +54,8 @@ button,
 }
 .button-primary,
 .button-secondary,
-.button-accent {
+.button-accent,
+.button-danger {
   border: 1px solid transparent;
   border-radius: tokens.radius(pill);
   min-height: tokens.size(control-md);
@@ -75,6 +77,10 @@ button,
 .button-accent {
   background: tokens.color(accent-muted);
   color: tokens.color(primary);
+}
+.button-danger {
+  background: tokens.color(danger);
+  color: tokens.color(danger-contrast);
 }
 .button-link {
   background: transparent;

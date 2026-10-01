@@ -20,6 +20,7 @@ import type { MutationResult } from '../../interfaces/state.interface';
 import type { ActionTerm } from '../../interfaces/terms.interface';
 import { errorCode } from '../../utils/error.util';
 import {
+  confirmedValue,
   emptyLedger,
   failureOutcome,
   inserting,
@@ -90,10 +91,21 @@ export function withOptimisticEntities<T extends { id: string }>() {
         },
         mutate,
 
-        /** Fetches one entity again; a `404` removes it. Resolves to the error code on failure. */
-        async refresh(id: string, request: () => Promise<T>) {
+        /**
+         * Fetches one entity again, combined with its confirmed value by `merge` when given; a `404`
+         * removes it. Resolves to the error code on failure.
+         */
+        async refresh(
+          id: string,
+          request: () => Promise<T>,
+          merge?: (previous: T | null, next: T) => T,
+        ) {
           try {
-            write(setConfirmed(read(), id, await request()));
+            const value = await request();
+
+            write(
+              setConfirmed(read(), id, merge ? merge(confirmedValue(read(), id), value) : value),
+            );
             return null;
           } catch (e) {
             const code = errorCode(e);

@@ -1,0 +1,23 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: tokens.space(3);
+  width: 100%;
+  min-height: tokens.size(control-md);
+  padding: 0 tokens.space(3);
+  border: 0;
+  border-radius: tokens.radius(tile);
+  background: transparent;
+  color: tokens.color(primary);
+  text-align: left;
+  @include typography.role(body);
+  @include mixins.icon-size(md);
+  &:hover:not(:disabled),
+  &:focus-visible {
+    background: tokens.color(secondary-subtle);
+  }
+}

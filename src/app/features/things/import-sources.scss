@@ -1,0 +1,23 @@
+@use 'tokens';
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
+}
+.import-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: tokens.space(3);
+}
+.import-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: tokens.space(3);
+  label {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    gap: tokens.space(1);
+  }
+}

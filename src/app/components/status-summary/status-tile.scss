@@ -1,0 +1,30 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: tokens.space(1);
+  padding: tokens.space(3) tokens.space(2);
+  border-radius: tokens.radius(tile);
+  background: tokens.color(secondary-muted);
+  color: tokens.color(primary);
+  text-align: center;
+}
+:host(.tone-accent) {
+  background: tokens.color(accent-subtle);
+  color: tokens.color(accent);
+}
+.status-tile-label {
+  display: inline-flex;
+  align-items: center;
+  gap: tokens.space(1);
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
+}
+.status-tile-value {
+  @include typography.role(label);
+  font-weight: typography.weight(bold);
+}

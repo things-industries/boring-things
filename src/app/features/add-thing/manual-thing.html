@@ -1,60 +1,62 @@
 <bt-top-bar back="/things/new" title="Enter details manually" />
-@if (error()) {
-  <div class="manual-thing-error">
-    <bt-error-message [code]="error()" />
-    <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
-  </div>
-}
-<form class="manual-thing-form" (ngSubmit)="save()">
-  <label
-    >Name<input
-      name="name"
-      required
-      maxlength="200"
-      placeholder="e.g. Kitchen hob"
-      [ngModel]="name()"
-      (ngModelChange)="name.set($event)"
-      [disabled]="busy()"
-  /></label>
-  <label
-    >Category<select
-      name="category"
-      aria-label="Category"
-      [ngModel]="categoryId()"
-      (ngModelChange)="chooseCategory($event)"
-      [disabled]="busy() || !loaded()"
+<bt-scroll-container>
+  @if (error()) {
+    <div class="manual-thing-error">
+      <bt-error-message [code]="error()" />
+      <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+    </div>
+  }
+  <form class="manual-thing-form" (ngSubmit)="save()">
+    <label
+      >Name<input
+        name="name"
+        required
+        maxlength="200"
+        placeholder="e.g. Kitchen hob"
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)"
+        [disabled]="busy()"
+    /></label>
+    <label
+      >Category<select
+        name="category"
+        aria-label="Category"
+        [ngModel]="categoryId()"
+        (ngModelChange)="chooseCategory($event)"
+        [disabled]="busy() || !loaded()"
+      >
+        @for (category of categories(); track category.id) {
+          <option [value]="category.id">{{ category.name }}</option>
+        }
+      </select></label
     >
-      @for (category of categories(); track category.id) {
-        <option [value]="category.id">{{ category.name }}</option>
-      }
-    </select></label
-  >
-  <label
-    >Description<textarea
-      name="description"
-      rows="3"
-      maxlength="4000"
-      placeholder="A little context, if you need it"
-      [ngModel]="description()"
-      (ngModelChange)="description.set($event)"
-      [disabled]="busy()"
-    ></textarea>
-  </label>
-  <label
-    >Details to include<select
-      name="fieldSet"
-      aria-label="Details to include"
-      [ngModel]="fieldSetId()"
-      (ngModelChange)="fieldSetId.set($event)"
-      [disabled]="busy() || !loaded()"
+    <label
+      >Description<textarea
+        name="description"
+        rows="3"
+        maxlength="4000"
+        placeholder="A little context, if you need it"
+        [ngModel]="description()"
+        (ngModelChange)="description.set($event)"
+        [disabled]="busy()"
+      ></textarea>
+    </label>
+    <label
+      >Details to include<select
+        name="fieldSet"
+        aria-label="Details to include"
+        [ngModel]="fieldSetId()"
+        (ngModelChange)="fieldSetId.set($event)"
+        [disabled]="busy() || !loaded()"
+      >
+        <option value="">Choose later</option>
+        @for (set of fieldSets(); track set.id) {
+          <option [value]="set.id">{{ set.name }}</option>
+        }
+      </select></label
     >
-      <option value="">Choose later</option>
-      @for (set of fieldSets(); track set.id) {
-        <option [value]="set.id">{{ set.name }}</option>
-      }
-    </select></label
-  >
-  <button type="submit" class="button-primary" [disabled]="busy() || !name().trim()">
-    {{ busy() ? 'Creating thing…' : 'Create thing' }}
-  </button>
-</form>
+    <button type="submit" class="button-primary" [disabled]="busy() || !name().trim()">
+      {{ busy() ? 'Creating thing…' : 'Create thing' }}
+    </button>
+  </form>
+</bt-scroll-container>

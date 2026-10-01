@@ -1,0 +1,15 @@
+@for (item of items(); track item) {
+  <div class="skeleton-row">
+    @if (kind() === 'list') {
+      <span class="skeleton-badge"></span>
+      <span class="skeleton-copy">
+        <span class="skeleton-title"></span>
+        <span class="skeleton-subtitle"></span>
+      </span>
+      <span class="skeleton-action"></span>
+    } @else {
+      <span class="skeleton-label"></span>
+      <span class="skeleton-value"></span>
+    }
+  </div>
+}
