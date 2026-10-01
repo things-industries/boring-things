@@ -23,18 +23,18 @@ How agents access, label and write GitHub issues. See `docs/agents/github-issues
 ```text
 Angular browser client -> /api -> Fastify -> Supabase PostgreSQL (bt schema)
                                    |----> Logto identity verification
-                                   `----> private filesystem blobs
+                                   `----> private blobs (local filesystem / Supabase Storage)
 ```
 
 - Angular 21 and plain Fastify 5; strict TypeScript and ESM.
 - Node versions follow `package.json`; `.node-version` pins the tested local version. pnpm 10.34.5 via Corepack.
-- Development runs Angular and Fastify separately with an `/api` proxy. The production build can serve both from Fastify; hosted deployment is pending.
+- Development runs Angular and Fastify separately with an `/api` proxy. The Render configuration serves the production build from Fastify; setup and release operations are in `docs/setup/deployment.md`.
 - PostgreSQL access uses `pg`. SQL migrations are the schema authority. Logto supplies identity; Fastify enforces application access.
 - Keep application rules, persistence and external providers separated. Extend existing modules before adding abstractions. Add classes when state or lifecycle requires them.
 - Do not introduce frameworks, providers or infrastructure without explicit approval (but suggest them if they would help). Update the relevant guide when a decision changes.
 - The browser must not receive database, service-role or AI credentials. Private records and attachments must not enter public assets or shared caches.
 - Frontend styling uses Sass, icons use Remix through `ng-icons` 34.x, and date helpers use `date-fns`.
-- Tests use Node's test runner; e2e tests use Playwright Test in `e2e/`. ESLint uses flat configuration. Do not assume Angular unit-test targets, GitHub Actions or pre-commit hooks exist.
+- Tests use Node's test runner; e2e tests use Playwright Test in `e2e/`. GitHub Actions validates PRs and `main`; Render deploys after checks pass. ESLint uses flat configuration. Do not assume Angular unit-test targets or pre-commit hooks exist.
 
 ## API contract
 
@@ -82,4 +82,4 @@ pnpm db:stop             # Stop local Supabase, preserving data
 - Preserve unknown values, provenance and user edits. Identifiers are strings; absence is distinct from `false`, `0` and empty text.
 - Tags currently organise an owner's Things. Household sharing is future work and requires an explicit access model.
 - Activity and purchasable samples must stay labelled; sample merchant actions stay disabled.
-- Imports and assistant messages share a single-process persisted runner, with authenticated Thing/conversation SSE. Chat infers requested actions from user messages and context; writes require owner-scoped validation and atomic retry receipts, with one creation per message. Do not describe distributed queues, checkout, repair booking, conversation history or hosted deployment as available. Read the scoped plan before extending these boundaries.
+- Imports and assistant messages share one active persisted runner per database, protected by a session lock during deploy overlap, with authenticated Thing/conversation SSE. Chat infers requested actions from user messages and context; writes require owner-scoped validation and atomic retry receipts, with one creation per message. Do not describe distributed queues, checkout, repair booking or conversation history as available. Verify hosted rollout separately from deployment configuration.

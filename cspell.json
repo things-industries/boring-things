@@ -154,6 +154,27 @@
     {
       "filename": ["server/src/providers/web/pdf.ts", "cspell.json"],
       "words": ["fff"]
+    },
+    {
+      "filename": [".github/workflows/ci.yml", "cspell.json"],
+      "words": ["isready", "nologin", "psql"]
+    },
+    {
+      "filename": ["render.yaml", "cspell.json"],
+      "words": ["num"]
+    },
+    {
+      "filename": [
+        "scripts/deploy.ts",
+        "server/src/config.ts",
+        "docs/setup/deployment.md",
+        "cspell.json"
+      ],
+      "words": ["sslmode"]
+    },
+    {
+      "filename": ["server/test/integration/job-lease.test.ts", "cspell.json"],
+      "words": ["classid", "datname", "locktype", "objid", "oid"]
     }
   ]
 }

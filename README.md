@@ -76,7 +76,7 @@ Choose **Ask the assistant** on the dashboard or **Ask about this thing** on a T
 
 Field sections collapse unbranched inclusion chains under the specialist name. Sibling and shared-dependency sections remain separate. Every field keeps its original set ID for editing, citations and pins. Pinned details appear together above the editor, with sensitive values masked. Purchasables are grouped as consumables, accessories and upgrades.
 
-Sharing, hosted deployment, checkout, repair booking, calendar sync and conversation history remain deferred.
+Sharing, checkout, repair booking, calendar sync and conversation history remain deferred. Render deployment configuration is available; hosted rollout must be verified separately.
 
 ## Fields and privacy
 
@@ -214,7 +214,7 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 `pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 
-`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. Production hosting and operating configuration are separate work.
+`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. GitHub Actions validates PRs and `main`. The Render Blueprint builds the application, prepares production Supabase and deploys after CI passes. See [deployment setup](docs/setup/deployment.md) for private Supabase Storage, credentials, Logto callbacks, release sequencing and recovery.
 
 ### Import verification
 

@@ -24,8 +24,8 @@ export class LocalBlobs implements BlobStorage {
     return key;
   }
 
-  read(key: string) {
-    return createReadStream(this.path(key));
+  async read(key: string, signal?: AbortSignal) {
+    return createReadStream(this.path(key), { signal });
   }
 
   async remove(key: string) {

@@ -9,7 +9,7 @@ import { databaseError } from './errors.js';
 export type Database = Pick<pg.Pool, 'query'>;
 
 export function createPool(connectionString: string) {
-  const pool = new pg.Pool({ connectionString, max: 10 });
+  const pool = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 10000 });
   pool.on('error', (error) => {
     // Idle connections can disappear on database restart. Never log query/value details.
     console.error('Idle database connection failed', {

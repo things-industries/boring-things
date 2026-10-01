@@ -97,7 +97,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
       )
       .type(file.mediaType)
       .code(200)
-      .send(blobs.read(file.storageKey));
+      .send(await blobs.read(file.storageKey));
   });
   route(app, 'DELETE', '/api/attachments/{id}', async (req, reply) => {
     await removeAttachment(db, blobs, req.ownerId, req.params.id);
