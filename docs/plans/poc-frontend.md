@@ -4,6 +4,8 @@ Rebuild the Angular client against the [Boring Things POC Figma file](https://ww
 
 Inputs: [scaffolding plan](poc-scaffolding.md), [frontend guide](../../src/AGENTS.md), [issue conventions](../agents/github-issues.md), `openapi.json`.
 
+Issues created during a stage go in the `POC` milestone when [Milestones](../requirements/roadmap/MILESTONES.md) puts the change in the POC. Future work, including enhancements left inert and Backend changes the POC can mock, gets no milestone.
+
 ## Principles
 
 - **Tokens first.** Every colour, font size, weight, line height, spacing, radius, shadow and icon size comes from `src/styles/` tokens. No literal values in component styles.
