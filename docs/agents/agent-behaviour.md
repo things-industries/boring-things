@@ -62,7 +62,7 @@ State a requirement as what it is, never as what it is not. Write "opens a full-
 
 The same applies to justification. Give the reason a decision needs to survive review, once, where the decision is made. Do not re-argue it in the next section, and do not argue against alternatives nobody reading the document proposed.
 
-See [`github-issues.md`](github-issues.md) for issue-specific title, label and body conventions.
+See [`github-issues.md`](github-issues.md) for issue types, milestones, area labels, titles and bodies.
 
 ## Writing research docs
 

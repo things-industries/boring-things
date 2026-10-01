@@ -16,13 +16,13 @@ Read [docs/agents/github-issues.md](../../docs/agents/github-issues.md) and [ser
 1. List the distinct changes. One issue per change; split anything a developer could not finish on its own.
 2. For each change, read the code it touches so every file, component, type and field you name is real.
 3. Search open issues for duplicates. Skip or comment on a duplicate instead of creating one.
-4. Create each issue with the `Backend` label plus `bug` or `enhancement` (and `accessibility` when it applies).
-5. Report each issue as `#<number> <title>` with its URL, and list any you skipped as duplicates.
+4. Read the repository label descriptions and confirm the change meets the `Backend` criteria. Set its issue type and applicable area labels following the issue guide. Assign a deliverable milestone where relevant; leave backlog issues without a milestone. Verify the saved fields.
+5. Report each issue as `#<number> <title>` with its URL, type, milestone and area labels, and list any you skipped as duplicates.
 
 ## Scope
 
-Backend issues cover the Fastify server, `openapi.json` contract, database migrations, prompts and generation under `server/` and `supabase/`.
+Use the repository’s `Backend` label description to determine scope. Route operations work according to the operations label description.
 
-- If part of a described change belongs to the other area, file that part as a separate `Frontend` issue and link the two.
+- If part of a described change belongs to the frontend, file that part as a separate `Frontend` issue and link the two.
 - If the change is an HTTP contract change, include the proposed route and a `jsonc` request/response example using existing `openapi.json` component names. If the frontend currently fakes it, name the fake file.
 - If the input is too vague to write a testable **Expected** section, ask before creating anything.

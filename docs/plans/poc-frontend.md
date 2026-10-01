@@ -12,7 +12,7 @@ Issues created during a stage go in the `POC` milestone when [Milestones](../req
 - **Components on first encounter.** When a pattern first appears, build it as a shared component or mixin in that stage and record it in the component inventory below. Later stages reuse it; they do not restyle a copy.
 - **Align, do not copy.** Figma values are snapped to the token scale. Deviations are listed under [Design alignment](#design-alignment) and resolved once in stage 0.
 - **Mock behind a seam.** When the design needs data or behaviour the API lacks, the frontend maps API responses to view models and fills gaps from a labelled mock in `src/app/core/mocks/`. Each mock names its Backend issue. Removing the mock is part of closing that issue.
-- **Unprovisioned features are inert.** Controls for features outside the POC render as designed, are disabled or open a placeholder page, and have an `enhancement` issue.
+- **Unprovisioned features are inert.** Controls for features outside the POC render as designed, are disabled or open a placeholder page, and have an issue of type `Feature`.
 - **Existing behaviour is preserved** and re-homed where the design has no slot: import progress, multi-Thing confirmation, sensitive reveal, pins, tags, custom fields, section add/remove, category correction, attachment link/unlink/extract/set image, event scheduling/completion, issue resolution, chat retry, sample labels. See [Re-homed features](#re-homed-features).
 - Phone first (393 px frame). Wider viewports use a centred column capped at a max width token; no separate desktop layout in the POC.
 
@@ -39,7 +39,7 @@ Node: Figma frame ID.
 
 - Brand wordmark, display headline, supporting copy; primary pill **Continue with email** (Logto redirect), secondary outline pill **Continue with Apple**, terms footnote.
 - Setup-pending state stays, restyled.
-- Apple sign-in and Terms/Privacy pages are inert (enhancement).
+- Apple sign-in and Terms/Privacy pages are inert (tracked as `Feature` issues).
 
 ### Home
 
@@ -95,7 +95,7 @@ Three states of one page, driven by the Thing stream.
 ### Things list, Timeline, Profile
 
 - Things list: search and category filter, Thing rows. Composed from Home components.
-- Timeline: placeholder page (enhancement).
+- Timeline: placeholder page (tracked as a `Feature` issue).
 - Profile: display name, sign out, add sample data. Composed from existing components.
 
 ## Component inventory
@@ -383,9 +383,9 @@ Validation: `CI=true pnpm check`; e2e Add Thing spec (tiles, manual creation sho
 | #14   | Chat saves assistant content as a document attachment              | 7         |
 | #15   | Chat infers message intent                                         | 7         |
 
-## Enhancements
+## Future features
 
-Inert in the POC. `Frontend` `enhancement` issues:
+Inert in the POC. Track these as `Feature` issues, using area labels according to their repository descriptions. Assign an upcoming deliverable milestone when committed; leave backlog issues without a milestone:
 
 | Issue | Change                                                | Stage |
 | ----- | ----------------------------------------------------- | ----- |

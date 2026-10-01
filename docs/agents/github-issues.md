@@ -17,14 +17,26 @@ One issue describes one change a developer can pick up and finish on its own. Sp
 
 Before creating, search open issues for the same change. If one exists, report it instead of creating a duplicate, or add a comment when the new information changes it.
 
+## Issue types
+
+Set the GitHub issue type on every issue:
+
+- `Feature`: new or expanded product behaviour.
+- `Bug`: behaviour that fails to meet an existing requirement.
+- `Task`: maintenance, investigation or other work supporting delivery.
+
+## Milestones
+
+Assign issues to an existing GitHub milestone where relevant. Read milestone titles and descriptions before choosing:
+
+- Use the current or upcoming deliverable's milestone when the issue is required for that deliverable.
+- Leave the issue with no milestone assigned if it is a backlog / future thing.
+
+If the intended deliverable is unclear, ask before assigning it.
+
 ## Labels
 
-Every issue gets exactly one area label and one type label, drawn from the repository's existing labels — list them first (`gh label list` or the plugin); do not create labels.
-
-- Area: `Frontend` (Angular client, UI, styling) or `Backend` (server, Fastify, database, AI providers).
-- Type: `bug` (something is wrong) or `enhancement` (new or changed behaviour).
-
-Confirm each label exists before use; the set above may not match what is configured in this repository.
+Use existing labels to distinguish frontend, backend and operations work. Read the repository's label descriptions before applying labels; those descriptions define the criteria. Use the configured names and apply each area label whose criteria the issue meets. Do not create labels.
 
 ## Title
 

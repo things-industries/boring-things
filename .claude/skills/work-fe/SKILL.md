@@ -14,6 +14,8 @@ Read [docs/agents/github-issues.md](../../../docs/agents/github-issues.md), [doc
 
 ## 1. List
 
+Read the repository label descriptions (`gh label list` or the plugin) and use their criteria to identify frontend, backend and operations work. Follow the issue guide for `Feature`, `Bug` and `Task` issue types and milestone assignment. Preserve issue types, milestones and area labels during implementation and QA unless the scope changes.
+
 ```bash
 env -u GITHUB_TOKEN gh issue list --state open --label Frontend --limit 100 \
   --json number,title,labels --jq '.[] | select(all(.labels[]; .name != "ready for QA")) | "#\(.number) \(.title)"'
