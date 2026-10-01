@@ -10,10 +10,11 @@ import { NgIcon } from '@ng-icons/core';
     '[attr.aria-label]': 'label()',
     '[class.elevated]': "variant() === 'elevated'",
     '[class.plain]': "variant() === 'plain'",
+    '[class.accent]': "variant() === 'accent'",
   },
 })
 export class IconButton {
   readonly icon = input.required<string>();
   readonly label = input.required<string>();
-  readonly variant = input<'surface' | 'elevated' | 'plain'>('surface');
+  readonly variant = input<'surface' | 'elevated' | 'plain' | 'accent'>('surface');
 }

@@ -1,0 +1,89 @@
+<div class="import-tiles">
+  <button
+    type="button"
+    btOptionTile
+    icon="takePhoto"
+    label="Camera"
+    [disabled]="busy()"
+    (click)="camera.click()"
+  ></button>
+  <button
+    type="button"
+    btOptionTile
+    icon="choosePhoto"
+    label="Photos"
+    [disabled]="busy()"
+    (click)="photos.click()"
+  ></button>
+  <button
+    type="button"
+    btOptionTile
+    icon="chooseFile"
+    label="Files"
+    [disabled]="busy()"
+    (click)="files.click()"
+  ></button>
+  <button
+    type="button"
+    btOptionTile
+    icon="pasteText"
+    label="Text"
+    [attr.aria-expanded]="pasting()"
+    [disabled]="busy()"
+    (click)="pasting.set(!pasting())"
+  ></button>
+</div>
+<input
+  #camera
+  hidden
+  type="file"
+  aria-label="Take a photo"
+  accept="image/jpeg,image/png,image/webp"
+  capture="environment"
+  (change)="file($event)"
+/>
+<input
+  #photos
+  hidden
+  type="file"
+  aria-label="Choose a photo"
+  accept="image/jpeg,image/png,image/webp"
+  (change)="file($event)"
+/>
+<input
+  #files
+  hidden
+  type="file"
+  aria-label="Choose a file"
+  [accept]="config.supportedMediaTypes.join(',')"
+  (change)="file($event)"
+/>
+@if (pasting()) {
+  <form class="import-text" (ngSubmit)="paste()">
+    <label
+      >Text to import
+      <textarea
+        name="text"
+        rows="5"
+        [ngModel]="text()"
+        (ngModelChange)="text.set($event)"
+        [disabled]="busy()"
+      ></textarea>
+    </label>
+    <button type="submit" class="button-primary button-sm" [disabled]="busy() || !text().trim()">
+      Import text
+    </button>
+  </form>
+}
+<div role="status">
+  @if (busy()) {
+    <bt-notice tone="accent" [busy]="true">Uploading…</bt-notice>
+  } @else {
+    <bt-notice tone="accent" icon="privacyNotice">
+      <span noticeDetail
+        >The source is sent to OpenAI to extract details. Review imported values before relying on
+        them.</span
+      >
+    </bt-notice>
+  }
+</div>

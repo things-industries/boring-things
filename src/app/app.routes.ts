@@ -4,7 +4,6 @@ import { addFirstThing } from './core/services/first-thing.guard';
 import { importsEnabled } from './core/services/imports.guard';
 import { APP_TERMS } from './core/app-terms';
 const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.Dashboard);
-const thingPage = () => import('./features/things/thing').then((m) => m.ThingPage);
 const chatPage = () => import('./features/chat/chat').then((m) => m.ChatPage);
 export const routes: Routes = [
   {
@@ -53,12 +52,12 @@ export const routes: Routes = [
   {
     path: 'things/:id',
     canActivate: [authenticated],
-    loadComponent: thingPage,
+    loadComponent: () => import('./features/things/thing').then((m) => m.ThingPage),
   },
   {
     path: 'things/:id/details',
     canActivate: [authenticated],
-    loadComponent: thingPage,
+    loadComponent: () => import('./features/things/thing-details').then((m) => m.ThingDetailsPage),
   },
   {
     path: 'things/:id/chat',

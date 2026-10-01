@@ -46,7 +46,7 @@ test('a manually created Thing shows in the Things list without a reload', async
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Your things' }).click();
+  await page.getByRole('link', { name: 'Back', exact: true }).click();
   await page.getByRole('link', { name: 'Things', exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 });

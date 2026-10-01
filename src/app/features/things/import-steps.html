@@ -1,0 +1,31 @@
+<span class="import-step-label">
+  @if (step() < count) {
+    <span class="visually-hidden">Step {{ step() + 1 }} of {{ count }}: </span>
+  }
+  @switch (status()) {
+    @case ('QUEUED') {
+      Waiting to start
+    }
+    @case ('EXTRACTING') {
+      Reading your source
+    }
+    @case ('AWAITING_SELECTION') {
+      Waiting for your choice
+    }
+    @case ('MAPPING') {
+      Adding details
+    }
+    @case ('DISCOVERING') {
+      Finding useful details
+    }
+  }
+</span>
+<span class="import-step-track" aria-hidden="true">
+  @for (index of steps; track index) {
+    <span
+      class="import-step"
+      [class.done]="index < step()"
+      [class.current]="index === step()"
+    ></span>
+  }
+</span>

@@ -70,6 +70,7 @@ test(
         (await pool.query('select access_count from bt.things where id=$1', [membershipId])).rows[0]
           .access_count;
       await expect.poll(accessCount).toBe(1);
+      await page.getByRole('link', { name: 'See all details', exact: true }).click();
       const pin = page.locator('bt-field').filter({ hasText: 'Access PIN' });
       await expect(pin).toContainText('••••••••');
       await expect(pin).not.toContainText('0000');
@@ -78,9 +79,15 @@ test(
       await pin.getByRole('button', { name: 'Hide', exact: true }).click();
       await expect(pin).not.toContainText('0000');
       await pin.getByRole('button', { name: 'Pin Access PIN', exact: true }).click();
-      await expect(page.locator('.pinned-summary')).toContainText('Access PIN');
-      await expect(page.locator('.pinned-summary')).not.toContainText('0000');
+      await expect(
+        pin.getByRole('button', { name: 'Unpin Access PIN', exact: true }),
+      ).toBeVisible();
       assert.equal(await accessCount(), 1);
+      await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
+      const pinnedPin = page.locator('bt-key-value-row').filter({ hasText: 'Access PIN' });
+      await expect(pinnedPin).toContainText('••••••••');
+      await expect(pinnedPin).not.toContainText('0000');
+      await expect.poll(accessCount).toBe(2);
       await page.screenshot({
         path: 'test-results/membership.png',
         fullPage: true,
@@ -125,11 +132,15 @@ test(
       await page.setViewportSize({ width: 1440, height: 1100 });
       await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
       await expect(
-        page.getByRole('heading', { name: 'Check the filter', exact: true }),
+        page.getByRole('heading', { name: 'Museum membership', level: 1 }),
       ).toBeVisible();
+      // Chat writes bypass the stores until stage 7, so the Thing shows them after a reload.
       await page.reload();
-      await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
-      await expect.poll(accessCount).toBe(3);
+      const filterTask = page.locator('bt-event-card').filter({ hasText: 'Check the filter' });
+      await expect(
+        filterTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
+      ).toBeVisible();
+      await expect.poll(accessCount).toBe(4);
       const dateTask = await app.inject({
         method: 'POST',
         url: '/api/events',
@@ -150,30 +161,39 @@ test(
       });
       assert.equal(issue.statusCode, 201, issue.body);
       await page.reload();
-      const taskCard = page
-        .locator('article.activity-card')
-        .filter({ hasText: 'Date-only maintenance' });
-      await taskCard.getByLabel('Date only', { exact: true }).check();
-      await expect(taskCard.getByLabel('Schedule for')).toHaveAttribute('type', 'date');
-      await taskCard.getByLabel('Schedule for').fill('2026-10-18');
-      await taskCard.getByRole('button', { name: 'Schedule', exact: true }).click();
-      await expect(taskCard).toContainText('18 October 2026');
-      await expect(taskCard.getByRole('button', { name: 'Mark complete' })).toBeVisible();
+      await page
+        .getByRole('button', { name: 'Schedule: Date-only maintenance', exact: true })
+        .click();
+      await page.getByLabel('Date', { exact: true }).fill('2026-10-18');
+      await page.getByRole('button', { name: 'Schedule', exact: true }).click();
+      const taskCard = page.locator('bt-event-card').filter({ hasText: 'Date-only maintenance' });
+      await expect(taskCard).toContainText('Due 18 Oct 2026');
+      await expect(
+        taskCard.getByRole('button', { name: 'Mark complete: Date-only maintenance' }),
+      ).toBeVisible();
+      await expect
+        .poll(
+          async () =>
+            (
+              await app.inject({
+                url: '/api/events/' + dateTask.json().id,
+                headers: { authorization: 'Bearer ' + accessToken },
+              })
+            ).json().startsOn,
+        )
+        .toBe('2026-10-18');
       const savedDate = (
         await app.inject({
           url: '/api/events/' + dateTask.json().id,
           headers: { authorization: 'Bearer ' + accessToken },
         })
       ).json();
-      assert.equal(savedDate.startsOn, '2026-10-18');
       assert.equal(savedDate.startsAt, null);
-      assert.equal(await accessCount(), 4);
-      const issueCard = page
-        .locator('article.activity-card')
-        .filter({ hasText: 'Renewal attention' });
-      await expect(issueCard).toContainText('Renewal due');
-      await expect(issueCard).toContainText('12 October 2026');
-      await expect(issueCard.locator('.date')).toContainText(/day/);
+      assert.equal(await accessCount(), 5);
+      const issueRow = page.locator('bt-list-row').filter({ hasText: 'Renewal attention' });
+      await expect(issueRow).toContainText('Renewal due');
+      await expect(issueRow).toContainText('12 Oct 2026');
+      await expect(issueRow).toContainText(/day/);
       await page.setViewportSize({ width: 390, height: 844 });
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
@@ -182,7 +202,7 @@ test(
       await page.screenshot({ path: 'test-results/date-only-mobile.png', fullPage: true });
       await page.setViewportSize({ width: 1440, height: 1100 });
 
-      await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
+      await page.goto(base);
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
       await expect(page.getByRole('heading', { name: 'Add a thing', exact: true })).toBeVisible();
       for (const label of ['Camera', 'Photos', 'Files']) {
@@ -206,6 +226,7 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Browser test policy', exact: true }),
       ).toBeVisible();
+      await page.getByRole('link', { name: 'See all details', exact: true }).click();
       const buildings = page.locator('section').filter({
         has: page.getByRole('heading', {
           name: 'Buildings cover',
@@ -228,47 +249,38 @@ test(
           exact: true,
         }),
       });
-      await expect(contents.locator('bt-field').filter({ hasText: 'Sum insured' })).toContainText(
-        'Add a value',
-      );
+      const contentsSum = contents.locator('bt-field').filter({ hasText: 'Sum insured' });
+      await expect(contentsSum).toContainText('Add a value');
       await page.reload();
       await expect(sum).toContainText('£500,000.00');
+      await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
+      await page.getByRole('button', { name: 'Add an attachment', exact: true }).click();
       await page.getByLabel('Upload a file', { exact: false }).setInputFiles({
         name: 'policy.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('policy'),
       });
-      await expect(page.getByRole('button', { name: 'policy.txt', exact: false })).toBeVisible();
+      const download = page.getByRole('button', { name: 'Download policy.txt', exact: true });
+      await expect(download).toBeVisible();
       const downloadReady = page.waitForEvent('download');
-      await page.getByRole('button', { name: 'policy.txt', exact: false }).click();
-      const download = await downloadReady;
-      assert.equal(download.suggestedFilename(), 'policy.txt');
-      assert.equal(await readFile((await download.path())!, 'utf8'), 'policy');
-      await expect(contents.locator('bt-field').filter({ hasText: 'Sum insured' })).toContainText(
-        'Add a value',
-      );
+      await download.click();
+      const downloaded = await downloadReady;
+      assert.equal(downloaded.suggestedFilename(), 'policy.txt');
+      assert.equal(await readFile((await downloaded.path())!, 'utf8'), 'policy');
       let releaseImport!: () => void;
       importAi.pause = new Promise((resolve) => {
         releaseImport = resolve;
       });
-      await page.getByRole('button', { name: 'Extract details', exact: true }).click();
-      const progress = page.getByRole('progressbar', {
-        name: 'AI import in progress',
-      });
+      await page.getByRole('button', { name: 'Actions for policy.txt', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Extract details', exact: true }).click();
+      const progress = page.locator('bt-import-progress bt-notice');
       await expect(progress).toBeVisible();
-      assert.equal(await progress.getAttribute('aria-valuenow'), null);
-      await expect(
-        page.getByText('Adding details… Fields appear as they are ready.'),
-      ).toBeVisible();
-      assert.ok(
-        (await progress.boundingBox())!.y <
-          (await page
-            .getByRole('heading', { name: 'Browser test policy', exact: true })
-            .boundingBox())!.y,
-      );
+      await expect(progress).toContainText(/Step \d of 3/);
+      await expect(progress).toContainText('You can leave this screen');
+      const currentStep = progress.locator('.import-step.current');
       assert.match(
-        await progress.evaluate((el) => getComputedStyle(el, '::after').animationName),
-        /import-progress$/,
+        await currentStep.evaluate((el) => getComputedStyle(el).animationName),
+        /import-step-pulse$/,
       );
       await page.screenshot({
         path: 'test-results/import-progress-desktop.png',
@@ -280,27 +292,24 @@ test(
         fullPage: true,
       });
       await page.emulateMedia({ reducedMotion: 'reduce' });
-      assert.equal(
-        await progress.evaluate((el) => getComputedStyle(el, '::after').animationName),
-        'none',
-      );
+      assert.equal(await currentStep.evaluate((el) => getComputedStyle(el).animationName), 'none');
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.setViewportSize({ width: 1440, height: 1100 });
       releaseImport();
       importAi.pause = undefined;
-      await expect(
-        page.getByText('Import complete. Review the details below.', {
-          exact: true,
-        }),
-      ).toBeVisible();
       await expect(progress).toHaveCount(0);
+      await page.getByRole('link', { name: 'See all details', exact: true }).click();
       await expect(sum).toContainText('£500,000.00');
-      await expect(contents.locator('bt-field').filter({ hasText: 'Sum insured' })).toContainText(
-        '£50,000.00',
-      );
+      await expect(contentsSum).toContainText('£50,000.00');
+      await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
+      await page.getByRole('button', { name: 'More actions', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Tags', exact: true }).click();
       await page.getByLabel('New tag', { exact: true }).fill('Paperwork');
-      await page.locator('form.inline-form').getByRole('button').click();
-      await expect(page.getByRole('button', { name: 'Paperwork', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Add tag', exact: true }).click();
+      await expect(
+        page.getByRole('button', { name: 'Paperwork', exact: true, pressed: true }),
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Close', exact: true }).click();
       await page.setViewportSize({ width: 390, height: 844 });
       await page.screenshot({
         path: 'test-results/thing-mobile.png',
@@ -310,7 +319,7 @@ test(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
       );
-      await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
+      await page.goto(base);
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
       await page.screenshot({
         path: 'test-results/add-thing-mobile.png',
@@ -334,11 +343,9 @@ test(
         fullPage: true,
       });
       await page.getByRole('button', { name: 'Keep selected Things', exact: true }).click();
-      await expect(
-        page.getByText('Import complete. Review the details below.', {
-          exact: true,
-        }),
-      ).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
+      await expect(progress).toHaveCount(0);
+      await page.getByRole('link', { name: 'See all details', exact: true }).click();
       await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
         '0015',
       );
@@ -354,13 +361,14 @@ test(
       await acquiredOn.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(acquiredOn).toContainText('2022-03-12');
       await acquiredOn.getByRole('button', { name: 'Pin Acquired on', exact: true }).click();
-      await expect(page.locator('.pinned-summary')).toContainText('Acquired on');
-      await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
+      await expect(
+        acquiredOn.getByRole('button', { name: 'Unpin Acquired on', exact: true }),
+      ).toBeVisible();
+      await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
+      const pinnedDate = page.locator('bt-key-value-row').filter({ hasText: 'Acquired on' });
+      await expect(pinnedDate).toContainText('12 Mar 2022');
       await page.reload();
-      await expect(acquiredOn).toContainText('2022-03-12');
-      await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
-        '0015',
-      );
+      await expect(pinnedDate).toContainText('12 Mar 2022');
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,

@@ -1,6 +1,12 @@
 <div class="top-bar-start">
   @if (back(); as link) {
-    <a btIconButton icon="back" [label]="backLabel()" [routerLink]="link"></a>
+    <a
+      btIconButton
+      icon="back"
+      [variant]="backVariant()"
+      [label]="backLabel()"
+      [routerLink]="link"
+    ></a>
   }
 </div>
 @if (title()) {

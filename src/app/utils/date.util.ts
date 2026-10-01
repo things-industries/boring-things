@@ -56,3 +56,31 @@ export function startsFrom(
   if (event.startsAt) return parseISO(event.startsAt).getTime() >= now.getTime();
   return !!event.startsOn && event.startsOn >= format(now, 'yyyy-MM-dd');
 }
+
+/**
+ * Time left until `value`: whole years from two years, whole months from one month, otherwise days.
+ * `null` once it has passed.
+ */
+export function timeLeft(
+  value: string,
+  now = new Date(),
+): { amount: number; unit: 'year' | 'month' | 'day' } | null {
+  const date = parseISO(value);
+  const days = differenceInCalendarDays(date, now);
+  if (!isValid(date) || days < 0) return null;
+  const months = differenceInMonths(date, startOfDay(now));
+  if (months >= 24) return { amount: Math.floor(months / 12), unit: 'year' };
+  return months >= 1 ? { amount: months, unit: 'month' } : { amount: days, unit: 'day' };
+}
+/** Time since `value`: whole months under a year, then years to the half. `null` for the future. */
+export function timeSince(
+  value: string,
+  now = new Date(),
+): { amount: number; unit: 'month' | 'year' } | null {
+  const date = parseISO(value);
+  const months = differenceInMonths(startOfDay(now), date);
+  if (!isValid(date) || months < 0) return null;
+  return months < 12
+    ? { amount: months, unit: 'month' }
+    : { amount: Math.floor(months / 6) / 2, unit: 'year' };
+}

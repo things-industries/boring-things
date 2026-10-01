@@ -1,440 +1,626 @@
-<bt-top-bar back="/" [backLabel]="'things' | term" />
-@if (error()) {
-  <bt-error-message [code]="error()" />
-}
-@if (!loaded()) {
-  <bt-thing-skeleton />
-} @else if (thing()) {
-  <bt-import-panel
-    [thingId]="id"
-    [job]="thing()?.import ?? null"
-    (changed)="importChanged($event)"
-  />
-  <div class="detail-heading">
-    <div class="detail-symbol" [attr.data-category]="categoryId">
-      @if (imageUrl()) {
-        <img [src]="imageUrl()" alt="" />
-      } @else {
-        <span><ng-icon [name]="categoryIcon(category()?.icon)" aria-hidden="true" /></span>
-      }
-    </div>
-    <div>
-      <span class="eyebrow">{{ category()?.name }}</span>
-      <h1>{{ thing()?.name }}</h1>
-      @if (thing()?.isSample) {
-        <span class="sample-label">Sample data</span>
-      }
-    </div>
-  </div>
-  @if (streamFailed()) {
-    <p class="notice-banner" role="status">
-      Connection interrupted. Reconnecting to saved details…
-    </p>
-  }
-  @if (config.chatEnabled) {
-    <p>
-      <a class="button secondary" [routerLink]="['/things', id, 'chat']">Ask about this thing</a>
-    </p>
-  }
-  <fieldset class="editor-content" [disabled]="processing()">
-    @if (pinnedDetails().length) {
-      <section class="content-panel pinned-summary">
-        <h2>Pinned details</h2>
-        <dl>
-          @for (field of pinnedDetails(); track field.anchor) {
-            <div>
-              <dt>
-                <a [routerLink]="['/things', id]" [fragment]="field.anchor">{{ field.label }}</a>
-              </dt>
-              <dd>
-                @if (field.masked) {
-                  ••••••••
-                } @else if (field.value === null) {
-                  Not recorded
-                } @else if (field.value === '') {
-                  Empty text
-                } @else if (field.value === false) {
-                  No
-                } @else if (field.value === true) {
-                  Yes
-                } @else {
-                  {{ formatValue(field.value) }}
-                }
-              </dd>
-            </div>
-          }
-        </dl>
-      </section>
+@if (!error() && !missing()) {
+  <bt-hero
+    [imageId]="thing()?.imageAttachmentId ?? null"
+    [category]="category()?.icon ?? null"
+    [discovering]="discovering()"
+  >
+    @if (discovering() && job(); as job) {
+      <div class="thing-discovering" role="status">
+        <p class="thing-discovering-title">Identifying your Thing…</p>
+        <bt-import-steps class="thing-discovering-steps" [status]="job.status" />
+      </div>
     }
+  </bt-hero>
+}
+<bt-top-bar
+  back="/"
+  [backVariant]="error() || missing() ? 'surface' : 'elevated'"
+  [class.over-hero]="!error() && !missing()"
+  [class.over-sheet]="sheetAtTop() && !discovering()"
+>
+  @if (loaded() && thing()) {
+    <bt-menu label="More actions">
+      <a btMenuItem icon="editDetails" [routerLink]="['/things', id(), 'details']">Edit details</a>
+      @if (config.importEnabled) {
+        <button
+          type="button"
+          btMenuItem
+          icon="extractDetails"
+          [disabled]="processing()"
+          (click)="open('sources')"
+        >
+          Add details from a source
+        </button>
+      }
+      <button
+        type="button"
+        btMenuItem
+        icon="changeCategory"
+        [disabled]="processing()"
+        (click)="open('category')"
+      >
+        Change category
+      </button>
+      <button
+        type="button"
+        btMenuItem
+        icon="editTags"
+        [disabled]="processing()"
+        (click)="open('tags')"
+      >
+        Tags
+      </button>
+      <button
+        type="button"
+        btMenuItem
+        icon="deleteItem"
+        [disabled]="processing()"
+        (click)="open('delete')"
+      >
+        Delete
+      </button>
+    </bt-menu>
+  }
+</bt-top-bar>
+<bt-scroll-container class="thing-content" (scroll)="scrolled($event)">
+  @if (error()) {
+    <div class="thing-message">
+      <bt-error-message [code]="error()" />
+      <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+    </div>
+  } @else if (missing()) {
+    <div class="thing-message">
+      <p>This thing is unavailable.</p>
+      <a class="button-link" routerLink="/">Go home</a>
+    </div>
+  } @else if (!loaded()) {
+    <bt-thing-skeleton />
+  } @else if (thing(); as t) {
+    @if (!discovering()) {
+      <bt-sheet [arrive]="sheetArrives()">
+        <header class="thing-header">
+          <div class="thing-identity">
+            <h1>{{ t.name }}</h1>
+            @if (model(); as model) {
+              <span class="thing-model">{{ model }}</span>
+            }
+            <span class="thing-category"
+              >{{ category()?.name }}
+              @if (t.isSample) {
+                · Sample
+              }
+            </span>
+          </div>
+          @if (config.chatEnabled) {
+            <a class="button-primary thing-ask" [routerLink]="['/things', id(), 'chat']">
+              <ng-icon name="askQuestion" aria-hidden="true" />Ask<span class="visually-hidden">
+                about this thing</span
+              >
+            </a>
+          }
+        </header>
 
-    <div class="detail-layout">
-      <div>
-        <section class="content-panel">
-          <h2>The basics</h2>
-          <form (ngSubmit)="saveBasics()" class="basics-form">
-            <label
-              >Name<input
-                name="name"
-                [(ngModel)]="name"
-                required
-                maxlength="200"
-                placeholder="e.g. Kitchen hob" /></label
-            ><label
-              >Category<select
-                name="category"
-                aria-label="Category"
-                [(ngModel)]="categoryId"
-                (ngModelChange)="selectedSet = ''"
-              >
-                @for (category of categories(); track category.id) {
-                  <option [value]="category.id">{{ category.name }}</option>
-                }
-              </select></label
-            ><label class="grid-full-width"
-              >Description<textarea
-                name="description"
-                [(ngModel)]="description"
-                rows="2"
-                maxlength="4000"
-                placeholder="A little context, if you need it"
-              ></textarea>
-            </label>
-            @if (categoryId !== thing()?.categoryId) {
-              <p class="notice-banner grid-full-width">
-                Changing category keeps populated fields from incompatible sections as custom
-                fields.
-              </p>
-            }
-            <div class="grid-full-width">
-              <button [disabled]="processing() || busy()" type="submit">Save basics</button>
-            </div>
-          </form>
-        </section>
-        @if (thing(); as t) {
-          @for (section of sections(); track section.id) {
-            <section class="content-panel field-section">
-              <div class="page-section-title">
-                <h2>{{ section.name }}</h2>
-                <button
-                  class="quiet small"
-                  [disabled]="processing() || busy() || requiredSet(section.id)"
-                  [title]="
-                    requiredSet(section.id)
-                      ? 'Required by another selected section'
-                      : 'Populated fields will be kept as custom fields'
-                  "
-                  (click)="update({ removeFieldSetIds: [section.id] })"
+        @if (disconnected()) {
+          <bt-notice tone="warning" icon="issueFault" role="status">
+            Connection interrupted.
+            <span noticeDetail>Reconnecting to saved details…</span>
+          </bt-notice>
+        }
+
+        @if (job(); as job) {
+          @if (showImport()) {
+            <bt-import-progress [thingId]="id()" [job]="job" />
+          }
+        }
+
+        @if (openIssues().length) {
+          <section class="thing-section">
+            <bt-section-header title="Needs attention" />
+            <div>
+              @for (issue of openIssues(); track issue.id) {
+                <bt-list-row
+                  [title]="issue.title"
+                  [icon]="issueBadges[issue.kind].icon"
+                  [tone]="issueBadges[issue.kind].tone"
                 >
-                  Remove section
-                </button>
-              </div>
-              @for (set of section.sets; track set.id) {
-                @for (field of set.fields; track field.id) {
-                  <bt-field
-                    [disabled]="processing() || busy()"
-                    [field]="field"
-                    [thingId]="id"
-                    [setId]="set.id"
-                    [attr.id]="fieldAnchor(set.id, field.id)"
-                    [pinned]="pinned({ fieldSetId: set.id, fieldId: field.id })"
-                    (valueChange)="fieldValue(field, set.id, $event)"
-                    (pin)="pin({ fieldSetId: set.id, fieldId: field.id })"
-                  />
-                }
-                @if (!set.fields.length) {
-                  <p class="text-primary-muted">Details are held in the included sections below.</p>
-                }
-              }
-            </section>
-          }
-          @if (t.standaloneFields.length) {
-            <section class="content-panel">
-              <h2>Other details</h2>
-              @for (field of t.standaloneFields; track field.id) {
-                <bt-field
-                  [disabled]="processing() || busy()"
-                  [field]="field"
-                  [thingId]="id"
-                  [attr.id]="fieldAnchor(null, field.id)"
-                  [pinned]="pinned({ fieldSetId: null, fieldId: field.id })"
-                  (valueChange)="fieldValue(field, null, $event)"
-                  (pin)="pin({ fieldSetId: null, fieldId: field.id })"
-                />
-              }
-            </section>
-          }
-          @if (t.undefinedFields.length) {
-            <section class="content-panel">
-              <h2>Custom fields</h2>
-              @for (field of t.undefinedFields; track field.id) {
-                <bt-field
-                  [disabled]="processing() || busy()"
-                  [field]="localField(field)"
-                  [thingId]="id"
-                  [localId]="field.id"
-                  [attr.id]="'custom-' + field.id"
-                  [pinned]="pinned({ undefinedFieldId: field.id })"
-                  (valueChange)="localChange(field, $event)"
-                  (pin)="pin({ undefinedFieldId: field.id })"
-                />
-              }
-            </section>
-          }
-          <section class="content-panel">
-            <h2>Add details</h2>
-            <label
-              >Section<select [(ngModel)]="selectedSet">
-                <option value="">Choose a section…</option>
-                @for (set of availableSets(); track set.id) {
-                  <option [value]="set.id">{{ set.name }}</option>
-                }
-              </select></label
-            ><button class="secondary small" [disabled]="!selectedSet || busy()" (click)="addSet()">
-              Add section
-            </button>
-            <details>
-              <summary>Add an individual field</summary>
-              <label
-                >Field<select [(ngModel)]="newField">
-                  <option value="">Choose a field…</option>
-                  @for (field of fields(); track field.id) {
-                    <option [value]="field.id">{{ field.name }} · {{ field.id }}</option>
-                  }
-                </select></label
-              >
-              @if (standaloneDefinition(); as field) {
-                <bt-field
-                  [disabled]="processing() || busy()"
-                  [field]="field"
-                  [thingId]="id"
-                  (valueChange)="fieldValue(field, null, $event)"
-                />
-              }
-            </details>
-            <details>
-              <summary>Add a custom field</summary>
-              <label>Label<input [(ngModel)]="localLabel" maxlength="160" /></label
-              ><label
-                >Value<input
-                  [(ngModel)]="localValue"
-                  [type]="localSensitive ? 'password' : 'text'"
-                  autocomplete="off" /></label
-              ><label class="check-label"
-                ><input type="checkbox" [(ngModel)]="localSensitive" />Sensitive — hide by
-                default</label
-              ><button
-                class="secondary small"
-                [disabled]="!localLabel.trim() || busy()"
-                (click)="addLocal()"
-              >
-                Add field
-              </button>
-            </details>
-          </section>
-          @if (issues().length || events().length) {
-            <section class="page-section">
-              <h2>Tasks & activity</h2>
-              <bt-activity
-                class="activity-grid detail-activity"
-                [issues]="issues()"
-                [events]="events()"
-                [busy]="busy()"
-                (action)="activity($event)"
-              />
-            </section>
-          }
-          @if (purchasables().length) {
-            <section class="page-section">
-              <h2>For this thing</h2>
-              @for (group of purchaseGroups(); track group.kind) {
-                <h3>
-                  @switch (group.kind) {
-                    @case ('CONSUMABLE') {
-                      Consumables
+                  <span rowSubtitle>
+                    @if (issue.statusText) {
+                      {{ issue.statusText }}
                     }
-                    @case ('ACCESSORY') {
-                      Accessories
+                    @if (issue.statusText && issue.dueDate) {
+                      ·
                     }
-                    @case ('UPGRADE') {
-                      Upgrades
-                    }
-                  }
-                </h3>
-                <div class="purchase-grid">
-                  @for (item of group.items; track item.id) {
-                    <article class="content-panel purchase">
-                      <div class="card-top">
-                        <span class="eyebrow">{{ item.kind.toLowerCase() }}</span>
-                        @if (item.isSample) {
-                          <span class="sample-label">Sample</span>
-                        }
-                      </div>
-                      <h3>{{ item.name }}</h3>
-                      <p>{{ item.description }}</p>
-                      @for (source of item.sourceRefs; track $index) {
-                        @if (source.url) {
-                          <a [href]="source.url" target="_blank" rel="noopener noreferrer"
-                            >Source</a
-                          >
-                        }
-                      }
-                      @if (!item.isSample) {
-                        <a [href]="item.merchantUrl" target="_blank" rel="noopener noreferrer"
-                          >View at merchant <ng-icon name="open" aria-hidden="true"
-                        /></a>
+                    @if (issue.dueDate) {
+                      {{ issue.dueDate | date: 'd MMM y' }} ·
+                      @let days = daysUntil(issue.dueDate);
+                      @if (days === 0) {
+                        Due today
+                      } @else if (days === 1) {
+                        1 day
+                      } @else if (days > 1) {
+                        {{ days }} days
+                      } @else if (days === -1) {
+                        1 day overdue
                       } @else {
-                        <span class="text-primary-muted">Example suggestion</span>
+                        {{ -days }} days overdue
                       }
-                    </article>
-                  }
-                </div>
+                    }
+                    @if (issue.isSample) {
+                      @if (issue.statusText || issue.dueDate) {
+                        ·
+                      }
+                      Sample
+                    }
+                  </span>
+                  <button
+                    rowTrailing
+                    type="button"
+                    class="button-secondary button-sm"
+                    [attr.aria-label]="'Resolve: ' + issue.title"
+                    (click)="resolve(issue.id)"
+                  >
+                    Resolve
+                  </button>
+                </bt-list-row>
               }
-            </section>
-          }
-          <section class="delete-zone">
-            @if (!deleting()) {
-              <button class="quiet danger" (click)="deleting.set(true)">Delete this thing</button>
-            } @else {
-              <p>Delete this thing and its activity? Uploaded files will stay in your library.</p>
-              <button class="danger-button" [disabled]="processing() || busy()" (click)="remove()">
-                Delete thing</button
-              ><button class="quiet" (click)="deleting.set(false)">Keep it</button>
-            }
+            </div>
           </section>
         }
-      </div>
-      <aside>
-        @if (thing(); as t) {
-          <section class="content-panel">
-            <h2>Documents & photos</h2>
-            <p class="text-primary-muted">Keep the useful bits together.</p>
-            @if (config.importEnabled) {
-              <p class="text-primary-muted">
-                Upload a file, then choose Extract details to send it to OpenAI. Review imported
-                values before relying on them.
-              </p>
+
+        <section class="thing-section">
+          <bt-section-header title="Key details">
+            @if (keyDetails().length) {
+              <button
+                sectionInline
+                type="button"
+                class="button-link thing-copy"
+                (click)="copyDetails()"
+              >
+                {{ copied() ? 'Copied' : 'Copy' }}
+              </button>
             }
-            @for (file of attachments(); track file.id) {
-              <div class="attachment">
-                <button class="file-name quiet" (click)="download(file)">
-                  ↧ {{ file.filename }}</button
-                ><span class="text-primary-muted">{{ (file.byteSize / 1024).toFixed(1) }} KB</span>
-                @if (file.sourceUrl) {
-                  <a [href]="file.sourceUrl" target="_blank" rel="noopener noreferrer"
-                    >Open source</a
-                  >
+            <a class="button-link" [routerLink]="['/things', id(), 'details']"
+              >See all<span class="visually-hidden"> details</span></a
+            >
+          </bt-section-header>
+          <span class="visually-hidden" role="status">{{
+            copied() ? 'Key details copied' : ''
+          }}</span>
+          <div>
+            @for (row of keyDetails(); track row.anchor) {
+              <bt-key-value-row
+                [icon]="row.icon"
+                [label]="row.label"
+                [loading]="processing() && row.value === null && !row.masked"
+              >
+                @if (row.masked) {
+                  ••••••••
+                } @else if (row.value === null) {
+                  Not recorded
+                } @else if (row.value === '') {
+                  Empty text
+                } @else if (row.value === false) {
+                  No
+                } @else if (row.value === true) {
+                  Yes
+                } @else if (row.format === 'date') {
+                  {{ $any(row.value) | date: 'd MMM y' }}
+                } @else if (row.format === 'date-time') {
+                  {{ $any(row.value) | date: 'd MMM y, HH:mm' }}
+                } @else {
+                  {{ formatValue(row.value) }}
                 }
-                <div class="field-actions">
+              </bt-key-value-row>
+            } @empty {
+              @if (processing()) {
+                <bt-row-skeleton kind="key-value" [rows]="3" />
+              } @else {
+                <p class="thing-empty">Pin details to see them here.</p>
+              }
+            }
+          </div>
+        </section>
+
+        <section class="thing-section">
+          <bt-section-header title="Upcoming tasks">
+            <button type="button" class="button-link" disabled>
+              See all<span class="visually-hidden"> tasks (coming soon)</span>
+            </button>
+          </bt-section-header>
+          <div class="thing-events">
+            @for (event of scheduled(); track event.id) {
+              @let start = event.startsOn ?? event.startsAt ?? '';
+              <bt-event-card [title]="event.title" icon="upcomingEvent">
+                <span rowSubtitle
+                  >Due {{ start | date: 'd MMM y' }} · {{ start | relativeTime }}
+                  @if (event.isSample) {
+                    · Sample
+                  }
+                </span>
+                <button
+                  rowTrailing
+                  type="button"
+                  btIconButton
+                  variant="plain"
+                  icon="complete"
+                  [label]="'Mark complete: ' + event.title"
+                  (click)="complete(event.id)"
+                ></button>
+              </bt-event-card>
+            } @empty {
+              <p class="thing-empty">Nothing scheduled.</p>
+            }
+          </div>
+        </section>
+
+        @if (suggested().length || processing()) {
+          <section class="thing-section">
+            <bt-section-header title="Suggested tasks">
+              @if (suggested().length) {
+                <button type="button" class="button-link" disabled>
+                  See all<span class="visually-hidden"> suggested tasks (coming soon)</span>
+                </button>
+              }
+            </bt-section-header>
+            <div>
+              @for (task of suggested(); track task.id) {
+                <bt-list-row
+                  [title]="task.title"
+                  [icon]="taskBadges[task.kind].icon"
+                  [tone]="taskBadges[task.kind].tone"
+                >
+                  <span rowSubtitle>
+                    @if (task.recurrence; as recurrence) {
+                      @let unit = recurrence.unit.toLowerCase();
+                      @if (recurrence.interval === 1) {
+                        Once a {{ unit }}
+                      } @else {
+                        Once every {{ recurrence.interval }} {{ unit }}s
+                      }
+                    }
+                    @if (task.isSample) {
+                      @if (task.recurrence) {
+                        ·
+                      }
+                      Sample
+                    }
+                    @if (task.sourceRefs[0]?.url; as url) {
+                      · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
+                    }
+                  </span>
+                  <button
+                    rowTrailing
+                    type="button"
+                    btIconButton
+                    variant="accent"
+                    icon="scheduleTask"
+                    [label]="'Schedule: ' + task.title"
+                    (click)="open('schedule', task.id)"
+                  ></button>
+                </bt-list-row>
+              } @empty {
+                <bt-row-skeleton [rows]="2" />
+              }
+            </div>
+          </section>
+        }
+
+        @if (purchasables().length || processing()) {
+          <section class="thing-section">
+            <bt-section-header title="Compatible products">
+              @if (purchasables().length) {
+                <button type="button" class="button-link" disabled>
+                  See all<span class="visually-hidden"> products (coming soon)</span>
+                </button>
+              }
+            </bt-section-header>
+            <div>
+              @for (item of purchasables(); track item.id) {
+                <bt-list-row [title]="item.name" icon="compatibleProduct" tone="accent">
+                  <span rowSubtitle
+                    >{{ item.description }}
+                    @if (item.isSample) {
+                      · Sample
+                    }
+                    @if (item.sourceRefs[0]?.url; as url) {
+                      · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
+                    }
+                  </span>
+                  @if (item.isSample) {
+                    <button rowTrailing type="button" class="button-accent button-sm" disabled>
+                      Buy<span class="visually-hidden"> {{ item.name }} (sample)</span>
+                    </button>
+                  } @else {
+                    <a
+                      rowTrailing
+                      class="button-accent button-sm"
+                      [href]="item.merchantUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Buy<span class="visually-hidden">
+                        {{ item.name }} (opens in a new tab)</span
+                      ></a
+                    >
+                  }
+                </bt-list-row>
+              } @empty {
+                <bt-row-skeleton [rows]="2" />
+              }
+            </div>
+          </section>
+        }
+
+        <section class="thing-section">
+          <bt-section-header title="Attachments">
+            <button
+              type="button"
+              class="button-link"
+              [disabled]="processing()"
+              (click)="open('link')"
+            >
+              Add<span class="visually-hidden"> an attachment</span>
+            </button>
+          </bt-section-header>
+          <div>
+            @for (file of linkedFiles(); track file.id) {
+              @let badge = attachmentBadge(file);
+              @let name = file.title ?? file.filename;
+              <bt-list-row [title]="name" [icon]="badge.icon" [tone]="badge.tone">
+                <span rowSubtitle>
+                  {{ attachmentFormat(file.mediaType) }}
+                  @if (file.pageCount) {
+                    · {{ file.pageCount }} {{ file.pageCount === 1 ? 'page' : 'pages' }}
+                  }
+                  @if (file.publisher) {
+                    · {{ file.publisher }}
+                  } @else if (file.documentDate) {
+                    · {{ file.documentDate | date: 'd MMM y' }}
+                  }
+                  @if (file.id === t.imageAttachmentId) {
+                    · Thing image
+                  }
+                </span>
+                <button
+                  rowTrailing
+                  type="button"
+                  btIconButton
+                  variant="plain"
+                  icon="downloadAttachment"
+                  [label]="'Download ' + name"
+                  (click)="download(file)"
+                ></button>
+                <bt-menu
+                  rowTrailing
+                  variant="plain"
+                  [label]="'Actions for ' + name"
+                  [disabled]="processing()"
+                >
+                  @if (file.mediaType.startsWith('image/')) {
+                    @if (file.id === t.imageAttachmentId) {
+                      <button type="button" btMenuItem icon="setAsImage" (click)="setImage(null)">
+                        Use category image
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        btMenuItem
+                        icon="setAsImage"
+                        (click)="setImage(file.id)"
+                      >
+                        Set as image
+                      </button>
+                    }
+                  }
                   @if (
                     config.importEnabled && config.supportedMediaTypes.includes(file.mediaType)
                   ) {
                     <button
-                      class="quiet small"
-                      [disabled]="processing() || busy()"
-                      (click)="extractAttachment(file.id)"
+                      type="button"
+                      btMenuItem
+                      icon="extractDetails"
+                      (click)="extract(file.id)"
                     >
                       Extract details
                     </button>
                   }
                   <button
-                    class="quiet small"
-                    [disabled]="processing() || busy()"
+                    type="button"
+                    btMenuItem
+                    icon="unlinkAttachment"
                     (click)="unlink(file.id)"
                   >
                     Unlink
                   </button>
-                  @if (file.mediaType.startsWith('image/')) {
+                  @if (file.thingIds.length === 1) {
                     <button
-                      class="quiet small"
-                      [disabled]="processing() || busy()"
-                      (click)="update({ imageAttachmentId: file.id })"
+                      type="button"
+                      btMenuItem
+                      icon="deleteItem"
+                      (click)="open('deleteFile', file.id)"
                     >
-                      Use as image
+                      Delete
                     </button>
                   }
-                </div>
-              </div>
+                </bt-menu>
+              </bt-list-row>
             } @empty {
-              <p class="empty-state-inline">No documents yet.</p>
+              <p class="thing-empty">No documents yet.</p>
             }
-            <label class="upload-label"
-              ><ng-icon name="uploadFile" aria-hidden="true" /> Upload a file<input
-                type="file"
-                [accept]="config.supportedMediaTypes.join(',')"
-                [disabled]="processing() || busy()"
-                (change)="upload($event)" /></label
-            ><small class="hint-text"
-              >PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB</small
-            >
-            <button class="quiet small" (click)="loadLibrary()">Link from your library</button>
-            @if (library().length) {
-              <label
-                >Existing attachment<select [(ngModel)]="linkId">
-                  <option value="">Choose…</option>
-                  @for (file of library(); track file.id) {
-                    <option [value]="file.id">{{ file.filename }}</option>
-                  }
-                </select></label
-              ><button class="secondary small" [disabled]="!linkId || busy()" (click)="link()">
-                Link file
-              </button>
-              <details>
-                <summary>Unlinked files</summary>
-                @for (file of library(); track file.id) {
-                  @if (!file.thingIds.length) {
-                    <div class="attachment">
-                      <span>{{ file.filename }}</span
-                      ><button
-                        class="quiet small danger"
-                        [disabled]="processing() || busy()"
-                        (click)="deleteFile(file.id)"
-                      >
-                        Delete file
-                      </button>
-                    </div>
-                  }
-                }
-              </details>
-            }
-            @if (t.imageAttachmentId) {
-              <button class="quiet small" (click)="update({ imageAttachmentId: null })">
-                Use category image
-              </button>
-            }
-          </section>
-          <section class="content-panel">
-            <h2>Filed under</h2>
-            <div class="tag-list">
-              @for (tag of tags(); track tag.id) {
-                <button
-                  class="filter-chip"
-                  [class.active]="t.tagIds.includes(tag.id)"
-                  [disabled]="processing() || busy()"
-                  (click)="toggleTag(tag.id)"
-                >
-                  {{ tag.name }}
-                </button>
-              }
-            </div>
-            <form (ngSubmit)="addTag()" class="inline-form">
-              <input
-                name="tag"
-                [(ngModel)]="newTag"
-                placeholder="New tag"
-                aria-label="New tag"
-                maxlength="80"
-              /><button
-                class="quiet"
-                [disabled]="processing() || busy()"
-                type="submit"
-                aria-label="Add tag"
-              >
-                <ng-icon name="addTag" aria-hidden="true" />
-              </button>
-            </form>
-          </section>
+          </div>
+        </section>
+      </bt-sheet>
+    }
+  }
+</bt-scroll-container>
+@if (loaded() && thing(); as t) {
+  <bt-dialog
+    title="Add details from a source"
+    [open]="dialog() === 'sources'"
+    (closed)="closeDialog()"
+  >
+    <bt-import-sources [thingId]="id()" (started)="closeDialog()" />
+  </bt-dialog>
+
+  <bt-dialog title="Change category" [open]="dialog() === 'category'" (closed)="closeDialog()">
+    <label class="thing-field"
+      >Category
+      <select [ngModel]="categoryDraft()" (ngModelChange)="categoryDraft.set($event)">
+        @for (option of allCategories(); track option.id) {
+          <option [value]="option.id">{{ option.name }}</option>
         }
-      </aside>
+      </select>
+    </label>
+    @if (categoryDraft() !== t.categoryId) {
+      <bt-notice tone="warning" icon="issueFault">
+        <span noticeDetail
+          >Populated fields from sections that don't fit the new category are kept as custom
+          fields.</span
+        >
+      </bt-notice>
+    }
+    <div dialogActions>
+      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
+        Cancel
+      </button>
+      <button type="button" class="button-primary button-sm" (click)="saveCategory()">Save</button>
     </div>
-  </fieldset>
+  </bt-dialog>
+
+  <bt-dialog title="Tags" [open]="dialog() === 'tags'" (closed)="closeDialog()">
+    <div class="thing-tags">
+      @for (tag of tags(); track tag.id) {
+        @let selected = t.tagIds.includes(tag.id);
+        <button
+          type="button"
+          class="thing-tag"
+          [class.selected]="selected"
+          [attr.aria-pressed]="selected"
+          (click)="toggleTag(tag.id)"
+        >
+          {{ tag.name }}
+        </button>
+      } @empty {
+        <p class="thing-empty">No tags yet.</p>
+      }
+    </div>
+    <form class="thing-tag-form" (ngSubmit)="addTag()">
+      <label class="thing-field"
+        >New tag
+        <input
+          name="tag"
+          maxlength="80"
+          [ngModel]="newTag()"
+          (ngModelChange)="newTag.set($event)"
+        />
+      </label>
+      <button type="submit" class="button-secondary button-sm" [disabled]="!newTag().trim()">
+        <ng-icon name="addTag" aria-hidden="true" />Add tag
+      </button>
+    </form>
+  </bt-dialog>
+
+  <bt-dialog title="Delete this thing?" [open]="dialog() === 'delete'" (closed)="closeDialog()">
+    <p class="thing-dialog-copy">
+      Delete {{ t.name }} and its activity? Uploaded files stay in your library.
+    </p>
+    <div dialogActions>
+      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
+        Keep it
+      </button>
+      <button type="button" class="button-danger button-sm" (click)="remove()">Delete thing</button>
+    </div>
+  </bt-dialog>
+
+  <bt-dialog title="Schedule task" [open]="dialog() === 'schedule'" (closed)="closeDialog()">
+    <form id="schedule-task" class="thing-schedule" (ngSubmit)="schedule()">
+      <label class="thing-field"
+        >Date
+        <input
+          name="date"
+          type="date"
+          required
+          [ngModel]="scheduleDate()"
+          (ngModelChange)="scheduleDate.set($event)"
+        />
+      </label>
+      <label class="thing-field"
+        >Time (optional)
+        <input
+          name="time"
+          type="time"
+          [ngModel]="scheduleTime()"
+          (ngModelChange)="scheduleTime.set($event)"
+        />
+      </label>
+    </form>
+    <div dialogActions>
+      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
+        Cancel
+      </button>
+      <button
+        type="submit"
+        form="schedule-task"
+        class="button-primary button-sm"
+        [disabled]="!scheduleDate()"
+      >
+        Schedule
+      </button>
+    </div>
+  </bt-dialog>
+
+  <bt-dialog title="Add a file" [open]="dialog() === 'link'" (closed)="closeDialog()">
+    <label class="button-secondary thing-upload"
+      ><ng-icon name="uploadFile" aria-hidden="true" />Upload a file<input
+        type="file"
+        class="visually-hidden"
+        [accept]="config.supportedMediaTypes.join(',')"
+        (change)="upload($event); closeDialog()"
+    /></label>
+    <p class="thing-empty">
+      PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB
+    </p>
+    @if (library().length) {
+      <h3 class="thing-dialog-heading">From your library</h3>
+      <div>
+        @for (file of library(); track file.id) {
+          @let badge = attachmentBadge(file);
+          @let name = file.title ?? file.filename;
+          <bt-list-row [title]="name" [icon]="badge.icon" [tone]="badge.tone">
+            <span rowSubtitle>{{ attachmentFormat(file.mediaType) }}</span>
+            @if (!file.thingIds.length) {
+              <button
+                rowTrailing
+                type="button"
+                btIconButton
+                variant="plain"
+                icon="deleteItem"
+                [label]="'Delete ' + name"
+                (click)="open('deleteFile', file.id)"
+              ></button>
+            }
+            <button
+              rowTrailing
+              type="button"
+              class="button-secondary button-sm"
+              (click)="link(file.id)"
+            >
+              Link<span class="visually-hidden"> {{ name }}</span>
+            </button>
+          </bt-list-row>
+        }
+      </div>
+    }
+  </bt-dialog>
+
+  <bt-dialog title="Delete this file?" [open]="dialog() === 'deleteFile'" (closed)="closeDialog()">
+    <p class="thing-dialog-copy">The file is removed from your library.</p>
+    <div dialogActions>
+      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
+        Keep it
+      </button>
+      <button type="button" class="button-danger button-sm" (click)="deleteFile()">
+        Delete file
+      </button>
+    </div>
+  </bt-dialog>
 }

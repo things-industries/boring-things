@@ -13,12 +13,13 @@ import { CONFIG } from '../../core/runtime-config';
 import { ThingsStore } from '../../core/state/things.store';
 import { Notice } from '../../components/notice/notice';
 import { OptionTile } from '../../components/option-tile/option-tile';
+import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { TopBar } from '../../components/top-bar/top-bar';
 import { TermPipe } from '../../pipes/term.pipe';
 
 @Component({
   selector: 'bt-add-thing',
-  imports: [RouterLink, Notice, OptionTile, TopBar, TermPipe],
+  imports: [RouterLink, Notice, OptionTile, ScrollContainer, TopBar, TermPipe],
   viewProviders: [
     provideIcons({ chooseFile, choosePhoto, pasteText, privacyNotice, setupNotice, takePhoto }),
   ],

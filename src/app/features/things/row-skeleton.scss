@@ -1,0 +1,44 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  display: block;
+}
+:host(.list) .skeleton-row {
+  @include mixins.list-row;
+}
+:host(.key-value) .skeleton-row {
+  @include mixins.key-value-row;
+  justify-content: space-between;
+}
+.skeleton-row + .skeleton-row {
+  border-top: 1px solid tokens.color(secondary);
+}
+.skeleton-badge {
+  @include mixins.skeleton-circle(icon-badge);
+}
+.skeleton-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: tokens.space(1);
+}
+.skeleton-title {
+  @include mixins.skeleton-line;
+  width: 40%;
+}
+.skeleton-subtitle {
+  @include mixins.skeleton-line;
+  width: 60%;
+  height: tokens.space(2);
+}
+.skeleton-action {
+  @include mixins.skeleton-circle(control-sm);
+}
+.skeleton-label {
+  @include mixins.skeleton-line;
+  width: 30%;
+}
+.skeleton-value {
+  @include mixins.skeleton-line;
+  width: 25%;
+}

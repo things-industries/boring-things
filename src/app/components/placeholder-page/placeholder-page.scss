@@ -1,5 +1,8 @@
 @use 'tokens';
 @use 'mixins';
+:host {
+  @include mixins.viewport-page;
+}
 .placeholder-page-body {
   display: flex;
   flex-direction: column;

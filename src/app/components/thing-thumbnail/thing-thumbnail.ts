@@ -16,7 +16,7 @@ export class ThingThumbnail {
   private attachments = inject(AttachmentsService);
   readonly imageId = input<string | null>(null);
   readonly category = input<string | null>(null);
-  readonly size = input<'sm' | 'md'>('md');
+  readonly size = input<'sm' | 'md' | 'fill'>('md');
   readonly categoryIcon = categoryIcon;
 
   private readonly image = resource({

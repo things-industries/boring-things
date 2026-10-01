@@ -1,0 +1,20 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  @include mixins.hero-sheet;
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
+}
+:host(.arrive) {
+  animation: sheet-arrive 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@keyframes sheet-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(100dvh);
+  }
+}

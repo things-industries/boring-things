@@ -45,6 +45,9 @@
   &:empty {
     display: none;
   }
+  &:focus-within {
+    z-index: 2;
+  }
 }
 .list-row-chevron {
   color: tokens.color(primary-muted);

@@ -1,0 +1,13 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  position: relative;
+  z-index: 0;
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: tokens.space(2) tokens.space(8);
+  @include mixins.page-gutter;
+}

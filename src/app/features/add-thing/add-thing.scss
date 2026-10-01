@@ -1,6 +1,10 @@
 @use 'tokens';
 @use 'typography';
+@use 'mixins';
 :host {
+  @include mixins.viewport-page;
+}
+.add-thing-content {
   display: flex;
   flex-direction: column;
   gap: tokens.space(7);

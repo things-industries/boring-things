@@ -1,0 +1,30 @@
+@use 'tokens';
+:host {
+  display: grid;
+  gap: tokens.space(2);
+}
+.import-step-track {
+  display: flex;
+  gap: tokens.space(1);
+}
+.import-step {
+  flex: 1;
+  height: tokens.space(1);
+  border-radius: tokens.radius(pill);
+  background: tokens.color(secondary);
+  &.done,
+  &.current {
+    background: tokens.color(accent);
+  }
+  &.current {
+    animation: import-step-pulse 1.4s ease-in-out infinite alternate;
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+}
+@keyframes import-step-pulse {
+  from {
+    opacity: 0.35;
+  }
+}

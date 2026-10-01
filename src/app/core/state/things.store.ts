@@ -29,9 +29,11 @@ import { Streams } from './streams';
 import { applyThingPatch, thingRecord } from './thing-patch';
 import { withEntityCollection } from './with-entity-collection';
 
-/** A list reload keeps details loaded earlier. */
-const keepDetail = (previous: ThingRecord | null, next: ThingRecord): ThingRecord =>
-  next.detail || !previous?.detail ? next : { ...next, detail: previous.detail };
+/** Keeps a newer revision over an older response, and details loaded earlier over a list item. */
+const keepNewer = (previous: ThingRecord | null, next: ThingRecord): ThingRecord => {
+  if (previous && previous.revision > next.revision) return previous;
+  return next.detail || !previous?.detail ? next : { ...next, detail: previous.detail };
+};
 
 /**
  * Things and their details. Deleting a Thing cascades to the child stores; child stores never
@@ -60,7 +62,7 @@ export const ThingsStore = signalStore(
     withEntityCollection<ThingRecord>({
       list: () => store._service.list(),
       get: (id) => store._service.get(id).then(thingRecord),
-      merge: keepDetail,
+      merge: keepNewer,
 
       onReset() {
         store._streams.stopAll();
@@ -77,6 +79,23 @@ export const ThingsStore = signalStore(
     const setDisconnected = (id: string, value: boolean) =>
       store.disconnected()[id] !== value &&
       patchState(store, { disconnected: { ...store.disconnected(), [id]: value } });
+
+    /**
+     * Starts an import from an uploaded attachment, enriching `thingId` when given. Resolves once
+     * the Thing the import fills has loaded.
+     */
+    async function extract(attachmentId: string, thingId?: string) {
+      const result = await store.mutate('importThing', [], () =>
+        store._imports.start({ attachmentId, ...(thingId && { thingId }) }),
+      );
+
+      if (result.ok)
+        await Promise.all([
+          store.loadOne(result.value.thingId),
+          store._attachments.loadOne(attachmentId),
+        ]);
+      return result;
+    }
 
     return {
       create(input: Schema['ThingCreate']) {
@@ -112,7 +131,10 @@ export const ThingsStore = signalStore(
           'saveChanges',
           [step],
           () => store._service.update(id, patch).then(thingRecord),
-          { confirm: (thing) => thing, refetch: () => store.loadOne(id) },
+          {
+            confirm: (thing) => (previous) => keepNewer(previous, thing),
+            refetch: () => store.loadOne(id),
+          },
         );
       },
 
@@ -174,15 +196,25 @@ export const ThingsStore = signalStore(
         }
       },
 
-      /** Shares one stream per Thing. Returns the function that stops watching. */
+      /**
+       * Shares one stream per Thing. A snapshot with a new revision also reloads the Thing's child
+       * collections. Returns the function that stops watching.
+       */
       watch(id: string) {
         return store._streams.watch(id, (signal) => {
           void store._service.watch(
             id,
             signal,
             (thing) => {
+              const previous = store.entityMap()[id]?.revision;
+
               setDisconnected(id, false);
+              if (previous !== undefined && thing.revision < previous) return;
               store.setConfirmed(id, thingRecord(thing));
+              if (previous === undefined || thing.revision === previous) return;
+              for (const child of [store._issues, store._events, store._attachments])
+                if (child.status() !== 'idle') void child.reload();
+              void store._purchasables.loadForThing(id);
             },
             () => setDisconnected(id, true),
           );
@@ -205,18 +237,10 @@ export const ThingsStore = signalStore(
         const upload = await store._attachments.upload(file);
 
         if (!upload.ok) return upload;
-
-        const result = await store.mutate('importThing', [], () =>
-          store._imports.start({ attachmentId: upload.value.id, ...(thingId && { thingId }) }),
-        );
-
-        if (result.ok)
-          await Promise.all([
-            store.loadOne(result.value.thingId),
-            store._attachments.loadOne(upload.value.id),
-          ]);
-        return result;
+        return extract(upload.value.id, thingId);
       },
+
+      extract,
 
       /** Resolves once every Thing the import created or enriched has loaded. */
       async confirmImport(id: string, body: Schema['ImportConfirmation']) {

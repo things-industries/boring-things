@@ -1,565 +1,467 @@
-import { formatFieldValue } from '../../utils/field.util';
-import { fieldSections, fieldAnchor } from '../../utils/sections.util';
-import { ImportPanel } from './import-panel';
-import { watchThing } from '../../core/api/thing-stream';
-import { Auth } from '../../core/services/auth.service';
-import { ThingSkeleton } from './thing-skeleton';
-import { TermPipe } from '../../pipes/term.pipe';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { open, uploadFile, addTag, categoryIcons } from '../../core/app-icons';
-import { categoryIcon } from '../../utils/category.util';
-import { apiData } from '../../core/api/api-client';
 import {
   Component,
-  inject,
-  signal,
+  ElementRef,
   computed,
   effect,
-  OnDestroy,
-  afterNextRender,
-  Injector,
+  inject,
+  signal,
+  untracked,
+  viewChild,
 } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
-import type { Schema, Pin, Value } from '../../../../shared/model';
-import { Api } from '../../core/services/api.service';
+import { Router, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import type { Schema } from '../../../../shared/model';
+import {
+  addTag,
+  askQuestion,
+  attachmentFile,
+  attachmentGuide,
+  attachmentImage,
+  attachmentInvoice,
+  attachmentManual,
+  attachmentReceipt,
+  attachmentSpecification,
+  changeCategory,
+  compatibleProduct,
+  complete,
+  deleteItem,
+  downloadAttachment,
+  editDetails,
+  editTags,
+  extractDetails,
+  fieldIcons,
+  issueFault,
+  issueOther,
+  issueRenewal,
+  issueWarranty,
+  linkAttachment,
+  moreActions,
+  resolveIssue,
+  setAsImage,
+  taskCleaning,
+  taskInspection,
+  taskOther,
+  taskRepair,
+  taskReplacement,
+  taskService,
+  unlinkAttachment,
+  upcomingEvent,
+  uploadFile,
+  scheduleTask,
+} from '../../core/app-icons';
+import { APP_CONFIG } from '../../core/app.config';
 import { AttachmentsService } from '../../core/data/attachments.service';
+import { mockEventRecurrence } from '../../core/mocks/event-recurrence.mock';
+import { mockIssueKinds } from '../../core/mocks/issue-kind.mock';
 import { CONFIG } from '../../core/runtime-config';
-import { UiError } from '../../utils/error.util';
 import { errorCode } from '../../utils/error.util';
-import type { UiErrorCode } from '../../interfaces/error.interface';
+import { Toasts } from '../../core/services/toasts.service';
+import { AttachmentsStore } from '../../core/state/attachments.store';
+import { CategoriesStore } from '../../core/state/categories.store';
+import { EventsStore } from '../../core/state/events.store';
+import { IssuesStore } from '../../core/state/issues.store';
+import { PurchasablesStore } from '../../core/state/purchasables.store';
+import { TagsStore } from '../../core/state/tags.store';
+import { ThingsStore } from '../../core/state/things.store';
+import { Dialog } from '../../components/dialog/dialog';
 import { ErrorMessage } from '../../components/error-message/error-message';
+import { EventCard } from '../../components/event-card/event-card';
+import { Hero } from '../../components/hero/hero';
+import { IconButton } from '../../components/icon-button/icon-button';
+import { KeyValueRow } from '../../components/key-value-row/key-value-row';
+import { ListRow } from '../../components/list-row/list-row';
+import { Menu } from '../../components/menu/menu';
+import { MenuItem } from '../../components/menu/menu-item';
+import { Notice } from '../../components/notice/notice';
+import { SectionHeader } from '../../components/section-header/section-header';
+import { ScrollContainer } from '../../components/scroll-container/scroll-container';
+import { Sheet } from '../../components/sheet/sheet';
 import { TopBar } from '../../components/top-bar/top-bar';
-import { FieldEditor } from '../../components/field/field';
-import { Activity } from '../../components/activity/activity';
-import type { ActivityAction } from '../../interfaces/activity.interface';
+import type { IssueKind } from '../../interfaces/issue.interface';
+import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
+import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
+import { daysUntil, eventStart, localDateTimeToUtc } from '../../utils/date.util';
+import { formatFieldValue } from '../../utils/field.util';
+import { ImportProgress } from './import-progress';
+import { ImportSteps } from './import-steps';
+import { ImportSources } from './import-sources';
+import { routeThing } from './thing-loader';
+import { RowSkeleton } from './row-skeleton';
+import { ThingSkeleton } from './thing-skeleton';
+import {
+  activeImport,
+  attachmentBadge,
+  attachmentFormat,
+  discovering,
+  fieldValueById,
+  keyDetails,
+  taskBadges,
+} from './thing.view';
+
+type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'link' | 'deleteFile';
+
+/** A Thing's image, status, key details, tasks, products and attachments. */
 @Component({
-  viewProviders: [provideIcons({ open, uploadFile, addTag, ...categoryIcons })],
   selector: 'bt-thing',
   imports: [
-    ThingSkeleton,
-    ImportPanel,
+    DatePipe,
     FormsModule,
-    RouterLink,
-    FieldEditor,
-    Activity,
-    ErrorMessage,
     NgIcon,
-    TermPipe,
+    RouterLink,
+    Dialog,
+    ErrorMessage,
+    EventCard,
+    Hero,
+    IconButton,
+    ImportProgress,
+    ImportSteps,
+    ImportSources,
+    KeyValueRow,
+    ListRow,
+    Menu,
+    MenuItem,
+    Notice,
+    RelativeTimePipe,
+    RowSkeleton,
+    ScrollContainer,
+    SectionHeader,
+    Sheet,
+    ThingSkeleton,
     TopBar,
+  ],
+  viewProviders: [
+    provideIcons({
+      addTag,
+      askQuestion,
+      attachmentFile,
+      attachmentGuide,
+      attachmentImage,
+      attachmentInvoice,
+      attachmentManual,
+      attachmentReceipt,
+      attachmentSpecification,
+      changeCategory,
+      compatibleProduct,
+      complete,
+      deleteItem,
+      downloadAttachment,
+      editDetails,
+      editTags,
+      extractDetails,
+      ...fieldIcons,
+      issueFault,
+      issueOther,
+      issueRenewal,
+      issueWarranty,
+      linkAttachment,
+      moreActions,
+      resolveIssue,
+      setAsImage,
+      taskCleaning,
+      taskInspection,
+      taskOther,
+      taskRepair,
+      taskReplacement,
+      taskService,
+      unlinkAttachment,
+      upcomingEvent,
+      uploadFile,
+      scheduleTask,
+    }),
   ],
   templateUrl: './thing.html',
   styleUrl: './thing.scss',
 })
-export class ThingPage implements OnDestroy {
-  private auth = inject(Auth);
-  readonly categoryIcon = categoryIcon;
-  private stream?: AbortController;
-  processing = computed(() =>
-    ['QUEUED', 'EXTRACTING', 'MAPPING', 'DISCOVERING', 'AWAITING_SELECTION'].includes(
-      this.thing()?.import?.status ?? '',
-    ),
-  );
-  streamFailed = signal(false);
-  readonly api = inject(Api);
+export class ThingPage {
+  private things = inject(ThingsStore);
+  private categories = inject(CategoriesStore);
+  private tagsStore = inject(TagsStore);
+  private issues = inject(IssuesStore);
+  private events = inject(EventsStore);
+  private attachments = inject(AttachmentsStore);
+  private purchasablesStore = inject(PurchasablesStore);
   private files = inject(AttachmentsService);
-  readonly config = inject(CONFIG);
-  private route = inject(ActivatedRoute);
-  private injector = inject(Injector);
+  private toasts = inject(Toasts);
   private router = inject(Router);
-  private subscription: Subscription;
-  thing = signal<Schema['Thing'] | null>(null);
-  sections = computed(() => fieldSections(this.thing()?.fieldSets ?? []));
-  fieldAnchor = fieldAnchor;
-  formatValue = formatFieldValue;
-  pinnedDetails = computed(() => {
-    const thing = this.thing();
-    if (!thing) return [];
-    return thing.pinnedFields.flatMap((pin) => {
-      if ('undefinedFieldId' in pin) {
-        const field = thing.undefinedFields.find((f) => f.id === pin.undefinedFieldId);
-        return field
-          ? [
-              {
-                label: field.label,
-                value: field.value,
-                masked: field.masked,
-                anchor: 'custom-' + field.id,
-              },
-            ]
-          : [];
-      }
-      const field = (
-        pin.fieldSetId
-          ? thing.fieldSets.find((s) => s.id === pin.fieldSetId)?.fields
-          : thing.standaloneFields
-      )?.find((f) => f.id === pin.fieldId);
-      return field
-        ? [
-            {
-              label: field.name,
-              value: field.value,
-              masked: field.masked,
-              anchor: fieldAnchor(pin.fieldSetId ?? null, field.id),
-            },
-          ]
-        : [];
-    });
+  private current = routeThing();
+  private sheet = viewChild(Sheet, { read: ElementRef<HTMLElement> });
+
+  readonly config = inject(CONFIG);
+  readonly id = this.current.id;
+  readonly thing = this.current.thing;
+  readonly detail = this.current.detail;
+  readonly loaded = this.current.loaded;
+  readonly missing = this.current.missing;
+  readonly error = this.current.error;
+  readonly disconnected = this.current.disconnected;
+  readonly sheetAtTop = signal(false);
+  readonly daysUntil = daysUntil;
+  readonly attachmentBadge = attachmentBadge;
+  readonly attachmentFormat = attachmentFormat;
+  readonly taskBadges = taskBadges;
+  readonly formatValue = formatFieldValue;
+
+  readonly issueBadges: Record<IssueKind, { icon: string; tone: IconBadgeTone }> = {
+    RENEWAL: { icon: 'issueRenewal', tone: 'info' },
+    WARRANTY: { icon: 'issueWarranty', tone: 'accent' },
+    FAULT: { icon: 'issueFault', tone: 'warning' },
+    OTHER: { icon: 'issueOther', tone: 'neutral' },
+  };
+
+  readonly category = computed<Schema['Category'] | null>(
+    () => this.categories.entityMap()[this.thing()?.categoryId ?? ''] ?? null,
+  );
+
+  readonly allCategories = this.categories.entities;
+  readonly tags = this.tagsStore.sorted;
+  readonly job = computed(() => this.detail()?.import ?? null);
+  readonly processing = computed(() => activeImport(this.job()));
+
+  readonly discovering = computed(() => {
+    const detail = this.detail();
+
+    return !!detail && discovering(detail, this.thing()?.imageAttachmentId ?? null);
   });
 
-  categories = signal<Schema['Category'][]>([]);
-  sets = signal<Schema['FieldSet'][]>([]);
-  fields = signal<Schema['FieldDefinition'][]>([]);
-  tags = signal<Schema['Tag'][]>([]);
-  attachments = signal<Schema['Attachment'][]>([]);
-  library = signal<Schema['Attachment'][]>([]);
-  issues = signal<Schema['Issue'][]>([]);
-  events = signal<Schema['Event'][]>([]);
-  purchasables = signal<Schema['Purchasable'][]>([]);
-  purchaseGroups = computed(() =>
-    (['CONSUMABLE', 'ACCESSORY', 'UPGRADE'] as const)
-      .map((kind) => ({
-        kind,
-        items: this.purchasables().filter((item) => item.kind === kind),
-      }))
-      .filter((group) => group.items.length),
+  /** The Thing this visit saw discovering, so its sheet slides up as details arrive. */
+  private discoveredId = signal<string | null>(null);
+  readonly sheetArrives = computed(() => this.discoveredId() === this.id());
+
+  readonly showImport = computed(() => {
+    const job = this.job();
+
+    return !!job && (job.status !== 'COMPLETE' || job.thingIds.length > 1);
+  });
+
+  readonly model = computed(() => {
+    const detail = this.detail();
+    const value = detail ? fieldValueById(detail, 'common.model') : null;
+
+    return typeof value === 'string' ? value : null;
+  });
+
+  readonly keyDetails = computed(() => {
+    const detail = this.detail();
+
+    return detail ? keyDetails(detail) : [];
+  });
+
+  readonly openIssues = computed(() =>
+    mockIssueKinds(
+      (this.issues.issuesByThing()[this.id()] ?? []).filter((issue) => issue.status === 'OPEN'),
+    ),
   );
-  busy = signal(false);
-  error = signal<UiErrorCode | null>(null);
-  imageUrl = signal('');
-  deleting = signal(false);
-  loaded = signal(false);
-  name = '';
-  description = '';
-  categoryId = 'other';
-  selectedSet = '';
-  newTag = '';
-  newField = '';
-  localLabel = '';
-  localValue = '';
-  localSensitive = false;
-  linkId = '';
-  id = '';
-  private localCache = new WeakMap<Schema['UndefinedField'], Schema['Field']>();
-  private standaloneCache: Schema['Field'] | null = null;
+
+  private readonly thingEvents = computed(() => this.events.eventsByThing()[this.id()] ?? []);
+
+  readonly scheduled = computed(() =>
+    this.thingEvents()
+      .filter((event) => event.status === 'SCHEDULED')
+      .sort((a, b) => (eventStart(a) ?? 0) - (eventStart(b) ?? 0)),
+  );
+
+  readonly suggested = computed(() =>
+    this.thingEvents()
+      .filter((event) => event.status === 'SUGGESTED')
+      .map(mockEventRecurrence),
+  );
+
+  readonly purchasables = computed(
+    () => this.purchasablesStore.purchasablesByThing()[this.id()] ?? [],
+  );
+
+  readonly linkedFiles = computed(() => this.attachments.attachmentsByThing()[this.id()] ?? []);
+
+  readonly library = computed(() =>
+    this.attachments.entities().filter((file) => !file.thingIds.includes(this.id())),
+  );
+
+  readonly dialog = signal<ThingDialog | null>(null);
+  readonly target = signal<string | null>(null);
+  readonly categoryDraft = signal('');
+  readonly newTag = signal('');
+  readonly scheduleDate = signal('');
+  readonly scheduleTime = signal('');
+  readonly copied = signal(false);
+  private viewed = new Set<string>();
+
   constructor() {
+    void this.categories.ensureLoaded();
+    void this.issues.ensureLoaded();
+    void this.events.ensureLoaded();
+    void this.attachments.ensureLoaded();
+
     effect(() => {
-      if (!this.auth.signedIn()) this.stream?.abort();
+      const id = this.id();
+
+      untracked(() => void this.purchasablesStore.loadForThing(id));
     });
-    this.subscription = this.route.paramMap.subscribe((params) => {
-      this.stream?.abort();
-      this.stream = undefined;
-      this.id = params.get('id') ?? '';
-      this.thing.set(null);
-      this.loaded.set(false);
-      this.deleting.set(false);
-      this.library.set([]);
-      if (this.imageUrl()) URL.revokeObjectURL(this.imageUrl());
-      this.imageUrl.set('');
-      void this.load(true);
+
+    // Records one view per visit once the Thing has loaded.
+    effect(() => {
+      const id = this.id();
+
+      if (!this.thing() || this.viewed.has(id)) return;
+      this.viewed.add(id);
+      untracked(() => void this.things.view(id));
+    });
+
+    effect(() => {
+      if (this.discovering()) this.discoveredId.set(this.id());
     });
   }
-  ngOnDestroy() {
-    this.stream?.abort();
-    this.subscription.unsubscribe();
-    if (this.imageUrl()) URL.revokeObjectURL(this.imageUrl());
+
+  /** Tracks whether the sheet has scrolled up to the top bar. */
+  scrolled(event: Event) {
+    const sheet = this.sheet()?.nativeElement;
+
+    this.sheetAtTop.set(!!sheet && (event.target as HTMLElement).scrollTop >= sheet.offsetTop);
   }
-  async load(recordView = false) {
-    const id = this.id;
-    this.error.set(null);
-    try {
-      const [categories, sets, fields, tags] = await Promise.all([
-        this.api.all((query) => this.api.client.GET('/api/categories', { params: { query } })),
-        this.api.all((query) => this.api.client.GET('/api/field-sets', { params: { query } })),
-        this.api.all((query) => this.api.client.GET('/api/fields', { params: { query } })),
-        this.api.all((query) => this.api.client.GET('/api/tags', { params: { query } })),
-      ]);
-      if (id !== this.id) return;
-      this.categories.set(categories);
-      this.sets.set(sets);
-      this.fields.set(fields);
-      this.tags.set(tags);
-      if (recordView) {
-        await this.api.client
-          .POST('/api/things/{id}:view', { params: { path: { id } } })
-          .then(apiData);
-        if (id !== this.id) return;
-      }
-      const [thing, attachments, issues, events, purchases] = await Promise.all([
-        this.api.client.GET('/api/things/{id}', { params: { path: { id } } }).then(apiData),
-        this.api.all((query) =>
-          this.api.client.GET('/api/attachments', {
-            params: { query: { ...query, thingId: id } },
-          }),
-        ),
-        this.api.all((query) =>
-          this.api.client.GET('/api/issues', {
-            params: { query: { ...query, thingId: id } },
-          }),
-        ),
-        this.api.all((query) =>
-          this.api.client.GET('/api/events', {
-            params: {
-              query: {
-                ...query,
-                thingId: id,
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              },
-            },
-          }),
-        ),
-        this.api.all((query) =>
-          this.api.client.GET('/api/purchasables', {
-            params: { query: { ...query, thingId: id } },
-          }),
-        ),
-      ]);
-      if (id !== this.id) return;
-      this.thing.set(thing);
-      this.name = thing.name;
-      this.description = thing.description;
-      this.categoryId = thing.categoryId;
-      this.attachments.set(attachments);
-      this.issues.set(issues);
-      this.events.set(events);
-      this.purchasables.set(purchases);
-      await this.loadImage();
-      if (!this.stream) this.startStream(id);
-      afterNextRender(
-        () => {
-          const fragment = this.route.snapshot.fragment;
-          if (fragment && id === this.id)
-            document.getElementById(fragment)?.scrollIntoView({ block: 'center' });
-        },
-        { injector: this.injector },
+
+  retry() {
+    this.current.retry();
+  }
+
+  open(dialog: ThingDialog, target: string | null = null) {
+    this.target.set(target);
+    if (dialog === 'category') this.categoryDraft.set(this.thing()?.categoryId ?? '');
+    if (dialog === 'schedule') {
+      this.scheduleDate.set('');
+      this.scheduleTime.set('');
+    }
+    this.dialog.set(dialog);
+  }
+
+  closeDialog() {
+    this.dialog.set(null);
+    this.target.set(null);
+  }
+
+  async copyDetails() {
+    const lines = this.keyDetails()
+      .filter((row) => !row.masked && row.value !== null)
+      .map(
+        (row) =>
+          `${row.label}: ${typeof row.value === 'boolean' ? (row.value ? 'Yes' : 'No') : formatFieldValue(row.value)}`,
       );
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      if (id === this.id) this.loaded.set(true);
-    }
-  }
-  private startStream(id: string) {
-    const controller = new AbortController();
-    this.stream = controller;
-    void watchThing(
-      this.api.client,
-      id,
-      controller.signal,
-      (snapshot) => {
-        if (id !== this.id || controller.signal.aborted) return;
-        this.streamFailed.set(false);
-        if (snapshot.revision <= (this.thing()?.revision ?? -1)) return;
-        const previous = this.thing();
-        this.thing.set(snapshot);
-        if (previous?.name !== snapshot.name) this.name = snapshot.name;
-        if (previous?.categoryId !== snapshot.categoryId) this.categoryId = snapshot.categoryId;
-        if (previous?.description !== snapshot.description) this.description = snapshot.description;
-        void this.loadRelated(id, snapshot.revision);
-      },
-      () => this.streamFailed.set(true),
-    );
-  }
-  importChanged(job: Schema['Import']) {
-    this.thing.update((thing) => (thing ? { ...thing, import: job } : thing));
-  }
-  private async loadRelated(id: string, revision: number) {
+
     try {
-      const [attachments, events, purchases, issues] = await Promise.all([
-        this.api.all((query) =>
-          this.api.client.GET('/api/attachments', {
-            params: { query: { ...query, thingId: id } },
-          }),
-        ),
-        this.api.all((query) =>
-          this.api.client.GET('/api/events', {
-            params: {
-              query: {
-                ...query,
-                thingId: id,
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              },
-            },
-          }),
-        ),
-        this.api.all((query) =>
-          this.api.client.GET('/api/purchasables', {
-            params: { query: { ...query, thingId: id } },
-          }),
-        ),
-        this.api.all((query) =>
-          this.api.client.GET('/api/issues', {
-            params: { query: { ...query, thingId: id } },
-          }),
-        ),
-      ]);
-      if (id !== this.id || revision !== this.thing()?.revision) return;
-      this.attachments.set(attachments);
-      this.events.set(events);
-      this.purchasables.set(purchases);
-      this.issues.set(issues);
-    } catch (e) {
-      if (id === this.id) this.error.set(errorCode(e));
+      await navigator.clipboard.writeText(lines.join('\n'));
+    } catch {
+      this.toasts.error('copyDetails', 'request-failed');
+      return;
     }
+
+    this.copied.set(true);
+    setTimeout(() => this.copied.set(false), APP_CONFIG.copiedMs);
   }
-  async loadImage() {
-    if (this.imageUrl()) URL.revokeObjectURL(this.imageUrl());
-    this.imageUrl.set('');
-    const id = this.thing()?.imageAttachmentId;
-    if (id) {
-      const blob = await this.files.blob(id);
-      if (this.thing()?.imageAttachmentId === id) this.imageUrl.set(URL.createObjectURL(blob));
-    }
+
+  resolve(id: string) {
+    void this.issues.resolve(id);
   }
-  category() {
-    return this.categories().find((c) => c.id === this.categoryId);
+
+  complete(id: string) {
+    void this.events.complete(id);
   }
-  availableSets() {
-    return this.sets().filter(
-      (s) =>
-        s.categoryId === (this.thing()?.categoryId ?? this.categoryId) &&
-        !this.thing()?.fieldSets.some((selected) => selected.id === s.id),
-    );
-  }
-  async perform(fn: () => Promise<void>) {
-    if (this.busy() || this.processing()) return;
-    this.busy.set(true);
-    this.error.set(null);
-    try {
-      await fn();
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      this.busy.set(false);
-    }
-  }
-  async saveBasics() {
-    await this.perform(() =>
-      this.patch({
-        name: this.name,
-        description: this.description,
-        categoryId: this.categoryId,
-      }),
-    );
-  }
-  async patch(patch: Schema['ThingPatch']) {
-    const id = this.id;
-    const result = await this.api.client
-      .PATCH('/api/things/{id}', { params: { path: { id } }, body: patch })
-      .then(apiData);
-    if (id === this.id) {
-      this.thing.set(result);
-      await this.loadImage();
-    }
-  }
-  update(patch: Schema['ThingPatch']) {
-    void this.perform(() => this.patch(patch));
-  }
-  addSet() {
-    if (this.selectedSet) this.update({ addFieldSetIds: [this.selectedSet] });
-    this.selectedSet = '';
-  }
-  requiredSet(id: string) {
-    return this.thing()?.fieldSets.some((s) => s.includes.includes(id));
-  }
-  pinned(pin: Pin) {
-    return (
-      this.thing()?.pinnedFields.some((p) => JSON.stringify(p) === JSON.stringify(pin)) ?? false
-    );
-  }
-  pin(pin: Pin) {
-    const pins = this.thing()?.pinnedFields ?? [];
-    this.update({
-      pinnedFields: this.pinned(pin)
-        ? pins.filter((p) => JSON.stringify(p) !== JSON.stringify(pin))
-        : [...pins, pin],
-    });
-  }
-  fieldValue(field: Schema['Field'], setId: string | null, value: Value | null) {
-    this.update({ values: [{ fieldSetId: setId, fieldId: field.id, value }] });
-    this.newField = '';
-  }
-  standaloneDefinition() {
-    if (this.standaloneCache?.id === this.newField) return this.standaloneCache;
-    const f = this.fields().find((f) => f.id === this.newField);
-    this.standaloneCache = f
-      ? { ...f, value: null, masked: false, origin: null, sourceRefs: [] }
+
+  schedule() {
+    const id = this.target();
+    const date = this.scheduleDate();
+
+    if (!id || !date) return;
+
+    const startsAt = this.scheduleTime()
+      ? localDateTimeToUtc(`${date}T${this.scheduleTime()}`)
       : null;
-    return this.standaloneCache;
+
+    void this.events.schedule(
+      id,
+      startsAt ? { startsAt, startsOn: null } : { startsOn: date, startsAt: null },
+    );
+    this.closeDialog();
   }
-  localField(field: Schema['UndefinedField']): Schema['Field'] {
-    const cached = this.localCache.get(field);
-    if (cached) return cached;
-    const result: Schema['Field'] = {
-      id: field.id,
-      name: field.label,
-      description: '',
-      keywords: [],
-      schema: {
-        type:
-          field.valueType === 'MONEY'
-            ? 'object'
-            : (field.valueType.toLowerCase() as Schema['SchemaTypeEnum']),
-      },
-      uiHint: field.valueType === 'MONEY' ? 'MONEY' : 'TEXT',
-      sensitive: field.sensitive,
-      value: field.value,
-      masked: field.masked,
-      origin: field.origin,
-      sourceRefs: field.sourceRefs,
-    };
-    this.localCache.set(field, result);
-    return result;
+
+  saveCategory() {
+    const categoryId = this.categoryDraft();
+
+    if (categoryId && categoryId !== this.thing()?.categoryId)
+      void this.things.update(this.id(), { categoryId });
+    this.closeDialog();
   }
-  localChange(field: Schema['UndefinedField'], value: Value | null) {
-    if (value === null) this.update({ removeUndefinedFieldIds: [field.id] });
-    else
-      this.update({
-        undefinedFields: [
-          {
-            id: field.id,
-            label: field.label,
-            sensitive: field.sensitive,
-            value,
-          },
-        ],
-      });
-  }
-  addLocal() {
-    if (this.localLabel.trim()) {
-      this.update({
-        undefinedFields: [
-          {
-            label: this.localLabel.trim(),
-            value: this.localValue,
-            sensitive: this.localSensitive,
-          },
-        ],
-      });
-      this.localLabel = '';
-      this.localValue = '';
-      this.localSensitive = false;
-    }
-  }
-  toggleTag(tag: string) {
+
+  toggleTag(tagId: string) {
     const ids = this.thing()?.tagIds ?? [];
-    this.update({
-      tagIds: ids.includes(tag) ? ids.filter((id) => id !== tag) : [...ids, tag],
+
+    void this.things.update(this.id(), {
+      tagIds: ids.includes(tagId) ? ids.filter((id) => id !== tagId) : [...ids, tagId],
     });
   }
+
   async addTag() {
-    if (!this.newTag.trim()) return;
-    await this.perform(async () => {
-      const tag = await this.api.client
-        .POST('/api/tags', { body: { name: this.newTag } })
-        .then(apiData);
-      this.tags.update((tags) => [...tags, tag]);
-      await this.patch({ tagIds: [...(this.thing()?.tagIds ?? []), tag.id] });
-      this.newTag = '';
-    });
+    const name = this.newTag().trim();
+
+    if (!name) return;
+    this.newTag.set('');
+
+    const result = await this.tagsStore.create(name);
+
+    if (result.ok)
+      void this.things.update(this.id(), {
+        tagIds: [...(this.thing()?.tagIds ?? []), result.value.id],
+      });
   }
-  async upload(event: Event) {
+
+  remove() {
+    const id = this.id();
+
+    this.closeDialog();
+    void this.things.remove(id);
+    void this.router.navigate(['/']);
+  }
+
+  upload(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file) return;
-    await this.perform(async () => {
-      if (file.size > this.config.maxUploadBytes) throw new UiError('too-large');
-      const attachment = await this.api.client
-        .POST('/api/attachments', {
-          body: { file },
-          bodySerializer(body) {
-            const form = new FormData();
-            form.append('file', body.file);
-            return form;
-          },
-        })
-        .then(apiData);
-      await this.api.client.PUT('/api/attachments/{id}/things/{thingId}', {
-        params: { path: { id: attachment.id, thingId: this.id } },
-      });
-      await this.load();
-    });
+
     input.value = '';
+    if (file) void this.attachments.upload(file, this.id());
   }
-  async extractAttachment(attachmentId: string) {
-    await this.perform(async () => {
-      const accepted = await this.api.client
-        .POST('/api/things:import', {
-          body: { attachmentId, thingId: this.id },
-        })
-        .then(apiData);
-      this.importChanged(
-        await this.api.client
-          .GET('/api/imports/{id}', {
-            params: { path: { id: accepted.importId } },
-          })
-          .then(apiData),
-      );
-    });
+
+  async download(file: Schema['Attachment']) {
+    try {
+      await this.files.download(file);
+    } catch (e) {
+      this.toasts.error('downloadFile', errorCode(e));
+    }
   }
-  async loadLibrary() {
-    await this.perform(async () => {
-      this.library.set(
-        (
-          await this.api.all((query) =>
-            this.api.client.GET('/api/attachments', { params: { query } }),
-          )
-        ).filter((a) => !a.thingIds.includes(this.id)),
-      );
-    });
+
+  setImage(attachmentId: string | null) {
+    void this.things.update(this.id(), { imageAttachmentId: attachmentId });
   }
-  async link() {
-    if (!this.linkId) return;
-    await this.perform(async () => {
-      await this.api.client.PUT('/api/attachments/{id}/things/{thingId}', {
-        params: { path: { id: this.linkId, thingId: this.id } },
-      });
-      this.linkId = '';
-      this.library.set([]);
-      await this.load();
-    });
+
+  extract(attachmentId: string) {
+    void this.things.extract(attachmentId, this.id());
   }
-  async unlink(id: string) {
-    await this.perform(async () => {
-      await this.api.client.DELETE('/api/attachments/{id}/things/{thingId}', {
-        params: { path: { id, thingId: this.id } },
-      });
-      await this.load();
-    });
+
+  unlink(attachmentId: string) {
+    void this.attachments.unlink(attachmentId, this.id());
   }
-  async deleteFile(id: string) {
-    await this.perform(async () => {
-      await this.api.client.DELETE('/api/attachments/{id}', {
-        params: { path: { id } },
-      });
-      this.library.update((list) => list.filter((a) => a.id !== id));
-    });
+
+  link(attachmentId: string) {
+    void this.attachments.link(attachmentId, this.id());
   }
-  download(file: Schema['Attachment']) {
-    void this.perform(() => this.files.download(file));
-  }
-  activity(action: ActivityAction) {
-    void this.perform(async () => {
-      if (action.kind === 'issues')
-        await this.api.client.PATCH('/api/issues/{id}', {
-          params: { path: { id: action.id } },
-          body: action.patch,
-        });
-      else
-        await this.api.client.PATCH('/api/events/{id}', {
-          params: { path: { id: action.id } },
-          body: action.patch,
-        });
-      await this.load();
-    });
-  }
-  async remove() {
-    await this.perform(async () => {
-      await this.api.client.DELETE('/api/things/{id}', {
-        params: { path: { id: this.id } },
-      });
-      await this.router.navigate(['/']);
-    });
+
+  deleteFile() {
+    const id = this.target();
+
+    if (!id) return;
+
+    const file = this.attachments.entityMap()[id];
+
+    if (file?.thingIds.length) void this.attachments.discard(id, this.id());
+    else void this.attachments.remove(id);
+    this.closeDialog();
   }
 }

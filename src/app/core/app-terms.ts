@@ -26,6 +26,8 @@ export const ACTION_TERMS = {
   deleteFile: "Couldn't delete the file",
   linkFile: "Couldn't link the file",
   unlinkFile: "Couldn't remove the file",
+  downloadFile: "Couldn't download the file",
+  copyDetails: "Couldn't copy the details",
   startChat: "Couldn't start a chat",
   sendMessage: "Couldn't send the message",
   importThing: "Couldn't start the import",

@@ -3,6 +3,68 @@
   background: tokens.color(skeleton);
   border-radius: tokens.radius(control);
 }
+/** Pill placeholder for one line of text. */
+@mixin skeleton-line {
+  display: block;
+  height: tokens.space(3);
+  border-radius: tokens.radius(pill);
+  background: tokens.color(secondary-muted);
+}
+@mixin skeleton-circle($size) {
+  flex-shrink: 0;
+  width: tokens.size($size);
+  height: tokens.size($size);
+  border-radius: tokens.radius(pill);
+  background: tokens.color(secondary-muted);
+}
+/** Dark-to-clear gradient behind controls laid over an image. */
+@mixin hero-scrim {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, #{tokens.color(neutral-950)} 45%, transparent),
+    transparent
+  );
+}
+/** Inline padding that centres content in the page column while the element spans the viewport. */
+@mixin page-gutter {
+  padding-inline: max(
+    #{tokens.space(4)},
+    calc((100% - #{tokens.size(content-max)}) / 2 + #{tokens.space(4)})
+  );
+}
+/**
+ * Page host that fills the viewport above the bottom nav, with a `bt-top-bar` over a
+ * `bt-scroll-container`. Only the container scrolls.
+ */
+@mixin viewport-page {
+  position: fixed;
+  inset: 0 0 var(--page-bottom-inset, 0px);
+  display: flex;
+  flex-direction: column;
+}
+/** Absolute image area at the top of a `viewport-page`, behind its top bar and content. */
+@mixin hero-backdrop {
+  position: absolute;
+  inset: 0 0 auto;
+  max-width: tokens.size(content-max);
+  height: tokens.size(hero);
+  margin-inline: auto;
+  background: tokens.color(secondary-muted);
+}
+/**
+ * White sheet inside a `bt-scroll-container` with no top padding. It starts where the
+ * `hero-backdrop` image ends, reaches the column edges and fills the rest of the viewport.
+ */
+@mixin hero-sheet {
+  position: relative;
+  min-height: calc(100dvh - #{tokens.size(hero)} + #{tokens.size(hero-overlap)});
+  margin: calc(#{tokens.size(hero)} - #{tokens.size(hero-overlap)} - #{tokens.size(top-bar)})
+    calc(-1 * #{tokens.space(4)}) calc(-1 * #{tokens.space(8)});
+  padding: tokens.space(5) tokens.space(5) tokens.space(8);
+  border-radius: tokens.radius(sheet) tokens.radius(sheet) 0 0;
+  background: tokens.color('white');
+  box-shadow: tokens.shadow(sheet);
+}
 @mixin icon-size($name) {
   --ng-icon__size: #{tokens.icon-size($name)};
 }

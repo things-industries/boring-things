@@ -19,16 +19,16 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/data/`: stateless domain services, one per API domain (`<domain>.service.ts`). They shape requests, follow pagination, wrap streams and return contract types.
 - `app/core/state/`: NgRx Signal Store stores (`<domain>.store.ts`), the `withEntityCollection` feature (optimistic entities, `withLoad`, `loadOne` and `withSession` in one), the lower-level `withOptimisticEntities`, `withLoad` and `withSession` features, the pure optimistic bookkeeping in `optimistic.ts`, `loadCollections()` for pages that load several stores, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
-- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it; Thing detail and field reveal (stage 5) and chat (stage 7) still call `Api` directly until those stages migrate them.
+- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it; chat (stage 7) still calls `Api` directly until that stage migrates it.
 - `app/features/home/`: Home: greeting, Ask promo, Needs attention, Upcoming, Frequent & recent, Categories and the empty-account sample-data action.
 - `app/features/dashboard/`: Things list at `/things`: search, category (`?categoryId=`) and tag filters, sample-data action and activity overview.
 - `app/features/add-thing/`: Add Thing (`/things/new`) with import tiles, the paste-text step (`/things/new/text`) and the manual form (`/things/new/manual`).
-- `app/features/things/`: Thing details, field edits, pins, tags and attachments; `import-panel.*` adds details from a source and handles import progress, confirmation and retry through `ThingsStore`.
+- `app/features/things/`: the Thing page (`thing.*`: hero, sheet, Key details, tasks, products, attachments, overflow menu and dialogs) and All details (`thing-details.*`: basics, sections, fields, pins and custom fields), sharing `thing-loader.ts` (route Thing, load and stream) and `thing.view.ts` (view helpers). `import-sources.*` adds details from a source; `import-progress.*` and `import-steps.*` show import progress, confirmation and retry through `ThingsStore`.
 - `app/features/chat/`: active conversations, streamed text, retry and typed resource cards. New entry starts a new chat; no conversation history/resumption.
 - `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
 - `app/features/login/`: sign-in and setup-pending screen.
 - `app/features/timeline/`, `app/features/profile/`: placeholder pages; Profile holds Sign out.
-- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`), `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, `bt-option-tile`, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
+- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`, `bt-menu`), page layout (`bt-scroll-container`, `bt-hero`, `bt-sheet`), `bt-dialog`, `bt-key-value-row`, `bt-status-summary`, `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, `bt-option-tile`, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.
 - `app/validators/`: form validators returning error keys.
 - `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.
@@ -58,6 +58,7 @@ Keep feature-only components and data services beside their feature. Move code i
 ## UI and accessibility
 
 - Design for a phone viewport first, then widen layouts. Validate mobile layouts and keyboard access.
+- Pages with a back link or actions use `bt-top-bar` above a `bt-scroll-container` on a host with `mixins.viewport-page`, so the bar stays put and content scrolls below it. Set `--top-bar-background` to match the page. Home and tab pages without a bar scroll the document.
 - Use links for navigation and buttons for actions. Preserve native semantics, visible focus, accessible labels and disabled/busy states.
 - Show loading skeletons shaped like the content, with a visually hidden status. Keep each skeleton beside its page/component and share dimensions through mixins.
 - Render every selected field, including empty editable prompts. Preserve field-set identity when grouping sections or editing pins.

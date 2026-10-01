@@ -7,92 +7,94 @@
 } @else {
   <bt-top-bar [title]="'assistant' | term" back="/" backLabel="Home" />
 }
-@if (!config.chatEnabled) {
-  <p class="notice-banner">The assistant is not configured.</p>
-} @else {
-  <p class="text-primary-muted">
-    Questions and relevant records or documents are sent to OpenAI. Review answers and sources.
-    Starting another chat starts a new conversation.
-  </p>
-  @if (error()) {
-    <bt-error-message [code]="error()" />
-    @if (!conversation()) {
-      <button (click)="start()">Retry</button>
-    }
-  }
-  @if (disconnected()) {
-    <p class="notice-banner" role="status">
-      Connection interrupted. Reconnecting to saved messages…
+<bt-scroll-container>
+  @if (!config.chatEnabled) {
+    <p class="notice-banner">The assistant is not configured.</p>
+  } @else {
+    <p class="text-primary-muted">
+      Questions and relevant records or documents are sent to OpenAI. Review answers and sources.
+      Starting another chat starts a new conversation.
     </p>
-  }
-  @if (conversation(); as chat) {
-    <div class="messages">
-      @for (message of chat.messages; track message.id) {
-        <article class="content-panel message" [class.user]="message.role === 'USER'">
-          <h2>{{ message.role === 'USER' ? 'You' : 'Assistant' }}</h2>
-          <p class="message-text">{{ message.text }}</p>
-          @for (card of message.cards; track $index) {
-            <bt-resource-card [card]="card" />
-          }
-          <div class="sources">
-            @for (source of message.sourceRefs; track $index) {
-              @if (source.url) {
-                <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{
-                  source.url
-                }}</a>
+    @if (error()) {
+      <bt-error-message [code]="error()" />
+      @if (!conversation()) {
+        <button (click)="start()">Retry</button>
+      }
+    }
+    @if (disconnected()) {
+      <p class="notice-banner" role="status">
+        Connection interrupted. Reconnecting to saved messages…
+      </p>
+    }
+    @if (conversation(); as chat) {
+      <div class="messages">
+        @for (message of chat.messages; track message.id) {
+          <article class="content-panel message" [class.user]="message.role === 'USER'">
+            <h2>{{ message.role === 'USER' ? 'You' : 'Assistant' }}</h2>
+            <p class="message-text">{{ message.text }}</p>
+            @for (card of message.cards; track $index) {
+              <bt-resource-card [card]="card" />
+            }
+            <div class="sources">
+              @for (source of message.sourceRefs; track $index) {
+                @if (source.url) {
+                  <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{
+                    source.url
+                  }}</a>
+                }
+                @if (source.attachmentId) {
+                  <button class="quiet small" (click)="attachment(source.attachmentId)">
+                    Open cited document
+                    @if (source.page) {
+                      · page {{ source.page }}
+                    }
+                  </button>
+                }
               }
-              @if (source.attachmentId) {
-                <button class="quiet small" (click)="attachment(source.attachmentId)">
-                  Open cited document
-                  @if (source.page) {
-                    · page {{ source.page }}
-                  }
+            </div>
+            @if (message.status === 'QUEUED' || message.status === 'PROCESSING') {
+              <p role="status" class="text-primary-muted">
+                {{ message.status === 'QUEUED' ? 'Waiting to respond…' : 'Preparing an answer…' }}
+              </p>
+            }
+            @if (message.status === 'FAILED') {
+              <p class="notice-banner">
+                The response was interrupted. Saved actions remain available.
+              </p>
+              @if ($last) {
+                <button
+                  class="secondary small"
+                  [disabled]="busy() || inFlight()"
+                  (click)="send(message)"
+                >
+                  Retry response
                 </button>
               }
             }
-          </div>
-          @if (message.status === 'QUEUED' || message.status === 'PROCESSING') {
-            <p role="status" class="text-primary-muted">
-              {{ message.status === 'QUEUED' ? 'Waiting to respond…' : 'Preparing an answer…' }}
-            </p>
-          }
-          @if (message.status === 'FAILED') {
-            <p class="notice-banner">
-              The response was interrupted. Saved actions remain available.
-            </p>
-            @if ($last) {
-              <button
-                class="secondary small"
-                [disabled]="busy() || inFlight()"
-                (click)="send(message)"
-              >
-                Retry response
-              </button>
-            }
-          }
-        </article>
-      } @empty {
-        <p class="content-panel">
-          Ask about a detail, a manual, maintenance or compatible products.
-        </p>
-      }
-    </div>
-    <form class="content-panel composer" (ngSubmit)="send()">
-      <label
-        >Message<textarea
-          name="message"
-          [(ngModel)]="text"
-          maxlength="8000"
-          rows="3"
-          [disabled]="busy() || inFlight()"
-          required
-        ></textarea>
-      </label>
-      <button type="submit" [disabled]="busy() || inFlight() || !text.trim()">Send</button>
-    </form>
-  } @else {
-    <div class="chat-skeleton" role="status">
-      <span class="visually-hidden">Starting chat…</span>
-    </div>
+          </article>
+        } @empty {
+          <p class="content-panel">
+            Ask about a detail, a manual, maintenance or compatible products.
+          </p>
+        }
+      </div>
+      <form class="content-panel composer" (ngSubmit)="send()">
+        <label
+          >Message<textarea
+            name="message"
+            [(ngModel)]="text"
+            maxlength="8000"
+            rows="3"
+            [disabled]="busy() || inFlight()"
+            required
+          ></textarea>
+        </label>
+        <button type="submit" [disabled]="busy() || inFlight() || !text.trim()">Send</button>
+      </form>
+    } @else {
+      <div class="chat-skeleton" role="status">
+        <span class="visually-hidden">Starting chat…</span>
+      </div>
+    }
   }
-}
+</bt-scroll-container>

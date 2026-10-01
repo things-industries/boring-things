@@ -23,3 +23,9 @@ export function formatFieldValue(value: Value | null): string {
       }).format(value.amountMinor / 100)
     : String(value ?? '');
 }
+/** Whether two values are equal, comparing money by amount and currency. */
+export function sameValue(a: Value | null, b: Value | null): boolean {
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object')
+    return a.amountMinor === b.amountMinor && a.currency === b.currency;
+  return a === b;
+}

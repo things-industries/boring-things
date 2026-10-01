@@ -1,0 +1,19 @@
+<dialog #dialog [attr.aria-labelledby]="titleId" (close)="closed.emit()" (click)="backdrop($event)">
+  @if (open()) {
+    <div class="dialog-content">
+      <header class="dialog-header">
+        <h2 [id]="titleId">{{ title() }}</h2>
+        <button
+          type="button"
+          btIconButton
+          variant="plain"
+          icon="close"
+          label="Close"
+          (click)="dialog.close()"
+        ></button>
+      </header>
+      <ng-content />
+      <div class="dialog-actions"><ng-content select="[dialogActions]" /></div>
+    </div>
+  }
+</dialog>
