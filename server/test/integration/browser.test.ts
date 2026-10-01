@@ -275,13 +275,12 @@ test(
       await page.getByRole('menuitem', { name: 'Extract details', exact: true }).click();
       const progress = page.locator('bt-import-progress bt-notice');
       await expect(progress).toBeVisible();
-      await expect(progress).toContainText(/Step \d of 3/);
+      // The fixture pauses while mapping, so the steps settle on the second one.
+      await expect(progress).toContainText('Step 2 of 3: Adding details');
       await expect(progress).toContainText('You can leave this screen');
       const currentStep = progress.locator('.import-step.current');
-      assert.match(
-        await currentStep.evaluate((el) => getComputedStyle(el).animationName),
-        /import-step-pulse$/,
-      );
+      const stepAnimation = () => currentStep.evaluate((el) => getComputedStyle(el).animationName);
+      await expect.poll(stepAnimation).toMatch(/import-step-pulse$/);
       await page.screenshot({
         path: 'test-results/import-progress-desktop.png',
         fullPage: true,
@@ -292,7 +291,7 @@ test(
         fullPage: true,
       });
       await page.emulateMedia({ reducedMotion: 'reduce' });
-      assert.equal(await currentStep.evaluate((el) => getComputedStyle(el).animationName), 'none');
+      await expect.poll(stepAnimation).toBe('none');
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.setViewportSize({ width: 1440, height: 1100 });
       releaseImport();
