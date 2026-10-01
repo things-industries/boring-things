@@ -34,7 +34,7 @@ Angular browser client -> /api -> Fastify -> Supabase PostgreSQL (bt schema)
 - Do not introduce frameworks, providers or infrastructure without explicit approval (but suggest them if they would help). Update the relevant guide when a decision changes.
 - The browser must not receive database, service-role or AI credentials. Private records and attachments must not enter public assets or shared caches.
 - Frontend styling uses Sass, icons use Remix through `ng-icons` 34.x, and date helpers use `date-fns`.
-- Tests use Node's test runner and Playwright. ESLint uses flat configuration. Do not assume Angular unit-test targets, GitHub Actions or pre-commit hooks exist.
+- Tests use Node's test runner; e2e tests use Playwright Test in `e2e/`. ESLint uses flat configuration. Do not assume Angular unit-test targets, GitHub Actions or pre-commit hooks exist.
 
 ## API contract
 
@@ -44,7 +44,7 @@ After changing a route, request, response or status code, update OpenAPI and run
 
 ## Development and validation
 
-Follow `README.md` for first setup. Preserve an existing `.env`. Local Supabase uses Postgres port `55432` and Studio at `http://127.0.0.1:55423`; application tables are in `bt`.
+Follow `README.md` for first setup. Preserve an existing `.env`. Local Supabase uses Postgres port `55432` (`./scripts/cloud-postgres.sh` provides it in cloud sessions without Docker) and Studio at `http://127.0.0.1:55423`; application tables are in `bt`.
 
 ```bash
 pnpm db:start             # Start this repository's local Supabase stack
@@ -62,6 +62,9 @@ pnpm test                # Node unit tests
 CI=true pnpm typecheck   # Server types and Angular development build
 CI=true pnpm check       # Formatting, spelling, contract, lint, types, unit tests and build
 pnpm test:integration    # Requires local Supabase and built frontend
+pnpm test:e2e            # Playwright e2e suite; see .claude/skills/e2e/SKILL.md
+pnpm e2e:serve           # Signed-in e2e app on port 4300 with sample data
+pnpm screenshot /        # Screenshot pages of the running e2e app
 CI=true pnpm build       # Build both targets
 pnpm start               # Serve built application
 pnpm db:stop             # Stop local Supabase, preserving data
