@@ -1,7 +1,7 @@
 import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
-import { ownedActivity, saveEvent, saveIssue } from '../db/activity.js';
-import { bumpThing, ownedThing } from '../db/things.js';
+import { ownedActivity, saveEvent, saveIssue } from '../db/entities/activity.js';
+import { bumpThing, ownedThing } from '../db/entities/things.js';
 import { ensure } from './errors.js';
 
 export async function writeIssue(

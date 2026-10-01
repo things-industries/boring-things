@@ -11,7 +11,7 @@ import { FixtureChat } from '../fixtures/chat.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/registry-seed.js';
+import { seedRegistry } from '../../src/db/seeds/registry.js';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );

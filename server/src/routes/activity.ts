@@ -1,12 +1,17 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { route } from '../contracts/routes.js';
 import { transaction } from '../db/connection.js';
-import { listActivity, ownedActivity } from '../db/activity.js';
+import { listActivity, ownedActivity } from '../db/entities/activity.js';
 import { writeEvent, writeIssue } from '../application/activity.js';
 import type { OwnerChanges } from '../application/streams.js';
 
-export function activityRoutes(app: FastifyInstance, db: pg.Pool, changes: OwnerChanges) {
+interface Options {
+  db: pg.Pool;
+  changes: OwnerChanges;
+}
+
+const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, changes }) => {
   route(app, 'GET', '/api/issues', (req) => listActivity(db, req.ownerId, 'issues', req.query));
   route(app, 'GET', '/api/events', (req) => listActivity(db, req.ownerId, 'events', req.query));
   route(app, 'GET', '/api/purchasables', (req) =>
@@ -45,4 +50,6 @@ export function activityRoutes(app: FastifyInstance, db: pg.Pool, changes: Owner
     changes.publish(req.ownerId);
     return result;
   });
-}
+};
+
+export default activityRoutes;

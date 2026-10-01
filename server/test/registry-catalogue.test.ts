@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
-import { fields, sets } from '../src/db/registry-seed.js';
+import { fields, sets } from '../src/db/seeds/registry.js';
 import { Registry } from '../src/application/registry/registry.js';
 import { emptyData } from '../../shared/model.js';
 import { patchData } from '../src/application/thing-data.js';

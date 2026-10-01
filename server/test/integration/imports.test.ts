@@ -9,7 +9,7 @@ import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/registry-seed.js';
+import { seedRegistry } from '../../src/db/seeds/registry.js';
 import { PDFDocument } from 'pdf-lib';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
@@ -442,8 +442,8 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
 
 test('discovery persists cited resources once and preserves edits on repeated writes', async () => {
   const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs.js');
+  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
@@ -554,8 +554,8 @@ test('discovery persists cited resources once and preserves edits on repeated wr
 
 test('discovered names use only owner collisions and preserve existing or edited names', async () => {
   const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs.js');
+  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   await create({ name: 'Bosch Oven' }, 'bob');
   const accepted = await start('neff');
   await wait(accepted.importId);
@@ -626,8 +626,8 @@ test('discovered names use only owner collisions and preserve existing or edited
 
 test('failed PDF downloads preserve other results and retries skip saved files; HTML creates no attachment', async () => {
   const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs.js');
+  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;

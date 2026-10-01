@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { readConfig } from '../server/src/config.js';
-import { OpenAiChat } from '../server/src/providers/chat.js';
+import { OpenAiChat } from '../server/src/providers/ai/openai-chat.js';
 import type { ChatMessage } from '../server/src/application/conversations/types.js';
 
 const config = readConfig();

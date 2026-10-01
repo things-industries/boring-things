@@ -8,8 +8,8 @@ import {
   projectImport,
   targets,
   requeueImport,
-} from '../../db/imports.js';
-import { ownedThing } from '../../db/things.js';
+} from '../../db/entities/imports.js';
+import { ownedThing } from '../../db/entities/things.js';
 import { ensure } from '../errors.js';
 export async function confirmImport(
   pool: pg.Pool,

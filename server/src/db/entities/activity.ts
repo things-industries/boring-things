@@ -1,9 +1,9 @@
-import type { Schema } from '../../../shared/model.js';
-import type { RouteTypes } from '../contracts/routes.js';
-import { rows, type Database } from './connection.js';
-import { ensure } from '../application/errors.js';
+import type { Schema } from '../../../../shared/model.js';
+import type { RouteTypes } from '../../contracts/routes.js';
+import { rows, type Database } from '../connection.js';
+import { ensure } from '../../application/errors.js';
 import { ownedThing } from './things.js';
-import { page, pageResult } from '../application/pagination.js';
+import { page, pageResult } from '../../application/pagination.js';
 
 type Activity = {
   issues: Schema['Issue'];

@@ -28,6 +28,7 @@
     "coworking",
     "CPE",
     "DBT",
+    "dvh",
     "DVLA",
     "Electrolux",
     "env",
@@ -151,7 +152,7 @@
       "words": ["ELEC"]
     },
     {
-      "filename": ["server/src/providers/documents.ts", "cspell.json"],
+      "filename": ["server/src/providers/web/pdf.ts", "cspell.json"],
       "words": ["fff"]
     }
   ]

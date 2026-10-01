@@ -1,16 +1,21 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
 import { page, pageResult, type PageQuery } from '../application/pagination.js';
 import type { Database } from '../db/connection.js';
-import { listCategories, searchRegistry } from '../db/registry.js';
+import { listCategories, searchRegistry } from '../db/entities/registry.js';
 import { ensure } from '../application/errors.js';
 
 interface RegistryQuery extends PageQuery {
   q?: string;
   categoryId?: string;
 }
-export function registryRoutes(app: FastifyInstance, db: Database, registry: Registry) {
+interface Options {
+  db: Database;
+  registry: Registry;
+}
+
+const registryRoutes: FastifyPluginAsync<Options> = async (app, { db, registry }) => {
   async function list<T>(
     kind: 'fields' | 'field-sets',
     records: Map<string, T>,
@@ -44,4 +49,6 @@ export function registryRoutes(app: FastifyInstance, db: Database, registry: Reg
   route(app, 'GET', '/api/field-sets', (req) => list('field-sets', registry.sets, req.query));
   route(app, 'GET', '/api/fields/{id}', (req) => get(registry.fields, req.params.id));
   route(app, 'GET', '/api/field-sets/{id}', (req) => get(registry.sets, req.params.id));
-}
+};
+
+export default registryRoutes;

@@ -1,5 +1,5 @@
 import { Registry } from './registry.js';
-import { registryRecords } from '../../db/registry.js';
+import { registryRecords } from '../../db/entities/registry.js';
 import type { Database } from '../../db/connection.js';
 import { ensure } from '../errors.js';
 export { Registry } from './registry.js';

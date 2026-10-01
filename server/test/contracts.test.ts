@@ -6,6 +6,7 @@ import { installContracts, route, fastifyPath } from '../src/contracts/routes.js
 import { schemaValidator, schemaRefs } from '../src/contracts/schemas.js';
 import { installErrorHandler } from '../src/routes/errors.js';
 import { ApplicationError } from '../src/application/errors.js';
+import type { ThingPatch } from '../../shared/model.js';
 
 // These assertions exercise operation inference; the function is never invoked.
 function typeChecks(app: FastifyInstance) {
@@ -110,4 +111,58 @@ test('application errors map at the HTTP boundary and unexpected details stay pr
   const response = await app.inject('/broken');
   assert.equal(response.statusCode, 500);
   assert.equal(response.body.includes('secret'), false);
+});
+
+test('nested route plugins inherit coercion, rejection and response serialization rules', async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  installContracts(app);
+  installErrorHandler(app);
+  const id = '00000000-0000-4000-8000-000000000001';
+  let limit: number | undefined;
+  let patch: ThingPatch | undefined;
+  let tagCalls = 0;
+  await app.register(async (api) => {
+    await api.register(async (feature) => {
+      route(feature, 'GET', '/api/tags', async (request) => {
+        limit = request.query.limit;
+        tagCalls++;
+        return { items: [{ id, name: 'Tag', privateSecret: 'hidden' }], nextCursor: null };
+      });
+      route(feature, 'PATCH', '/api/things/{id}', async (request) => {
+        patch = request.body;
+        throw new ApplicationError('NOT_FOUND', 'Thing not found');
+      });
+    });
+  });
+
+  const response = await app.inject('/api/tags?limit=2');
+  assert.equal(response.statusCode, 200);
+  assert.equal(limit, 2);
+  assert.deepEqual(response.json(), { items: [{ id, name: 'Tag' }], nextCursor: null });
+  assert.equal((await app.inject('/api/tags')).statusCode, 200);
+  assert.equal(limit, undefined);
+  for (const query of ['limit=invalid', 'limit=2&extra=secret']) {
+    assert.equal((await app.inject('/api/tags?' + query)).statusCode, 422);
+  }
+  assert.equal(tagCalls, 2);
+
+  for (const payload of [{ name: 42 }, { extra: 'secret' }]) {
+    const invalid = await app.inject({ method: 'PATCH', url: `/api/things/${id}`, payload });
+    assert.equal(invalid.statusCode, 422);
+    assert.deepEqual(invalid.json(), { message: 'Invalid request', statusCode: 422 });
+    assert.equal(patch, undefined);
+  }
+  const payload = {
+    description: '',
+    imageAttachmentId: null,
+    values: [false, 0, '', null].map((value, index) => ({
+      fieldSetId: null,
+      fieldId: 'field' + index,
+      value,
+    })),
+  };
+  const accepted = await app.inject({ method: 'PATCH', url: `/api/things/${id}`, payload });
+  assert.equal(accepted.statusCode, 404);
+  assert.deepEqual(patch, payload);
 });

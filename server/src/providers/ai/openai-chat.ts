@@ -8,9 +8,9 @@ import type {
   ChatInput,
   ChatContext,
   ChatToolResult,
-} from '../application/conversations/types.js';
-import { chatFunctions } from '../contracts/chat-tools.js';
-import { ensure } from '../application/errors.js';
+} from '../../application/conversations/types.js';
+import { chatFunctions } from '../../contracts/chat-tools.js';
+import { ensure } from '../../application/errors.js';
 
 interface Output {
   type: string;

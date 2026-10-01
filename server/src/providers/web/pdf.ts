@@ -7,8 +7,8 @@ import { lookup } from 'node:dns/promises';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP } from 'node:net';
-import { ensure } from '../application/errors.js';
-import { awaitWithSignal } from '../lib/abort.js';
+import { ensure } from '../../application/errors.js';
+import { awaitWithSignal } from '../../lib/abort.js';
 
 const blocked = new BlockList();
 
