@@ -1,0 +1,10 @@
+@use 'tokens';
+.paste-text-form {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
+  padding-block: tokens.space(4) tokens.space(7);
+  label {
+    margin: 0;
+  }
+}

@@ -2,7 +2,7 @@ import {
   remixAddLine,
   remixArrowRightLine,
   remixUploadLine,
-  remixArrowLeftLine,
+  remixArrowLeftSLine,
   remixArrowRightUpLine,
   remixArrowRightSLine,
   remixArrowUpLine,
@@ -30,7 +30,6 @@ import {
   remixImageEditLine,
   remixLinkUnlink,
   remixLoader4Line,
-  remixLock2Line,
   remixMoreLine,
   remixPencilLine,
   remixPriceTag3Line,
@@ -58,7 +57,7 @@ import {
   remixShieldLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
-export const back = remixArrowLeftLine;
+export const back = remixArrowLeftSLine;
 export const open = remixArrowRightUpLine;
 export const complete = remixCheckLine;
 export const searchThings = remixSearchLine;
@@ -68,8 +67,6 @@ export const pinnedField = remixStarFill;
 export const scheduleEvent = remixArrowRightLine;
 export const uploadFile = remixUploadLine;
 export const addTag = remixAddLine;
-export const takePhoto = remixCameraLine;
-export const choosePhoto = remixImageLine;
 
 // Navigation and page controls
 export const navHome = remixHome5Line;
@@ -100,9 +97,11 @@ export const issueOther = remixInformationLine;
 export const upcomingEvent = remixCalendarEventLine;
 
 // Add Thing
+export const takePhoto = remixCameraLine;
+export const choosePhoto = remixImageLine;
 export const chooseFile = remixFileLine;
 export const pasteText = remixText;
-export const privacyNotice = remixLock2Line;
+export const privacyNotice = remixShieldCheckLine;
 
 // Thing detail
 export const warrantyStatus = remixShieldCheckLine;

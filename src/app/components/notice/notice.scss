@@ -35,6 +35,9 @@
 }
 .notice-main {
   @include typography.role(body);
+  &:empty {
+    display: none;
+  }
 }
 .notice-detail {
   @include typography.role(caption);

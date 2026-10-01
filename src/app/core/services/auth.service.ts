@@ -14,6 +14,7 @@ export class Auth {
   readonly sessionChanged = this.sessionChanges.asObservable();
   private readonly errorState = signal<UiErrorCode | null>(null);
   readonly error = this.errorState.asReadonly();
+  private signInLanding = false;
   private client =
     this.config.logtoEndpoint && this.config.logtoAppId
       ? new LogtoClient({
@@ -27,8 +28,10 @@ export class Auth {
     try {
       if (!this.client) return;
       if (location.pathname === '/callback') {
-        if (await this.client.isSignInRedirected(location.href))
+        if (await this.client.isSignInRedirected(location.href)) {
           await this.client.handleSignInCallback(location.href);
+          this.signInLanding = true;
+        }
         history.replaceState(null, '', '/');
       }
       this.setSignedIn(await this.client.isAuthenticated());
@@ -50,6 +53,13 @@ export class Auth {
     } catch {
       this.errorState.set('auth-failed');
     }
+  }
+  /** True once, for the first navigation after returning from sign-in. */
+  takeSignInLanding() {
+    const landing = this.signInLanding;
+
+    this.signInLanding = false;
+    return landing;
   }
   expireSession() {
     this.setSignedIn(false);

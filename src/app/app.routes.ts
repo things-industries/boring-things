@@ -1,5 +1,7 @@
 import type { Routes } from '@angular/router';
 import { authenticated } from './core/services/auth.guard';
+import { addFirstThing } from './core/services/first-thing.guard';
+import { importsEnabled } from './core/services/imports.guard';
 import { APP_TERMS } from './core/app-terms';
 const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.Dashboard);
 const thingPage = () => import('./features/things/thing').then((m) => m.ThingPage);
@@ -19,7 +21,7 @@ export const routes: Routes = [
     path: '',
     pathMatch: 'full',
     title: APP_TERMS.home,
-    canActivate: [authenticated],
+    canActivate: [authenticated, addFirstThing],
     data: { bottomNav: true },
     loadComponent: () => import('./features/home/home').then((m) => m.HomePage),
   },
@@ -34,7 +36,19 @@ export const routes: Routes = [
     path: 'things/new',
     title: APP_TERMS.addThing,
     canActivate: [authenticated],
-    loadComponent: thingPage,
+    loadComponent: () => import('./features/add-thing/add-thing').then((m) => m.AddThingPage),
+  },
+  {
+    path: 'things/new/text',
+    title: APP_TERMS.addThing,
+    canActivate: [authenticated, importsEnabled],
+    loadComponent: () => import('./features/add-thing/paste-text').then((m) => m.PasteTextPage),
+  },
+  {
+    path: 'things/new/manual',
+    title: APP_TERMS.addThing,
+    canActivate: [authenticated],
+    loadComponent: () => import('./features/add-thing/manual-thing').then((m) => m.ManualThingPage),
   },
   {
     path: 'things/:id',

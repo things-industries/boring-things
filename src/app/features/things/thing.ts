@@ -129,7 +129,6 @@ export class ThingPage implements OnDestroy {
   error = signal<UiErrorCode | null>(null);
   imageUrl = signal('');
   deleting = signal(false);
-  isNew = signal(true);
   loaded = signal(false);
   name = '';
   description = '';
@@ -152,7 +151,6 @@ export class ThingPage implements OnDestroy {
       this.stream?.abort();
       this.stream = undefined;
       this.id = params.get('id') ?? '';
-      this.isNew.set(!this.id);
       this.thing.set(null);
       this.loaded.set(false);
       this.deleting.set(false);
@@ -182,62 +180,60 @@ export class ThingPage implements OnDestroy {
       this.sets.set(sets);
       this.fields.set(fields);
       this.tags.set(tags);
-      if (id) {
-        if (recordView) {
-          await this.api.client
-            .POST('/api/things/{id}:view', { params: { path: { id } } })
-            .then(apiData);
-          if (id !== this.id) return;
-        }
-        const [thing, attachments, issues, events, purchases] = await Promise.all([
-          this.api.client.GET('/api/things/{id}', { params: { path: { id } } }).then(apiData),
-          this.api.all((query) =>
-            this.api.client.GET('/api/attachments', {
-              params: { query: { ...query, thingId: id } },
-            }),
-          ),
-          this.api.all((query) =>
-            this.api.client.GET('/api/issues', {
-              params: { query: { ...query, thingId: id } },
-            }),
-          ),
-          this.api.all((query) =>
-            this.api.client.GET('/api/events', {
-              params: {
-                query: {
-                  ...query,
-                  thingId: id,
-                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                },
-              },
-            }),
-          ),
-          this.api.all((query) =>
-            this.api.client.GET('/api/purchasables', {
-              params: { query: { ...query, thingId: id } },
-            }),
-          ),
-        ]);
+      if (recordView) {
+        await this.api.client
+          .POST('/api/things/{id}:view', { params: { path: { id } } })
+          .then(apiData);
         if (id !== this.id) return;
-        this.thing.set(thing);
-        this.name = thing.name;
-        this.description = thing.description;
-        this.categoryId = thing.categoryId;
-        this.attachments.set(attachments);
-        this.issues.set(issues);
-        this.events.set(events);
-        this.purchasables.set(purchases);
-        await this.loadImage();
-        if (!this.stream) this.startStream(id);
-        afterNextRender(
-          () => {
-            const fragment = this.route.snapshot.fragment;
-            if (fragment && id === this.id)
-              document.getElementById(fragment)?.scrollIntoView({ block: 'center' });
-          },
-          { injector: this.injector },
-        );
       }
+      const [thing, attachments, issues, events, purchases] = await Promise.all([
+        this.api.client.GET('/api/things/{id}', { params: { path: { id } } }).then(apiData),
+        this.api.all((query) =>
+          this.api.client.GET('/api/attachments', {
+            params: { query: { ...query, thingId: id } },
+          }),
+        ),
+        this.api.all((query) =>
+          this.api.client.GET('/api/issues', {
+            params: { query: { ...query, thingId: id } },
+          }),
+        ),
+        this.api.all((query) =>
+          this.api.client.GET('/api/events', {
+            params: {
+              query: {
+                ...query,
+                thingId: id,
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+            },
+          }),
+        ),
+        this.api.all((query) =>
+          this.api.client.GET('/api/purchasables', {
+            params: { query: { ...query, thingId: id } },
+          }),
+        ),
+      ]);
+      if (id !== this.id) return;
+      this.thing.set(thing);
+      this.name = thing.name;
+      this.description = thing.description;
+      this.categoryId = thing.categoryId;
+      this.attachments.set(attachments);
+      this.issues.set(issues);
+      this.events.set(events);
+      this.purchasables.set(purchases);
+      await this.loadImage();
+      if (!this.stream) this.startStream(id);
+      afterNextRender(
+        () => {
+          const fragment = this.route.snapshot.fragment;
+          if (fragment && id === this.id)
+            document.getElementById(fragment)?.scrollIntoView({ block: 'center' });
+        },
+        { injector: this.injector },
+      );
     } catch (e) {
       this.error.set(errorCode(e));
     } finally {
@@ -339,26 +335,13 @@ export class ThingPage implements OnDestroy {
     }
   }
   async saveBasics() {
-    await this.perform(async () => {
-      if (!this.id) {
-        const t = await this.api.client
-          .POST('/api/things', {
-            body: {
-              name: this.name,
-              description: this.description,
-              categoryId: this.categoryId,
-              addFieldSetIds: this.selectedSet ? [this.selectedSet] : [],
-            },
-          })
-          .then(apiData);
-        await this.router.navigate(['/things', t.id]);
-      } else
-        await this.patch({
-          name: this.name,
-          description: this.description,
-          categoryId: this.categoryId,
-        });
-    });
+    await this.perform(() =>
+      this.patch({
+        name: this.name,
+        description: this.description,
+        categoryId: this.categoryId,
+      }),
+    );
   }
   async patch(patch: Schema['ThingPatch']) {
     const id = this.id;

@@ -1,0 +1,82 @@
+<bt-top-bar back="/" />
+<header class="add-thing-intro">
+  <h1>{{ firstThing() ? 'Add your first thing' : ('addThing' | term) }}</h1>
+  <p class="text-primary-muted">Give us whatever you have. We’ll work out the useful details.</p>
+</header>
+<section class="add-thing-methods" aria-labelledby="add-thing-methods">
+  <h2 id="add-thing-methods">Choose how to add</h2>
+  @if (!config.importEnabled) {
+    <bt-notice icon="setupNotice">
+      AI import is unavailable right now.
+      <span noticeDetail>You can still enter details manually.</span>
+    </bt-notice>
+  }
+  <div class="add-thing-tiles">
+    <button
+      type="button"
+      btOptionTile
+      icon="takePhoto"
+      label="Camera"
+      [disabled]="!config.importEnabled || busy()"
+      (click)="camera.click()"
+    ></button>
+    <button
+      type="button"
+      btOptionTile
+      icon="choosePhoto"
+      label="Photos"
+      [disabled]="!config.importEnabled || busy()"
+      (click)="photos.click()"
+    ></button>
+    <button
+      type="button"
+      btOptionTile
+      icon="chooseFile"
+      label="Files"
+      [disabled]="!config.importEnabled || busy()"
+      (click)="files.click()"
+    ></button>
+    @if (config.importEnabled && !busy()) {
+      <a btOptionTile icon="pasteText" label="Text" routerLink="/things/new/text"></a>
+    } @else {
+      <button type="button" btOptionTile icon="pasteText" label="Text" disabled></button>
+    }
+  </div>
+  <input
+    #camera
+    hidden
+    type="file"
+    aria-label="Take a photo"
+    accept="image/jpeg,image/png,image/webp"
+    capture="environment"
+    (change)="file($event)"
+  />
+  <input
+    #photos
+    hidden
+    type="file"
+    aria-label="Choose a photo"
+    accept="image/jpeg,image/png,image/webp"
+    (change)="file($event)"
+  />
+  <input
+    #files
+    hidden
+    type="file"
+    aria-label="Choose a file"
+    [accept]="config.supportedMediaTypes.join(',')"
+    (change)="file($event)"
+  />
+</section>
+<div role="status">
+  @if (busy()) {
+    <bt-notice tone="accent" [busy]="true">Uploading…</bt-notice>
+  } @else {
+    <bt-notice tone="accent" icon="privacyNotice">
+      <span noticeDetail>Your uploads are private. You choose what gets saved.</span>
+    </bt-notice>
+  }
+</div>
+<p class="add-thing-manual">
+  <a class="button-link" routerLink="/things/new/manual">Enter details manually</a>
+</p>

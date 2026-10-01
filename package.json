@@ -11,6 +11,7 @@
     "dev": "concurrently -k -n api,web 'pnpm dev:server' 'pnpm dev:web'",
     "dev:server": "tsx watch --env-file-if-exists=.env server/src/index.ts",
     "dev:web": "ng serve --proxy-config proxy.conf.json --host localhost --port 4200",
+    "dev:lan": "concurrently -k -n api,web 'pnpm dev:server' 'ng serve --proxy-config proxy.conf.json --host 0.0.0.0 --port 4200 --ssl'",
     "build": "ng build && tsc -p server/tsconfig.build.json",
     "start": "node --env-file-if-exists=.env dist/server/server/src/index.js",
     "api:generate": "node --import tsx scripts/generate-api.ts",
