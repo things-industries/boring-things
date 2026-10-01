@@ -2,11 +2,12 @@ import { isNewThing } from '../../utils/date.util';
 import { DashboardSkeleton } from './dashboard-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { addThing, open, openProfile, searchThings } from '../../core/app-icons';
+import { addThing, categoryIcons, open, openProfile, searchThings } from '../../core/app-icons';
+import { categoryIcon } from '../../utils/category.util';
 import { apiData } from '../../core/api/api-client';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { Schema } from '../../../../shared/model';
 import { Api } from '../../core/services/api.service';
 import { CONFIG } from '../../core/runtime-config';
@@ -18,7 +19,7 @@ import { Activity } from '../../components/activity/activity';
 import { IconButton } from '../../components/icon-button/icon-button';
 import type { ActivityAction } from '../../interfaces/activity.interface';
 @Component({
-  viewProviders: [provideIcons({ addThing, open, openProfile, searchThings })],
+  viewProviders: [provideIcons({ addThing, open, openProfile, searchThings, ...categoryIcons })],
   selector: 'bt-dashboard',
   imports: [
     DashboardSkeleton,
@@ -36,6 +37,7 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
 export class Dashboard {
   readonly api = inject(Api);
   readonly config = inject(CONFIG);
+  readonly categoryIcon = categoryIcon;
   things = signal<Schema['ThingSummary'][]>([]);
   categories = signal<Schema['Category'][]>([]);
   tags = signal<Schema['Tag'][]>([]);
@@ -47,7 +49,7 @@ export class Dashboard {
   loaded = signal(false);
   cursor = signal<string | null>(null);
   q = '';
-  categoryId = '';
+  categoryId = inject(ActivatedRoute).snapshot.queryParamMap.get('categoryId') ?? '';
   tagId = '';
   private request = 0;
   constructor() {

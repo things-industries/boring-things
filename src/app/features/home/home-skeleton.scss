@@ -1,0 +1,68 @@
+@use 'tokens';
+@use 'mixins';
+.home-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
+}
+.skeleton-section {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+}
+.skeleton-heading {
+  @include mixins.skeleton;
+  width: 40%;
+  height: tokens.space(5);
+}
+.skeleton-card {
+  padding: 0 tokens.space(4);
+  border-radius: tokens.radius(card);
+  background: tokens.color('white');
+}
+.skeleton-row {
+  @include mixins.list-row;
+}
+.skeleton-circle {
+  @include mixins.skeleton;
+  width: tokens.size(icon-badge);
+  height: tokens.size(icon-badge);
+  border-radius: tokens.radius(pill);
+}
+.skeleton-thumbnail {
+  @include mixins.skeleton;
+  width: tokens.size(thumbnail-md);
+  height: tokens.size(thumbnail-md);
+  border-radius: tokens.radius(tile);
+}
+.skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: tokens.space(2);
+  span {
+    @include mixins.skeleton;
+    height: tokens.space(3);
+    &:first-child {
+      width: 70%;
+    }
+    &:last-child {
+      width: 45%;
+    }
+  }
+}
+.skeleton-event {
+  @include mixins.skeleton;
+  height: tokens.size(list-row);
+  border-radius: tokens.radius(tile);
+}
+.skeleton-categories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: tokens.space(3);
+}
+.skeleton-chip {
+  @include mixins.skeleton;
+  height: tokens.size(control-md);
+  border-radius: tokens.radius(tile);
+}

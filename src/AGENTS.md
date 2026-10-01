@@ -18,13 +18,14 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/services/`: application-wide authentication, route guard and API services.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
 - `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it.
-- `app/features/dashboard/`: Things, filters, sample-data action and activity overview.
+- `app/features/home/`: Home: greeting, Ask promo, Needs attention, Upcoming, Frequent & recent, Categories and the empty-account sample-data action.
+- `app/features/dashboard/`: Things list at `/things`: search, category (`?categoryId=`) and tag filters, sample-data action and activity overview.
 - `app/features/things/`: manual creation, details, field edits, pins, tags and attachments; `import-panel.*` handles uploads, confirmation and retry.
 - `app/features/chat/`: active conversations, streamed text, retry and typed resource cards. New entry starts a new chat; no conversation history/resumption.
 - `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
 - `app/features/login/`: sign-in and setup-pending screen.
 - `app/features/timeline/`, `app/features/profile/`: placeholder pages; Profile holds Sign out.
-- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`), `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, field editor, activity cards and error display.
+- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`), `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.
 - `app/validators/`: form validators returning error keys.
 - `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.
@@ -70,7 +71,7 @@ Keep feature-only components and data services beside their feature. Move code i
 - Import Remix icons only in `app/core/app-icons.ts`. Export names describing their purpose, such as `pinField` and `uploadFile`.
 - Components register only their icons in `viewProviders: [provideIcons({ ... })]` and render them with `NgIcon`.
 - Prefer line variants; use fills for selected states. Decorative icons use `aria-hidden="true"`; icon-only controls need a label on the control.
-- Category icons returned by the registry are API content. UI controls use the icon catalogue.
+- `Category.icon` is a semantic key; `categoryIcon()` in `app/utils/category.util.ts` maps it to the `categoryIcons` catalogue entries.
 - Declare custom SVG icons in the catalogue using `currentColor`. Do not add another icon library.
 
 ## Styles and dates

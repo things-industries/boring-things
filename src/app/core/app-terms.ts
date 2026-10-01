@@ -1,5 +1,6 @@
 export const APP_TERMS = {
   appName: 'Boring Things',
+  home: 'Home',
   things: 'Your things',
   addThing: 'Add a thing',
   login: 'Sign in',

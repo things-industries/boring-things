@@ -51,7 +51,7 @@
         [class.active]="categoryId === category.id"
         (click)="chooseCategory(category.id)"
       >
-        {{ category.icon }} {{ category.name }}
+        <ng-icon [name]="categoryIcon(category.icon)" aria-hidden="true" /> {{ category.name }}
         <span>{{ category.thingCount }}</span>
       </button>
     }
@@ -74,7 +74,9 @@
     @for (thing of things(); track thing.id) {
       <a class="thing-card" [routerLink]="['/things', thing.id]"
         ><div class="thing-art" [attr.data-category]="thing.categoryId">
-          <span>{{ category(thing.categoryId)?.icon }}</span>
+          <span
+            ><ng-icon [name]="categoryIcon(category(thing.categoryId)?.icon)" aria-hidden="true"
+          /></span>
           @if (thing.isSample) {
             <small>Sample</small>
           }

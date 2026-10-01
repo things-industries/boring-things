@@ -1,0 +1,35 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: block;
+}
+.promo-card {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(4);
+  padding: tokens.space(4);
+  border-radius: tokens.radius(card);
+  background: tokens.color(primary);
+  box-shadow: tokens.shadow(raised);
+  color: tokens.color(primary-contrast);
+  @include mixins.icon-size(lg);
+}
+.promo-card-icon {
+  color: tokens.color(accent-muted);
+}
+.promo-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+  min-width: 0;
+}
+.promo-card-title {
+  @include typography.role(section);
+  font-weight: typography.weight(regular);
+  color: tokens.color(accent-muted);
+}
+.promo-card-detail {
+  @include typography.role(caption);
+  color: tokens.color(neutral-300);
+}

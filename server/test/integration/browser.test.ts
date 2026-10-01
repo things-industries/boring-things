@@ -42,14 +42,15 @@ test(
       const errors: string[] = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(base);
-      await expect(page.getByRole('heading', { name: 'Your things', exact: true })).toBeVisible();
-      await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
+      await expect(page.locator('bt-home-skeleton')).toHaveCount(0);
       const sampleResponse = page.waitForResponse((response) =>
         response.url().endsWith('/api/profile:seed-samples'),
       );
       await page.getByRole('button', { name: 'Add sample data' }).click();
       const seeded = await sampleResponse;
       assert.equal(seeded.status(), 200, await seeded.text());
+      await expect(page.locator('bt-thing-row')).toHaveCount(3);
+      await page.getByRole('link', { name: 'All Things', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Kitchen hob', exact: true })).toBeVisible();
       const vehicleArt = page.locator('.thing-art[data-category="vehicles"]');
       const applianceArt = page.locator('.thing-art[data-category="appliances"]');

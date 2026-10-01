@@ -1,0 +1,7 @@
+<a class="promo-card" [routerLink]="link()">
+  <ng-icon class="promo-card-icon" [name]="icon()" aria-hidden="true" />
+  <span class="promo-card-copy">
+    <span class="promo-card-title">{{ title() }}</span>
+    <span class="promo-card-detail"><ng-content /></span>
+  </span>
+</a>

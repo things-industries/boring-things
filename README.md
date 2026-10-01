@@ -64,7 +64,7 @@ On an existing Thing, **Add details from a source** starts another import. Uploa
 
 ## Assistant
 
-Choose **Ask the assistant** on the dashboard or **Ask about this thing** on a Thing. Each entry starts a new conversation. The active conversation supports follow-up messages; navigating away or reloading starts a new chat. Messages remain stored for recovery and audit, with no conversation browser or previous-chat resumption.
+Choose **Ask a question** on Home, **Ask** in the bottom navigation or **Ask about this thing** on a Thing. Each entry starts a new conversation. The active conversation supports follow-up messages; navigating away or reloading starts a new chat. Messages remain stored for recovery and audit, with no conversation browser or previous-chat resumption.
 
 - Answers use masked Thing details, linked attachment content and owner-scoped search. Chat may send relevant private documents to OpenAI; document content can contain information beyond the masked field projection. The model is instructed to omit secrets. Source documents and tool results are treated as untrusted evidence.
 - Select **Ask a question**, **Create maintenance event** or **Report issue** before sending. The selected action authorises the matching write tool. Each message can create one suggested Event or one open Issue; scheduling and completion use the existing card controls. These are application records, without calendar sync or external booking.

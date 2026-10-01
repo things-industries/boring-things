@@ -17,7 +17,7 @@
       @if (imageUrl()) {
         <img [src]="imageUrl()" alt="" />
       } @else {
-        <span>{{ category()?.icon || '○' }}</span>
+        <span><ng-icon [name]="categoryIcon(category()?.icon)" aria-hidden="true" /></span>
       }
     </div>
     <div>

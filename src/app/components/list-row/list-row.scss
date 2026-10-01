@@ -1,0 +1,52 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  @include mixins.list-row;
+  position: relative;
+  padding: tokens.space(1) 0;
+}
+:host + :host {
+  border-top: 1px solid tokens.color(secondary);
+}
+.list-row-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: tokens.space(half);
+  min-width: 0;
+}
+.list-row-title {
+  @include typography.role(body);
+  color: tokens.color(primary);
+  overflow-wrap: anywhere;
+}
+.list-row-link {
+  text-decoration: none;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+}
+.list-row-subtitle {
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
+  &:empty {
+    display: none;
+  }
+}
+.list-row-trailing {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
+  &:empty {
+    display: none;
+  }
+}
+.list-row-chevron {
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
+}

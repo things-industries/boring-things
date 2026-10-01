@@ -79,7 +79,7 @@ Each set has four tokens. The element decides where each is used (text, border, 
 | `caption` | 11px | 400    | Meta lines, subtitles, badges      |
 | `micro`   | 9px  | 600    | Date tile month only               |
 
-`typography.tabular-numerals` aligns figures. Legacy roles `heading` and `eyebrow` remain for screens built before the current type scale.
+`typography.weight(regular|medium|semibold|bold)` overrides a role's weight where the design uses a role at another weight. `typography.tabular-numerals` aligns figures. Legacy roles `heading` and `eyebrow` remain for screens built before the current type scale.
 
 ## Spacing, radii, shadows and sizes
 
@@ -87,7 +87,7 @@ Each set has four tokens. The element decides where each is used (text, border, 
 - `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges). `control` (9px) is legacy.
 - `tokens.shadow(name)`: `raised` (call-to-action cards), `floating` (controls over images), `sheet` (sheet over an image).
 - `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px.
-- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `key-value-row` 39px, `bottom-nav` 64px, `content-max` 480px (page column width).
+- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `bottom-nav` 64px, `content-max` 480px (page column width).
 
 Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; set tokens resolve to their palette variable.
 

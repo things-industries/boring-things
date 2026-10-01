@@ -4,6 +4,7 @@ export const APP_CONFIG = {
   streamMaxFrameBytes: 2 * 1024 * 1024,
   apiPageSize: 100,
   activityLimit: 3,
+  recentThingLimit: 3,
   thingPageSize: 24,
   newThingDays: 7,
   downloadUrlLifetimeMs: 1000,

@@ -1,0 +1,7 @@
+<bt-list-row [title]="title()" [icon]="date() ? null : icon()" [tone]="tone()" [link]="link()">
+  @if (date(); as date) {
+    <bt-date-tile rowLeading [date]="date" />
+  }
+  <ng-content select="[rowSubtitle]" ngProjectAs="[rowSubtitle]" />
+  <ng-content select="[rowTrailing]" ngProjectAs="[rowTrailing]" />
+</bt-list-row>

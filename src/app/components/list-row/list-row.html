@@ -1,0 +1,17 @@
+@if (icon(); as icon) {
+  <bt-icon-badge [icon]="icon" [tone]="tone()" />
+} @else {
+  <ng-content select="[rowLeading]" />
+}
+<div class="list-row-copy">
+  @if (link(); as link) {
+    <a class="list-row-title list-row-link" [routerLink]="link">{{ title() }}</a>
+  } @else {
+    <span class="list-row-title">{{ title() }}</span>
+  }
+  <span class="list-row-subtitle"><ng-content select="[rowSubtitle]" /></span>
+</div>
+<div class="list-row-trailing"><ng-content select="[rowTrailing]" /></div>
+@if (link()) {
+  <ng-icon class="list-row-chevron" name="openRow" aria-hidden="true" />
+}

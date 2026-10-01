@@ -9,10 +9,11 @@ import { NgIcon } from '@ng-icons/core';
   host: {
     '[attr.aria-label]': 'label()',
     '[class.elevated]': "variant() === 'elevated'",
+    '[class.plain]': "variant() === 'plain'",
   },
 })
 export class IconButton {
   readonly icon = input.required<string>();
   readonly label = input.required<string>();
-  readonly variant = input<'surface' | 'elevated'>('surface');
+  readonly variant = input<'surface' | 'elevated' | 'plain'>('surface');
 }

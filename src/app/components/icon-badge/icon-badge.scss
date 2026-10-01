@@ -1,0 +1,23 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: tokens.size(icon-badge);
+  height: tokens.size(icon-badge);
+  border-radius: tokens.radius(pill);
+  color: tokens.color(primary);
+  @include mixins.icon-size(sm);
+}
+@each $tone in (info, accent, warning) {
+  :host(.tone-#{$tone}) {
+    background: tokens.color(#{$tone}-subtle);
+  }
+}
+:host(.tone-neutral) {
+  background: tokens.color(secondary-muted);
+}
+:host(.tone-white) {
+  background: tokens.color('white');
+}

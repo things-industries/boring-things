@@ -6,7 +6,8 @@ import { Auth } from '../../core/services/auth.service';
 import { ThingSkeleton } from './thing-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { open, uploadFile, addTag } from '../../core/app-icons';
+import { open, uploadFile, addTag, categoryIcons } from '../../core/app-icons';
+import { categoryIcon } from '../../utils/category.util';
 import { apiData } from '../../core/api/api-client';
 import {
   Component,
@@ -33,7 +34,7 @@ import { FieldEditor } from '../../components/field/field';
 import { Activity } from '../../components/activity/activity';
 import type { ActivityAction } from '../../interfaces/activity.interface';
 @Component({
-  viewProviders: [provideIcons({ open, uploadFile, addTag })],
+  viewProviders: [provideIcons({ open, uploadFile, addTag, ...categoryIcons })],
   selector: 'bt-thing',
   imports: [
     ThingSkeleton,
@@ -52,6 +53,7 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
 })
 export class ThingPage implements OnDestroy {
   private auth = inject(Auth);
+  readonly categoryIcon = categoryIcon;
   private stream?: AbortController;
   processing = computed(() =>
     ['QUEUED', 'EXTRACTING', 'MAPPING', 'DISCOVERING', 'AWAITING_SELECTION'].includes(

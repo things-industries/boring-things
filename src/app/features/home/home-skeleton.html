@@ -1,0 +1,35 @@
+<div class="home-skeleton" aria-hidden="true">
+  <div class="skeleton-section">
+    <div class="skeleton-heading"></div>
+    <div class="skeleton-card">
+      @for (row of rows; track row) {
+        <div class="skeleton-row">
+          <div class="skeleton-circle"></div>
+          <div class="skeleton-lines"><span></span><span></span></div>
+        </div>
+      }
+    </div>
+  </div>
+  <div class="skeleton-section">
+    <div class="skeleton-heading"></div>
+    <div class="skeleton-event"></div>
+  </div>
+  <div class="skeleton-section">
+    <div class="skeleton-heading"></div>
+    @for (thing of things; track thing) {
+      <div class="skeleton-row">
+        <div class="skeleton-thumbnail"></div>
+        <div class="skeleton-lines"><span></span><span></span></div>
+      </div>
+    }
+  </div>
+  <div class="skeleton-section">
+    <div class="skeleton-heading"></div>
+    <div class="skeleton-categories">
+      @for (category of categories; track category) {
+        <div class="skeleton-chip"></div>
+      }
+    </div>
+  </div>
+</div>
+<span class="visually-hidden" role="status">Loading…</span>

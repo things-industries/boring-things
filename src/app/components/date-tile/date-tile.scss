@@ -1,0 +1,25 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: tokens.size(control-md);
+  height: tokens.size(control-md);
+  border-radius: tokens.radius(tile);
+  background: tokens.color('white');
+  @include typography.tabular-numerals;
+}
+.date-tile-day {
+  @include typography.role(section);
+  font-weight: typography.weight(regular);
+}
+.date-tile-month {
+  @include typography.role(micro);
+  color: tokens.color(primary-muted);
+}
