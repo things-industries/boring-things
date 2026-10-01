@@ -1,100 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
-import { once } from 'node:events';
-import { readdir, readFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
-import { chromium, expect } from '@playwright/test';
-import { generateKeyPair, exportJWK, SignJWT } from 'jose';
-import { FixtureChat } from '../fixtures/chat.js';
-import { FixtureAi } from '../fixtures/imports.js';
-import { buildApp } from '../../src/app.js';
-import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/registry-seed.js';
+import { mkdir, readFile } from 'node:fs/promises';
+import { generateKeyPair } from 'jose';
+import { expect } from '@playwright/test';
+import { launchBrowser } from '../support/chromium.js';
+import { startTestApp } from '../support/test-app.js';
 
 test(
   'browser manual creation, AI import, attachment extraction and JWT verification',
   { timeout: 90000 },
   async () => {
-    const url = new URL(
-      process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-    );
-    assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-    const dbName = 'bt_browser_' + randomUUID().replaceAll('-', '');
-    const admin = createPool(url.toString());
-    await admin.query(`create database ${dbName}`);
-    url.pathname = '/' + dbName;
-    const pool = createPool(url.toString());
-    const directory = await mkdtemp(tmpdir() + '/boring-browser-');
-    const { publicKey, privateKey } = await generateKeyPair('RS256');
-    const jwk = { ...(await exportJWK(publicKey)), kid: 'test-key' };
-    const jwks = createServer((req, res) => {
-      res.setHeader('Content-Type', 'application/json');
-      if (req.url === '/oidc/jwks') res.end(JSON.stringify({ keys: [jwk] }));
-      else {
-        res.statusCode = 404;
-        res.end('{}');
-      }
-    });
-    jwks.listen(0, '127.0.0.1');
-    await once(jwks, 'listening');
-    const issuer = 'http://127.0.0.1:' + (jwks.address() as { port: number }).port;
-    const config = {
-      ...readConfig(),
-      logtoEndpoint: issuer,
-      logtoAppId: 'browser-test',
-      blobDirectory: directory,
-      sampleDataEnabled: true,
-    };
-    const token = (
-      aud = config.apiResource,
-      exp = '5m',
-      iss = issuer + '/oidc',
-      key = privateKey,
-    ) =>
-      new SignJWT({})
-        .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
-        .setSubject('browser-alice')
-        .setAudience(aud)
-        .setIssuer(iss)
-        .setIssuedAt()
-        .setExpirationTime(exp)
-        .sign(key);
-    let app: Awaited<ReturnType<typeof buildApp>> | undefined;
-    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+    const env = await startTestApp();
+    const { app, pool, importAi, chatAi, issuer, signToken, accessToken, base } = env;
+    let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
     try {
-      const migrations = new URL('../../../supabase/migrations/', import.meta.url);
-      for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
-        await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-      }
-      await transaction(pool, seedRegistry);
-      const importAi = new FixtureAi();
-      const chatAi = new FixtureChat('create_event');
-      app = await buildApp({
-        pool,
-        config,
-        importAi,
-        chatAi,
-      });
-      const base = await app.listen({ host: '127.0.0.1', port: 0 });
-      const accessToken = await token();
-      assert.equal(
-        (
-          await app.inject({
-            url: '/api/profile',
-            headers: { authorization: 'Bearer ' + accessToken },
-          })
-        ).statusCode,
-        200,
-      );
+      chatAi.creation = 'create_event';
       const other = await generateKeyPair('RS256');
       for (const invalid of [
-        await token('wrong'),
-        await token(config.apiResource, '-1m'),
-        await token(config.apiResource, '5m', 'wrong'),
-        await token(config.apiResource, '5m', issuer + '/oidc', other.privateKey),
+        await signToken({ audience: 'wrong' }),
+        await signToken({ expiresIn: '-1m' }),
+        await signToken({ issuer: 'wrong' }),
+        await signToken({ issuer: issuer + '/oidc', key: other.privateKey }),
       ])
         assert.equal(
           (
@@ -105,27 +31,13 @@ test(
           ).statusCode,
           401,
         );
-      browser = await chromium.launch();
+      browser = await launchBrowser();
+      // A Logto session exists only in this test browser; the API still validates the signed access
+      // token through JWKS.
       const context = await browser.newContext({
         viewport: { width: 1440, height: 1100 },
+        storageState: env.storageState,
       });
-      // Seed a session only in this test browser; the API still validates the signed access token through JWKS.
-      await context.addInitScript(
-        ({ accessToken, resource }) => {
-          localStorage.setItem('logto:browser-test:idToken', 'test-session');
-          localStorage.setItem(
-            'logto:browser-test:accessToken',
-            JSON.stringify({
-              ['@' + resource]: {
-                token: accessToken,
-                scope: '',
-                expiresAt: Date.now() / 1000 + 300,
-              },
-            }),
-          );
-        },
-        { accessToken, resource: config.apiResource },
-      );
       const page = await context.newPage();
       const errors: string[] = [];
       page.on('pageerror', (error) => errors.push(error.message));
@@ -479,12 +391,7 @@ test(
       await fresh.close();
     } finally {
       await browser?.close();
-      await app?.close();
-      jwks.close();
-      await pool.end();
-      await admin.query(`drop database ${dbName}`);
-      await admin.end();
-      await rm(directory, { recursive: true, force: true });
+      await env.close();
     }
   },
 );
