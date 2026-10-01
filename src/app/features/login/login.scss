@@ -1,50 +1,44 @@
 @use 'tokens';
-.login-panel {
-  max-width: 760px;
-  padding: 70px 30px 60px;
-  margin: auto;
-}
-.login-panel h1 {
-  font-size: 62px;
-  line-height: 1.13;
-  letter-spacing: -3px;
-  margin: tokens.space(5) 0 25px;
-}
-.login-panel > p {
-  max-width: 490px;
-  font-size: 17px;
-  margin-bottom: 28px;
-}
-.login-examples {
+@use 'typography';
+// Fills the viewport inside the `.app-main` vertical padding.
+.login-page {
   display: flex;
-  gap: 26px;
-  margin-top: 50px;
-  color: tokens.color(text-login-example);
-  font-size: 13px;
+  flex-direction: column;
+  min-height: calc(100vh - #{tokens.space(2)} - #{tokens.space(8)});
+  min-height: calc(100dvh - #{tokens.space(2)} - #{tokens.space(8)});
+  padding-top: tokens.space(4);
 }
-.login-panel > button {
-  min-width: 260px;
-  justify-content: space-between;
+.login-wordmark {
+  @include typography.role(section);
+  margin: 0;
+  color: tokens.color(primary);
 }
-.login-panel .notice-banner {
-  font-size: 14px;
+.login-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: flex-end;
+  padding-bottom: tokens.space(6);
+  h1 {
+    @include typography.role(display);
+    margin: 0 0 tokens.space(3);
+  }
 }
-@media (max-width: 650px) {
-  .login-panel {
-    padding: tokens.space(8) tokens.space(2);
-  }
-  .login-panel h1 {
-    font-size: 46px;
-    letter-spacing: -2px;
-  }
-  .login-panel > p {
-    font-size: 15px;
-  }
-  .login-examples {
-    gap: tokens.space(4);
-    font-size: 11px;
-  }
-  .login-panel > button {
+.login-copy {
+  @include typography.role(body);
+  margin: 0 0 tokens.space(6);
+}
+.login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(3);
+  .button-primary,
+  .button-secondary {
     width: 100%;
   }
+}
+.login-terms {
+  @include typography.role(caption);
+  margin: 0;
+  text-align: center;
 }

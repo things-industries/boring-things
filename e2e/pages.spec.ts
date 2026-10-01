@@ -41,9 +41,7 @@ test.describe('signed out', () => {
 
   test('shows the sign-in page', async ({ page }) => {
     await page.goto('/');
-    await expect(
-      page.getByRole('button', { name: 'Sign in or create an account', exact: false }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue with email' })).toBeVisible();
   });
 });
 

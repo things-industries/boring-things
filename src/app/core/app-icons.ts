@@ -41,15 +41,15 @@ import {
   remixSparkling2Line,
   remixStarLine,
   remixStarFill,
-  remixHomeLine,
-  remixCarLine,
   remixText,
-  remixTicketLine,
   remixTimeLine,
   remixToolsLine,
   remixCameraLine,
   remixImageLine,
   remixUser3Line,
+  remixMailLine,
+  remixAppleFill,
+  remixInformationLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftLine;
@@ -58,9 +58,6 @@ export const complete = remixCheckLine;
 export const searchThings = remixSearchLine;
 export const pinField = remixStarLine;
 export const pinnedField = remixStarFill;
-export const homeExample = remixHomeLine;
-export const vehicleExample = remixCarLine;
-export const membershipExample = remixTicketLine;
 
 export const scheduleEvent = remixArrowRightLine;
 export const uploadFile = remixUploadLine;
@@ -82,6 +79,11 @@ export const moreActions = remixMoreLine;
 export const openRow = remixArrowRightSLine;
 export const close = remixCloseLine;
 export const loading = remixLoader4Line;
+
+// Sign in
+export const signInWithEmail = remixMailLine;
+export const signInWithApple = remixAppleFill;
+export const setupNotice = remixInformationLine;
 
 // Home
 export const askQuestion = remixSparkling2Line;
