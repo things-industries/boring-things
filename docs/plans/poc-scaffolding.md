@@ -75,7 +75,7 @@ See [the backend guide](../../server/AGENTS.md) for module boundaries and [READM
 - `db/` owns SQL and typed persistence functions. Related writes share one transaction; chat records and retry receipts commit together.
 - `contracts/` derives runtime schemas and operation types from the authored OAS 3.1 contract. `routes/` owns HTTP error translation and SSE transport.
 - `routes/scaffolds/samples.ts` contains the opt-in demonstration workflow, including SQL. Production profile access is separate.
-- Publish owner changes after committed mutations. Subscribe before reading the first SSE snapshot; close streams on backpressure, shutdown or authentication renewal.
+- Publish `data.changed` after committed mutations, scoped to the affected user by `ownerId`. Subscribe before reading the first SSE snapshot; close streams on backpressure, shutdown or authentication renewal.
 
 ## Import and AI workflow
 

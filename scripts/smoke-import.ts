@@ -66,7 +66,7 @@ try {
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   await transaction(pool, seedRegistry);
   app = await buildApp({
-    pool,
+    dbPool: pool,
     config: { ...config, blobDirectory: directory },
     importAi: recorded,
     verifyIdentity: async () => ({ subject: 'synthetic-smoke' }),
@@ -246,7 +246,7 @@ try {
     }
     await app.close();
     app = await buildApp({
-      pool,
+      dbPool: pool,
       config: { ...config, blobDirectory: directory },
       verifyIdentity: async () => ({ subject: 'synthetic-smoke' }),
     });

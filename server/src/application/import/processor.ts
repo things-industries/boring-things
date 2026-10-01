@@ -6,10 +6,10 @@ import { categoryIds } from '../../db/entities/registry.js';
  */
 
 import type pg from 'pg';
-import type { Config } from '../../config.js';
+import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
-import type { OwnerChanges } from '../streams.js';
+import type { ApplicationEvents } from '../events.js';
 import type { AiContext, Candidate, ImportAi, RegistryTools, Usage } from './types.js';
 import { blankUsage } from './types.js';
 import {
@@ -48,8 +48,8 @@ export class ImportProcessor {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ImportAi | undefined,
-    private config: Config,
-    private changes: OwnerChanges,
+    private config: EnvConfig,
+    private events: ApplicationEvents,
   ) {}
 
   async recover() {
@@ -66,7 +66,7 @@ export class ImportProcessor {
 
   private async status(job: ImportRow, status: ImportRow['status'], error: string | null = null) {
     await setImportStatus(this.pool, job.ownerId, job.id, status, error);
-    this.changes.publish(job.ownerId);
+    this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
   }
 
   private async run(initial: ImportRow, shutdown: AbortSignal) {
@@ -138,7 +138,7 @@ export class ImportProcessor {
               pageCount,
             );
         });
-        this.changes.publish(job.ownerId);
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
         job = await ownedImport(this.pool, job.ownerId, job.id);
       }
 
@@ -217,7 +217,7 @@ export class ImportProcessor {
           }
 
           await markTarget(this.pool, job, target.candidateId, 'discovered');
-          this.changes.publish(job.ownerId);
+          this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
         } catch {
           discoveryFailed = true;
         }
@@ -241,7 +241,7 @@ export class ImportProcessor {
       await this.status(job, hasResults ? 'INCOMPLETE' : 'FAILED', code);
     } finally {
       await record({});
-      this.changes.publish(job.ownerId);
+      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     }
   }
 
@@ -300,7 +300,7 @@ export class ImportProcessor {
       const data = retainFacts(thing.data, candidate, job.id, job.attachmentId, this.registry);
       await saveThingData(db, job.ownerId, thing.id, data);
     });
-    this.changes.publish(job.ownerId);
+    this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     const stages = this.ai!.map(candidate, tools, context)[Symbol.asyncIterator]();
 
     while (true) {
@@ -331,7 +331,7 @@ export class ImportProcessor {
         if (stage.kind === 'sets') await markTarget(db, job, target.candidateId, 'selected');
       });
       selected = true;
-      this.changes.publish(job.ownerId);
+      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     }
 
     ensure(selected, 'Mapping produced no selection');

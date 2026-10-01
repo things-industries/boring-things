@@ -14,7 +14,7 @@ test('failed startup closes owned pools and preserves injected pools', async (t)
   const config = readConfig();
   await assert.rejects(buildApp({ config }), (error) => error === failure);
   assert.equal(end.mock.callCount(), 1);
-  await assert.rejects(buildApp({ config, pool: new pg.Pool() }), (error) => error === failure);
+  await assert.rejects(buildApp({ config, dbPool: new pg.Pool() }), (error) => error === failure);
   assert.equal(end.mock.callCount(), 1);
 });
 
@@ -48,4 +48,24 @@ test('runner recovers before work and waits for aborted work during shutdown', a
   await runner.stop();
   runner.wake();
   assert.deepEqual(events, ['recover', 'next', 'abort']);
+});
+
+test('normal shutdown closes owned database pools and preserves injected pools', async (t) => {
+  t.mock.method(pg.Pool.prototype, 'query', async () => ({ rows: [] }));
+  t.mock.method(pg.Pool.prototype, 'connect', async () => ({
+    query: async () => ({ rows: [{ acquired: false }] }),
+    on() {},
+    removeListener() {},
+    release() {},
+  }));
+  const end = t.mock.method(pg.Pool.prototype, 'end', async () => {});
+  const config = readConfig({});
+  const owned = await buildApp({ config });
+  await owned.ready();
+  await owned.close();
+  assert.equal(end.mock.callCount(), 1);
+  const injected = await buildApp({ config, dbPool: new pg.Pool() });
+  await injected.ready();
+  await injected.close();
+  assert.equal(end.mock.callCount(), 1);
 });

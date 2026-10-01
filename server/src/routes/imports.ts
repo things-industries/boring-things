@@ -1,5 +1,5 @@
 import { confirmImport, retryImport } from '../application/import/commands.js';
-import type { StreamSnapshots } from './stream.js';
+import { sseHeaders, type ServerSentEvents } from '../http/sse.js';
 /**
  * Registers import submission, confirmation and retry endpoints, plus revisioned Thing snapshot
  * streams.
@@ -9,7 +9,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import type { Registry } from '../application/registry/registry.js';
 import type { JobRunner } from '../application/jobs/runner.js';
-import type { OwnerChanges } from '../application/streams.js';
+import type { ApplicationEvents } from '../application/events.js';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
 import { transaction } from '../db/connection.js';
@@ -21,19 +21,19 @@ interface Options {
   pool: pg.Pool;
   registry: Registry;
   runner: JobRunner;
-  changes: OwnerChanges;
+  events: ApplicationEvents;
   enabled: boolean;
-  streams: StreamSnapshots;
+  sse: ServerSentEvents;
 }
 
 const importRoutes: FastifyPluginAsync<Options> = async (
   app,
-  { pool, registry, runner, changes, enabled, streams },
+  { pool, registry, runner, events, enabled, sse },
 ) => {
   route(app, 'POST', '/api/things:import', async (req, reply) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
     const accepted = await startImport(pool, req.ownerId, req.body.attachmentId, req.body.thingId);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     reply.code(202);
     runner.wake();
     return accepted;
@@ -46,30 +46,34 @@ const importRoutes: FastifyPluginAsync<Options> = async (
   route(app, 'POST', '/api/imports/{id}:confirm', async (req) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
     const result = await confirmImport(pool, req.ownerId, req.params.id, req.body.selections);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     return result;
   });
   route(app, 'POST', '/api/imports/{id}:retry', async (req) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
     const result = await retryImport(pool, req.ownerId, req.params.id);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     return result;
   });
   route(app, 'GET', '/api/things/{thingId}/stream', async (req, reply) => {
     await ownedThing(pool, req.ownerId, req.params.thingId);
-    await streams(reply, {
-      event: 'thing.snapshot',
-      snapshot: () =>
-        transaction(
-          pool,
-          (db) => detail(db, req.ownerId, req.params.thingId, registry),
-          'repeatable read',
-        ),
-      revision: (snapshot) => snapshot.revision,
-      subscribe: (changed) => changes.subscribe(req.ownerId, changed),
-    });
+    return reply
+      .headers(sseHeaders)
+      .code(200)
+      .send(
+        sse.stream(events.subscribe({ ownerId: req.ownerId }), {
+          event: 'thing.snapshot',
+          snapshot: () =>
+            transaction(
+              pool,
+              (db) => detail(db, req.ownerId, req.params.thingId, registry),
+              'repeatable read',
+            ),
+          revision: (snapshot) => snapshot.revision,
+        }),
+      );
   });
 };
 

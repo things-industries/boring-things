@@ -34,7 +34,7 @@ const config = () => ({
 });
 const boot = async () => {
   app = await buildApp({
-    pool,
+    dbPool: pool,
     config: config(),
     chatAi: ai,
     importAi: discoveryAi,

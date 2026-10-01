@@ -3,7 +3,7 @@
  */
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import type { Config } from '../../config.js';
+import type { EnvConfig } from '../../config.js';
 import { ApplicationError, ensure } from '../../application/errors.js';
 
 export interface Identity {
@@ -13,7 +13,7 @@ export interface Identity {
 
 export type VerifyIdentity = (token: string) => Promise<Identity>;
 
-export function logtoVerifier(config: Config): VerifyIdentity {
+export function logtoVerifier(config: EnvConfig): VerifyIdentity {
   if (!config.logtoEndpoint || !config.logtoAppId)
     return async () => {
       throw new ApplicationError('UNAVAILABLE', 'Authentication is not configured');

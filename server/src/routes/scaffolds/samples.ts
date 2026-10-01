@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { route } from '../../contracts/routes.js';
 import { ensure } from '../../application/errors.js';
-import type { OwnerChanges } from '../../application/streams.js';
+import type { ApplicationEvents } from '../../application/events.js';
 import { profile } from '../../db/entities/users.js';
 /**
  * Reads owner profiles and creates labelled demonstration Things and activity once per owner when
@@ -145,17 +145,17 @@ interface Options {
   pool: pg.Pool;
   registry: Registry;
   enabled: boolean;
-  changes: OwnerChanges;
+  events: ApplicationEvents;
 }
 
 const sampleRoutes: FastifyPluginAsync<Options> = async (
   app,
-  { pool, registry, enabled, changes },
+  { pool, registry, enabled, events },
 ) => {
   route(app, 'POST', '/api/profile:seed-samples', async (req) => {
     ensure(enabled, 'Sample data is disabled', 'NOT_FOUND');
     const result = await seedSamples(pool, req.ownerId, registry);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
 };

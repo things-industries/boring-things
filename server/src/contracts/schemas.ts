@@ -1,3 +1,5 @@
+import type { FastifySchemaCompiler } from 'fastify';
+import type { AnySchema } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import spec from '../../../openapi.json' with { type: 'json' };
@@ -32,6 +34,13 @@ export function createValidator(coerceTypes = false) {
   addFormats.default(ajv);
   for (const schema of schemas) ajv.addSchema(schema);
   return ajv;
+}
+// Query strings allow coercion; JSON bodies preserve supplied types and reject unknown fields.
+export function createValidatorCompiler(): FastifySchemaCompiler<JsonSchema> {
+  const bodyAjv = createValidator();
+  const queryAjv = createValidator(true);
+  return ({ schema, httpPart }) =>
+    (httpPart === 'querystring' ? queryAjv : bodyAjv).compile(schema as AnySchema);
 }
 const validator = createValidator();
 export function schemaValidator<K extends keyof Schema>(name: K) {

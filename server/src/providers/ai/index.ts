@@ -2,7 +2,7 @@
  * Selects configured AI adapters. Missing credentials leave imports and chat unavailable.
  */
 
-import type { Config } from '../../config.js';
+import type { EnvConfig } from '../../config.js';
 import type { ImportAi } from '../../application/import/types.js';
 import type { ChatAi } from '../../application/conversations/types.js';
 import { OpenAiImports } from './openai-imports.js';
@@ -13,7 +13,7 @@ interface AiProviders {
   chatAi?: ChatAi;
 }
 
-export function createAi(config: Config, overrides: AiProviders = {}): AiProviders {
+export function createAi(config: EnvConfig, overrides: AiProviders = {}): AiProviders {
   const enabled = !!(config.openaiApiKey && config.openaiModel);
   return {
     importAi:

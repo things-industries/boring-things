@@ -6,17 +6,18 @@ Fastify owns the `/api` boundary, Logto identity verification, owner-scoped data
 
 Paths are relative to `server/`.
 
-- `src/index.ts`: startup and shutdown; `app.ts`: dependency assembly and Fastify scopes; `config.ts`: environment settings.
-- `src/routes/`: typed Fastify route plugins, error translation and SSE transport. Temporary developer/debugging routes may be self-contained, others should use DB/provider/application module abstractions where appropriate.
+- `src/index.ts`: startup and shutdown; `app.ts`: dependency assembly and Fastify scopes; `config.ts`: eagerly validated `EnvConfig` from an injectable environment source.
+- `src/routes/`: typed Fastify route plugins and error translation. Temporary developer/debugging routes may be self-contained, others should use DB/provider/application module abstractions where appropriate.
+- `src/http/sse.ts`: bounded SSE transport and connection lifecycle. Routes send readable streams through Fastify. `application/events.ts` supplies the app-owned, typed event bus for data changes and conversation deltas.
 - `src/contracts/`: operation types, runtime schema validation, path/reference adaptation and contract checks. Root `openapi.json` generates root `shared/api.ts` for both client and server.
 - `src/application/`: workflow rules and transport-independent errors. Imports, conversations and registry have feature folders; discovery is shared. `jobs/runner.ts` schedules imports and chat in one process.
 - `src/db/`: connection, transaction, row-mapping and error infrastructure. `entities/` groups typed persistence by entity or semantic concept; `seeds/registry.ts` owns authored registry metadata.
 - `src/providers/`: modules for capabilities outside the application boundary, grouped by capability. Encapsulate runtime substitutes and fallback behaviour within each provider, selected through configuration/options. Fake modes require explicit configuration, normally environment settings; failure behaviour is provider-specific. Test-only injection remains available for failure and ownership checks.
-- `src/plugins/`: Fastify plugins with typed options, a default `FastifyPluginAsync` export and registration through `fastify.register(plugin, options)`. Choose encapsulation deliberately so hooks and decorators reach their intended routes.
+- `src/plugins/`: Fastify plugins with typed options, a default `FastifyPluginAsync` export and registration through `fastify.register(plugin, options)`. Choose encapsulation deliberately so hooks and decorators reach their intended routes. Name authenticated child scopes to make their access boundary visible.
 - `src/lib/`: purpose-neutral generic helpers.
 - `test/`: unit and contract checks; `test/integration/`: isolated database, migration and browser checks.
 
-Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish owner notifications after successful mutations, independently of HTTP response delivery. Add classes for state or lifecycle. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
+Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish `data.changed` after successful mutations, using `ownerId` to scope delivery to that user, independently of HTTP response delivery. Subscribe before the initial snapshot and retain periodic refresh for cross-process changes. Keep transport lifecycle outside route modules. Use `dbPool` for the assembled database pool and retain provider names such as `importAi`. Make Fastify schema registration and validator installation explicit in `buildApp`. Add classes for state or lifecycle. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
 
 ## Authentication and privacy
 
