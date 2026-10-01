@@ -60,7 +60,7 @@ Use typed functions accepting a database executor, owner ID and named input wher
 - Root `supabase/migrations/` is the schema authority. Add migrations; never rewrite an applied migration or add an ORM-owned schema system.
 - Use `pnpm db:migrate` to preserve local data. Registry changes go in `src/db/seeds/registry.ts`, then `pnpm db:seed`; restart the API to reload the registry. Incompatible definition changes need value migration.
 - Keep sample owned data in the opt-in sample workflow. Seeds must not overwrite user data.
-- Hosted connection, pooling and storage configuration require a deployment decision; do not copy settings from another application.
+- Production uses Supabase Storage through the S3 blob adapter and a verified TLS session pooler connection on port 5432. Keep storage keys server-side and use private buckets. See `../docs/setup/deployment.md` for release configuration.
 
 ## AI imports and assistant work
 
@@ -69,7 +69,7 @@ Use typed functions accepting a database executor, owner ID and named input wher
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
 - Several detected Things require user confirmation under the import plan. Retries must reuse persisted work without duplicating Things or overwriting user edits.
-- Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. The current server uses one persisted job runner per database and revisioned Thing SSE.
+- Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. A dedicated PostgreSQL session lock permits one active runner per database; recovery happens after acquiring it. Release the lock only after work stops. Loss of the lock session exits the process. Deploy overlap uses persisted SSE snapshots; token-level deltas remain process-local.
 
 ## Validation
 

@@ -6,6 +6,7 @@ export default defineConfig({
   testDir: 'e2e',
   outputDir: 'test-results/e2e/results',
   fullyParallel: true,
+  forbidOnly: !!process.env['CI'],
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: e2eBaseUrl,
@@ -23,7 +24,7 @@ export default defineConfig({
   webServer: {
     command: 'node --import tsx scripts/e2e-serve.ts',
     url: e2eBaseUrl + '/health',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env['CI'],
     timeout: 120000,
     stdout: 'pipe',
   },

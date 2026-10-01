@@ -103,7 +103,7 @@ export class ImportProcessor {
         const file = await attachment(this.pool, job.ownerId, job.attachmentId);
         const chunks: Buffer[] = [];
 
-        for await (const chunk of this.blobs.read(file.storageKey)) {
+        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
           signal.throwIfAborted();
           chunks.push(Buffer.from(chunk));
         }

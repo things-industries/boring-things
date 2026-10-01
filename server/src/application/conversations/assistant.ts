@@ -176,7 +176,7 @@ export class Assistant {
         const chunks: Buffer[] = [];
         let bytes = 0;
 
-        for await (const chunk of this.blobs.read(file.storageKey)) {
+        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
           signal.throwIfAborted();
           bytes += chunk.length;
           ensure(bytes <= this.config.maxUploadBytes, 'Attachment too large');

@@ -16,6 +16,7 @@ import type pg from 'pg';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from './db/connection.js';
+import { jobLease } from './db/job-lease.js';
 import { readConfig, type Config } from './config.js';
 import { installContracts } from './contracts/routes.js';
 import auth from './plugins/auth.js';
@@ -84,13 +85,19 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
     // Registry definitions are cached at startup; restart the server after changing seeded metadata.
     const registry = await loadRegistry(pool);
-    const blobs = options.blobs ?? createBlobs(config.blobDirectory);
+    const blobs = options.blobs ?? createBlobs(config);
+    if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const changes = new OwnerChanges();
 
     const assistant = new Assistant(pool, registry, blobs, chatAi, ai, config, changes);
     const runner = new JobRunner(
       [assistant, new ImportProcessor(pool, registry, blobs, ai, config, changes)],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
+      jobLease(pool, () => {
+        // Stop immediately: another instance may recover jobs after this session loses its lock.
+        app.log.fatal({ code: 'job_lock_lost' }, 'Background runner lost its database session');
+        process.exit(1);
+      }),
     );
     const streams = createStreams(app);
     app.addHook('onReady', () => runner.start());

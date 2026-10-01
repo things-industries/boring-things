@@ -4,13 +4,20 @@
 
 import type { Readable } from 'node:stream';
 import { LocalBlobs } from './local.js';
+import { S3Blobs } from './s3.js';
+import type { Config } from '../../config.js';
 
 export interface BlobStorage {
   put(content: Buffer): Promise<string>;
-  read(key: string): Readable;
+  read(key: string, signal?: AbortSignal): Promise<Readable>;
   remove(key: string): Promise<void>;
+  close?(): void;
 }
 
-export function createBlobs(directory: string): BlobStorage {
-  return new LocalBlobs(directory);
+export function createBlobs(config: Config): BlobStorage {
+  if (config.blobStorage === 's3') {
+    if (!config.s3) throw new Error('Missing S3 configuration');
+    return new S3Blobs(config.s3);
+  }
+  return new LocalBlobs(config.blobDirectory);
 }
