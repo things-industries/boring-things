@@ -202,9 +202,12 @@ pnpm format                      # apply Prettier formatting
 pnpm format:check                # check formatting without writing
 CI=true pnpm check               # formatting, contract drift, lint, types, unit tests, build
 pnpm test:integration            # requires local Supabase and a built frontend
+pnpm test:e2e                    # Playwright e2e suite; needs PostgreSQL and a built frontend
 ```
 
-Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed. Screenshots are saved under ignored `test-results/`.
+Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed; `/opt/pw-browsers/chromium` is used when present and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides both. Screenshots are saved under ignored `test-results/`.
+
+`pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 
 `pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. Production hosting and operating configuration are separate work.
 
