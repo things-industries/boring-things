@@ -60,7 +60,7 @@ Use typed functions accepting a database executor, owner ID and named input wher
 - Root `supabase/migrations/` is the schema authority. Add migrations; never rewrite an applied migration or add an ORM-owned schema system.
 - Use `pnpm db:migrate` to preserve local data. Registry changes go in `src/db/seeds/registry.ts`, then `pnpm db:seed`; restart the API to reload the registry. Incompatible definition changes need value migration.
 - Keep sample owned data in the opt-in sample workflow. Seeds must not overwrite user data.
-- Production uses Supabase Storage through the S3 blob adapter and a verified TLS session pooler connection on port 5432. Keep storage keys server-side and use private buckets. See `../docs/setup/deployment.md` for release configuration.
+- Production uses Supabase Storage through the S3 blob adapter and a TLS session pooler connection on port 5432. Supabase connections default to required TLS without certificate verification; explicit URL SSL settings override this default. Keep storage keys server-side and use private buckets. See `../docs/setup/deployment.md` for release configuration.
 
 ## AI imports and assistant work
 
