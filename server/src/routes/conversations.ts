@@ -3,25 +3,29 @@
  * snapshot and text streams.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
-import { conversation, enqueueMessage, createConversation } from '../db/conversations.js';
+import { conversation, enqueueMessage, createConversation } from '../db/entities/conversations.js';
 import type { JobRunner } from '../application/jobs/runner.js';
 import type { Assistant } from '../application/conversations/assistant.js';
 import type { OwnerChanges } from '../application/streams.js';
 import type { StreamSnapshots } from './stream.js';
 
-export function conversationRoutes(
-  app: FastifyInstance,
-  db: pg.Pool,
-  runner: JobRunner,
-  assistant: Assistant,
-  changes: OwnerChanges,
-  enabled: boolean,
-  streams: StreamSnapshots,
-) {
+interface Options {
+  db: pg.Pool;
+  runner: JobRunner;
+  assistant: Assistant;
+  changes: OwnerChanges;
+  enabled: boolean;
+  streams: StreamSnapshots;
+}
+
+const conversationRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  { db, runner, assistant, changes, enabled, streams },
+) => {
   route(app, 'POST', '/api/conversations', async (req, reply) => {
     const result = await createConversation(db, req.ownerId, req.body.thingId);
     changes.publish(req.ownerId);
@@ -53,4 +57,6 @@ export function conversationRoutes(
   route(app, 'GET', '/api/conversations/{id}', (req) =>
     conversation(db, req.ownerId, req.params.id),
   );
-}
+};
+
+export default conversationRoutes;

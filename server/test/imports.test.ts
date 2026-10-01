@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Registry } from '../src/application/registry/registry.js';
-import { fields, sets } from '../src/db/registry-seed.js';
+import { fields, sets } from '../src/db/seeds/registry.js';
 import { emptyData } from '../../shared/model.js';
 import { candidates } from './fixtures/imports.js';
 import {

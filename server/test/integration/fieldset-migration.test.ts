@@ -4,7 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { emptyData, type ThingData, type StoredValue } from '../../../shared/model.js';
 import { createPool, transaction } from '../../src/db/connection.js';
-import { fields, sets, seedRegistry } from '../../src/db/registry-seed.js';
+import { fields, sets, seedRegistry } from '../../src/db/seeds/registry.js';
 import { Registry } from '../../src/application/registry/registry.js';
 import { patchData, projectData, revealValue } from '../../src/application/thing-data.js';
 

@@ -1,4 +1,4 @@
-import { discoveryAttachment, saveDiscoveryItem } from '../../db/discovery.js';
+import { discoveryAttachment, saveDiscoveryItem } from '../../db/entities/discovery.js';
 /**
  * Validates cited discovery results and saves names, PDF attachments, maintenance suggestions and
  * products with retry deduplication.
@@ -6,18 +6,18 @@ import { discoveryAttachment, saveDiscoveryItem } from '../../db/discovery.js';
 
 import type pg from 'pg';
 import { createHash } from 'node:crypto';
-import type { BlobStorage } from '../../providers/blobs.js';
+import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Discovery } from '../import/types.js';
-import type { ImportRow, Target } from '../../db/imports.js';
-import { availableImportName } from '../../db/imports.js';
+import type { ImportRow, Target } from '../../db/entities/imports.js';
+import { availableImportName } from '../../db/entities/imports.js';
 import {
   downloadPdf,
   type DocumentDownload,
   type DocumentOptions,
-} from '../../providers/documents.js';
+} from '../../providers/web/pdf.js';
 import { ensure } from '../errors.js';
 import { transaction } from '../../db/connection.js';
-import { ownedThing, renameThing } from '../../db/things.js';
+import { ownedThing, renameThing } from '../../db/entities/things.js';
 import { validateAttachmentMetadata } from '../attachments.js';
 import { pdfPageCount } from '../../lib/pdf.js';
 

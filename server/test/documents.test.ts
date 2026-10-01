@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import type { IncomingMessage } from 'node:http';
-import { documentUrl, downloadPdf, publicAddress } from '../src/providers/documents.js';
+import { documentUrl, downloadPdf, publicAddress } from '../src/providers/web/pdf.js';
 
 const pdf = Buffer.from('%PDF-1.7\nsynthetic document\n%%EOF');
 const options = () => ({

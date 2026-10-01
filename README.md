@@ -127,7 +127,7 @@ Registry fields carry semantic keys in `icon` (for example `fieldDate`). The tab
 | `fieldCount`        | `remixListOrdered2`         |
 | `fieldCheck`        | `remixCheckboxCircleLine`   |
 
-Registry seeds are authored in `server/src/db/registry-seed.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
+Registry seeds are authored in `server/src/db/seeds/registry.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
 
 Apply `20260930040000_expanded_fieldsets.sql` with `pnpm db:migrate`, then restart the API. The migration installs the catalogue and moves existing appliance ownership/warranty, vehicle registration/VIN and museum membership values into their new sets. It preserves source references, sensitivity, user edits and pins. Conflicts and retired renewal dates become custom fields. Legacy standalone appliance fields migrate to the shared definitions. Re-running `pnpm db:seed` keeps the same catalogue metadata.
 
@@ -152,11 +152,11 @@ New PDF uploads and discovery downloads derive `pageCount` with [pdf-lib](https:
 - `src/app/`: Angular shell, lazy feature pages, shared components and services; see `src/AGENTS.md`.
 - `src/styles/`: Sass tokens, typography, mixins and shared styles; see `src/styles/CHEATSHEET.md`.
 - `server/src/application/`: feature workflows for imports, registry, discovery and conversations, plus shared activity rules and the single-process job runner.
-- `server/src/db/`: typed persistence functions grouped by entity, shared transactions and authored registry seeds.
-- `server/src/providers/blobs.ts`: storage interface and filesystem implementation.
-- `server/src/plugins/auth.ts`: Logto verification and local-user mapping.
+- `server/src/db/`: connection, transaction, row-mapping and error infrastructure; `entities/` contains typed persistence and `seeds/` contains authored registry seeds.
+- `server/src/providers/`: external capabilities grouped into `ai/`, `auth/`, `blobs/` and `web/`; provider factories select runtime adapters from configuration.
+- `server/src/plugins/`: typed Fastify plugins for authenticated request handling and optional frontend serving.
 - `server/src/contracts/`: operation-specific route types, OAS 3.1 runtime schemas and contract checks.
-- `server/src/routes/`: HTTP handlers, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
+- `server/src/routes/`: typed Fastify route plugins, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
 - `server/src/lib/`: generic cancellation and media checks.
 - `shared/api.ts`: generated contract types; do not edit by hand.
 - `src/app/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.

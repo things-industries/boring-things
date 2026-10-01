@@ -1,6 +1,6 @@
-import { categoryExists } from '../db/registry.js';
-import { linkedImage } from '../db/attachments.js';
-import { setThingTags } from '../db/tags.js';
+import { categoryExists } from '../db/entities/registry.js';
+import { linkedImage } from '../db/entities/attachments.js';
+import { setThingTags } from '../db/entities/tags.js';
 /**
  * Builds Thing detail responses and coordinates transactional creation and patching with category,
  * tag and image validation.
@@ -9,8 +9,8 @@ import { setThingTags } from '../db/tags.js';
 import type pg from 'pg';
 import { emptyData, type Schema, type ThingPatch } from '../../../shared/model.js';
 import { transaction, type Database } from '../db/connection.js';
-import { thingImport, assertEditable } from '../db/imports.js';
-import { ownedThing, relatedIds, insertThing, updateThing } from '../db/things.js';
+import { thingImport, assertEditable } from '../db/entities/imports.js';
+import { ownedThing, relatedIds, insertThing, updateThing } from '../db/entities/things.js';
 import { ensure } from './errors.js';
 import { patchData, projectData } from './thing-data.js';
 import type { Registry } from './registry/registry.js';

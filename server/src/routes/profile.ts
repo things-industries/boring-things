@@ -1,8 +1,14 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type { Database } from '../db/connection.js';
-import { profile } from '../db/users.js';
+import { profile } from '../db/entities/users.js';
 import { route } from '../contracts/routes.js';
 
-export function profileRoutes(app: FastifyInstance, db: Database) {
-  route(app, 'GET', '/api/profile', (req) => profile(db, req.ownerId));
+interface Options {
+  db: Database;
 }
+
+const profileRoutes: FastifyPluginAsync<Options> = async (app, { db }) => {
+  route(app, 'GET', '/api/profile', (req) => profile(db, req.ownerId));
+};
+
+export default profileRoutes;

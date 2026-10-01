@@ -1,12 +1,12 @@
-import { execute } from './connection.js';
+import { execute } from '../connection.js';
 /**
  * Defines and upserts authored categories, fields and sets. Registry seeds update metadata;
  * existing Thing values require separate migrations.
  */
 
-import type { FieldDefinition, FieldSet, Schema } from '../../../shared/model.js';
-import type { Database } from './connection.js';
-import { Registry } from '../application/registry/registry.js';
+import type { FieldDefinition, FieldSet, Schema } from '../../../../shared/model.js';
+import type { Database } from '../connection.js';
+import { Registry } from '../../application/registry/registry.js';
 
 const names = [
   'Appliances',

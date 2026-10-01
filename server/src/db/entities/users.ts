@@ -1,5 +1,5 @@
-import { rows, type Database } from './connection.js';
-import type { Schema } from '../../../shared/model.js';
+import { rows, type Database } from '../connection.js';
+import type { Schema } from '../../../../shared/model.js';
 export async function profile(db: Database, owner: string) {
   return (
     await rows<Schema['Profile']>(

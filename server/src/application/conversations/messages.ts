@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import { transaction } from '../../db/connection.js';
-import { processingMessage, saveMessage, type ChatJob } from '../../db/conversations.js';
+import { processingMessage, saveMessage, type ChatJob } from '../../db/entities/conversations.js';
 import { ensure } from '../errors.js';
 import { writeEvent, writeIssue } from '../activity.js';
 type ActivityInput = Pick<Schema['IssueInput'], 'thingId' | 'title' | 'description'>;

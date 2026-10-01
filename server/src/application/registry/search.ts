@@ -5,7 +5,7 @@ import type { FieldSearchLabel } from './registry.js';
  */
 
 import type { Database } from '../../db/connection.js';
-import { searchRegistry } from '../../db/registry.js';
+import { searchRegistry } from '../../db/entities/registry.js';
 import type { Registry } from './registry.js';
 import { ensure } from '../errors.js';
 

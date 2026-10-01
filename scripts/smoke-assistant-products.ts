@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
 import { createPool, transaction } from '../server/src/db/connection.js';
-import { seedRegistry } from '../server/src/db/registry-seed.js';
+import { seedRegistry } from '../server/src/db/seeds/registry.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
 assert.ok(config.openaiApiKey && config.openaiModel);

@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import type { BlobStorage } from '../providers/blobs.js';
+import type { BlobStorage } from '../providers/blobs/index.js';
 import { transaction } from '../db/connection.js';
 import {
   attachment,
@@ -8,14 +8,14 @@ import {
   linkAttachment,
   publicAttachment,
   saveAttachmentMetadata,
-} from '../db/attachments.js';
+} from '../db/entities/attachments.js';
 import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import { ensure } from './errors.js';
 import { schemaValidator } from '../contracts/schemas.js';
 import { pdfPageCount } from '../lib/pdf.js';
-import { ownedThing, bumpThing } from '../db/things.js';
-import { assertEditable } from '../db/imports.js';
+import { ownedThing, bumpThing } from '../db/entities/things.js';
+import { assertEditable } from '../db/entities/imports.js';
 
 export interface UploadedFile {
   filename: string;

@@ -27,6 +27,7 @@ export const schemas = Object.entries(spec.components.schemas).map(([name, schem
   $id: name,
 }));
 export function createValidator(coerceTypes = false) {
+  // OpenAPI 3.1 uses JSON Schema 2020; preserve omitted values and reject extra properties without stripping them.
   const ajv = new Ajv2020({ strict: false, coerceTypes, removeAdditional: false });
   addFormats.default(ajv);
   for (const schema of schemas) ajv.addSchema(schema);

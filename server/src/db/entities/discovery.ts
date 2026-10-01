@@ -1,9 +1,9 @@
-import { execute } from './connection.js';
-import { rows, type Database } from './connection.js';
+import { execute } from '../connection.js';
+import { rows, type Database } from '../connection.js';
 import { ownedThing, bumpThing } from './things.js';
-import type { DiscoveryItem } from '../application/import/types.js';
-import { ensure } from '../application/errors.js';
-import type { Schema } from '../../../shared/model.js';
+import type { DiscoveryItem } from '../../application/import/types.js';
+import { ensure } from '../../application/errors.js';
+import type { Schema } from '../../../../shared/model.js';
 
 interface DownloadedDocument {
   storageKey: string;

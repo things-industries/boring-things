@@ -5,7 +5,7 @@ import type { StreamSnapshots } from './stream.js';
  * streams.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import type { Registry } from '../application/registry/registry.js';
 import type { JobRunner } from '../application/jobs/runner.js';
@@ -13,19 +13,23 @@ import type { OwnerChanges } from '../application/streams.js';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
 import { transaction } from '../db/connection.js';
-import { ownedImport, projectImport, startImport } from '../db/imports.js';
-import { ownedThing } from '../db/things.js';
+import { ownedImport, projectImport, startImport } from '../db/entities/imports.js';
+import { ownedThing } from '../db/entities/things.js';
 import { detail } from '../application/things.js';
 
-export function importRoutes(
-  app: FastifyInstance,
-  pool: pg.Pool,
-  registry: Registry,
-  runner: JobRunner,
-  changes: OwnerChanges,
-  enabled: boolean,
-  streams: StreamSnapshots,
-) {
+interface Options {
+  pool: pg.Pool;
+  registry: Registry;
+  runner: JobRunner;
+  changes: OwnerChanges;
+  enabled: boolean;
+  streams: StreamSnapshots;
+}
+
+const importRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  { pool, registry, runner, changes, enabled, streams },
+) => {
   route(app, 'POST', '/api/things:import', async (req, reply) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
     const accepted = await startImport(pool, req.ownerId, req.body.attachmentId, req.body.thingId);
@@ -67,4 +71,6 @@ export function importRoutes(
       subscribe: (changed) => changes.subscribe(req.ownerId, changed),
     });
   });
-}
+};
+
+export default importRoutes;

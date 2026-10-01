@@ -1,4 +1,4 @@
-import { execute } from './connection.js';
+import { execute } from '../connection.js';
 /**
  * Persists import state, allocates candidate targets, guards edits and exposes import summaries
  * without raw extracted content.
@@ -6,13 +6,13 @@ import { execute } from './connection.js';
 
 import { isDeepStrictEqual } from 'node:util';
 import type pg from 'pg';
-import { emptyData, type Schema } from '../../../shared/model.js';
-import type { Discovery, Extraction, Usage } from '../application/import/types.js';
-import { activeStatuses, blankUsage } from '../application/import/types.js';
-import { ensure } from '../application/errors.js';
-import { rows, transaction, type Database } from './connection.js';
+import { emptyData, type Schema } from '../../../../shared/model.js';
+import type { Discovery, Extraction, Usage } from '../../application/import/types.js';
+import { activeStatuses, blankUsage } from '../../application/import/types.js';
+import { ensure } from '../../application/errors.js';
+import { rows, transaction, type Database } from '../connection.js';
 import { ownedThing, bumpThing } from './things.js';
-import { candidateModel, importedName } from '../application/import/naming.js';
+import { candidateModel, importedName } from '../../application/import/naming.js';
 
 export async function availableImportName(
   db: Database,

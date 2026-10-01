@@ -1,10 +1,15 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { route } from '../contracts/routes.js';
-import { listTags, saveTag, deleteTag } from '../db/tags.js';
+import { listTags, saveTag, deleteTag } from '../db/entities/tags.js';
 import type { OwnerChanges } from '../application/streams.js';
 
-export function tagRoutes(app: FastifyInstance, db: pg.Pool, changes: OwnerChanges) {
+interface Options {
+  db: pg.Pool;
+  changes: OwnerChanges;
+}
+
+const tagRoutes: FastifyPluginAsync<Options> = async (app, { db, changes }) => {
   route(app, 'GET', '/api/tags', (req) => listTags(db, req.ownerId, req.query));
   route(app, 'POST', '/api/tags', async (req, reply) => {
     const result = await saveTag(db, req.ownerId, req.body);
@@ -21,4 +26,6 @@ export function tagRoutes(app: FastifyInstance, db: pg.Pool, changes: OwnerChang
     changes.publish(req.ownerId);
     return reply.code(204).send();
   });
-}
+};
+
+export default tagRoutes;
