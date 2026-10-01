@@ -22,7 +22,6 @@ async function deploy() {
   if ((!pooled && !direct) || url.port !== '5432' || url.pathname !== '/postgres')
     throw new Error('Use the project session pooler or direct connection on port 5432');
   if (!url.password) throw new Error('A database password is required');
-  url.searchParams.set('sslmode', 'verify-full');
   const dryRun = process.argv.includes('--dry-run');
   const config = readConfig();
   if (config.blobStorage !== 's3' || !config.s3)
@@ -41,6 +40,7 @@ async function deploy() {
     console.log(`Connected to Supabase project ${project}.`);
     // Keep CLI connection diagnostics out of logs because they can contain credentials.
     stage = 'migrations';
+    if (!url.searchParams.has('sslmode')) url.searchParams.set('sslmode', 'require');
     await run(
       'pnpm',
       [

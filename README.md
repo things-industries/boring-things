@@ -165,7 +165,7 @@ New PDF uploads and discovery downloads derive `pageCount` with [pdf-lib](https:
 
 Run `pnpm api:generate` after changing `openapi.json`; `pnpm api:check` detects stale types. Angular requests use typed client methods with `params` and `body`, so paths, query parameters, request bodies and responses follow the contract. Binary fields generate as `Blob` for multipart uploads and downloads.
 
-The `bt` schema is not exposed to Supabase browser roles. Fastify is the application access boundary; relationship constraints also prevent cross-owner links. Frontend code contains no database credentials or service keys.
+The `bt` schema is not exposed to Supabase browser roles. Fastify is the application access boundary; relationship constraints also prevent cross-owner links. Frontend code contains no database credentials or service keys. Hosted Supabase connections require TLS by default without certificate verification.
 
 Blobs live under `.data/blobs` by default, with random storage keys and restricted filesystem permissions. Uploads accept PDF, JPEG, PNG, WebP and UTF-8 text up to 20 MiB. File headers are checked against the declared media type. Downloads require bearer authentication and use `Content-Disposition: attachment`. Blob cleanup after metadata deletion can leave an orphan if the filesystem fails; no automatic orphan collector exists yet.
 

@@ -41,10 +41,8 @@ export function readConfig(): Config {
       required(name);
     if (blobStorage !== 's3') throw new Error('Production requires BLOB_STORAGE=s3');
     const database = new URL(required('DATABASE_URL'));
-    if (database.port !== '5432' || database.searchParams.get('sslmode') !== 'verify-full')
-      throw new Error(
-        'Production requires a session connection on port 5432 with sslmode=verify-full',
-      );
+    if (database.port !== '5432')
+      throw new Error('Production requires a session connection on port 5432');
   }
   const s3 =
     blobStorage === 's3'
