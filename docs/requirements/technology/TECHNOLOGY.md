@@ -7,7 +7,7 @@ This document outlines the technology solution that addresses the requirements d
 ## Engineering goals
 
 - Fast web UX with low client JS payload.
-- Reliable structured records for Things of varied types, able to accomodate new types of Thing
+- Reliable structured records for Things of varied types, able to accommodate new types of Thing
 - Serverless where possible to minimise fixed costs and reduce blockers to early scaling needs
 
 ## Tools, frameworks, service providers and platforms
@@ -56,7 +56,7 @@ Many Things will be of a few common categories like Appliance/Device, Utility/Se
 - **Issue** ("Boiler leak"): A current problem or action in progress in relation to a Thing.  Can have events, conversations, documents, photos etc.
 - **Attachment**: A binary file attached to a Thing, Event or Issue, used for photos, manuals, receipts, certificates, contracts, letters, and other paperwork. Photo examples include a serial-number plate for a Thing, damage evidence for an Issue, or before/after photos for an Event.  We will need to distinguish between documents and photos to provide appropriate UI.
 - **Conversations and messages**: AI chat threads and messages related to Things and Issues
-- **Offer**: A deal to buy or sell a particular type of Thing or an accessory/consunable used by/with a Thing, which can be displayed if a matching Thing is owned
+- **Offer**: A deal to buy or sell a particular type of Thing or an accessory/consumable used by/with a Thing, which can be displayed if a matching Thing is owned
 - **User**: Someone that owns or uses Things.
 
 

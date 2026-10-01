@@ -67,7 +67,7 @@ Shading: Use a fixed set of defined greys for sections, cards, box backgrounds a
 Primary: #713CDD (Purple), for mainstream calls to action, borders, dividers, progress bars, icons
 Secondary: #AF8FEF (Lilac)
 Highlight: #1DC956 (Grass), for 'special content' (asides, marketing promos etc)
-Highlight 2: #ECBF93 (Biege)
+Highlight 2: #ECBF93 (Beige)
 
 Semantic colours: #DD3C3C (danger/error), #F49D25 (warning), #3C8CDD (info)
 

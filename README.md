@@ -200,9 +200,14 @@ One tenant can supply identities to both local and production environments. Data
 pnpm api:generate                # after editing openapi.json
 pnpm format                      # apply Prettier formatting
 pnpm format:check                # check formatting without writing
-CI=true pnpm check               # formatting, contract drift, lint, types, unit tests, build
+pnpm spellcheck                  # check spelling across authored text and source
+CI=true pnpm check               # formatting, spelling, contract drift, lint, types, unit tests, build
 pnpm test:integration            # requires local Supabase and a built frontend
 ```
+
+Spelling uses [CSpell](https://cspell.org/docs/getting-started) and `cspell.json`, accepting British and American English. It checks documentation (including research and meeting notes), agent instructions, OpenAPI, templates, source, tests, SQL and configuration, including dotfiles. Git-ignored files, Git internals, the dependency lockfile, generated API types and PNG references are excluded. Regenerate API types after correcting OpenAPI. CSpell 9 supports the pinned Node version.
+
+Run `pnpm spellcheck` while editing; `CI=true pnpm check` includes it before the code checks. Review unknown words before adding established names or technical terms to the sorted dictionary. Use file-scoped `overrides` for fixture or protocol tokens. Avoid broad exclusions and bulk acceptance of reported words. Editor integrations can use the same configuration. Spelling checks still need proofreading for wrong-word errors and grammar.
 
 Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed. Screenshots are saved under ignored `test-results/`.
 
