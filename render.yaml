@@ -33,10 +33,6 @@ services:
         sync: false
       - key: SUPABASE_PROJECT_REF
         sync: false
-      - key: SUPABASE_POSTGRES_PW
-        sync: false
-      - key: DEPLOY_DATABASE_URL
-        sync: false
       - key: DATABASE_URL
         sync: false
       - key: LOGTO_ENDPOINT

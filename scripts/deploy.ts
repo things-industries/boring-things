@@ -12,9 +12,8 @@ let stage = 'configuration';
 
 async function deploy() {
   const project = process.env.SUPABASE_PROJECT_REF;
-  const target = process.env.DEPLOY_DATABASE_URL;
-  if (!project || !target)
-    throw new Error('SUPABASE_PROJECT_REF and DEPLOY_DATABASE_URL are required');
+  const target = process.env.DATABASE_URL;
+  if (!project || !target) throw new Error('SUPABASE_PROJECT_REF and DATABASE_URL are required');
   const url = new URL(target);
   const pooled =
     url.hostname.endsWith('.pooler.supabase.com') &&
@@ -22,7 +21,6 @@ async function deploy() {
   const direct = url.hostname === `db.${project}.supabase.co` && url.username === 'postgres';
   if ((!pooled && !direct) || url.port !== '5432' || url.pathname !== '/postgres')
     throw new Error('Use the project session pooler or direct connection on port 5432');
-  if (process.env.SUPABASE_POSTGRES_PW) url.password = process.env.SUPABASE_POSTGRES_PW;
   if (!url.password) throw new Error('A database password is required');
   url.searchParams.set('sslmode', 'verify-full');
   const dryRun = process.argv.includes('--dry-run');
