@@ -120,6 +120,10 @@
   "validateDirectives": true,
   "overrides": [
     {
+      "filename": ["scripts/cloud-postgres.sh", "cspell.json"],
+      "words": ["ctlcluster", "euo", "lsclusters", "nologin", "psql", "rolname", "sed", "usr"]
+    },
+    {
       "filename": ["supabase/config.toml", "cspell.json"],
       "words": [
         "apikey",

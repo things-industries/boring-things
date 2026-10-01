@@ -90,7 +90,7 @@ test('all private routes require authentication and unknown tokens fail', async 
   assert.equal((await request('GET', '/things', undefined, 'bad')).statusCode, 401);
   assert.equal((await app.inject('/api/config')).statusCode, 200);
 });
-test('appliance ownership and warranty details persist through reseeding with registry icons', async () => {
+test('reseeding replaces category glyphs and preserves appliance details', async () => {
   const values = [
     { fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn', value: '2022-03-12' },
     { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds', value: '2027-03-12' },
@@ -102,7 +102,34 @@ test('appliance ownership and warranty details persist through reseeding with re
     values,
     pinnedFields: [{ fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn' }],
   });
-  await transaction(pool, seedRegistry);
+  const categoryIcons = {
+    appliances: 'appliance',
+    devices: 'device',
+    vehicles: 'vehicle',
+    memberships: 'membership',
+    subscriptions: 'subscription',
+    utilities: 'utility',
+    insurance: 'insurance',
+    other: 'other',
+  };
+  const glyphs = ['▧', '⌘', '↗', '◉', '↻', '⌁', '◇', '○'];
+  for (const [index, id] of Object.keys(categoryIcons).entries()) {
+    await pool.query('update bt.categories set icon=$1 where id=$2', [glyphs[index], id]);
+  }
+  for (let pass = 0; pass < 2; pass++) {
+    await transaction(pool, seedRegistry);
+    const response = await request('GET', '/categories');
+    assert.equal(response.statusCode, 200, response.body);
+    assert.deepEqual(
+      Object.fromEntries(
+        response.json<Schema['CategoryList']>().items.map(({ id, icon }) => [id, icon]),
+      ),
+      categoryIcons,
+    );
+    const saved = await request('GET', `/things/${thing.id}`);
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.deepEqual(saved.json<Schema['Thing']>(), thing);
+  }
   const saved = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
   for (const value of values) {
     const field = saved.fieldSets

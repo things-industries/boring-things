@@ -705,6 +705,7 @@ export interface components {
             id: string;
             name: string;
             description: string;
+            /** @description Semantic category icon key. Clients map keys to their icon catalogue. */
             icon: string;
             defaultImage: string | null;
             sortOrder: number;

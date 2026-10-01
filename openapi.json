@@ -3051,7 +3051,8 @@
             "type": "string"
           },
           "icon": {
-            "type": "string"
+            "type": "string",
+            "description": "Semantic category icon key. Clients map keys to their icon catalogue."
           },
           "defaultImage": {
             "type": ["string", "null"]
