@@ -1,17 +1,17 @@
 type ChatAttachment = Pick<Schema['Attachment'], 'id' | 'filename' | 'mediaType' | 'byteSize'> & {
   storageKey: string;
 };
-import { execute } from './connection.js';
+import { execute } from '../connection.js';
 /**
  * Persists owner-scoped conversations and queued messages, reads assistant resources and records
  * transactional write receipts for retries.
  */
 
 import type pg from 'pg';
-import type { Schema } from '../../../shared/model.js';
-import { rows, transaction, type Database } from './connection.js';
+import type { Schema } from '../../../../shared/model.js';
+import { rows, transaction, type Database } from '../connection.js';
 import { ownedThing, bumpThing } from './things.js';
-import { ensure } from '../application/errors.js';
+import { ensure } from '../../application/errors.js';
 
 export type MessageRow = Schema['Message'] & {
   toolResults: {

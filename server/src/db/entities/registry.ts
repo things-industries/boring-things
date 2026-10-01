@@ -1,7 +1,7 @@
-import { execute, rows, type Database } from './connection.js';
-import type { FieldDefinition, FieldSet, Schema } from '../../../shared/model.js';
-import type { PageQuery } from '../application/pagination.js';
-import { page, pageResult } from '../application/pagination.js';
+import { execute, rows, type Database } from '../connection.js';
+import type { FieldDefinition, FieldSet, Schema } from '../../../../shared/model.js';
+import type { PageQuery } from '../../application/pagination.js';
+import { page, pageResult } from '../../application/pagination.js';
 export async function searchRegistry(
   db: Database,
   kind: 'fields' | 'field-sets',

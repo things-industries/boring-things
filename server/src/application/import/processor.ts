@@ -1,5 +1,5 @@
-import { attachment } from '../../db/attachments.js';
-import { categoryIds } from '../../db/registry.js';
+import { attachment } from '../../db/entities/attachments.js';
+import { categoryIds } from '../../db/entities/registry.js';
 /**
  * Runs persisted import and assistant jobs in one process, coordinating bounded AI work,
  * incremental commits, retries and notifications.
@@ -7,7 +7,7 @@ import { categoryIds } from '../../db/registry.js';
 
 import type pg from 'pg';
 import type { Config } from '../../config.js';
-import type { BlobStorage } from '../../providers/blobs.js';
+import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { OwnerChanges } from '../streams.js';
 import type { AiContext, Candidate, ImportAi, RegistryTools, Usage } from './types.js';
@@ -35,8 +35,8 @@ import {
   markTarget,
   type ImportRow,
   type Target,
-} from '../../db/imports.js';
-import { ownedThing, bumpThing, saveThingData } from '../../db/things.js';
+} from '../../db/entities/imports.js';
+import { ownedThing, bumpThing, saveThingData } from '../../db/entities/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { persistDiscovery } from '../discovery/discovery.js';
 import { updateAttachmentMetadata } from '../attachments.js';
@@ -103,7 +103,7 @@ export class ImportProcessor {
         const file = await attachment(this.pool, job.ownerId, job.attachmentId);
         const chunks: Buffer[] = [];
 
-        for await (const chunk of this.blobs.read(file.storageKey)) {
+        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
           signal.throwIfAborted();
           chunks.push(Buffer.from(chunk));
         }

@@ -1,21 +1,13 @@
 /**
- * Verifies Logto access tokens, maps authenticated subjects to local owners and disables caching
- * for authenticated responses.
+ * Applies authentication, owner mapping and private response caching to the registering Fastify scope.
  */
 
-import { createRemoteJWKSet, jwtVerify } from 'jose';
-import type { FastifyInstance } from 'fastify';
-import type { Config } from '../config.js';
+import type { FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin';
 import { ApplicationError, ensure } from '../application/errors.js';
 import type { Database } from '../db/connection.js';
-import { ownerForSubject } from '../db/users.js';
-
-export interface Identity {
-  subject: string;
-  name?: string;
-}
-
-export type VerifyIdentity = (token: string) => Promise<Identity>;
+import { ownerForSubject } from '../db/entities/users.js';
+import type { Identity, VerifyIdentity } from '../providers/auth/logto.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -23,28 +15,12 @@ declare module 'fastify' {
   }
 }
 
-export function logtoVerifier(config: Config): VerifyIdentity {
-  if (!config.logtoEndpoint || !config.logtoAppId)
-    return async () => {
-      throw new ApplicationError('UNAVAILABLE', 'Authentication is not configured');
-    };
-
-  const issuer = config.logtoEndpoint.replace(/\/$/, '') + '/oidc';
-  const jwks = createRemoteJWKSet(new URL(issuer + '/jwks'));
-  return async (token) => {
-    const { payload } = await jwtVerify(token, jwks, {
-      issuer,
-      audience: config.apiResource,
-    });
-    ensure(payload.sub, 'Invalid access token', 'UNAUTHENTICATED');
-    return {
-      subject: payload.sub,
-      name: typeof payload.name === 'string' ? payload.name : undefined,
-    };
-  };
+interface Options {
+  db: Database;
+  verify: VerifyIdentity;
 }
 
-export function installAuth(app: FastifyInstance, db: Database, verify: VerifyIdentity) {
+const auth: FastifyPluginAsync<Options> = async (app, { db, verify }) => {
   app.decorateRequest('ownerId', '');
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'private, no-store');
@@ -61,4 +37,7 @@ export function installAuth(app: FastifyInstance, db: Database, verify: VerifyId
 
     request.ownerId = await ownerForSubject(db, identity.subject, identity.name);
   });
-}
+};
+
+// Share these hooks with sibling route plugins inside the authenticated API scope.
+export default fp(auth, { name: 'auth' });

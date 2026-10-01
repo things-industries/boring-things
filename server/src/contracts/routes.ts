@@ -69,8 +69,10 @@ type Handler<R extends RouteGenericInterface> = (
 ) => Success<R['Reply']> | FastifyReply<R> | Promise<Success<R['Reply']> | FastifyReply<R>>;
 
 export function installContracts(app: FastifyInstance) {
+  // Query strings need coercion; JSON bodies retain their supplied types and reject unknown fields.
   const bodyAjv = createValidator();
   const queryAjv = createValidator(true);
+  // Custom AJV instances own validation schemas; Fastify also needs them for response serialization.
   for (const schema of schemas) app.addSchema(schema);
   app.setValidatorCompiler(({ schema, httpPart }) =>
     (httpPart === 'querystring' ? queryAjv : bodyAjv).compile(schema as AnySchema),
@@ -98,6 +100,7 @@ function responseSchema(response: Response | Reference): Response {
   return resolved;
 }
 
+// Connect a Fastify route to a contract operation, validating request and response against the OpenAPI spec.
 export function route<M extends Uppercase<Method>, P extends RoutePath<Lowercase<M>>>(
   app: FastifyInstance,
   method: M,

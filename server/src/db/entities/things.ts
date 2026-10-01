@@ -1,9 +1,9 @@
-import { execute } from './connection.js';
-import type { RouteTypes } from '../contracts/routes.js';
-import { page, pageResult } from '../application/pagination.js';
-import type { Schema, ThingData } from '../../../shared/model.js';
-import { rows, type Database } from './connection.js';
-import { ensure } from '../application/errors.js';
+import { execute } from '../connection.js';
+import type { RouteTypes } from '../../contracts/routes.js';
+import { page, pageResult } from '../../application/pagination.js';
+import type { Schema, ThingData } from '../../../../shared/model.js';
+import { rows, type Database } from '../connection.js';
+import { ensure } from '../../application/errors.js';
 
 export type ThingRow = Omit<Schema['ThingSummary'], 'tagIds'> & {
   ownerId: string;

@@ -1,9 +1,9 @@
-import { execute } from './connection.js';
+import { execute } from '../connection.js';
 import type pg from 'pg';
-import type { Schema } from '../../../shared/model.js';
-import { rows, transaction, type Database } from './connection.js';
-import { ensure } from '../application/errors.js';
-import { page, pageResult, type PageQuery } from '../application/pagination.js';
+import type { Schema } from '../../../../shared/model.js';
+import { rows, transaction, type Database } from '../connection.js';
+import { ensure } from '../../application/errors.js';
+import { page, pageResult, type PageQuery } from '../../application/pagination.js';
 
 export async function listTags(
   db: Database,

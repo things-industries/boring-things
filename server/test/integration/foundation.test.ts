@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, InjectOptions } from 'fastify';
+import spec from '../../../openapi.json' with { type: 'json' };
 import type { Schema } from '../../../shared/model.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/registry-seed.js';
+import { seedRegistry } from '../../src/db/seeds/registry.js';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -76,19 +77,28 @@ after(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 test('all private routes require authentication and unknown tokens fail', async () => {
-  for (const path of [
-    '/profile',
-    '/categories',
-    '/things',
-    '/tags',
-    '/attachments',
-    '/events',
-    '/issues',
-    '/purchasables',
-  ])
-    assert.equal((await app.inject('/api' + path)).statusCode, 401, path);
-  assert.equal((await request('GET', '/things', undefined, 'bad')).statusCode, 401);
+  for (const [path, operations] of Object.entries(spec.paths)) {
+    if (path === '/api/config') continue;
+    for (const method of Object.keys(operations)) {
+      const url = path.replace(/\{\w+\}/g, '00000000-0000-4000-8000-000000000001');
+      for (const headers of [{}, { authorization: 'Bearer bad' }]) {
+        const response = await app.inject({
+          method: method.toUpperCase() as InjectOptions['method'],
+          url,
+          headers,
+        });
+        assert.equal(response.statusCode, 401, `${method} ${path}: ${response.body}`);
+        assert.equal(response.headers['cache-control'], 'private, no-store');
+      }
+    }
+  }
   assert.equal((await app.inject('/api/config')).statusCode, 200);
+  assert.equal((await app.inject('/health')).statusCode, 200);
+  assert.equal((await app.inject('/api/documentation/')).statusCode, 200);
+  assert.equal((await app.inject('/api/documentation/json')).statusCode, 200);
+  const profile = await request('GET', '/profile');
+  assert.equal(profile.statusCode, 200);
+  assert.equal(profile.headers['cache-control'], 'private, no-store');
 });
 test('reseeding replaces category glyphs and preserves appliance details', async () => {
   const values = [

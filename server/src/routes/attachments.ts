@@ -1,10 +1,10 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { basename } from 'node:path';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
 import { matchesMedia } from '../lib/media.js';
-import { attachment, publicAttachment, listAttachments } from '../db/attachments.js';
+import { attachment, publicAttachment, listAttachments } from '../db/entities/attachments.js';
 import {
   uploadAttachment,
   removeAttachment,
@@ -12,18 +12,22 @@ import {
   updateAttachmentMetadata,
   type UploadedFile,
 } from '../application/attachments.js';
-import type { BlobStorage } from '../providers/blobs.js';
+import type { BlobStorage } from '../providers/blobs/index.js';
 import type { Config } from '../config.js';
 import type { OwnerChanges } from '../application/streams.js';
 import { transaction } from '../db/connection.js';
 
-export function attachmentRoutes(
-  app: FastifyInstance,
-  db: pg.Pool,
-  blobs: BlobStorage,
-  config: Config,
-  changes: OwnerChanges,
-) {
+interface Options {
+  db: pg.Pool;
+  blobs: BlobStorage;
+  config: Config;
+  changes: OwnerChanges;
+}
+
+const attachmentRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  { db, blobs, config, changes },
+) => {
   route(app, 'GET', '/api/attachments', (req) => listAttachments(db, req.ownerId, req.query));
   route(app, 'POST', '/api/attachments', async (req, reply) => {
     const parts = req.parts({
@@ -93,7 +97,7 @@ export function attachmentRoutes(
       )
       .type(file.mediaType)
       .code(200)
-      .send(blobs.read(file.storageKey));
+      .send(await blobs.read(file.storageKey));
   });
   route(app, 'DELETE', '/api/attachments/{id}', async (req, reply) => {
     await removeAttachment(db, blobs, req.ownerId, req.params.id);
@@ -106,4 +110,6 @@ export function attachmentRoutes(
       changes.publish(req.ownerId);
       return reply.code(204).send();
     });
-}
+};
+
+export default attachmentRoutes;

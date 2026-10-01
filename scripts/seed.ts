@@ -1,5 +1,5 @@
 import { createPool, transaction } from '../server/src/db/connection.js';
-import { seedRegistry } from '../server/src/db/registry-seed.js';
+import { seedRegistry } from '../server/src/db/seeds/registry.js';
 const pool = createPool(
   process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );

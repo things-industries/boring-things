@@ -1,8 +1,8 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import { route } from '../../contracts/routes.js';
 import { ensure } from '../../application/errors.js';
 import type { OwnerChanges } from '../../application/streams.js';
-import { profile } from '../../db/users.js';
+import { profile } from '../../db/entities/users.js';
 /**
  * Reads owner profiles and creates labelled demonstration Things and activity once per owner when
  * sample creation is enabled.
@@ -15,6 +15,7 @@ import { patchData } from '../../application/thing-data.js';
 import type { Registry } from '../../application/registry/registry.js';
 import { rows, transaction } from '../../db/connection.js';
 
+// Temporary developer/debugging routes may keep their workflow and SQL together in one scaffold.
 async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
   return transaction(pool, async (db) => {
     // Lock the owner row so repeated or concurrent requests cannot create multiple sample collections.
@@ -140,17 +141,23 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
   });
 }
 
-export function sampleRoutes(
-  app: FastifyInstance,
-  pool: pg.Pool,
-  registry: Registry,
-  enabled: boolean,
-  changes: OwnerChanges,
-) {
+interface Options {
+  pool: pg.Pool;
+  registry: Registry;
+  enabled: boolean;
+  changes: OwnerChanges;
+}
+
+const sampleRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  { pool, registry, enabled, changes },
+) => {
   route(app, 'POST', '/api/profile:seed-samples', async (req) => {
     ensure(enabled, 'Sample data is disabled', 'NOT_FOUND');
     const result = await seedSamples(pool, req.ownerId, registry);
     changes.publish(req.ownerId);
     return result;
   });
-}
+};
+
+export default sampleRoutes;

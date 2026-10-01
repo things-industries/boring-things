@@ -7,12 +7,13 @@ Fastify owns the `/api` boundary, Logto identity verification, owner-scoped data
 Paths are relative to `server/`.
 
 - `src/index.ts`: startup and shutdown; `app.ts`: dependency assembly and Fastify scopes; `config.ts`: environment settings.
-- `src/routes/`: typed HTTP registration, error translation and SSE transport. `routes/scaffolds/samples.ts` contains the opt-in sample workflow and its SQL.
+- `src/routes/`: typed Fastify route plugins, error translation and SSE transport. Temporary developer/debugging routes may be self-contained, others should use DB/provider/application module abstractions where appropriate.
 - `src/contracts/`: operation types, runtime schema validation, path/reference adaptation and contract checks. Root `openapi.json` generates root `shared/api.ts` for both client and server.
 - `src/application/`: workflow rules and transport-independent errors. Imports, conversations and registry have feature folders; discovery is shared. `jobs/runner.ts` schedules imports and chat in one process.
-- `src/db/`: typed persistence functions grouped by entity or semantic concept. SQL, row mapping and constraint-error translation stay here. `registry-seed.ts` owns authored metadata.
-- `src/providers/`: external AI, document-download and blob adapters. `src/lib/`: purpose-neutral abort and media helpers.
-- `src/plugins/`: authentication and optional static frontend serving.
+- `src/db/`: connection, transaction, row-mapping and error infrastructure. `entities/` groups typed persistence by entity or semantic concept; `seeds/registry.ts` owns authored registry metadata.
+- `src/providers/`: modules for capabilities outside the application boundary, grouped by capability. Encapsulate runtime substitutes and fallback behaviour within each provider, selected through configuration/options. Fake modes require explicit configuration, normally environment settings; failure behaviour is provider-specific. Test-only injection remains available for failure and ownership checks.
+- `src/plugins/`: Fastify plugins with typed options, a default `FastifyPluginAsync` export and registration through `fastify.register(plugin, options)`. Choose encapsulation deliberately so hooks and decorators reach their intended routes.
+- `src/lib/`: purpose-neutral generic helpers.
 - `test/`: unit and contract checks; `test/integration/`: isolated database, migration and browser checks.
 
 Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish owner notifications after successful mutations, independently of HTTP response delivery. Add classes for state or lifecycle. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
@@ -50,26 +51,25 @@ Use typed functions accepting a database executor, owner ID and named input wher
 ## Contracts and persistence
 
 - Author OAS 3.1 endpoints in root `openapi.json`, register through the operation-typed contract helper, then run `pnpm api:generate`. Use semantic tags, operation summaries and schema descriptions; constrain values according to their domain.
+- Route modules use typed Fastify plugins with named options. Keep full OpenAPI paths in the contract helper; it selects schemas and infers handler types from those paths. Register private route plugins inside the authenticated scope.
 - Prefer `type: ["string", "null"]` and equivalent type arrays for nullable primitive schemas. Use composition for nullable references. Runtime schemas use the tested common AJV 2020/serializer subset.
 - Domain enums use UPPER_SNAKE_CASE values in dedicated named schemas at the end of `components.schemas`. Standard JSON Schema/provider values retain their required spelling. Changes to persisted enum values need a data migration and corresponding frontend/provider updates.
 - Derive HTTP shapes from `shared/api.ts`; keep database-only and provider-only shapes separate. Route registration infers body, path, query and reply types from method/path. The API error handler translates semantic application errors into HTTP status codes.
 - Preserve boundary validation and consistent errors: invalid values/references use 422, conflicts use 409, and missing or inaccessible records use the existing 404 behaviour.
 - List endpoints use `limit` and opaque cursors; reapply owner filters on each page. The current offset cursor can shift when records change.
 - Root `supabase/migrations/` is the schema authority. Add migrations; never rewrite an applied migration or add an ORM-owned schema system.
-- Use `pnpm db:migrate` to preserve local data. Registry changes go in `src/db/registry-seed.ts`, then `pnpm db:seed`; restart the API to reload the registry. Incompatible definition changes need value migration.
+- Use `pnpm db:migrate` to preserve local data. Registry changes go in `src/db/seeds/registry.ts`, then `pnpm db:seed`; restart the API to reload the registry. Incompatible definition changes need value migration.
 - Keep sample owned data in the opt-in sample workflow. Seeds must not overwrite user data.
-- Hosted connection, pooling and storage configuration require a deployment decision; do not copy settings from another application.
+- Production uses Supabase Storage through the S3 blob adapter and a verified TLS session pooler connection on port 5432. Keep storage keys server-side and use private buckets. See `../docs/setup/deployment.md` for release configuration.
 
 ## AI imports and assistant work
-
-Read root `docs/plans/poc-scaffolding.md` when implementing imports, discovery, streams or assistant execution. Imports, discovery, Thing/conversation SSE and assistant execution are implemented. `application/conversations/assistant.ts` owns the bounded tool workflow; `db/conversations.ts` owns message state and transactional write receipts; `providers/chat.ts` adapts streamed Responses calls. The shared job runner consumes imports and queued chat messages.
 
 - Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history/resumption remains deferred.
 - Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
 - Several detected Things require user confirmation under the import plan. Retries must reuse persisted work without duplicating Things or overwriting user edits.
-- Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. The current server uses one persisted job runner per database and revisioned Thing SSE.
+- Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. A dedicated PostgreSQL session lock permits one active runner per database; recovery happens after acquiring it. Release the lock only after work stops. Loss of the lock session exits the process. Deploy overlap uses persisted SSE snapshots; token-level deltas remain process-local.
 
 ## Validation
 

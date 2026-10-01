@@ -4,7 +4,7 @@
  */
 
 import { Ajv } from 'ajv';
-import spec from '../../../openapi.json' with { type: 'json' };
+import spec from '../../../../openapi.json' with { type: 'json' };
 import type {
   AiContext,
   Candidate,
@@ -15,8 +15,8 @@ import type {
   MappingValue,
   RegistryTools,
   Source,
-} from '../application/import/types.js';
-import { ensure } from '../application/errors.js';
+} from '../../application/import/types.js';
+import { ensure } from '../../application/errors.js';
 
 const string = { type: 'string' };
 const strings = { type: 'array', items: string };

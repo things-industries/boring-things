@@ -3,23 +3,24 @@
  * sensitive data out of list responses.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import type { OwnerChanges } from '../application/streams.js';
 import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
 import { transaction } from '../db/connection.js';
 import { detail, writeThing } from '../application/things.js';
-import { assertEditable } from '../db/imports.js';
-import { ownedThing, listThings, deleteThing, recordThingView } from '../db/things.js';
+import { assertEditable } from '../db/entities/imports.js';
+import { ownedThing, listThings, deleteThing, recordThingView } from '../db/entities/things.js';
 import { revealValue } from '../application/thing-data.js';
 
-export function thingRoutes(
-  app: FastifyInstance,
-  db: pg.Pool,
-  registry: Registry,
-  changes: OwnerChanges,
-) {
+interface Options {
+  db: pg.Pool;
+  registry: Registry;
+  changes: OwnerChanges;
+}
+
+const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, changes }) => {
   route(app, 'GET', '/api/things', (req) => listThings(db, req.ownerId, req.query));
 
   route(app, 'POST', '/api/things', async (req, reply) => {
@@ -55,4 +56,6 @@ export function thingRoutes(
   route(app, 'POST', '/api/things/{id}:reveal-field', async (req) => ({
     value: revealValue((await ownedThing(db, req.ownerId, req.params.id)).data, req.body, registry),
   }));
-}
+};
+
+export default thingRoutes;

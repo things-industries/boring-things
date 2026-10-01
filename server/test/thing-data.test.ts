@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyData } from '../../shared/model.js';
-import { fields, sets } from '../src/db/registry-seed.js';
+import { fields, sets } from '../src/db/seeds/registry.js';
 import { Registry } from '../src/application/registry/registry.js';
 import { patchData, projectData, revealValue } from '../src/application/thing-data.js';
 const registry = new Registry(fields, sets);

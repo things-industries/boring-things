@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: boring-things
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && CI=true corepack pnpm build && corepack pnpm deploy:prepare
+    startCommand: node dist/server/server/src/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: ENABLE_SAMPLE_DATA
+        value: 'false'
+      - key: BLOB_STORAGE
+        value: s3
+      - key: S3_BUCKET
+        value: attachments
+      - key: S3_REGION
+        value: eu-west-2
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: SUPABASE_PROJECT_REF
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: LOGTO_ENDPOINT
+        sync: false
+      - key: LOGTO_APP_ID
+        sync: false
+      - key: LOGTO_API_RESOURCE
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false

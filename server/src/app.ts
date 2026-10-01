@@ -3,21 +3,10 @@
  * the built frontend when available.
  */
 
-import {
-  registryRoutes,
-  thingRoutes,
-  tagRoutes,
-  attachmentRoutes,
-  activityRoutes,
-  conversationRoutes,
-  importRoutes,
-  profileRoutes,
-  configRoutes,
-  sampleRoutes,
-  installErrorHandler,
-  createStreams,
-} from './routes/index.js';
-import { installWeb } from './plugins/web.js';
+import * as routes from './routes/index.js';
+import { installErrorHandler } from './routes/errors.js';
+import { createStreams } from './routes/stream.js';
+import web from './plugins/web.js';
 import { ImportProcessor } from './application/import/processor.js';
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
@@ -27,15 +16,16 @@ import type pg from 'pg';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from './db/connection.js';
+import { jobLease } from './db/job-lease.js';
 import { readConfig, type Config } from './config.js';
 import { installContracts } from './contracts/routes.js';
-import { installAuth, logtoVerifier, type VerifyIdentity } from './plugins/auth.js';
+import auth from './plugins/auth.js';
+import { logtoVerifier, type VerifyIdentity } from './providers/auth/logto.js';
 import { loadRegistry } from './application/registry/index.js';
-import { LocalBlobs, type BlobStorage } from './providers/blobs.js';
+import { createBlobs, type BlobStorage } from './providers/blobs/index.js';
 import { Assistant } from './application/conversations/assistant.js';
-import { OpenAiChat } from './providers/chat.js';
+import { createAi } from './providers/ai/index.js';
 import type { ChatAi } from './application/conversations/types.js';
-import { OpenAiImports } from './providers/ai.js';
 import type { ImportAi } from './application/import/types.js';
 import { JobRunner } from './application/jobs/runner.js';
 import { OwnerChanges } from './application/streams.js';
@@ -79,69 +69,79 @@ export async function buildApp(options: BuildAppOptions = {}) {
       return { status: 'ok' };
     });
 
-    configRoutes(app, {
-      logtoEndpoint: config.logtoEndpoint,
-      logtoAppId: config.logtoAppId,
-      apiResource: config.apiResource,
-      maxUploadBytes: config.maxUploadBytes,
-      supportedMediaTypes: config.supportedMediaTypes,
-      sampleDataEnabled: config.sampleDataEnabled,
-      chatEnabled: !!(options.chatAi || (config.openaiApiKey && config.openaiModel)),
-      importEnabled: !!(options.importAi || (config.openaiApiKey && config.openaiModel)),
+    const { importAi: ai, chatAi } = createAi(config, options);
+    await app.register(routes.configRoutes, {
+      config: {
+        logtoEndpoint: config.logtoEndpoint,
+        logtoAppId: config.logtoAppId,
+        apiResource: config.apiResource,
+        maxUploadBytes: config.maxUploadBytes,
+        supportedMediaTypes: config.supportedMediaTypes,
+        sampleDataEnabled: config.sampleDataEnabled,
+        chatEnabled: !!chatAi,
+        importEnabled: !!ai,
+      },
     });
 
     // Registry definitions are cached at startup; restart the server after changing seeded metadata.
     const registry = await loadRegistry(pool);
-    const blobs = options.blobs ?? new LocalBlobs(config.blobDirectory);
-    const ai =
-      options.importAi ??
-      (config.openaiApiKey && config.openaiModel
-        ? new OpenAiImports(
-            config.openaiApiKey,
-            config.openaiModel,
-            config.aiMaxOutputTokens,
-            config.discoverySearchCalls,
-          )
-        : undefined);
-
+    const blobs = options.blobs ?? createBlobs(config);
+    if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const changes = new OwnerChanges();
-    const chatAi =
-      options.chatAi ??
-      (config.openaiApiKey && config.openaiModel
-        ? new OpenAiChat(
-            config.openaiApiKey,
-            config.openaiModel,
-            config.aiMaxOutputTokens,
-            config.chatToolCalls,
-          )
-        : undefined);
 
     const assistant = new Assistant(pool, registry, blobs, chatAi, ai, config, changes);
     const runner = new JobRunner(
       [assistant, new ImportProcessor(pool, registry, blobs, ai, config, changes)],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
+      jobLease(pool, () => {
+        // Stop immediately: another instance may recover jobs after this session loses its lock.
+        app.log.fatal({ code: 'job_lock_lost' }, 'Background runner lost its database session');
+        process.exit(1);
+      }),
     );
     const streams = createStreams(app);
     app.addHook('onReady', () => runner.start());
     app.addHook('preClose', () => runner.stop());
     // Authentication applies to this scope; health, client configuration and API documentation remain public.
     await app.register(async (api) => {
-      installAuth(api, pool, options.verifyIdentity ?? logtoVerifier(config));
+      await api.register(auth, {
+        db: pool,
+        verify: options.verifyIdentity ?? logtoVerifier(config),
+      });
       await api.register(multipart, {
         limits: { fileSize: config.maxUploadBytes, files: 1, fields: 0 },
       });
 
-      profileRoutes(api, pool);
-      sampleRoutes(api, pool, registry, config.sampleDataEnabled, changes);
-      importRoutes(api, pool, registry, runner, changes, !!ai, streams);
-      registryRoutes(api, pool, registry);
-      thingRoutes(api, pool, registry, changes);
-      tagRoutes(api, pool, changes);
-      attachmentRoutes(api, pool, blobs, config, changes);
-      activityRoutes(api, pool, changes);
-      conversationRoutes(api, pool, runner, assistant, changes, !!chatAi, streams);
+      await api.register(routes.profileRoutes, { db: pool });
+      await api.register(routes.sampleRoutes, {
+        pool,
+        registry,
+        enabled: config.sampleDataEnabled,
+        changes,
+      });
+      await api.register(routes.importRoutes, {
+        pool,
+        registry,
+        runner,
+        changes,
+        enabled: !!ai,
+        streams,
+      });
+      await api.register(routes.registryRoutes, { db: pool, registry });
+      await api.register(routes.thingRoutes, { db: pool, registry, changes });
+      await api.register(routes.tagRoutes, { db: pool, changes });
+      await api.register(routes.attachmentRoutes, { db: pool, blobs, config, changes });
+      await api.register(routes.activityRoutes, { db: pool, changes });
+      await api.register(routes.conversationRoutes, {
+        db: pool,
+        runner,
+        assistant,
+        changes,
+        enabled: !!chatAi,
+        streams,
+      });
     });
-    await installWeb(app);
+    await app.register(web);
 
     return app;
   } catch (error) {

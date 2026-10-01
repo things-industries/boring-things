@@ -1,19 +1,12 @@
 /**
- * Defines private blob storage and a filesystem adapter using random keys, restricted permissions
- * and streamed reads.
+ * Stores private blobs on the filesystem using random keys, restricted permissions and streamed reads.
  */
 
 import { mkdir, writeFile, unlink } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { Readable } from 'node:stream';
-
-export interface BlobStorage {
-  put(content: Buffer): Promise<string>;
-  read(key: string): Readable;
-  remove(key: string): Promise<void>;
-}
+import type { BlobStorage } from './index.js';
 
 export class LocalBlobs implements BlobStorage {
   constructor(private directory: string) {}
@@ -31,8 +24,8 @@ export class LocalBlobs implements BlobStorage {
     return key;
   }
 
-  read(key: string) {
-    return createReadStream(this.path(key));
+  async read(key: string, signal?: AbortSignal) {
+    return createReadStream(this.path(key), { signal });
   }
 
   async remove(key: string) {

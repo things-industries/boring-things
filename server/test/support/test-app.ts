@@ -17,7 +17,7 @@ import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/registry-seed.js';
+import { seedRegistry } from '../../src/db/seeds/registry.js';
 
 const appId = 'browser-test';
 const subject = 'browser-alice';

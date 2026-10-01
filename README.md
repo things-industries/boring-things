@@ -77,7 +77,7 @@ Choose **Ask a question** on Home, **Ask** in the bottom navigation or **Ask abo
 
 Field sections collapse unbranched inclusion chains under the specialist name. Sibling and shared-dependency sections remain separate. Every field keeps its original set ID for editing, citations and pins. Pinned details appear together above the editor, with sensitive values masked. Purchasables are grouped as consumables, accessories and upgrades.
 
-Sharing, hosted deployment, checkout, repair booking, calendar sync and conversation history remain deferred.
+Sharing, checkout, repair booking, calendar sync and conversation history remain deferred. Render deployment configuration is available; hosted rollout must be verified separately.
 
 ## Fields and privacy
 
@@ -128,7 +128,7 @@ Registry fields carry semantic keys in `icon` (for example `fieldDate`). The tab
 | `fieldCount`        | `remixListOrdered2`         |
 | `fieldCheck`        | `remixCheckboxCircleLine`   |
 
-Registry seeds are authored in `server/src/db/registry-seed.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
+Registry seeds are authored in `server/src/db/seeds/registry.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
 
 Apply `20260930040000_expanded_fieldsets.sql` with `pnpm db:migrate`, then restart the API. The migration installs the catalogue and moves existing appliance ownership/warranty, vehicle registration/VIN and museum membership values into their new sets. It preserves source references, sensitivity, user edits and pins. Conflicts and retired renewal dates become custom fields. Legacy standalone appliance fields migrate to the shared definitions. Re-running `pnpm db:seed` keeps the same catalogue metadata.
 
@@ -153,11 +153,11 @@ New PDF uploads and discovery downloads derive `pageCount` with [pdf-lib](https:
 - `src/app/`: Angular shell, lazy feature pages, shared components and services; see `src/AGENTS.md`.
 - `src/styles/`: Sass tokens, typography, mixins and shared styles; see `src/styles/CHEATSHEET.md`.
 - `server/src/application/`: feature workflows for imports, registry, discovery and conversations, plus shared activity rules and the single-process job runner.
-- `server/src/db/`: typed persistence functions grouped by entity, shared transactions and authored registry seeds.
-- `server/src/providers/blobs.ts`: storage interface and filesystem implementation.
-- `server/src/plugins/auth.ts`: Logto verification and local-user mapping.
+- `server/src/db/`: connection, transaction, row-mapping and error infrastructure; `entities/` contains typed persistence and `seeds/` contains authored registry seeds.
+- `server/src/providers/`: external capabilities grouped into `ai/`, `auth/`, `blobs/` and `web/`; provider factories select runtime adapters from configuration.
+- `server/src/plugins/`: typed Fastify plugins for authenticated request handling and optional frontend serving.
 - `server/src/contracts/`: operation-specific route types, OAS 3.1 runtime schemas and contract checks.
-- `server/src/routes/`: HTTP handlers, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
+- `server/src/routes/`: typed Fastify route plugins, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
 - `server/src/lib/`: generic cancellation and media checks.
 - `shared/api.ts`: generated contract types; do not edit by hand.
 - `src/app/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
@@ -215,7 +215,7 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 `pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 
-`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. Production hosting and operating configuration are separate work.
+`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. GitHub Actions validates PRs and `main`. The Render Free Blueprint builds the application, prepares production Supabase at the end of the build and deploys after CI passes. Free instances sleep when idle; queued work resumes on wake and interrupted work requires retry. See [deployment setup](docs/setup/deployment.md) for private Supabase Storage, credentials, Logto callbacks, release sequencing and recovery.
 
 ### Import verification
 

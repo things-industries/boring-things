@@ -10,7 +10,7 @@ import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import type { Schema } from '../../../../shared/model.js';
 import type { Config } from '../../config.js';
-import type { BlobStorage } from '../../providers/blobs.js';
+import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { ChatAi, ChatToolResult } from './types.js';
 import type { ImportAi, Discovery } from '../import/types.js';
@@ -25,8 +25,8 @@ import {
   searchChatThings,
   chatResources,
   chatAttachment,
-} from '../../db/conversations.js';
-import { ownedThing } from '../../db/things.js';
+} from '../../db/entities/conversations.js';
+import { ownedThing } from '../../db/entities/things.js';
 import { detail } from '../things.js';
 import { ensure } from '../errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
@@ -176,7 +176,7 @@ export class Assistant {
         const chunks: Buffer[] = [];
         let bytes = 0;
 
-        for await (const chunk of this.blobs.read(file.storageKey)) {
+        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
           signal.throwIfAborted();
           bytes += chunk.length;
           ensure(bytes <= this.config.maxUploadBytes, 'Attachment too large');
