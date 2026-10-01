@@ -10,7 +10,7 @@ Input: $ARGUMENTS
 
 If the input names issue numbers, work only on those. Otherwise work on every open `Frontend` issue that does not have the `ready for QA` label.
 
-Read [docs/agents/github-issues.md](../../../docs/agents/github-issues.md), [docs/agents/agent-behaviour.md](../../../docs/agents/agent-behaviour.md) and [src/AGENTS.md](../../../src/AGENTS.md) first. Run every `gh` command as `env -u GITHUB_TOKEN gh ...`.
+Read [docs/agents/github-issues.md](../../../docs/agents/github-issues.md), [docs/agents/agent-behaviour.md](../../../docs/agents/agent-behaviour.md) and [src/AGENTS.md](../../../src/AGENTS.md) first. The `gh` commands below are for local sessions; run each as `env -u GITHUB_TOKEN gh ...`. In cloud sessions (`CLAUDE_CODE_REMOTE=true`), do the same operations with the GitHub plugin.
 
 ## 1. List
 
@@ -66,5 +66,5 @@ Then list skipped issues with a one-line reason. Nothing else.
 
 I will report back per issue.
 
-- **Passed**: remove the label and close it: `gh issue edit <n> --remove-label "ready for QA"` then `gh issue close <n> --comment "QA passed."`.
+- **Passed**: remove the label and close it: `env -u GITHUB_TOKEN gh issue edit <n> --remove-label "ready for QA"` then `env -u GITHUB_TOKEN gh issue close <n> --comment "QA passed."`.
 - **Failed or needs changes**: remove the label, fix, test and commit again (`Refs #<n>`), comment with what changed, re-add `ready for QA`, and give me the updated test steps for that issue.
