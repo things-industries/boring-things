@@ -1,12 +1,12 @@
 # Render and Supabase deployment
 
-GitHub Actions validates pull requests and pushes to `main`. Render deploys `main` after its checks pass. One paid Render Node service serves Angular and Fastify; Supabase hosts PostgreSQL and a private attachment bucket. The initial deployment uses Supabase Storage through its S3 API. Local development uses filesystem blobs.
+GitHub Actions validates pull requests and pushes to `main`. Render deploys `main` after its checks pass. One Render Free Node service serves Angular and Fastify; Supabase hosts PostgreSQL and a private attachment bucket. The initial deployment uses Supabase Storage through its S3 API. Local development uses filesystem blobs.
 
 ## Release sequence
 
 1. CI installs the locked dependencies, builds and runs formatting, spelling, contract, lint, type, unit, integration and browser checks against temporary PostgreSQL databases. It has no production secrets.
 2. Render builds the same commit using `render.yaml`.
-3. The pre-deploy command `pnpm deploy:prepare` applies pending Supabase migrations, upserts registry metadata and creates or verifies the private attachment bucket.
+3. After compilation succeeds, the final build step `pnpm deploy:prepare` applies pending Supabase migrations, upserts registry metadata and creates or verifies the private attachment bucket. The build fails if preparation fails.
 4. Render starts the compiled application and checks `/health`, which checks database connectivity.
 5. The replacement process waits for the database runner lock. The old process aborts and finishes active work before releasing that lock. Queued jobs can then run on the replacement; interrupted jobs require user retry.
 
@@ -33,9 +33,11 @@ Use a dedicated project with PostgreSQL 17. Inspect its migration history before
 | `LOGTO_ENDPOINT`, `LOGTO_APP_ID`, `LOGTO_API_RESOURCE` | Existing Logto configuration                                                                                         |
 | `OPENAI_API_KEY`, `OPENAI_MODEL`                       | Server-side AI configuration                                                                                         |
 
-The Blueprint uses Frankfurt, the nearest available Render region to the initial London Supabase project. It uses Starter compute for pre-deploy commands and remains at one instance. Render provides `PORT`; the Blueprint sets `HOST=0.0.0.0` and disables sample data.
+The Blueprint uses one Free instance in Frankfurt, the nearest available Render region to the initial London Supabase project. Render provides `PORT`; the Blueprint sets `HOST=0.0.0.0` and disables sample data.
 
-Configure production values in Render. Keep local `.env` and its `DATABASE_URL` pointing at the local database. The Blueprint's pre-deploy command handles hosted preparation without a local production configuration file. For optional manual hosted preparation, put the production values in ignored `.env.render` with file permissions restricted to the owner. Do not commit or print that file.
+Free services sleep after 15 minutes without inbound traffic and take about a minute to wake. They may also restart at any time. Queued jobs remain in PostgreSQL and resume on wake; interrupted imports and chat require user retry. Attachments remain in Supabase Storage. The workspace shares 750 Free instance hours per month across its Free services, including any Travel Things service in the same workspace. Bandwidth and build-minute limits also apply; monitor these in Render billing. See [Free service limits](https://render.com/docs/free).
+
+Configure production values in Render. Keep local `.env` and its `DATABASE_URL` pointing at the local database. The Blueprint's build command handles hosted preparation without a local production configuration file. For optional manual hosted preparation, put the production values in ignored `.env.render` with file permissions restricted to the owner. Do not commit or print that file.
 
 ```sh
 node --import tsx --env-file=.env.render scripts/deploy.ts --dry-run
@@ -51,11 +53,13 @@ After the deployment changes are merged and `main` passes CI:
 
 1. In Render, choose **New → Blueprint** and connect `things-industries/boring-things` on `main`.
 2. Review the `boring-things` service from `render.yaml` and enter its prompted environment variables from the production configuration above.
-3. Create the Blueprint. Confirm the service has **After CI Checks Pass** enabled and the workspace overlapping deploy policy is **Wait**.
+3. Create the Blueprint. Confirm the service uses **Free** compute, has **After CI Checks Pass** enabled and the workspace overlapping deploy policy is **Wait**.
 4. In GitHub's rules for `main`, require pull requests and the `validate` job from the **CI** workflow. Restrict bypasses as appropriate. Keep the workflow unconditional; Render accepts skipped and neutral checks as passing.
 5. Add `https://<service>.onrender.com/callback`, the logout URL `https://<service>.onrender.com/`, and the HTTPS origin to the existing Logto SPA application. Repeat when adding a custom domain. See [Logto setup](logto.md).
 
 A new Blueprint can perform an initial deployment during creation. Prepare all credentials and inspect migration history before creating it.
+
+For an existing Blueprint, sync `render.yaml` after merging changes. Confirm the service shows **Free** compute and an empty **Pre-Deploy Command**; clear any retained pre-deploy command in the service settings. The build command must end with `corepack pnpm deploy:prepare`.
 
 ## Verification and recovery
 
@@ -65,7 +69,7 @@ A new Blueprint can perform an initial deployment during creation. Prepare all c
 - Confirm a failed CI run does not deploy, and failed deployment preparation retains the current release.
 - Roll back application code through Render only to a version compatible with the current schema and registry. Rollback does not undo database changes or restore deleted files.
 
-Use additive migrations and compatible registry changes for ordinary releases because the old application remains online during pre-deploy. Schedule maintenance for incompatible changes. Keep at least the previous release compatible until rollback is no longer needed.
+Use additive migrations and compatible registry changes for ordinary releases because the old application can remain online while the build applies migrations. A cancelled or failed deployment can leave completed migrations applied. Schedule maintenance for incompatible changes. Keep at least the previous release compatible until rollback is no longer needed.
 
 The runner uses a dedicated PostgreSQL connection and a session advisory lock. It exits if that session is lost, allowing Render to restart it and recover interrupted work. This supports overlap during deployment; horizontal scaling and distributed streaming require additional design.
 

@@ -2,13 +2,12 @@ services:
   - type: web
     name: boring-things
     runtime: node
-    plan: starter
+    plan: free
     region: frankfurt
     branch: main
     numInstances: 1
     autoDeployTrigger: checksPass
-    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && CI=true corepack pnpm build
-    preDeployCommand: corepack pnpm deploy:prepare
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && CI=true corepack pnpm build && corepack pnpm deploy:prepare
     startCommand: node dist/server/server/src/index.js
     healthCheckPath: /health
     maxShutdownDelaySeconds: 90

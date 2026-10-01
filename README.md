@@ -214,7 +214,7 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 `pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 
-`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. GitHub Actions validates PRs and `main`. The Render Blueprint builds the application, prepares production Supabase and deploys after CI passes. See [deployment setup](docs/setup/deployment.md) for private Supabase Storage, credentials, Logto callbacks, release sequencing and recovery.
+`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. GitHub Actions validates PRs and `main`. The Render Free Blueprint builds the application, prepares production Supabase at the end of the build and deploys after CI passes. Free instances sleep when idle; queued work resumes on wake and interrupted work requires retry. See [deployment setup](docs/setup/deployment.md) for private Supabase Storage, credentials, Logto callbacks, release sequencing and recovery.
 
 ### Import verification
 
