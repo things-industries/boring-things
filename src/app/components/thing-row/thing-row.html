@@ -1,0 +1,16 @@
+<bt-list-row [title]="thing().name" [link]="['/things', thing().id]">
+  <bt-thing-thumbnail
+    rowLeading
+    [imageId]="thing().imageAttachmentId"
+    [category]="category()?.icon ?? null"
+  />
+  <span rowSubtitle>
+    {{ category()?.name }}
+    @if (isNew()) {
+      · <span class="text-accent">New</span>
+    }
+    @if (thing().isSample) {
+      · Sample
+    }
+  </span>
+</bt-list-row>

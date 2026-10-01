@@ -1,0 +1,46 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
+  padding-top: tokens.space(2);
+}
+.home-greeting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: tokens.space(3);
+  h1 {
+    margin: 0;
+    @include typography.role(title);
+    font-weight: typography.weight(regular);
+  }
+}
+.home-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: tokens.space(2);
+}
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+}
+.home-empty {
+  margin: 0;
+  padding: tokens.space(4) 0;
+  color: tokens.color(primary-muted);
+}
+.home-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: tokens.space(3);
+  padding-bottom: tokens.space(4);
+}
+.home-categories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: tokens.space(3);
+}

@@ -34,11 +34,9 @@ import {
   remixMoreLine,
   remixPencilLine,
   remixPriceTag3Line,
-  remixRefreshLine,
   remixSearchLine,
   remixShieldCheckLine,
   remixShoppingBagLine,
-  remixSparkling2Line,
   remixStarLine,
   remixStarFill,
   remixText,
@@ -46,10 +44,18 @@ import {
   remixToolsLine,
   remixCameraLine,
   remixImageLine,
-  remixUser3Line,
   remixMailLine,
   remixAppleFill,
   remixInformationLine,
+  remixAccountCircleLine,
+  remixAlertLine,
+  remixFridgeLine,
+  remixMacbookLine,
+  remixCarLine,
+  remixIdCardLine,
+  remixLoopRightLine,
+  remixFlashlightLine,
+  remixShieldLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftLine;
@@ -74,7 +80,7 @@ export const navTimeline = remixCalendarLine;
 export const navTimelineActive = remixCalendarFill;
 export const navAsk = remixChat3Line;
 export const navAskActive = remixChat3Fill;
-export const openProfile = remixUser3Line;
+export const openProfile = remixAccountCircleLine;
 export const moreActions = remixMoreLine;
 export const openRow = remixArrowRightSLine;
 export const close = remixCloseLine;
@@ -86,9 +92,11 @@ export const signInWithApple = remixAppleFill;
 export const setupNotice = remixInformationLine;
 
 // Home
-export const askQuestion = remixSparkling2Line;
-export const issueAttention = remixErrorWarningLine;
-export const issueRenewal = remixRefreshLine;
+export const askQuestion = remixChat3Line;
+export const issueRenewal = remixAlertLine;
+export const issueWarranty = remixShieldCheckLine;
+export const issueFault = remixErrorWarningLine;
+export const issueOther = remixInformationLine;
 export const upcomingEvent = remixCalendarEventLine;
 
 // Add Thing
@@ -116,3 +124,15 @@ export const unlinkAttachment = remixLinkUnlink;
 // Chat
 export const attachToMessage = remixAttachment2;
 export const sendMessage = remixArrowUpLine;
+
+// Categories, keyed by the registry's `Category.icon`. Read through `categoryIcon()`.
+export const categoryIcons = {
+  categoryAppliance: remixFridgeLine,
+  categoryDevice: remixMacbookLine,
+  categoryVehicle: remixCarLine,
+  categoryMembership: remixIdCardLine,
+  categorySubscription: remixLoopRightLine,
+  categoryUtility: remixFlashlightLine,
+  categoryInsurance: remixShieldLine,
+  categoryOther: remixFileTextLine,
+};

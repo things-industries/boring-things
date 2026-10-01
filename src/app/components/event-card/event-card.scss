@@ -1,0 +1,7 @@
+@use 'tokens';
+:host {
+  display: block;
+  padding: tokens.space(1) tokens.space(4);
+  border-radius: tokens.radius(tile);
+  background: tokens.color(accent-subtle);
+}

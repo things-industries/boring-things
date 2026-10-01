@@ -60,6 +60,18 @@ $legacy-roles: (
   ),
 );
 $all-roles: map.merge($legacy-roles, $roles);
+$weights: (
+  regular: 400,
+  medium: 500,
+  semibold: 600,
+  bold: 700,
+);
+@function weight($name) {
+  @if not map.has-key($weights, $name) {
+    @error 'Unknown font weight: #{$name}';
+  }
+  @return map.get($weights, $name);
+}
 @mixin role($name) {
   @if not map.has-key($all-roles, $name) {
     @error 'Unknown typography role: #{$name}';

@@ -1,0 +1,5 @@
+@if (imageUrl()) {
+  <img [src]="imageUrl()" alt="" />
+} @else {
+  <ng-icon [name]="categoryIcon(category())" aria-hidden="true" />
+}

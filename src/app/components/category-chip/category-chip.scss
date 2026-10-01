@@ -1,0 +1,24 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: block;
+  min-width: 0;
+}
+.category-chip {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
+  padding: tokens.space(3);
+  border-radius: tokens.radius(tile);
+  background: tokens.color(secondary-muted);
+  color: tokens.color(primary);
+  @include typography.role(label);
+  font-weight: typography.weight(regular);
+  @include mixins.icon-size(sm);
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

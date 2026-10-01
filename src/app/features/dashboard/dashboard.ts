@@ -2,23 +2,28 @@ import { isNewThing } from '../../utils/date.util';
 import { DashboardSkeleton } from './dashboard-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { addThing, open, openProfile, searchThings } from '../../core/app-icons';
-import { apiData } from '../../core/api/api-client';
-import { Component, inject, signal } from '@angular/core';
+import { addThing, categoryIcons, open, openProfile, searchThings } from '../../core/app-icons';
+import { categoryIcon } from '../../utils/category.util';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import type { Schema } from '../../../../shared/model';
-import { Api } from '../../core/services/api.service';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CONFIG } from '../../core/runtime-config';
 import { APP_CONFIG } from '../../core/app.config';
-import { errorCode } from '../../utils/error.util';
-import type { UiErrorCode } from '../../interfaces/error.interface';
+import { EventsStore } from '../../core/state/events.store';
+import { IssuesStore } from '../../core/state/issues.store';
+import { ProfileStore } from '../../core/state/profile.store';
+import { TagsStore } from '../../core/state/tags.store';
+import { ThingsStore } from '../../core/state/things.store';
+import { loadCollections } from '../../core/state/load-collections';
+import { categoriesView } from '../../core/state/views/categories.view';
+import { upcomingEventsView } from '../../core/state/views/events.view';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { Activity } from '../../components/activity/activity';
 import { IconButton } from '../../components/icon-button/icon-button';
 import type { ActivityAction } from '../../interfaces/activity.interface';
+
 @Component({
-  viewProviders: [provideIcons({ addThing, open, openProfile, searchThings })],
+  viewProviders: [provideIcons({ addThing, open, openProfile, searchThings, ...categoryIcons })],
   selector: 'bt-dashboard',
   imports: [
     DashboardSkeleton,
@@ -34,131 +39,100 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
   styleUrl: './dashboard.scss',
 })
 export class Dashboard {
-  readonly api = inject(Api);
+  private profileStore = inject(ProfileStore);
+  private thingsStore = inject(ThingsStore);
+  private tagsStore = inject(TagsStore);
+  private issuesStore = inject(IssuesStore);
+  private eventsStore = inject(EventsStore);
+  private collections = loadCollections(
+    this.profileStore,
+    this.thingsStore,
+    this.tagsStore,
+    this.issuesStore,
+    this.eventsStore,
+  );
+
   readonly config = inject(CONFIG);
-  things = signal<Schema['ThingSummary'][]>([]);
-  categories = signal<Schema['Category'][]>([]);
-  tags = signal<Schema['Tag'][]>([]);
-  issues = signal<Schema['Issue'][]>([]);
-  events = signal<Schema['Event'][]>([]);
-  samplesAdded = signal(false);
-  error = signal<UiErrorCode | null>(null);
-  busy = signal(false);
-  loaded = signal(false);
-  cursor = signal<string | null>(null);
+  readonly categoryIcon = categoryIcon;
+  readonly categories = categoriesView();
+  readonly tags = this.tagsStore.sorted;
+  readonly issues = computed(() =>
+    this.issuesStore.openIssues().slice(0, APP_CONFIG.activityLimit),
+  );
+
+  private readonly upcoming = upcomingEventsView();
+  readonly events = computed(() => this.upcoming().slice(0, APP_CONFIG.activityLimit));
+  readonly samplesAdded = computed(() => this.profileStore.profile()?.samplesAdded ?? true);
+  readonly seeding = this.profileStore.seeding;
+  readonly loaded = this.collections.loaded;
+  readonly error = this.collections.error;
+
+  readonly thingsFailed = computed(() => this.thingsStore.status() === 'error');
+
   q = '';
-  categoryId = '';
+  categoryId = inject(ActivatedRoute).snapshot.queryParamMap.get('categoryId') ?? '';
   tagId = '';
-  private request = 0;
-  constructor() {
-    void this.load();
+  private filters = signal({ q: '', categoryId: this.categoryId, tagId: '' });
+  private limit = signal<number>(APP_CONFIG.thingPageSize);
+  private matches = computed(() => {
+    const { q, categoryId, tagId } = this.filters();
+    const text = q.toLowerCase();
+
+    return this.thingsStore
+      .entities()
+      .filter(
+        (thing) =>
+          (!categoryId || thing.categoryId === categoryId) &&
+          (!tagId || thing.tagIds.includes(tagId)) &&
+          (!text || `${thing.name} ${thing.description}`.toLowerCase().includes(text)),
+      )
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
+  });
+
+  readonly things = computed(() => this.matches().slice(0, this.limit()));
+  readonly hasMore = computed(() => this.matches().length > this.limit());
+  retry() {
+    this.collections.retry();
   }
-  async load() {
-    this.error.set(null);
-    try {
-      const [categories, tags, issues, events, profile] = await Promise.all([
-        this.api.all((query) => this.api.client.GET('/api/categories', { params: { query } })),
-        this.api.all((query) => this.api.client.GET('/api/tags', { params: { query } })),
-        this.api.client
-          .GET('/api/issues', {
-            params: {
-              query: { status: 'OPEN', limit: APP_CONFIG.activityLimit },
-            },
-          })
-          .then(apiData),
-        this.api.client
-          .GET('/api/events', {
-            params: {
-              query: {
-                status: 'SCHEDULED',
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                from: new Date().toISOString(),
-                limit: APP_CONFIG.activityLimit,
-              },
-            },
-          })
-          .then(apiData),
-        this.api.client.GET('/api/profile').then(apiData),
-      ]);
-      this.categories.set(categories);
-      this.tags.set(tags);
-      this.issues.set(issues.items);
-      this.events.set(events.items);
-      this.samplesAdded.set(profile.samplesAdded);
-      await this.search();
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      this.loaded.set(true);
-    }
+
+  search() {
+    this.filters.set({ q: this.q.trim(), categoryId: this.categoryId, tagId: this.tagId });
+    this.limit.set(APP_CONFIG.thingPageSize);
   }
-  async search(more = false) {
-    const request = ++this.request;
-    this.busy.set(true);
-    this.error.set(null);
-    try {
-      const result = await this.api.client
-        .GET('/api/things', {
-          params: {
-            query: {
-              q: this.q,
-              limit: APP_CONFIG.thingPageSize,
-              categoryId: this.categoryId || undefined,
-              tagId: this.tagId || undefined,
-              cursor: more ? (this.cursor() ?? undefined) : undefined,
-            },
-          },
-        })
-        .then(apiData);
-      if (request === this.request) {
-        this.things.set(more ? [...this.things(), ...result.items] : result.items);
-        this.cursor.set(result.nextCursor);
-      }
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      if (request === this.request) this.busy.set(false);
-    }
+
+  showMore() {
+    this.limit.update((limit) => limit + APP_CONFIG.thingPageSize);
   }
+
   chooseCategory(id: string) {
     this.categoryId = id;
-    void this.search();
+    this.search();
   }
+
   isNew(createdAt: string) {
     return isNewThing(createdAt, new Date(), APP_CONFIG.newThingDays);
   }
+
   category(id: string) {
     return this.categories().find((c) => c.id === id);
   }
-  async samples() {
-    this.busy.set(true);
-    try {
-      await this.api.client.POST('/api/profile:seed-samples');
-      await this.load();
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      this.busy.set(false);
-    }
+
+  samples() {
+    void this.profileStore.seedSamples();
   }
-  async activity(action: ActivityAction) {
-    this.busy.set(true);
-    try {
-      if (action.kind === 'issues')
-        await this.api.client.PATCH('/api/issues/{id}', {
-          params: { path: { id: action.id } },
-          body: action.patch,
-        });
-      else
-        await this.api.client.PATCH('/api/events/{id}', {
-          params: { path: { id: action.id } },
-          body: action.patch,
-        });
-      await this.load();
-    } catch (e) {
-      this.error.set(errorCode(e));
-    } finally {
-      this.busy.set(false);
-    }
+
+  activity(action: ActivityAction) {
+    if (action.kind === 'issues')
+      void this.issuesStore.update(
+        action.id,
+        action.patch,
+        action.patch.status === 'RESOLVED' ? 'resolveIssue' : 'saveChanges',
+      );
+    else
+      void this.eventsStore.update(
+        action.id,
+        action.patch,
+        action.patch.status === 'COMPLETED' ? 'completeEvent' : 'scheduleEvent',
+      );
   }
 }

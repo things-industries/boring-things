@@ -43,6 +43,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Events can use a date-only `startsOn` or an instant `startsAt`. Scheduling requires one; switching formats requires clearing the other. Event lists order by schedule, then ID, and accept `timeZone` (default UTC) for date-only ordering and inclusive date-range filtering. Date-only events remain upcoming throughout their local day.
 - Thing summaries/detail expose `accessCount` and `lastViewedAt`. `POST /api/things/{id}:view` records one page open, without changing edit timestamps or content revision; reads, assistant tools and stream refreshes do not count. Each successful request increments once, so clients must not automatically retry. List sorting supports `UPDATED` (default), `RECENTLY_VIEWED` and `MOST_VIEWED`, before pagination. Unviewed Things sort last for recent views; frequency ties use last-view time, then ID.
 - Thing cards use category names and show **New** while creation age is less than seven days. Attention cards use stored Issues; automatic deadline-derived Issue creation and recurring Events remain outside the implemented scope.
+- Home and the Things list read client-side stores that load each collection once per session. Resolving an Issue or completing or scheduling an Event there shows immediately; a rejected change reverts and shows an error toast.
 - Optional **Add sample data** action. It creates four sample Things with labelled issues, events and purchasables once per owner. Merchant actions are disabled for sample suggestions.
 
 ## AI imports
@@ -64,7 +65,7 @@ On an existing Thing, **Add details from a source** starts another import. Uploa
 
 ## Assistant
 
-Choose **Ask the assistant** on the dashboard or **Ask about this thing** on a Thing. Each entry starts a new conversation. The active conversation supports follow-up messages; navigating away or reloading starts a new chat. Messages remain stored for recovery and audit, with no conversation browser or previous-chat resumption.
+Choose **Ask a question** on Home, **Ask** in the bottom navigation or **Ask about this thing** on a Thing. Each entry starts a new conversation. The active conversation supports follow-up messages; navigating away or reloading starts a new chat. Messages remain stored for recovery and audit, with no conversation browser or previous-chat resumption.
 
 - Answers use masked Thing details, linked attachment content and owner-scoped search. Chat may send relevant private documents to OpenAI; document content can contain information beyond the masked field projection. The model is instructed to omit secrets. Source documents and tool results are treated as untrusted evidence.
 - Select **Ask a question**, **Create maintenance event** or **Report issue** before sending. The selected action authorises the matching write tool. Each message can create one suggested Event or one open Issue; scheduling and completion use the existing card controls. These are application records, without calendar sync or external booking.

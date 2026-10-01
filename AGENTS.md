@@ -34,7 +34,7 @@ Angular browser client -> /api -> Fastify -> Supabase PostgreSQL (bt schema)
 - Keep application rules, persistence and external providers separated. Extend existing modules before adding abstractions. Add classes when state or lifecycle requires them.
 - Do not introduce frameworks, providers or infrastructure without explicit approval (but suggest them if they would help). Update the relevant guide when a decision changes.
 - The browser must not receive database, service-role or AI credentials. Private records and attachments must not enter public assets or shared caches.
-- Frontend styling uses Sass, icons use Remix through `ng-icons` 34.x, and date helpers use `date-fns`.
+- Frontend styling uses Sass, icons use Remix through `ng-icons` 34.x, date helpers use `date-fns`, client state uses `@ngrx/signals` 21.x and toasts use `ngx-toastr` 20.x.
 - Tests use Node's test runner; e2e tests use Playwright Test in `e2e/`. GitHub Actions validates PRs and `main`; Render deploys after checks pass. ESLint uses flat configuration. Do not assume Angular unit-test targets or pre-commit hooks exist.
 
 ## API contract

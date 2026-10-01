@@ -2,6 +2,7 @@ import { Component, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { Schema } from '../../../../shared/model';
 import { Api } from '../../core/services/api.service';
+import { AttachmentsService } from '../../core/data/attachments.service';
 import { apiData } from '../../core/api/api-client';
 import { Activity } from '../../components/activity/activity';
 import type { ActivityAction } from '../../interfaces/activity.interface';
@@ -16,6 +17,7 @@ import { formatFieldValue } from '../../utils/field.util';
 export class ResourceCard {
   card = input.required<Schema['ResourceCard']>();
   private api = inject(Api);
+  private attachments = inject(AttachmentsService);
   thing = signal<Schema['Thing'] | null>(null);
   field = signal<Schema['Field'] | null>(null);
   file = signal<Schema['Attachment'] | null>(null);
@@ -124,7 +126,7 @@ export class ResourceCard {
     if (!file) return;
     this.actionFailed.set(false);
     try {
-      await this.api.download(file);
+      await this.attachments.download(file);
     } catch {
       this.actionFailed.set(true);
     }

@@ -4,7 +4,10 @@ How agents file issues on `things-industries/boring-things`.
 
 ## Access
 
-Use the agent's GitHub plugin for GitHub content and operations. Search deferred tools and inspect the complete connector response, including structured data. If unavailable or unable to perform the operation, stop that operation and explain the access needed. Do not use a browser, web search, GitHub CLI, GitHub API or direct HTTP as a fallback unless explicitly directed. Standard git remote commands are unaffected.
+- **Local sessions:** use the GitHub CLI (`gh`), such as `gh issue list`, `gh issue create`, `gh label list` and `gh api` for milestones. Run it as `env -u GITHUB_TOKEN gh ...` so the signed-in account is used, and pass issue bodies with `--body-file`.
+- **Cloud sessions** (`CLAUDE_CODE_REMOTE=true`): use the agent's GitHub plugin. Search deferred tools and inspect the complete connector response, including structured data.
+
+If the session's tool is unavailable or cannot perform the operation, stop that operation and explain the access needed. Do not use a browser, web search or direct HTTP as a fallback unless explicitly directed. Standard git remote commands are unaffected.
 
 General conduct, including task authorisation for creating issues: [`agent-behaviour.md`](agent-behaviour.md#conduct).
 
@@ -16,7 +19,7 @@ Before creating, search open issues for the same change. If one exists, report i
 
 ## Labels
 
-Every issue gets exactly one area label and one type label, drawn from the repository's existing labels — list them through the plugin first; do not create labels.
+Every issue gets exactly one area label and one type label, drawn from the repository's existing labels — list them first (`gh label list` or the plugin); do not create labels.
 
 - Area: `Frontend` (Angular client, UI, styling) or `Backend` (server, Fastify, database, AI providers).
 - Type: `bug` (something is wrong) or `enhancement` (new or changed behaviour).

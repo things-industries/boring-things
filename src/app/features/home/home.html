@@ -1,0 +1,153 @@
+<header class="home-greeting">
+  @let name = profile()?.displayName;
+  <h1>
+    {{
+      period === 'morning'
+        ? 'Good morning'
+        : period === 'afternoon'
+          ? 'Good afternoon'
+          : 'Good evening'
+    }}{{ name ? ', ' + name : '' }}
+  </h1>
+  <a
+    btIconButton
+    variant="plain"
+    icon="openProfile"
+    routerLink="/profile"
+    [label]="'profile' | term"
+  ></a>
+</header>
+<bt-promo-card title="Ask a question" icon="askQuestion" link="/chat">
+  Ask across manuals, receipts, warranties and everything you own.
+</bt-promo-card>
+@if (error()) {
+  <div class="home-error">
+    <bt-error-message [code]="error()" />
+    <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+  </div>
+}
+@if (!loaded()) {
+  <bt-home-skeleton />
+} @else {
+  <section class="home-section">
+    <bt-section-header title="Needs attention">
+      <button type="button" class="button-link" disabled>
+        See all<span class="visually-hidden"> (coming soon)</span>
+      </button>
+    </bt-section-header>
+    <bt-card-group>
+      @for (issue of issues(); track issue.id) {
+        <bt-list-row
+          [title]="issue.title"
+          [link]="['/things', issue.thingId]"
+          [icon]="kindBadges[issue.kind].icon"
+          [tone]="kindBadges[issue.kind].tone"
+        >
+          <span rowSubtitle>
+            @if (issue.statusText) {
+              {{ issue.statusText }}
+            }
+            @if (issue.statusText && issue.dueDate) {
+              ·
+            }
+            @if (issue.dueDate) {
+              {{ issue.dueDate | date: 'd MMMM' }} ·
+              @let days = daysUntil(issue.dueDate);
+              @if (days === 0) {
+                Due today
+              } @else if (days === 1) {
+                1 day
+              } @else if (days > 1) {
+                {{ days }} days
+              } @else if (days === -1) {
+                1 day overdue
+              } @else {
+                {{ -days }} days overdue
+              }
+            }
+            @if (issue.isSample) {
+              @if (issue.statusText || issue.dueDate) {
+                ·
+              }
+              Sample
+            }
+          </span>
+        </bt-list-row>
+      } @empty {
+        @if (issuesFailed()) {
+          <p class="home-empty">Couldn't load what needs attention.</p>
+        } @else {
+          <p class="home-empty">Nothing needs attention.</p>
+        }
+      }
+    </bt-card-group>
+  </section>
+  <section class="home-section">
+    <bt-section-header title="Upcoming">
+      <a class="button-link" routerLink="/timeline">View {{ 'timeline' | term }}</a>
+    </bt-section-header>
+    @if (upcoming(); as event) {
+      <bt-event-card
+        [title]="event.title"
+        [date]="event.startsOn ?? event.startsAt"
+        [link]="['/things', event.thingId]"
+      >
+        <span rowSubtitle>
+          {{ event.thingName }} · {{ event.startsOn ?? event.startsAt ?? '' | relativeTime }}
+          @if (event.isSample) {
+            · Sample
+          }
+        </span>
+      </bt-event-card>
+    } @else {
+      <bt-card-group>
+        @if (upcomingFailed()) {
+          <p class="home-empty">Couldn't load upcoming events.</p>
+        } @else {
+          <p class="home-empty">Nothing scheduled.</p>
+        }
+      </bt-card-group>
+    }
+  </section>
+  <section class="home-section">
+    <bt-section-header title="Frequent & recent">
+      <a class="button-link" routerLink="/things">All Things</a>
+    </bt-section-header>
+    @for (thing of things(); track thing.id) {
+      <bt-thing-row [thing]="thing" [category]="category(thing.categoryId)" />
+    } @empty {
+      @if (thingsFailed()) {
+        <bt-card-group><p class="home-empty">Couldn't load your things.</p></bt-card-group>
+      } @else {
+        <bt-card-group class="home-start">
+          <p class="home-empty">Add a thing and give its details a home.</p>
+          <div class="home-start-actions">
+            <a class="button-primary" routerLink="/things/new">Add your first thing</a>
+            @if (config.sampleDataEnabled && !profile()?.samplesAdded) {
+              <button
+                type="button"
+                class="button-secondary"
+                [disabled]="seeding()"
+                (click)="samples()"
+              >
+                Add sample data
+              </button>
+            }
+          </div>
+        </bt-card-group>
+      }
+    }
+  </section>
+  <section class="home-section">
+    <bt-section-header title="Categories" />
+    <div class="home-categories">
+      @for (category of categories(); track category.id) {
+        <bt-category-chip [category]="category" />
+      } @empty {
+        @if (categoriesFailed()) {
+          <p class="home-empty">Couldn't load categories.</p>
+        }
+      }
+    </div>
+  </section>
+}

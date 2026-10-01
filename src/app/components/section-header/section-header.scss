@@ -1,0 +1,17 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
+}
+.section-header-title {
+  margin: 0;
+  @include typography.role(section);
+}
+.section-header-end {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(3);
+  margin-left: auto;
+}

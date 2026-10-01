@@ -1,0 +1,4 @@
+<time [attr.datetime]="date()" [attr.aria-label]="date() | date: 'd MMMM y'">
+  <span class="date-tile-day">{{ date() | date: 'd' }}</span>
+  <span class="date-tile-month">{{ date() | date: 'MMM' | uppercase }}</span>
+</time>

@@ -18,10 +18,10 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    title: APP_TERMS.things,
+    title: APP_TERMS.home,
     canActivate: [authenticated],
     data: { bottomNav: true },
-    loadComponent: dashboard,
+    loadComponent: () => import('./features/home/home').then((m) => m.HomePage),
   },
   {
     path: 'things',

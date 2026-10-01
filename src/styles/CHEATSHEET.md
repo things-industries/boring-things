@@ -21,6 +21,7 @@ One file per style scope, or one folder when a scope needs several files.
 | `_forms.scss`            | Labels, inputs, selects, textareas, details                                                   | Yes       |
 | `_layout.scss`           | Page sections, grids, panels, empty states                                                    | Yes       |
 | `_status.scss`           | Badges, chips, samples, errors, notices                                                       | Yes       |
+| `_toasts.scss`           | `ngx-toastr` container, toast and close button (replaces the library stylesheet)              | Yes       |
 | `_mixins.scss`           | Shared mixins                                                                                 | No        |
 
 Component styles use tokens only: no literal colours, font sizes, weights, spacing, radii, shadows or icon sizes.
@@ -31,23 +32,27 @@ Component styles use tokens only: no literal colours, font sizes, weights, spaci
 
 ### Colour sets
 
-Each set has four tokens. The element decides where each is used (text, border, fill).
+Each set has four tokens, and optionally a fifth. The element decides where each is used (text, border, fill).
 
-| Token            | Meaning                  |
-| ---------------- | ------------------------ |
-| `<set>`          | Main shade               |
-| `<set>-muted`    | Softer shade             |
-| `<set>-subtle`   | Light tint               |
-| `<set>-contrast` | Colour to use on `<set>` |
+| Token                  | Meaning                                         |
+| ---------------------- | ----------------------------------------------- |
+| `<set>`                | Main shade                                      |
+| `<set>-muted`          | Softer shade                                    |
+| `<set>-subtle`         | Light tint                                      |
+| `<set>-contrast`       | Colour to use on `<set>`                        |
+| `<set>-contrast-muted` | Secondary text on `<set>`, where a set needs it |
 
-| Set         | Base          | `-muted`      | `-subtle`     | `-contrast`   | Typical use                                             |
-| ----------- | ------------- | ------------- | ------------- | ------------- | ------------------------------------------------------- |
-| `primary`   | `neutral-900` | `neutral-500` | `neutral-100` | `white`       | Text, primary buttons; muted text; neutral fills        |
-| `secondary` | `neutral-200` | `neutral-100` | `neutral-50`  | `neutral-900` | Dividers and outlines; fills; page background           |
-| `accent`    | `green-600`   | `green-400`   | `green-100`   | `white`       | Links and positive status; accent buttons; green badges |
-| `info`      | `blue-600`    | `blue-400`    | `blue-50`     | `white`       | Informational icons; blue badges and notices            |
-| `danger`    | `red-700`     | `red-500`     | `red-50`      | `white`       | Errors; error fills                                     |
-| `warning`   | `amber-600`   | `amber-400`   | `amber-100`   | `white`       | Warnings; warning fills                                 |
+| Set       | Base          | `-muted`      | `-subtle`     | `-contrast` | Typical use                                      |
+| --------- | ------------- | ------------- | ------------- | ----------- | ------------------------------------------------ |
+| `primary` | `neutral-900` | `neutral-500` | `neutral-100` | `white`     | Text, primary buttons; muted text; neutral fills |
+
+| `secondary` | `neutral-200` | `neutral-100` | `neutral-50` | `neutral-900` | Dividers and outlines; fills; page background |
+| `accent` | `green-600` | `green-400` | `green-100` | `white` | Links and positive status; accent buttons; green badges |
+| `info` | `blue-600` | `blue-400` | `blue-50` | `white` | Informational icons; blue badges and notices |
+| `danger` | `red-700` | `red-500` | `red-50` | `white` | Errors; error fills |
+| `warning` | `amber-600` | `amber-400` | `amber-100` | `white` | Warnings; warning fills |
+
+`primary-contrast-muted` (`neutral-300`) is the secondary text colour on a `primary` fill, such as a toast message or a promo card detail line. Other sets have no `-contrast-muted` token yet.
 
 ### Palette
 
@@ -79,7 +84,7 @@ Each set has four tokens. The element decides where each is used (text, border, 
 | `caption` | 11px | 400    | Meta lines, subtitles, badges      |
 | `micro`   | 9px  | 600    | Date tile month only               |
 
-`typography.tabular-numerals` aligns figures. Legacy roles `heading` and `eyebrow` remain for screens built before the current type scale.
+`typography.weight(regular|medium|semibold|bold)` overrides a role's weight where the design uses a role at another weight. `typography.tabular-numerals` aligns figures. Legacy roles `heading` and `eyebrow` remain for screens built before the current type scale.
 
 ## Spacing, radii, shadows and sizes
 
@@ -87,7 +92,7 @@ Each set has four tokens. The element decides where each is used (text, border, 
 - `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges). `control` (9px) is legacy.
 - `tokens.shadow(name)`: `raised` (call-to-action cards), `floating` (controls over images), `sheet` (sheet over an image).
 - `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px.
-- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `key-value-row` 39px, `bottom-nav` 64px, `content-max` 480px (page column width).
+- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `bottom-nav` 64px, `content-max` 480px (page column width).
 
 Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; set tokens resolve to their palette variable.
 

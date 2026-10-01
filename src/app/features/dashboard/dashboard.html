@@ -7,7 +7,7 @@
   <a btIconButton icon="openProfile" routerLink="/profile" [label]="'profile' | term"></a>
 </div>
 @if (error()) {
-  <bt-error-message [code]="error()" /><button class="quiet" (click)="load()">Retry</button>
+  <bt-error-message [code]="error()" /><button class="quiet" (click)="retry()">Retry</button>
 }
 @if (issues().length || events().length) {
   <section class="page-section">
@@ -19,7 +19,6 @@
       class="activity-grid"
       [issues]="issues()"
       [events]="events()"
-      [busy]="busy()"
       (action)="activity($event)"
     />
   </section>
@@ -51,13 +50,15 @@
         [class.active]="categoryId === category.id"
         (click)="chooseCategory(category.id)"
       >
-        {{ category.icon }} {{ category.name }}
+        <ng-icon [name]="categoryIcon(category.icon)" aria-hidden="true" /> {{ category.name }}
         <span>{{ category.thingCount }}</span>
       </button>
     }
   </div>
   @if (!loaded()) {
     <bt-dashboard-skeleton />
+  } @else if (!things().length && thingsFailed()) {
+    <p class="empty-state-inline">Couldn't load your things.</p>
   } @else if (!things().length) {
     <div class="empty-state">
       <div class="empty-state-icon">
@@ -74,7 +75,9 @@
     @for (thing of things(); track thing.id) {
       <a class="thing-card" [routerLink]="['/things', thing.id]"
         ><div class="thing-art" [attr.data-category]="thing.categoryId">
-          <span>{{ category(thing.categoryId)?.icon }}</span>
+          <span
+            ><ng-icon [name]="categoryIcon(category(thing.categoryId)?.icon)" aria-hidden="true"
+          /></span>
           @if (thing.isSample) {
             <small>Sample</small>
           }
@@ -92,8 +95,8 @@
       ></a>
     }
   </div>
-  @if (cursor()) {
-    <button class="quiet load-more" [disabled]="busy()" (click)="search(true)">Load more</button>
+  @if (hasMore()) {
+    <button class="quiet load-more" (click)="showMore()">Load more</button>
   }
 </section>
 @if (config.sampleDataEnabled && !samplesAdded()) {
@@ -102,6 +105,6 @@
       <strong>Take a look around</strong>
       <p>Add sample things, tasks and suggestions to explore the interface.</p>
     </div>
-    <button class="secondary" [disabled]="busy()" (click)="samples()">Add sample data</button>
+    <button class="secondary" [disabled]="seeding()" (click)="samples()">Add sample data</button>
   </aside>
 }

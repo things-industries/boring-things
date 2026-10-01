@@ -1,0 +1,7 @@
+@use 'tokens';
+:host {
+  display: block;
+  padding: 0 tokens.space(4);
+  border-radius: tokens.radius(card);
+  background: tokens.color('white');
+}

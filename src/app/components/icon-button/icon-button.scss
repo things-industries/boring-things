@@ -18,3 +18,6 @@
   background: tokens.color('white');
   box-shadow: tokens.shadow(floating);
 }
+:host(.plain) {
+  background: transparent;
+}

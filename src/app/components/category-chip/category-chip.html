@@ -1,0 +1,4 @@
+<a class="category-chip" routerLink="/things" [queryParams]="{ categoryId: category().id }">
+  <ng-icon [name]="categoryIcon(category().icon)" aria-hidden="true" />
+  <span>{{ category().name }} · {{ category().thingCount }}</span>
+</a>

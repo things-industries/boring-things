@@ -248,21 +248,67 @@ Validation: `CI=true pnpm check`; browser test updated for the renamed sign-in b
 
 ### 3. Home
 
-- Greeting, promo card, Needs attention, Upcoming, Frequent & recent, Categories.
-- Build the list, card, thumbnail and chip components listed for stage 3.
-- Loading skeletons and empty states.
-- Mocks: issue kind, category icon keys.
+New page `features/home/` at `/`. `/things` keeps the dashboard until stage 8; it reads `categoryId` from the query string so category chips land filtered.
+
+Data (one parallel load; each section renders as its data arrives with the rest of the page):
+
+| Section           | Source                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Greeting          | `GET /profile` `displayName`; period (morning before 12:00, afternoon before 18:00, evening) from the local time |
+| Needs attention   | `GET /issues?status=OPEN&limit=<apiPageSize>`, ordered by due date and cut to `activityLimit` in the #9 mock     |
+| Upcoming          | `GET /events?status=SCHEDULED&from=now&limit=1`, then `GET /things/{id}` for the Thing name                      |
+| Frequent & recent | `GET /things?sort=RECENTLY_VIEWED&limit=3`                                                                       |
+| Categories        | `GET /categories` (all pages); `Category.icon` keys map to catalogue icons                                       |
+
+Layout, top to bottom, `space(6)` between sections:
+
+- Greeting row: "Good morning, {displayName}" in `title` at regular weight; plain profile icon button linking to `/profile`.
+- Promo card linking to `/chat`: chat icon, "Ask a question" in `accent-muted`, supporting copy in `caption`.
+- **Needs attention**: section header with inert **See all** (#18); card group of list rows. Icon badge by kind: renewal alert (info), warranty shield (accent), fault warning (warning), other information (neutral). Subtitle: `statusText`, due date and day countdown. Rows link to the Thing, where resolve stays. Empty: "Nothing needs attention."
+- **Upcoming**: header with **View Timeline** to `/timeline`; event card with date tile, title, "{Thing} · {relative time}", linking to the Thing. Empty: "Nothing scheduled."
+- **Frequent & recent**: header with **All Things** to `/things`; three Thing rows (thumbnail, name, category, **New** within `newThingDays`, **Sample** label). Empty account: "Add your first thing" link to `/things/new` and, when sample data is enabled and not added, **Add sample data**.
+- **Categories**: header; two-column grid of category chips with icon, name and `thingCount`, linking to `/things?categoryId=`.
+
+Loading: a page skeleton shaped like the sections with a visually hidden "Loading" status. Error: `bt-error-message` with Retry.
+
+Components (`src/app/components/<name>/`):
+
+- `bt-section-header`: `h2` title in `section`; projected inline action (`[sectionInline]`) after the title; projected trailing link or action at the end.
+- `bt-icon-badge`: 36px circle, `sm` icon. `tone` `info`, `accent`, `warning`, `neutral` or `white` picks the fill.
+- `bt-list-row`: list-row mixin. Leading icon badge (`icon`, `tone`) or projected `[rowLeading]`; `title` in `body`; projected `[rowSubtitle]` in `caption`, `primary-muted`; projected `[rowTrailing]`. With `link`, the title is a router link stretched over the row and a chevron ends the row; trailing controls stay clickable above it. Adjacent rows are divided.
+- `bt-card-group`: white container, radius `card`, `space(4)` side padding, holding divided rows.
+- `bt-date-tile`: white 44px tile, day in `section` at regular weight, month in `micro`, `primary-muted`.
+- `bt-event-card`: list row on `accent-subtle`, radius `tile`, leading date tile or icon badge.
+- `bt-thing-thumbnail`: `md` 48px (`sm` 40px) tile on `secondary-muted`. Shows the Thing image through an authenticated blob URL (revoked on change and destroy), otherwise the category icon.
+- `bt-thing-row`: list row with thumbnail, Thing name and category meta, linking to the Thing.
+- `bt-category-chip`: link tile on `secondary-muted`, radius `tile`, category icon, "{name} · {count}" in `label`.
+- `bt-promo-card`: `primary` card, radius `card`, `raised` shadow, linking to its route.
+
+Styles: `typography.weight(regular|medium|semibold|bold)` for regular-weight uses of bold roles; size tokens `icon-badge` (36px), `thumbnail-sm` (40px), `thumbnail-md` (48px); `bt-icon-button` gains a `plain` variant (no fill).
+
+Icons: category icons keyed by `Category.icon`; `openProfile` becomes the account circle; `askQuestion` the chat bubble; `issueRenewal` the alert triangle; add `issueWarranty`, `issueFault`, `issueOther`.
+
+Mocks: `issue-kind.mock.ts` (#9) infers kind from the Issue title and description and orders open Issues by due date. Category icon keys are delivered (#8); no mock.
+
+Validation: `CI=true pnpm check`; e2e Home spec (greeting, sections, sample Things, category chip filters `/things`) and dashboard spec moved to `/things`; integration browser test adds sample data from Home; mobile (390px) and desktop screenshots of Home compared with the design frame.
+
+### 3a. App state
+
+- NgRx Signal Store entity stores over domain services; optimistic mutations with rollback and error toasts. See [App state](app-state.md).
+- Home, dashboard and Profile move to the stores. Manual creation and imports move in stage 4, Thing detail in stage 5 and chat in stage 7. Until then their writes bypass the stores, so Home and the Things list show those changes only after a reload.
 
 ### 4. Add Thing
 
 - Option tiles, file inputs, paste-text step, privacy notice.
 - **Enter details manually** link to the existing manual creation form.
+- Move creation onto the stores so new Things appear on Home and the Things list without a reload: manual creation calls `ThingsStore.create`, uploads call `AttachmentsStore.upload`, and an accepted or confirmed import loads its Things with `ThingsStore.loadOne`. The import panel's start, confirm and retry report failures through `Toasts`.
 
 ### 5. Thing detail
 
 - Hero, sheet, status summary, Key details, tasks, products, attachments, overflow menu.
 - Discovering and processing states with skeletons; multi-Thing confirmation restyled.
 - Mocks: field icons, event recurrence and kind, attachment title/kind/pages/publisher, product image, warranty/ownership fields.
+- Move the page onto the stores. It reads the Thing from `ThingsStore` (`loadOne`, `watch`, `view`) and its Issues, Events, attachments and purchasables from the child stores' selectors. Every write goes through a store method: Thing fields, pins, category, tags and delete; Tag create; attachment upload, link, unlink and delete; Issue resolve; Event schedule and complete; reveal. No direct `Api` calls remain on the page.
 
 ### 6. View all details
 
@@ -274,6 +320,7 @@ Validation: `CI=true pnpm check`; browser test updated for the renamed sign-in b
 - Add `marked` and `dompurify`; `bt-rich-text` renders sanitised Markdown.
 - Preserve the text-and-request-ID message contract for sends and retries.
 - Mocks: saved-document card.
+- Move chat onto `ConversationsStore` (`create`, `send`, `watch`, `loadOne`). Resource card actions use `IssuesStore`, `EventsStore` and `AttachmentsStore`. Afterwards only domain services call `Api`; drop the exception from `src/AGENTS.md`.
 
 ### 8. Things list and Profile
 

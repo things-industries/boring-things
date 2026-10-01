@@ -1,5 +1,8 @@
 <bt-placeholder-page [title]="'profile' | term" icon="openProfile" back="/">
   <h2>Coming soon</h2>
-  <p class="text-primary-muted">Your name and account settings will appear here.</p>
+  @if (profile()?.displayName; as name) {
+    <p>Signed in as {{ name }}</p>
+  }
+  <p class="text-primary-muted">Account settings will appear here.</p>
   <button type="button" class="button-secondary" (click)="auth.signOut()">Sign out</button>
 </bt-placeholder-page>
