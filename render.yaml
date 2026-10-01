@@ -10,7 +10,6 @@ services:
     buildCommand: corepack pnpm install --frozen-lockfile --prod=false && CI=true corepack pnpm build && corepack pnpm deploy:prepare
     startCommand: node dist/server/server/src/index.js
     healthCheckPath: /health
-    maxShutdownDelaySeconds: 90
     envVars:
       - key: NODE_ENV
         value: production
