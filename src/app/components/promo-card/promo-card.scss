@@ -31,5 +31,5 @@
 }
 .promo-card-detail {
   @include typography.role(caption);
-  color: tokens.color(neutral-300);
+  color: tokens.color(primary-contrast-muted);
 }

@@ -1,0 +1,61 @@
+@use 'tokens';
+@use 'typography';
+// Replaces the ngx-toastr styles. Toasts sit at the bottom, above the bottom nav on pages that show
+// it, centred on the page column. The container lives outside the app shell, so it checks for the
+// nav with `:has()`.
+.toast-container {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+  pointer-events: none;
+  &.toast-bottom-center {
+    inset: auto 0 calc(tokens.space(3) + env(safe-area-inset-bottom));
+    align-items: center;
+    padding: 0 tokens.space(4);
+  }
+  .ngx-toastr {
+    position: relative;
+    width: 100%;
+    max-width: calc(tokens.size(content-max) - 2 * tokens.space(4));
+    padding: tokens.space(3) tokens.space(9) tokens.space(3) tokens.space(4);
+    border-radius: tokens.radius(tile);
+    background: tokens.color(primary);
+    color: tokens.color(primary-contrast);
+    box-shadow: tokens.shadow(floating);
+    pointer-events: auto;
+    &.toast-error {
+      border-left: 4px solid tokens.color(danger-muted);
+    }
+  }
+  .toast-title {
+    @include typography.role(body);
+    font-weight: typography.weight(semibold);
+  }
+  .toast-message {
+    @include typography.role(label);
+    font-weight: typography.weight(regular);
+    margin-top: tokens.space(half);
+    color: tokens.color(primary-contrast-muted);
+  }
+  .toast-close-button {
+    position: absolute;
+    top: tokens.space(1);
+    right: tokens.space(1);
+    display: grid;
+    place-items: center;
+    width: tokens.size(control-md);
+    height: tokens.size(control-md);
+    padding: 0;
+    border: 0;
+    border-radius: tokens.radius(pill);
+    background: transparent;
+    color: inherit;
+    @include typography.role(section);
+    cursor: pointer;
+  }
+}
+body:has(bt-bottom-nav) .toast-container.toast-bottom-center {
+  bottom: calc(tokens.size(bottom-nav) + tokens.space(3) + env(safe-area-inset-bottom));
+}

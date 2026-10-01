@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
+import { CardGroup } from '../../components/card-group/card-group';
 @Component({
   selector: 'bt-home-skeleton',
+  imports: [CardGroup],
   templateUrl: './home-skeleton.html',
   styleUrl: './home-skeleton.scss',
 })

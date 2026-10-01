@@ -292,16 +292,23 @@ Mocks: `issue-kind.mock.ts` (#9) infers kind from the Issue title and descriptio
 
 Validation: `CI=true pnpm check`; e2e Home spec (greeting, sections, sample Things, category chip filters `/things`) and dashboard spec moved to `/things`; integration browser test adds sample data from Home; mobile (390px) and desktop screenshots of Home compared with the design frame.
 
+### 3a. App state
+
+- NgRx Signal Store entity stores over domain services; optimistic mutations with rollback and error toasts. See [App state](app-state.md).
+- Home, dashboard and Profile move to the stores. Manual creation and imports move in stage 4, Thing detail in stage 5 and chat in stage 7. Until then their writes bypass the stores, so Home and the Things list show those changes only after a reload.
+
 ### 4. Add Thing
 
 - Option tiles, file inputs, paste-text step, privacy notice.
 - **Enter details manually** link to the existing manual creation form.
+- Move creation onto the stores so new Things appear on Home and the Things list without a reload: manual creation calls `ThingsStore.create`, uploads call `AttachmentsStore.upload`, and an accepted or confirmed import loads its Things with `ThingsStore.loadOne`. The import panel's start, confirm and retry report failures through `Toasts`.
 
 ### 5. Thing detail
 
 - Hero, sheet, status summary, Key details, tasks, products, attachments, overflow menu.
 - Discovering and processing states with skeletons; multi-Thing confirmation restyled.
 - Mocks: field icons, event recurrence and kind, attachment title/kind/pages/publisher, product image, warranty/ownership fields.
+- Move the page onto the stores. It reads the Thing from `ThingsStore` (`loadOne`, `watch`, `view`) and its Issues, Events, attachments and purchasables from the child stores' selectors. Every write goes through a store method: Thing fields, pins, category, tags and delete; Tag create; attachment upload, link, unlink and delete; Issue resolve; Event schedule and complete; reveal. No direct `Api` calls remain on the page.
 
 ### 6. View all details
 
@@ -313,6 +320,7 @@ Validation: `CI=true pnpm check`; e2e Home spec (greeting, sections, sample Thin
 - Add `marked` and `dompurify`; `bt-rich-text` renders sanitised Markdown.
 - Preserve the text-and-request-ID message contract for sends and retries.
 - Mocks: saved-document card.
+- Move chat onto `ConversationsStore` (`create`, `send`, `watch`, `loadOne`). Resource card actions use `IssuesStore`, `EventsStore` and `AttachmentsStore`. Afterwards only domain services call `Api`; drop the exception from `src/AGENTS.md`.
 
 ### 8. Things list and Profile
 

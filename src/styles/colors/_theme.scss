@@ -3,12 +3,14 @@
 
 // Colour sets. Each value names a palette shade.
 // `<set>` is the main shade, `-muted` a softer shade, `-subtle` a light tint and `-contrast` the colour to use on `<set>`.
+// An optional fifth shade, `-contrast-muted`, is the secondary text colour on `<set>`.
 $sets: (
   'primary': (
     'neutral-900',
     'neutral-500',
     'neutral-100',
     'white',
+    'neutral-300',
   ),
   'secondary': (
     'neutral-200',
@@ -52,4 +54,7 @@ $theme: ();
       '#{$set}-contrast': list.nth($shades, 4),
     )
   );
+  @if list.length($shades) > 4 {
+    $theme: map.set($theme, '#{$set}-contrast-muted', list.nth($shades, 5));
+  }
 }

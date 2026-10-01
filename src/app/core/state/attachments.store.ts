@@ -1,0 +1,98 @@
+import { computed, inject } from '@angular/core';
+import { signalStore, withComputed, withFeature, withMethods, withProps } from '@ngrx/signals';
+import type { Schema } from '../../../../shared/model';
+import { AttachmentsService } from '../data/attachments.service';
+import { removing, updating } from './optimistic';
+import { withEntityCollection } from './with-entity-collection';
+
+export const AttachmentsStore = signalStore(
+  { providedIn: 'root' },
+
+  withProps(() => ({ _service: inject(AttachmentsService) })),
+
+  withFeature((store) =>
+    withEntityCollection<Schema['Attachment']>({
+      list: () => store._service.list(),
+      get: (id) => store._service.get(id),
+    }),
+  ),
+
+  withComputed(({ entities }) => ({
+    attachmentsByThing: computed(() => {
+      const groups: Record<string, Schema['Attachment'][]> = {};
+
+      for (const attachment of entities())
+        for (const thingId of attachment.thingIds) (groups[thingId] ??= []).push(attachment);
+      return groups;
+    }),
+  })),
+
+  withMethods((store) => ({
+    /** Uploads a file and links it to a Thing when given. The server computes the result. */
+    async upload(file: File, thingId?: string) {
+      const result = await store.mutate('uploadFile', [], async () => {
+        const attachment = await store._service.upload(file);
+
+        if (!thingId || attachment.thingIds.includes(thingId)) return attachment;
+        await store._service.link(attachment.id, thingId);
+        return { ...attachment, thingIds: [...attachment.thingIds, thingId] };
+      });
+
+      if (result.ok) store.setConfirmed(result.value.id, result.value);
+      return result;
+    },
+
+    update(id: string, patch: Schema['AttachmentPatch']) {
+      const step = store.stage(
+        id,
+        updating((attachment) => ({ ...attachment, ...patch })),
+      );
+
+      return store.mutate('saveChanges', [step], () => store._service.update(id, patch), {
+        confirm: (attachment) => attachment,
+        refetch: () => store.loadOne(id),
+      });
+    },
+
+    remove(id: string) {
+      return store.mutate(
+        'deleteFile',
+        [store.stage(id, removing)],
+        () => store._service.remove(id),
+        {
+          refetch: () => store.loadOne(id),
+        },
+      );
+    },
+
+    link(id: string, thingId: string) {
+      const step = store.stage(
+        id,
+        updating((attachment) =>
+          attachment.thingIds.includes(thingId)
+            ? attachment
+            : { ...attachment, thingIds: [...attachment.thingIds, thingId] },
+        ),
+      );
+
+      return store.mutate('linkFile', [step], () => store._service.link(id, thingId), {
+        refetch: () => store.loadOne(id),
+      });
+    },
+
+    unlink(id: string, thingId: string) {
+      return store.mutate(
+        'unlinkFile',
+        [store.stage(id, unlinking(thingId))],
+        () => store._service.unlink(id, thingId),
+        { refetch: () => store.loadOne(id) },
+      );
+    },
+  })),
+);
+
+export const unlinking = (thingId: string) =>
+  updating<Schema['Attachment']>((attachment) => ({
+    ...attachment,
+    thingIds: attachment.thingIds.filter((id) => id !== thingId),
+  }));

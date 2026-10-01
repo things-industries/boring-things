@@ -8,4 +8,6 @@ export const APP_CONFIG = {
   thingPageSize: 24,
   newThingDays: 7,
   downloadUrlLifetimeMs: 1000,
+  toastMs: 6000,
+  toastLimit: 3,
 } as const;

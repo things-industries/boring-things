@@ -1,11 +1,11 @@
 import { Component, input } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
-export type IconBadgeTone = 'info' | 'accent' | 'warning' | 'neutral' | 'white';
+import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 /** Circular tinted icon. The host registers `icon` with `provideIcons`. */
 @Component({
   selector: 'bt-icon-badge',
   imports: [NgIcon],
-  template: `<ng-icon [name]="icon()" aria-hidden="true" />`,
+  templateUrl: './icon-badge.html',
   styleUrl: './icon-badge.scss',
   host: { '[class]': "'tone-' + tone()" },
 })

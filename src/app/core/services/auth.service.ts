@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import LogtoClient from '@logto/browser';
+import { Subject } from 'rxjs';
 import { CONFIG } from '../runtime-config';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { UiError } from '../../utils/error.util';
@@ -8,6 +9,9 @@ export class Auth {
   readonly config = inject(CONFIG);
   private readonly signedInState = signal(false);
   readonly signedIn = this.signedInState.asReadonly();
+  private readonly sessionChanges = new Subject<boolean>();
+  /** Emits the new signed-in state each time it changes. */
+  readonly sessionChanged = this.sessionChanges.asObservable();
   private readonly errorState = signal<UiErrorCode | null>(null);
   readonly error = this.errorState.asReadonly();
   private client =
@@ -27,7 +31,7 @@ export class Auth {
           await this.client.handleSignInCallback(location.href);
         history.replaceState(null, '', '/');
       }
-      this.signedInState.set(await this.client.isAuthenticated());
+      this.setSignedIn(await this.client.isAuthenticated());
     } catch {
       this.errorState.set('auth-failed');
     }
@@ -41,14 +45,19 @@ export class Auth {
   }
   async signOut() {
     try {
-      this.signedInState.set(false);
+      this.setSignedIn(false);
       await this.client?.signOut(location.origin + '/');
     } catch {
       this.errorState.set('auth-failed');
     }
   }
   expireSession() {
-    this.signedInState.set(false);
+    this.setSignedIn(false);
+  }
+  private setSignedIn(value: boolean) {
+    if (this.signedInState() === value) return;
+    this.signedInState.set(value);
+    this.sessionChanges.next(value);
   }
   async token() {
     if (!this.client) throw new UiError('auth-failed');

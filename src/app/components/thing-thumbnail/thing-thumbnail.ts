@@ -1,7 +1,7 @@
-import { Component, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, resource } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { categoryIcons } from '../../core/app-icons';
-import { Api } from '../../core/services/api.service';
+import { AttachmentsService } from '../../core/data/attachments.service';
 import { categoryIcon } from '../../utils/category.util';
 /** Thing image loaded through an authenticated blob URL, or its category icon when there is none. */
 @Component({
@@ -13,29 +13,27 @@ import { categoryIcon } from '../../utils/category.util';
   host: { '[class]': "'size-' + size()" },
 })
 export class ThingThumbnail {
-  private api = inject(Api);
+  private attachments = inject(AttachmentsService);
   readonly imageId = input<string | null>(null);
   readonly category = input<string | null>(null);
   readonly size = input<'sm' | 'md'>('md');
-  readonly imageUrl = signal('');
   readonly categoryIcon = categoryIcon;
+
+  private readonly image = resource({
+    params: () => this.imageId() ?? undefined,
+    loader: ({ params }) => this.attachments.blob(params),
+  });
+
+  readonly imageUrl = computed(() =>
+    this.image.hasValue() ? URL.createObjectURL(this.image.value()) : '',
+  );
+
   constructor() {
+    // Revokes each object URL once it is replaced or the thumbnail is destroyed.
     effect((onCleanup) => {
-      const id = this.imageId();
-      let url = '';
-      let current = true;
-      this.imageUrl.set('');
-      if (id)
-        void this.api
-          .blob(id)
-          .then((blob) => {
-            if (!current) return;
-            url = URL.createObjectURL(blob);
-            this.imageUrl.set(url);
-          })
-          .catch(() => undefined);
+      const url = this.imageUrl();
+
       onCleanup(() => {
-        current = false;
         if (url) URL.revokeObjectURL(url);
       });
     });

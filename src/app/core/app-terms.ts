@@ -1,3 +1,4 @@
+import type { UiErrorCode } from '../interfaces/error.interface';
 export const APP_TERMS = {
   appName: 'Boring Things',
   home: 'Home',
@@ -8,3 +9,44 @@ export const APP_TERMS = {
   timeline: 'Timeline',
   profile: 'Profile',
 } as const;
+/** Toast leads naming the action that failed. */
+export const ACTION_TERMS = {
+  saveChanges: "Couldn't save changes",
+  addThing: "Couldn't add the thing",
+  deleteThing: "Couldn't delete the thing",
+  addTag: "Couldn't add the tag",
+  renameTag: "Couldn't rename the tag",
+  deleteTag: "Couldn't delete the tag",
+  addIssue: "Couldn't add the issue",
+  resolveIssue: "Couldn't resolve the issue",
+  addEvent: "Couldn't add the event",
+  completeEvent: "Couldn't complete the event",
+  scheduleEvent: "Couldn't schedule the event",
+  uploadFile: "Couldn't upload the file",
+  deleteFile: "Couldn't delete the file",
+  linkFile: "Couldn't link the file",
+  unlinkFile: "Couldn't remove the file",
+  startChat: "Couldn't start a chat",
+  sendMessage: "Couldn't send the message",
+  importThing: "Couldn't start the import",
+  confirmImport: "Couldn't confirm the import",
+  retryImport: "Couldn't retry the import",
+  revealField: "Couldn't reveal the value",
+  addSampleData: "Couldn't add sample data",
+} as const;
+/** Copy for shared error codes, used by `bt-error-message` and toasts. */
+export const ERROR_TERMS: Record<UiErrorCode, string> = {
+  'request-failed': 'Something went wrong. Please try again.',
+  'auth-failed': 'Sign-in could not be completed. Please try again.',
+  unauthorized: 'Your session has expired. Please sign in again.',
+  'invalid-value': 'Check the values and selected records, then try again.',
+  conflict: 'This change conflicts with an existing or linked record.',
+  'not-found': 'This record is unavailable.',
+  'too-large': 'File exceeds the upload limit.',
+  'unsupported-file': 'This file type is not supported, or its contents do not match its type.',
+  'boolean-required': 'Choose Yes or No.',
+  'invalid-money': 'Use an amount with up to two decimal places.',
+  'money-too-large': 'Amount is too large.',
+  'number-required': 'Enter a number.',
+  'date-required': 'Enter a valid date and time.',
+};

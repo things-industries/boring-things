@@ -13,11 +13,13 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/app.config.ts`: application constants such as page sizes and timeouts.
 - `app/core/runtime-config.ts`: typed injection token for server-supplied public configuration.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
-- `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`.
+- `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`; toast action leads (`ACTION_TERMS`) and shared error-code copy (`ERROR_TERMS`).
 - `app/core/mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
-- `app/core/services/`: application-wide authentication, route guard and API services.
+- `app/core/services/`: application-wide authentication, route guard, API client and `Toasts` services.
+- `app/core/data/`: stateless domain services, one per API domain (`<domain>.service.ts`). They shape requests, follow pagination, wrap streams and return contract types.
+- `app/core/state/`: NgRx Signal Store stores (`<domain>.store.ts`), the `withEntityCollection` feature (optimistic entities, `withLoad`, `loadOne` and `withSession` in one), the lower-level `withOptimisticEntities`, `withLoad` and `withSession` features, the pure optimistic bookkeeping in `optimistic.ts`, `loadCollections()` for pages that load several stores, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
-- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it.
+- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it; manual creation and the import panel (stage 4), Thing detail and field reveal (stage 5) and chat (stage 7) still call `Api` directly until those stages migrate them.
 - `app/features/home/`: Home: greeting, Ask promo, Needs attention, Upcoming, Frequent & recent, Categories and the empty-account sample-data action.
 - `app/features/dashboard/`: Things list at `/things`: search, category (`?categoryId=`) and tag filters, sample-data action and activity overview.
 - `app/features/things/`: manual creation, details, field edits, pins, tags and attachments; `import-panel.*` handles uploads, confirmation and retry.
@@ -39,9 +41,15 @@ Keep feature-only components and data services beside their feature. Move code i
 
 - Use standalone components, separate `.ts`, `.html` and `.scss` files, and lazy page routes
 - Prefer Angular components select the element like `'app-button'` and not by Attribute selector `'[app-button]'`. Only use the attribute selector when the underlying element has to be rendered as a direct descendent or we would be using many of the element's native apis without much structural changes.
+- Separate declarations with blank lines: after the imports, between top-level declarations, between class methods, between methods in an object literal, between store features and between statement groups in a function body. Consecutive one-line fields, properties and constants may stay together. Prettier keeps blank lines but does not add them.
 - Use `inject()` in field initialisers. Keep the shell focused on navigation and application layout.
-- Keep component state in local signals. Shared services own private writable signals and expose readonly views with `asReadonly()`.
-- No global store library is currently installed. Introduce a store only when shared state warrants it and the dependency is approved.
+- Layers: component → store → domain service → API client. Components read store signals and call store methods; they do not call the API client or domain services, except `AttachmentsService.blob()`/`download()` for binary content.
+- Product data lives in one store per entity type (`providedIn: 'root'`). Stores keep entities normalised: a child's foreign key (`Issue.thingId`, `Attachment.thingIds`, …) is the source of truth for a relation, and selectors such as `issuesByThing` derive the reverse lists. Selectors ignore references to missing entities.
+- Stores depend in one direction: `ThingsStore` injects the child stores it cascades to; child stores never inject `ThingsStore`. Read models that combine stores and serve more than one page live in `core/state/views/`; page-only view mapping stays beside the page.
+- Collections load every page once per session (`ensureLoaded()`); pages filter and sort client-side. `load()` reuses a request in flight and `reload()` always fetches. Signing out clears every store and stops its streams.
+- Every user change applies optimistically through `withOptimisticEntities`: `stage()` the visible change, then `mutate()` the request. Success confirms the server value; failure reverts only that change and shows a toast. A cross-store change passes every store's staged change to one `mutate()`, so a failure reverts all of them. Server-computed operations (upload, import, reveal, sample data) show an in-progress state instead and report failures in a toast.
+- Creates insert after the server responds until the API accepts browser-generated IDs (`core/mocks/client-ids.mock.ts`).
+- Component-only UI state (form drafts, open panels, filters) stays in local signals.
 - Keep nontrivial data orchestration outside presentation components as features grow.
 - Export frontend types from `app/interfaces/`; file-local, unexported types may stay with their consumer. Generated and shared contract types stay in root `shared/`.
 - Put constants and settings in `app/core/app.config.ts`. Public backend configuration comes from `/api/config` and the runtime configuration token.
@@ -60,7 +68,9 @@ Keep feature-only components and data services beside their feature. Move code i
 ## User-facing copy
 
 - Keep visible text, labels, placeholders, accessible names, validation messages and confirmation copy in templates.
-- TypeScript exposes state and error codes; templates choose copy with `@if` or `@switch`. `bt-error-message` renders shared error codes. Do not display raw exception text.
+- TypeScript exposes state and error codes; templates choose copy with `@if` or `@switch`. `bt-error-message` renders shared error codes from `ERROR_TERMS`. Do not display raw exception text.
+- Mutation failures show a toast through `Toasts.error(action, code)`: the `ACTION_TERMS` lead ("Couldn't save changes") and the `ERROR_TERMS` copy. Stores call `Toasts`, never `ToastrService`. A `401` shows no toast. Page load failures keep the inline `bt-error-message` with Retry.
+- Toast styles live in `styles/_toasts.scss`, which replaces the `ngx-toastr` stylesheet.
 - Validators return error keys, not sentences. API-supplied field names, descriptions and option labels are content and can be bound directly.
 - Repeated product/screen names live in `APP_TERMS` and use the `term` pipe. Route titles may read `APP_TERMS` directly.
 - Static document title and pre-bootstrap error copy live in `index.html` because Angular may not be running.
@@ -82,7 +92,7 @@ Keep feature-only components and data services beside their feature. Move code i
 - Group shared styles by scope (colours, typography, buttons, icons, forms, …). A scope that fits in one file is `styles/_<scope>.scss`; a scope that needs several files gets a folder, `styles/<scope>/`. Do not add scope rules to an unrelated file.
 - Global class names must be specific to their use (`.status-badge`, `.notice-banner`). Modifiers that only apply to one element or class are nested under it (`button { &.quiet {} }`) instead of standing alone as `.quiet` or `.small`.
 - `styles/_core.scss` holds page structure and document-wide rules only (`:root` properties, `html`/`body`, box sizing, `[hidden]`, `.visually-hidden`).
-- The design system is the app's own. Colours are palette shades named by hue (`green-100`, `neutral-900`) in `colors/_palette.scss`, and colour sets in `colors/_theme.scss`. Each set (`primary`, `accent`, …) has exactly four tokens: `<set>`, `<set>-muted`, `<set>-subtle` and `<set>-contrast`. Colour tokens never name where they are used (no `text-`, `border-`, `surface-` or `background-` tokens); the element picks the token. Do not name tokens after design-tool variables or reference the design tool in styles.
+- The design system is the app's own. Colours are palette shades named by hue (`green-100`, `neutral-900`) in `colors/_palette.scss`, and colour sets in `colors/_theme.scss`. Each set (`primary`, `accent`, …) has four tokens: `<set>`, `<set>-muted`, `<set>-subtle` and `<set>-contrast`, plus `<set>-contrast-muted` for secondary text on `<set>` where a design needs it (currently `primary`). Colour tokens never name where they are used (no `text-`, `border-`, `surface-` or `background-` tokens); the element picks the token. Do not name tokens after design-tool variables or reference the design tool in styles.
 - Import shared Sass with `@use 'tokens'`, `@use 'typography'` and `@use 'mixins'`; `src/styles` is on the Sass include path.
 - Read tokens through `tokens.color(...)`, `tokens.space(...)`, `tokens.radius(...)`, `tokens.shadow(...)`, `tokens.icon-size(...)` and `tokens.size(...)`. Unknown names fail compilation. `tokens.color(...)` accepts set tokens and palette shades; prefer set tokens, and use a shade directly when no set token fits.
 - Typography roles use `@include typography.role(...)`. Use `typography.tabular-numerals` where figures should align.

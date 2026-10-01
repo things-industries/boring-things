@@ -23,7 +23,7 @@
 @if (error()) {
   <div class="home-error">
     <bt-error-message [code]="error()" />
-    <button type="button" class="button-secondary button-sm" (click)="load()">Retry</button>
+    <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
   </div>
 }
 @if (!loaded()) {
@@ -74,7 +74,11 @@
           </span>
         </bt-list-row>
       } @empty {
-        <p class="home-empty">Nothing needs attention.</p>
+        @if (issuesFailed()) {
+          <p class="home-empty">Couldn't load what needs attention.</p>
+        } @else {
+          <p class="home-empty">Nothing needs attention.</p>
+        }
       }
     </bt-card-group>
   </section>
@@ -89,14 +93,20 @@
         [link]="['/things', event.thingId]"
       >
         <span rowSubtitle>
-          {{ upcomingThing() }} · {{ event.startsOn ?? event.startsAt ?? '' | relativeTime }}
+          {{ event.thingName }} · {{ event.startsOn ?? event.startsAt ?? '' | relativeTime }}
           @if (event.isSample) {
             · Sample
           }
         </span>
       </bt-event-card>
     } @else {
-      <bt-card-group><p class="home-empty">Nothing scheduled.</p></bt-card-group>
+      <bt-card-group>
+        @if (upcomingFailed()) {
+          <p class="home-empty">Couldn't load upcoming events.</p>
+        } @else {
+          <p class="home-empty">Nothing scheduled.</p>
+        }
+      </bt-card-group>
     }
   </section>
   <section class="home-section">
@@ -106,17 +116,26 @@
     @for (thing of things(); track thing.id) {
       <bt-thing-row [thing]="thing" [category]="category(thing.categoryId)" />
     } @empty {
-      <bt-card-group class="home-start">
-        <p class="home-empty">Add a thing and give its details a home.</p>
-        <div class="home-start-actions">
-          <a class="button-primary" routerLink="/things/new">Add your first thing</a>
-          @if (config.sampleDataEnabled && !profile()?.samplesAdded) {
-            <button type="button" class="button-secondary" [disabled]="busy()" (click)="samples()">
-              Add sample data
-            </button>
-          }
-        </div>
-      </bt-card-group>
+      @if (thingsFailed()) {
+        <bt-card-group><p class="home-empty">Couldn't load your things.</p></bt-card-group>
+      } @else {
+        <bt-card-group class="home-start">
+          <p class="home-empty">Add a thing and give its details a home.</p>
+          <div class="home-start-actions">
+            <a class="button-primary" routerLink="/things/new">Add your first thing</a>
+            @if (config.sampleDataEnabled && !profile()?.samplesAdded) {
+              <button
+                type="button"
+                class="button-secondary"
+                [disabled]="seeding()"
+                (click)="samples()"
+              >
+                Add sample data
+              </button>
+            }
+          </div>
+        </bt-card-group>
+      }
     }
   </section>
   <section class="home-section">
@@ -124,6 +143,10 @@
     <div class="home-categories">
       @for (category of categories(); track category.id) {
         <bt-category-chip [category]="category" />
+      } @empty {
+        @if (categoriesFailed()) {
+          <p class="home-empty">Couldn't load categories.</p>
+        }
       }
     </div>
   </section>

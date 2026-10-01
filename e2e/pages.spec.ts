@@ -74,3 +74,22 @@ for (const path of ['/', '/things/new', '/chat']) {
     expect(await noHorizontalOverflow(page)).toBe(true);
   });
 }
+
+test.describe('Home with a failed collection', () => {
+  test.use({ expectedConsoleErrors: [/status of 422/] });
+
+  test('a failed section says it could not load instead of looking empty', async ({ page }) => {
+    await page.route(/\/api\/issues(\?|$)/, (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ status: 422, json: { message: 'Rejected by test' } })
+        : route.continue(),
+    );
+
+    await page.goto('/');
+    await expect(page.locator('bt-home-skeleton')).toHaveCount(0);
+    await expect(page.getByText("Couldn't load what needs attention.")).toBeVisible();
+    await expect(page.getByText('Nothing needs attention.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+    await expect(page.locator('bt-thing-row')).toHaveCount(3);
+  });
+});

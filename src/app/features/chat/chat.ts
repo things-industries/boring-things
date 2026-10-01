@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import type { Schema } from '../../../../shared/model';
 import { Api } from '../../core/services/api.service';
+import { AttachmentsService } from '../../core/data/attachments.service';
 import { Auth } from '../../core/services/auth.service';
 import { CONFIG } from '../../core/runtime-config';
 import { apiData } from '../../core/api/api-client';
@@ -21,6 +22,7 @@ import { TopBar } from '../../components/top-bar/top-bar';
 })
 export class ChatPage implements OnDestroy {
   private api = inject(Api);
+  private attachments = inject(AttachmentsService);
   private auth = inject(Auth);
   readonly config = inject(CONFIG);
   private route = inject(ActivatedRoute);
@@ -152,11 +154,7 @@ export class ChatPage implements OnDestroy {
   }
   async attachment(id: string) {
     try {
-      await this.api.download(
-        await this.api.client
-          .GET('/api/attachments/{id}', { params: { path: { id } } })
-          .then(apiData),
-      );
+      await this.attachments.download(await this.attachments.get(id));
     } catch (e) {
       this.error.set(errorCode(e));
     }

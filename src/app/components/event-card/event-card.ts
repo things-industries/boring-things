@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 import { DateTile } from '../date-tile/date-tile';
 import { ListRow } from '../list-row/list-row';
-import type { IconBadgeTone } from '../icon-badge/icon-badge';
+import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 /**
  * Highlighted Event row led by a date tile, or by an icon badge when `date` is empty.
  * Projected `[rowSubtitle]` and `[rowTrailing]` pass through to the row.

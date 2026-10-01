@@ -2,7 +2,8 @@ import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { openRow } from '../../core/app-icons';
-import { IconBadge, type IconBadgeTone } from '../icon-badge/icon-badge';
+import { IconBadge } from '../icon-badge/icon-badge';
+import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 /**
  * Row with a leading icon badge or projected `[rowLeading]`, a title, projected `[rowSubtitle]` and
  * `[rowTrailing]`. With `link`, the title link covers the row and a chevron ends it.

@@ -15,11 +15,6 @@
   width: 40%;
   height: tokens.space(5);
 }
-.skeleton-card {
-  padding: 0 tokens.space(4);
-  border-radius: tokens.radius(card);
-  background: tokens.color('white');
-}
 .skeleton-row {
   @include mixins.list-row;
 }

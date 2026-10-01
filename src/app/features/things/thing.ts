@@ -24,6 +24,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import type { Schema, Pin, Value } from '../../../../shared/model';
 import { Api } from '../../core/services/api.service';
+import { AttachmentsService } from '../../core/data/attachments.service';
 import { CONFIG } from '../../core/runtime-config';
 import { UiError } from '../../utils/error.util';
 import { errorCode } from '../../utils/error.util';
@@ -62,6 +63,7 @@ export class ThingPage implements OnDestroy {
   );
   streamFailed = signal(false);
   readonly api = inject(Api);
+  private files = inject(AttachmentsService);
   readonly config = inject(CONFIG);
   private route = inject(ActivatedRoute);
   private injector = inject(Injector);
@@ -310,7 +312,7 @@ export class ThingPage implements OnDestroy {
     this.imageUrl.set('');
     const id = this.thing()?.imageAttachmentId;
     if (id) {
-      const blob = await this.api.blob(id);
+      const blob = await this.files.blob(id);
       if (this.thing()?.imageAttachmentId === id) this.imageUrl.set(URL.createObjectURL(blob));
     }
   }
@@ -552,7 +554,7 @@ export class ThingPage implements OnDestroy {
     });
   }
   download(file: Schema['Attachment']) {
-    void this.perform(() => this.api.download(file));
+    void this.perform(() => this.files.download(file));
   }
   activity(action: ActivityAction) {
     void this.perform(async () => {
