@@ -73,17 +73,6 @@
 .upload-label input {
   margin-top: 10px;
 }
-.hint-panel {
-  background: tokens.color(hint);
-  padding: 30px;
-}
-.hint-panel h2 {
-  margin-top: tokens.space(5);
-  font-size: 25px;
-}
-.hint-panel p {
-  font-size: 14px;
-}
 .detail-activity {
   grid-template-columns: 1fr 1fr;
 }

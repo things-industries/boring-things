@@ -15,19 +15,20 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
 - `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`; toast action leads (`ACTION_TERMS`) and shared error-code copy (`ERROR_TERMS`).
 - `app/core/mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
-- `app/core/services/`: application-wide authentication, route guard, API client and `Toasts` services.
+- `app/core/services/`: application-wide authentication, route guards (`authenticated`, `addFirstThing`, `importsEnabled`), API client and `Toasts` services.
 - `app/core/data/`: stateless domain services, one per API domain (`<domain>.service.ts`). They shape requests, follow pagination, wrap streams and return contract types.
 - `app/core/state/`: NgRx Signal Store stores (`<domain>.store.ts`), the `withEntityCollection` feature (optimistic entities, `withLoad`, `loadOne` and `withSession` in one), the lower-level `withOptimisticEntities`, `withLoad` and `withSession` features, the pure optimistic bookkeeping in `optimistic.ts`, `loadCollections()` for pages that load several stores, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
-- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it; manual creation and the import panel (stage 4), Thing detail and field reveal (stage 5) and chat (stage 7) still call `Api` directly until those stages migrate them.
+- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it; Thing detail and field reveal (stage 5) and chat (stage 7) still call `Api` directly until those stages migrate them.
 - `app/features/home/`: Home: greeting, Ask promo, Needs attention, Upcoming, Frequent & recent, Categories and the empty-account sample-data action.
 - `app/features/dashboard/`: Things list at `/things`: search, category (`?categoryId=`) and tag filters, sample-data action and activity overview.
-- `app/features/things/`: manual creation, details, field edits, pins, tags and attachments; `import-panel.*` handles uploads, confirmation and retry.
+- `app/features/add-thing/`: Add Thing (`/things/new`) with import tiles, the paste-text step (`/things/new/text`) and the manual form (`/things/new/manual`).
+- `app/features/things/`: Thing details, field edits, pins, tags and attachments; `import-panel.*` adds details from a source and handles import progress, confirmation and retry through `ThingsStore`.
 - `app/features/chat/`: active conversations, streamed text, retry and typed resource cards. New entry starts a new chat; no conversation history/resumption.
 - `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
 - `app/features/login/`: sign-in and setup-pending screen.
 - `app/features/timeline/`, `app/features/profile/`: placeholder pages; Profile holds Sign out.
-- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`), `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
+- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`), `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, `bt-option-tile`, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.
 - `app/validators/`: form validators returning error keys.
 - `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.

@@ -1,0 +1,16 @@
+@use 'tokens';
+.manual-thing-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: tokens.space(2);
+}
+.manual-thing-form {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
+  padding-block: tokens.space(4) tokens.space(7);
+  label {
+    margin: 0;
+  }
+}

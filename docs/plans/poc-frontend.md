@@ -299,9 +299,44 @@ Validation: `CI=true pnpm check`; e2e Home spec (greeting, sections, sample Thin
 
 ### 4. Add Thing
 
-- Option tiles, file inputs, paste-text step, privacy notice.
-- **Enter details manually** link to the existing manual creation form.
-- Move creation onto the stores so new Things appear on Home and the Things list without a reload: manual creation calls `ThingsStore.create`, uploads call `AttachmentsStore.upload`, and an accepted or confirmed import loads its Things with `ThingsStore.loadOne`. The import panel's start, confirm and retry report failures through `Toasts`.
+Three pages in `features/add-thing/`, none with the bottom nav. The Thing page loses its new-Thing mode and only serves `/things/:id`.
+
+| Route                | Page        | Back to       |
+| -------------------- | ----------- | ------------- |
+| `/things/new`        | Add Thing   | `/`           |
+| `/things/new/text`   | Paste text  | `/things/new` |
+| `/things/new/manual` | Manual form | `/things/new` |
+
+Add Thing layout, top to bottom:
+
+- `bt-top-bar` with back only.
+- Headline "Add a Thing" (page `h1`) in `display` at regular weight, or "Add your first thing" once `ThingsStore` has loaded an empty library; "Give us whatever you have. We'll work out the useful details." in `body`, `primary-muted`.
+- "Choose how to add" in `label`, semibold, `primary-muted`.
+- 2×2 grid of `bt-option-tile`: **Camera** (image input with `capture="environment"`), **Photos** (image input), **Files** (supported media types), **Text** (link to `/things/new/text`).
+- `bt-notice` (accent, shield icon) with "Your uploads are private. You choose what gets saved." as its detail line. A notice with only a detail line hides its empty main line.
+- **Enter details manually**: `.button-link` to `/things/new/manual`.
+
+Behaviour:
+
+- First sign-in: the `addFirstThing` guard on `/` loads Things on the first navigation after the Logto callback and sends an empty account to `/things/new`. Later Home visits show Home's empty state.
+- Choosing a file calls `ThingsStore.startImport(file)`. While it runs, the tiles are disabled and a busy `bt-notice` reading "Uploading…" replaces the privacy notice inside a `role="status"` region. On success the page navigates to the Thing, whose page shows the import progress. Failures show a toast and leave the page ready to try again.
+- With imports unconfigured (`importEnabled` false) the tiles are disabled and an info `bt-notice` says AI import is unavailable; manual entry stays available. The text route redirects to `/things/new`.
+- Paste text: `bt-top-bar` titled "Paste text", a labelled textarea, the privacy notice and a `.button-primary` **Import text**, disabled while empty or busy. The text is sent as `pasted-text.txt`.
+- Manual form: `bt-top-bar` titled "Enter details manually", the existing name, category, description and "Details to include" controls, and a `.button-primary` **Create thing**. Categories come from `CategoriesStore` and field sets from `RegistryStore`; `ThingsStore.create` saves and the page navigates to the new Thing. A load failure shows `bt-error-message` with Retry.
+
+Components:
+
+- `bt-option-tile`: attribute component on `button` and `a` (`button[btOptionTile]`, `a[btOptionTile]`). Inputs `icon` and `label`. `secondary-subtle` fill, `secondary` outline, radius `tile`, icon `lg` above the label in `body`, centred. Disabled tiles fade like other disabled buttons.
+
+Stores:
+
+- `ThingsStore.startImport(file, thingId?)`: rejects files over `maxUploadBytes` with a `too-large` toast, uploads through `AttachmentsStore.upload`, starts the import and loads the accepted Thing with `loadOne`. Failures toast `importThing`.
+- `ThingsStore.confirmImport(job, selections)` and `retryImport(job)` toast `confirmImport` and `retryImport`, and load each Thing in the result.
+- The import panel on the Thing page calls these methods and reads existing Things from `ThingsStore`. Its inline error and new-Thing copy are removed.
+
+Icons: `privacyNotice` becomes the shield check.
+
+Validation: `CI=true pnpm check`; e2e Add Thing spec (tiles, manual creation showing on Home without a reload, pasted text `two` reaching multi-Thing confirmation, tiles disabled when imports are unconfigured); integration browser test updated for the new pages; mobile (390px) and desktop screenshots compared with the design frame.
 
 ### 5. Thing detail
 

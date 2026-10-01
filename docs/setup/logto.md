@@ -23,6 +23,18 @@ Use the base endpoint, without `/oidc`. No client secret is needed for a SPA. Th
 
 Restart `pnpm dev` after changing `.env`. Open **http://localhost:4200**, using `localhost` consistently with the registered URIs.
 
+## Phone testing
+
+`pnpm dev:lan` serves the app at `https://<computer-LAN-IP>:4200`, for example `https://192.168.1.62:4200`. Sign-in needs HTTPS, so the dev server uses a self-signed certificate; the phone shows a certificate warning to accept once.
+
+Add the LAN origin to the SPA application alongside the localhost entries:
+
+- Redirect URI: `https://<computer-LAN-IP>:4200/callback`
+- Post sign-out redirect URI: `https://<computer-LAN-IP>:4200/`
+- Allowed origin, if shown: `https://<computer-LAN-IP>:4200`
+
+The LAN IP can change when the computer rejoins the network; update the entries when it does. `pnpm dev:lan` exposes the dev server to the whole network, so stop it after testing.
+
 ## Verification
 
 - Sign in or register; verify the dashboard loads.

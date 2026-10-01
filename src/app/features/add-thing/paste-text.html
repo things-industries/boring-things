@@ -1,0 +1,26 @@
+<bt-top-bar back="/things/new" title="Paste text" />
+<form class="paste-text-form" (ngSubmit)="submit()">
+  <label
+    >Text to import
+    <textarea
+      name="text"
+      rows="10"
+      placeholder="Paste a receipt, an order confirmation or product details"
+      [ngModel]="text()"
+      (ngModelChange)="text.set($event)"
+      [disabled]="busy()"
+    ></textarea>
+  </label>
+  <div role="status">
+    @if (busy()) {
+      <bt-notice tone="accent" [busy]="true">Starting import…</bt-notice>
+    } @else {
+      <bt-notice tone="accent" icon="privacyNotice">
+        <span noticeDetail>Your uploads are private. You choose what gets saved.</span>
+      </bt-notice>
+    }
+  </div>
+  <button type="submit" class="button-primary" [disabled]="busy() || !text().trim()">
+    Import text
+  </button>
+</form>

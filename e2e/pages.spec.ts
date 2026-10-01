@@ -41,12 +41,6 @@ test('Thing page masks sensitive fields until revealed', async ({ page }) => {
   await expect(pin).not.toContainText('0000');
 });
 
-test('Add a thing offers import and manual entry', async ({ page }) => {
-  await page.goto('/things/new');
-  await expect(page.getByRole('heading', { name: 'Import with AI', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Enter details manually' })).toBeVisible();
-});
-
 test('assistant opens a new conversation', async ({ page }) => {
   await page.goto('/chat');
   await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();

@@ -184,10 +184,8 @@ test(
 
       await page.getByRole('link', { name: 'Your things', exact: true }).first().click();
       await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
-      await expect(
-        page.getByRole('heading', { name: 'Import with AI', exact: true }),
-      ).toBeVisible();
-      for (const label of ['Take photo', 'Choose photo', 'Upload file']) {
+      await expect(page.getByRole('heading', { name: 'Add a thing', exact: true })).toBeVisible();
+      for (const label of ['Camera', 'Photos', 'Files']) {
         const button = page.getByRole('button', { name: label, exact: true });
         await expect(button).toBeVisible();
         await button.focus();
@@ -195,12 +193,12 @@ test(
         await page.keyboard.press('Enter');
         await chooser;
       }
-      await expect(page.getByLabel('Paste text', { exact: true })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Enter details manually' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Text', exact: true })).toBeVisible();
       await page.screenshot({
         path: 'test-results/add-thing-desktop.png',
         fullPage: true,
       });
+      await page.getByRole('link', { name: 'Enter details manually', exact: true }).click();
       await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Browser test policy');
       await page.getByLabel('Category', { exact: true }).selectOption('insurance');
       await page.getByLabel('Details to include').selectOption('insurance.combined');
@@ -322,7 +320,8 @@ test(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
       );
-      await page.getByLabel('Paste text', { exact: true }).fill('two');
+      await page.getByRole('link', { name: 'Text', exact: true }).click();
+      await page.getByLabel('Text to import', { exact: true }).fill('two');
       await page.getByRole('button', { name: 'Import text', exact: true }).click();
       await expect(
         page.getByRole('heading', {

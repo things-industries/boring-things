@@ -27,6 +27,8 @@ Copy `.env.example` only on first setup; preserve an existing `.env`. Complete [
 - Supabase Studio: http://127.0.0.1:55423 (select the `bt` schema)
 - Postgres: `127.0.0.1:55432`
 
+To check on a phone on the same network, run `pnpm dev:lan` instead. It serves the app over HTTPS with a self-signed certificate on every network interface and prints the `Network:` address. Accept the certificate warning on the phone, and register that origin in Logto (see [phone testing](docs/setup/logto.md#phone-testing)).
+
 Ports are isolated from Supabase's defaults to avoid other local projects. `pnpm db:stop` stops this stack and preserves its data. `pnpm db:migrate` applies pending migrations without resetting data. The Supabase `db reset` command **deletes local database data** and is not needed for ordinary startup.
 
 Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, including `CI=true pnpm dev` and `CI=true pnpm check`.
@@ -50,7 +52,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 
 Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`, apply `pnpm db:migrate`, and restart the API. The model must support Responses API image/PDF inputs, structured outputs, function calls and web search. Missing AI configuration disables import controls; manual editing remains available.
 
-The **Add a thing** screen offers **Import with AI**: take/choose a photo with icon buttons, upload a supported file or paste text. Manual entry is available below. The source is stored privately, sent to OpenAI, and linked to an immediate skeleton Thing. An indeterminate progress bar above the Thing shows the current import stage, with reduced-motion support. Multiple detected Things pause for selection; each can create a Thing or add details to an owned record. Selected sets appear with empty fields before validated value groups arrive. Unknown facts remain custom fields. The original source and extracted content remain stored. Review extracted values.
+The **Add a thing** screen offers Camera, Photos, Files and Text tiles: take or choose a photo, upload a supported file, or paste text on its own step. **Enter details manually** opens the manual form. Without AI configuration the tiles are disabled. The source is stored privately, sent to OpenAI, and linked to an immediate skeleton Thing. An indeterminate progress bar above the Thing shows the current import stage, with reduced-motion support. Multiple detected Things pause for selection; each can create a Thing or add details to an owned record. Selected sets appear with empty fields before validated value groups arrive. Unknown facts remain custom fields. The original source and extracted content remain stored. Review extracted values.
 
 On an existing Thing, **Add details from a source** starts another import. Uploading under **Documents & photos** stores and links the file; choose **Extract details** on that attachment to import its values into the Thing. Existing user values are preserved.
 

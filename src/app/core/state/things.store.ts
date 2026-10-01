@@ -9,9 +9,12 @@ import {
   withState,
 } from '@ngrx/signals';
 import type { Schema } from '../../../../shared/model';
+import { ImportsService } from '../data/imports.service';
 import { ThingsService } from '../data/things.service';
+import { CONFIG } from '../runtime-config';
 import { Toasts } from '../services/toasts.service';
 import type { PendingChange } from '../../interfaces/optimistic.interface';
+import type { MutationResult } from '../../interfaces/state.interface';
 import type { ThingRecord } from '../../interfaces/thing.interface';
 import { groupBy } from '../../utils/collection.util';
 import { errorCode } from '../../utils/error.util';
@@ -41,6 +44,8 @@ export const ThingsStore = signalStore(
 
   withProps(() => ({
     _service: inject(ThingsService),
+    _imports: inject(ImportsService),
+    _config: inject(CONFIG),
     _toasts: inject(Toasts),
     _registry: inject(RegistryStore),
     _issues: inject(IssuesStore),
@@ -182,6 +187,54 @@ export const ThingsStore = signalStore(
             () => setDisconnected(id, true),
           );
         });
+      },
+
+      /**
+       * Uploads a source and starts an import, enriching `thingId` when given. Resolves once the
+       * Thing the import fills has loaded.
+       */
+      async startImport(
+        file: File,
+        thingId?: string,
+      ): Promise<MutationResult<Schema['ImportAccepted']>> {
+        if (file.size > store._config.maxUploadBytes) {
+          store._toasts.error('importThing', 'too-large');
+          return { ok: false, code: 'too-large' };
+        }
+
+        const upload = await store._attachments.upload(file);
+
+        if (!upload.ok) return upload;
+
+        const result = await store.mutate('importThing', [], () =>
+          store._imports.start({ attachmentId: upload.value.id, ...(thingId && { thingId }) }),
+        );
+
+        if (result.ok)
+          await Promise.all([
+            store.loadOne(result.value.thingId),
+            store._attachments.loadOne(upload.value.id),
+          ]);
+        return result;
+      },
+
+      /** Resolves once every Thing the import created or enriched has loaded. */
+      async confirmImport(id: string, body: Schema['ImportConfirmation']) {
+        const result = await store.mutate('confirmImport', [], () =>
+          store._imports.confirm(id, body),
+        );
+
+        if (result.ok)
+          await Promise.all(result.value.thingIds.map((thing) => store.loadOne(thing)));
+        return result;
+      },
+
+      async retryImport(id: string) {
+        const result = await store.mutate('retryImport', [], () => store._imports.retry(id));
+
+        if (result.ok)
+          await Promise.all(result.value.thingIds.map((thing) => store.loadOne(thing)));
+        return result;
       },
 
       /** Reloads Things and every child collection already loaded. */

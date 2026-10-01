@@ -4,14 +4,12 @@
 }
 @if (!loaded()) {
   <bt-thing-skeleton />
-} @else if (isNew() || thing()) {
-  @if (!isNew()) {
-    <bt-import-panel
-      [thingId]="id"
-      [job]="thing()?.import ?? null"
-      (changed)="importChanged($event)"
-    />
-  }
+} @else if (thing()) {
+  <bt-import-panel
+    [thingId]="id"
+    [job]="thing()?.import ?? null"
+    (changed)="importChanged($event)"
+  />
   <div class="detail-heading">
     <div class="detail-symbol" [attr.data-category]="categoryId">
       @if (imageUrl()) {
@@ -21,22 +19,19 @@
       }
     </div>
     <div>
-      <span class="eyebrow">{{ isNew() ? 'MAKE A LITTLE SPACE' : category()?.name }}</span>
-      <h1>{{ isNew() ? ('addThing' | term) : thing()?.name }}</h1>
+      <span class="eyebrow">{{ category()?.name }}</span>
+      <h1>{{ thing()?.name }}</h1>
       @if (thing()?.isSample) {
         <span class="sample-label">Sample data</span>
       }
     </div>
   </div>
-  @if (isNew()) {
-    <bt-import-panel />
-  }
   @if (streamFailed()) {
     <p class="notice-banner" role="status">
       Connection interrupted. Reconnecting to saved details…
     </p>
   }
-  @if (!isNew() && config.chatEnabled) {
+  @if (config.chatEnabled) {
     <p>
       <a class="button secondary" [routerLink]="['/things', id, 'chat']">Ask about this thing</a>
     </p>
@@ -75,7 +70,7 @@
     <div class="detail-layout">
       <div>
         <section class="content-panel">
-          <h2>{{ isNew() ? 'Enter details manually' : 'The basics' }}</h2>
+          <h2>The basics</h2>
           <form (ngSubmit)="saveBasics()" class="basics-form">
             <label
               >Name<input
@@ -104,30 +99,14 @@
                 placeholder="A little context, if you need it"
               ></textarea>
             </label>
-            @if (isNew()) {
-              <label class="grid-full-width"
-                >Details to include<select
-                  name="initialSet"
-                  aria-label="Details to include"
-                  [(ngModel)]="selectedSet"
-                >
-                  <option value="">Choose later</option>
-                  @for (set of availableSets(); track set.id) {
-                    <option [value]="set.id">{{ set.name }}</option>
-                  }
-                </select></label
-              >
-            }
-            @if (!isNew() && categoryId !== thing()?.categoryId) {
+            @if (categoryId !== thing()?.categoryId) {
               <p class="notice-banner grid-full-width">
                 Changing category keeps populated fields from incompatible sections as custom
                 fields.
               </p>
             }
             <div class="grid-full-width">
-              <button [disabled]="processing() || busy()" type="submit">
-                {{ isNew() ? 'Create thing' : 'Save basics' }}
-              </button>
+              <button [disabled]="processing() || busy()" type="submit">Save basics</button>
             </div>
           </form>
         </section>
@@ -453,12 +432,6 @@
                 <ng-icon name="addTag" aria-hidden="true" />
               </button>
             </form>
-          </section>
-        } @else {
-          <section class="content-panel hint-panel">
-            <span class="eyebrow">START WITH WHAT YOU KNOW</span>
-            <h2>A name is a good start.</h2>
-            <p>You can fill in the details and attach documents once your thing has a home.</p>
           </section>
         }
       </aside>

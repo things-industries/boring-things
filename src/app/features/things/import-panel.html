@@ -1,12 +1,5 @@
 @if (config.importEnabled) {
-  <section class="content-panel import-panel" aria-label="Import a Thing">
-    @if (!thingId()) {
-      <h2>Import with AI</h2>
-      <p>Start with a photo, document or pasted text. Details are added as they are found.</p>
-    }
-    @if (error()) {
-      <bt-error-message [code]="error()" />
-    }
+  <section class="content-panel import-panel" aria-label="Import details">
     @if (job(); as current) {
       @if (active() && current.status !== 'AWAITING_SELECTION') {
         <div class="import-progress" role="progressbar" aria-label="AI import in progress"></div>
@@ -51,16 +44,11 @@
               <option value="">Create a Thing</option>
               <option value="skip">Skip</option>
               @for (thing of existing(); track thing.id) {
-                @if (thing.id !== thingId()) {
-                  <option [value]="thing.id">Add to {{ thing.name }}</option>
-                }
+                <option [value]="thing.id">Add to {{ thing.name }}</option>
               }
             </select>
           </label>
         }
-        <button class="quiet" [disabled]="busy()" (click)="loadExisting()">
-          Choose existing Things
-        </button>
         <button [disabled]="busy()" (click)="confirm()">Keep selected Things</button>
       }
       @if (current.status === 'FAILED' || current.status === 'INCOMPLETE') {
@@ -74,10 +62,8 @@
       }
     }
     @if (!active()) {
-      <details [open]="!thingId()">
-        <summary>
-          {{ thingId() ? 'Add details from a source' : 'Start with a photo, file or text' }}
-        </summary>
+      <details>
+        <summary>Add details from a source</summary>
         <p class="text-primary-muted">
           The source is sent to OpenAI to extract details. Review imported values before relying on
           them.
@@ -132,12 +118,5 @@
         </button>
       </details>
     }
-  </section>
-} @else if (!thingId()) {
-  <section class="content-panel import-panel" aria-label="Import a Thing">
-    <h2>Import with AI</h2>
-    <p class="text-primary-muted">
-      AI import is currently unavailable. You can enter details manually below.
-    </p>
   </section>
 }
