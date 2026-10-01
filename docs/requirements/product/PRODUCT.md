@@ -158,7 +158,7 @@ See the `UI Inspiration` folder for ideas for specific components
         - Metadata (most important visible, expandable to show remainder)
         - Attachments (Documents / photos)
         - Upgrade/replace/sell offers
-        - Acessory/consumable offers
+        - Accessory/consumable offers
         - Cost analysis (purchase cost, recurring costs, payment frequency)
         - Related things
         - Upcoming events (link to timeline)

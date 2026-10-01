@@ -1,4 +1,4 @@
-- heruristics for sections
+- heuristics for sections
 - ask if we find more than one thing
 - fields not exclusive to categories but sets are
 - pinned fields at top of thing, choose which to pin automatically.

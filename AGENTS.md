@@ -56,10 +56,11 @@ pnpm api:generate        # Generate shared OpenAPI types
 pnpm api:check           # Check contract drift
 pnpm format              # Apply Prettier formatting
 pnpm format:check        # Check formatting without writing
+pnpm spellcheck          # Check spelling across authored text and source
 pnpm lint                # ESLint
 pnpm test                # Node unit tests
 CI=true pnpm typecheck   # Server types and Angular development build
-CI=true pnpm check       # Formatting, contract, lint, types, unit tests and build
+CI=true pnpm check       # Formatting, spelling, contract, lint, types, unit tests and build
 pnpm test:integration    # Requires local Supabase and built frontend
 pnpm test:e2e            # Playwright e2e suite; see .claude/skills/e2e/SKILL.md
 pnpm e2e:serve           # Signed-in e2e app on port 4300 with sample data

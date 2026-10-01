@@ -112,7 +112,7 @@
     },
     "/api/categories": {
       "get": {
-        "operationId": "listCategorys",
+        "operationId": "listCategories",
         "responses": {
           "200": {
             "description": "Success",
@@ -165,7 +165,7 @@
           }
         ],
         "tags": ["Registry"],
-        "summary": "List categorys"
+        "summary": "List categories"
       }
     },
     "/api/field-sets": {
@@ -412,7 +412,7 @@
     },
     "/api/things": {
       "get": {
-        "operationId": "listThingSummarys",
+        "operationId": "listThingSummaries",
         "responses": {
           "200": {
             "description": "Success",
@@ -499,7 +499,7 @@
           }
         ],
         "tags": ["Things"],
-        "summary": "List thing summarys",
+        "summary": "List thing summaries",
         "description": "Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days."
       },
       "post": {

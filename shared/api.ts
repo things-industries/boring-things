@@ -57,8 +57,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List categorys */
-        get: operations["listCategorys"];
+        /** List categories */
+        get: operations["listCategories"];
         put?: never;
         post?: never;
         delete?: never;
@@ -143,10 +143,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List thing summarys
+         * List thing summaries
          * @description Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days.
          */
-        get: operations["listThingSummarys"];
+        get: operations["listThingSummaries"];
         put?: never;
         /** Create thing */
         post: operations["createThing"];
@@ -1456,7 +1456,7 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    listCategorys: {
+    listCategories: {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
@@ -1605,7 +1605,7 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    listThingSummarys: {
+    listThingSummaries: {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
