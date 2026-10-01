@@ -58,7 +58,7 @@ before(async () => {
   }
   await transaction(pool, seedRegistry);
   app = await buildApp({
-    pool,
+    dbPool: pool,
     config: {
       ...readConfig(),
       blobDirectory: directory,
@@ -467,7 +467,7 @@ test('stored data survives application restart', async () => {
   const thing = await create({ name: 'Persists' });
   await app.close();
   app = await buildApp({
-    pool,
+    dbPool: pool,
     config: { ...readConfig(), blobDirectory: directory },
     verifyIdentity,
   });

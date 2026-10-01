@@ -35,8 +35,7 @@ test('Supabase connections enable TLS without a CA, preserving explicit verifica
 });
 
 test('production accepts the session pooler URL without SSL parameters and rejects transaction mode', () => {
-  const previous = process.env;
-  process.env = {
+  const env = {
     NODE_ENV: 'production',
     DATABASE_URL:
       'postgresql://postgres.project:synthetic@aws-0-eu-west-2.pooler.supabase.com:5432/postgres',
@@ -50,12 +49,10 @@ test('production accepts the session pooler URL without SSL parameters and rejec
     S3_ACCESS_KEY_ID: 'synthetic',
     S3_SECRET_ACCESS_KEY: 'synthetic',
   };
-  try {
-    const { databaseUrl } = readConfig();
-    assert.equal(databaseUrl, process.env.DATABASE_URL);
-    process.env.DATABASE_URL = databaseUrl.replace(':5432/', ':6543/');
-    assert.throws(readConfig, /session connection on port 5432/);
-  } finally {
-    process.env = previous;
-  }
+  const { databaseUrl } = readConfig(env);
+  assert.equal(databaseUrl, env.DATABASE_URL);
+  assert.throws(
+    () => readConfig({ ...env, DATABASE_URL: databaseUrl.replace(':5432/', ':6543/') }),
+    /session connection on port 5432/,
+  );
 });

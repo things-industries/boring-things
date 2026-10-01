@@ -5,11 +5,10 @@ import { createChatActivity } from './messages.js';
  */
 
 import type pg from 'pg';
-import { EventEmitter } from 'node:events';
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import type { Schema } from '../../../../shared/model.js';
-import type { Config } from '../../config.js';
+import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { ChatAi, ChatToolResult } from './types.js';
@@ -32,7 +31,7 @@ import { ensure } from '../errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { publicDiscoveryCandidate } from '../import/mapping.js';
 import { publicUrl, persistDiscovery } from '../discovery/discovery.js';
-import type { OwnerChanges } from '../streams.js';
+import type { ApplicationEvents } from '../events.js';
 
 const ajv = new Ajv({ strict: false });
 
@@ -57,7 +56,6 @@ interface ShowCardsInput {
 
 export class Assistant {
   private live = new Map<string, LiveMessage>();
-  private deltas = new EventEmitter();
 
   constructor(
     private pool: pg.Pool,
@@ -65,19 +63,9 @@ export class Assistant {
     private blobs: BlobStorage,
     private ai: ChatAi | undefined,
     private discoveryAi: ImportAi | undefined,
-    private config: Config,
-    private changes: OwnerChanges,
-  ) {
-    this.deltas.setMaxListeners(0);
-  }
-
-  subscribe(owner: string, id: string, fn: (delta: Schema['ConversationDelta']) => void) {
-    const key = owner + ':' + id;
-    this.deltas.on(key, fn);
-    return () => {
-      this.deltas.off(key, fn);
-    };
-  }
+    private config: EnvConfig,
+    private events: ApplicationEvents,
+  ) {}
 
   async snapshot(owner: string, id: string) {
     const result = await conversation(this.pool, owner, id);
@@ -245,7 +233,7 @@ export class Assistant {
         );
         found.sources.filter(publicUrl).forEach((url) => refs.push({ url }));
         output = { discovery: found, context: await readThing(thing.id) };
-        this.changes.publish(job.ownerId);
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       } else if (name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');
@@ -266,7 +254,7 @@ export class Assistant {
         const item = saved.result as { id: string };
         allowedResources.add(kind + ':' + item.id);
         output = saved.result;
-        this.changes.publish(job.ownerId);
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       } else if (name === 'show_cards') {
         const selected = (args as unknown as ShowCardsInput).cards;
 
@@ -319,7 +307,7 @@ export class Assistant {
 
     try {
       await saveMessage(this.pool, job, { status: 'PROCESSING' });
-      this.changes.publish(job.ownerId);
+      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       const history = await conversation(this.pool, job.ownerId, job.conversationId);
       const messages = history.messages
         .filter((m) => m.id !== job.id && m.status === 'COMPLETE')
@@ -354,7 +342,12 @@ export class Assistant {
               // Offsets let clients reconcile streamed text with snapshots; this live buffer is lost on process restart.
               const offset = live.text.length;
               live.text += text;
-              this.deltas.emit(key, { messageId: job.id, offset, text });
+              this.events.publish({
+                type: 'conversation.delta',
+                ownerId: job.ownerId,
+                conversationId: job.conversationId,
+                delta: { messageId: job.id, offset, text },
+              });
             },
           },
         ),
@@ -381,7 +374,7 @@ export class Assistant {
         await record({});
       } finally {
         this.live.delete(key);
-        this.changes.publish(job.ownerId);
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       }
     }
   }

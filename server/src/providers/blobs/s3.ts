@@ -7,10 +7,10 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import type { Config } from '../../config.js';
+import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from './index.js';
 
-export function s3Client(config: NonNullable<Config['s3']>) {
+export function s3Client(config: NonNullable<EnvConfig['s3']>) {
   return new S3Client({
     endpoint: config.endpoint,
     region: config.region,
@@ -26,7 +26,7 @@ export function s3Client(config: NonNullable<Config['s3']>) {
 export class S3Blobs implements BlobStorage {
   private client: S3Client;
 
-  constructor(private config: NonNullable<Config['s3']>) {
+  constructor(private config: NonNullable<EnvConfig['s3']>) {
     this.client = s3Client(config);
   }
 

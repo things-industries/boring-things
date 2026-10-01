@@ -1,9 +1,16 @@
+import { Readable } from 'node:stream';
+import spec from '../../openapi.json' with { type: 'json' };
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { checkContract } from '../src/contracts/check.js';
-import { installContracts, route, fastifyPath } from '../src/contracts/routes.js';
-import { schemaValidator, schemaRefs } from '../src/contracts/schemas.js';
+import { route, fastifyPath } from '../src/contracts/routes.js';
+import {
+  schemaValidator,
+  schemaRefs,
+  schemas,
+  createValidatorCompiler,
+} from '../src/contracts/schemas.js';
 import { installErrorHandler } from '../src/routes/errors.js';
 import { ApplicationError } from '../src/application/errors.js';
 import type { ThingPatch } from '../../shared/model.js';
@@ -21,6 +28,14 @@ function typeChecks(app: FastifyInstance) {
     // @ts-expect-error Response requires id and name.
     reply.code(201).send({ name });
     return reply.code(201).send({ id: 'tag', name });
+  });
+  route(app, 'GET', '/api/conversations/{id}/stream', (_req, reply) => {
+    // @ts-expect-error SSE success requires a readable stream.
+    reply.code(200).send({ messages: [] });
+    return reply
+      .type('text/event-stream')
+      .code(200)
+      .send(Readable.from(['event: snapshot\n\n']));
   });
   // @ts-expect-error GET has no JSON body.
   route(app, 'GET', '/api/tags', (req) => req.body.name);
@@ -48,7 +63,8 @@ test('contract documentation, enum references and path conversion stay consisten
 test('OpenAPI 3.1 nulls, response omission and action-path validation work in Fastify', async (t) => {
   const app = Fastify();
   t.after(() => app.close());
-  installContracts(app);
+  for (const schema of schemas) app.addSchema(schema);
+  app.setValidatorCompiler(createValidatorCompiler());
   installErrorHandler(app);
   const id = '00000000-0000-4000-8000-000000000001';
   route(app, 'PATCH', '/api/events/{id}', async (req) => ({
@@ -116,7 +132,8 @@ test('application errors map at the HTTP boundary and unexpected details stay pr
 test('nested route plugins inherit coercion, rejection and response serialization rules', async (t) => {
   const app = Fastify();
   t.after(() => app.close());
-  installContracts(app);
+  for (const schema of schemas) app.addSchema(schema);
+  app.setValidatorCompiler(createValidatorCompiler());
   installErrorHandler(app);
   const id = '00000000-0000-4000-8000-000000000001';
   let limit: number | undefined;
@@ -165,4 +182,37 @@ test('nested route plugins inherit coercion, rejection and response serializatio
   const accepted = await app.inject({ method: 'PATCH', url: `/api/things/${id}`, payload });
   assert.equal(accepted.statusCode, 404);
   assert.deepEqual(patch, payload);
+});
+
+test('route registration resolves shared response schemas and rejects unsupported references', async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  for (const schema of schemas) app.addSchema(schema);
+  app.setValidatorCompiler(createValidatorCompiler());
+  route(app, 'GET', '/api/tags', async (_req, reply) => {
+    const error = { message: 'Sign in required', statusCode: 401, privateSecret: 'hidden' };
+    return reply.code(401).send(error);
+  });
+  const response = await app.inject('/api/tags');
+  assert.equal(response.statusCode, 401);
+  assert.deepEqual(response.json(), { message: 'Sign in required', statusCode: 401 });
+
+  const reference = spec.paths['/api/tags'].get.responses['401'];
+  const original = reference.$ref;
+  try {
+    for (const value of ['https://example.com/response', '#/components/responses/Missing']) {
+      reference.$ref = value;
+      const invalid = Fastify();
+      try {
+        assert.throws(
+          () => route(invalid, 'GET', '/api/tags', async () => ({ items: [], nextCursor: null })),
+          /Unsupported response reference/,
+        );
+      } finally {
+        await invalid.close();
+      }
+    }
+  } finally {
+    reference.$ref = original;
+  }
 });

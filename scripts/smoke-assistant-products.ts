@@ -27,7 +27,7 @@ try {
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   await transaction(pool, seedRegistry);
   app = await buildApp({
-    pool,
+    dbPool: pool,
     config: { ...config, blobDirectory: directory },
     verifyIdentity: async () => ({ subject: 'synthetic-products-smoke' }),
   });

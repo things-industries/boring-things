@@ -5,7 +5,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
-import type { OwnerChanges } from '../application/streams.js';
+import type { ApplicationEvents } from '../application/events.js';
 import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
 import { transaction } from '../db/connection.js';
@@ -17,15 +17,15 @@ import { revealValue } from '../application/thing-data.js';
 interface Options {
   db: pg.Pool;
   registry: Registry;
-  changes: OwnerChanges;
+  events: ApplicationEvents;
 }
 
-const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, changes }) => {
+const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, events }) => {
   route(app, 'GET', '/api/things', (req) => listThings(db, req.ownerId, req.query));
 
   route(app, 'POST', '/api/things', async (req, reply) => {
     const result = await writeThing(db, req.ownerId, req.body, registry);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });
 
@@ -33,13 +33,13 @@ const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, cha
 
   route(app, 'POST', '/api/things/{id}:view', async (req) => {
     const result = await recordThingView(db, req.ownerId, req.params.id);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
 
   route(app, 'PATCH', '/api/things/{id}', async (req) => {
     const result = await writeThing(db, req.ownerId, req.body, registry, req.params.id);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
 
@@ -49,7 +49,7 @@ const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, cha
       await assertEditable(tx, req.ownerId, req.params.id);
       await deleteThing(tx, req.ownerId, req.params.id);
     });
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(204).send();
   });
 

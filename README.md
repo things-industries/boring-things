@@ -159,11 +159,16 @@ New PDF uploads and discovery downloads derive `pageCount` with [pdf-lib](https:
 - `server/src/providers/`: external capabilities grouped into `ai/`, `auth/`, `blobs/` and `web/`; provider factories select runtime adapters from configuration.
 - `server/src/plugins/`: typed Fastify plugins for authenticated request handling and optional frontend serving.
 - `server/src/contracts/`: operation-specific route types, OAS 3.1 runtime schemas and contract checks.
-- `server/src/routes/`: typed Fastify route plugins, error translation and shared SSE transport; sample SQL stays in `routes/scaffolds/samples.ts`.
+- `server/src/routes/`: typed Fastify route plugins and error translation; sample SQL stays in `routes/scaffolds/samples.ts`.
+- `server/src/http/sse.ts`: bounded SSE streams, periodic snapshots and connection cleanup. Routes subscribe to the app-owned `ApplicationEvents` bus and send streams through Fastify.
 - `server/src/lib/`: generic cancellation and media checks.
 - `shared/api.ts`: generated contract types; do not edit by hand.
 - `src/app/core/api/api-client.ts`: `openapi-fetch` client using the generated paths, with bearer authentication and HTTP error handling.
 - `supabase/migrations/`: SQL migrations.
+
+`buildApp` owns the application event bus and SSE lifecycle. `data.changed` signals that data relevant to `ownerId` may have changed and refreshes subscribed snapshots; conversation deltas share the bus and are filtered by owner and conversation. Streams subscribe before reading, refresh every ten seconds for cross-process changes, and close when their buffer fills.
+
+`buildApp` closes database pools it creates; callers close injected `dbPool` instances.
 
 Run `pnpm api:generate` after changing `openapi.json`; `pnpm api:check` detects stale types. Angular requests use typed client methods with `params` and `body`, so paths, query parameters, request bodies and responses follow the contract. Binary fields generate as `Blob` for multipart uploads and downloads.
 
@@ -174,6 +179,8 @@ Blobs live under `.data/blobs` by default, with random storage keys and restrict
 Lists accept `limit` and opaque offset cursors. They reapply owner scope on each page; paging while records change can shift results. Thing edits lock the row and patch specified values. The application and persisted import runner are single-process.
 
 ## Configuration
+
+`readConfig(env)` eagerly parses an injectable environment source into `EnvConfig`; production requirements are checked before startup.
 
 | Variable                 | Purpose                                                     |
 | ------------------------ | ----------------------------------------------------------- |

@@ -5,7 +5,7 @@
 
 import * as routes from './routes/index.js';
 import { installErrorHandler } from './routes/errors.js';
-import { createStreams } from './routes/stream.js';
+import { ServerSentEvents } from './http/sse.js';
 import web from './plugins/web.js';
 import { ImportProcessor } from './application/import/processor.js';
 import Fastify from 'fastify';
@@ -17,8 +17,8 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from './db/connection.js';
 import { jobLease } from './db/job-lease.js';
-import { readConfig, type Config } from './config.js';
-import { installContracts } from './contracts/routes.js';
+import { readConfig, type EnvConfig } from './config.js';
+import { schemas, createValidatorCompiler } from './contracts/schemas.js';
 import auth from './plugins/auth.js';
 import { logtoVerifier, type VerifyIdentity } from './providers/auth/logto.js';
 import { loadRegistry } from './application/registry/index.js';
@@ -28,11 +28,12 @@ import { createAi } from './providers/ai/index.js';
 import type { ChatAi } from './application/conversations/types.js';
 import type { ImportAi } from './application/import/types.js';
 import { JobRunner } from './application/jobs/runner.js';
-import { OwnerChanges } from './application/streams.js';
+import { ApplicationEvents } from './application/events.js';
 
+// Allow overriding of dependencies for testing
 export interface BuildAppOptions {
-  config?: Config;
-  pool?: pg.Pool;
+  config?: EnvConfig;
+  dbPool?: pg.Pool;
   blobs?: BlobStorage;
   verifyIdentity?: VerifyIdentity;
   logger?: boolean;
@@ -42,7 +43,8 @@ export interface BuildAppOptions {
 
 export async function buildApp(options: BuildAppOptions = {}) {
   const config = options.config ?? readConfig();
-  const pool = options.pool ?? createPool(config.databaseUrl);
+
+  const dbPool = options.dbPool ?? createPool(config.databaseUrl);
   const app = Fastify({
     logger: options.logger
       ? { redact: ['req.headers.authorization', 'req.headers.cookie'] }
@@ -50,10 +52,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     bodyLimit: 1048576,
   });
 
-  // Only pools created here belong to the app; callers manage the lifetime of injected pools.
-  if (!options.pool) app.addHook('onClose', () => pool.end());
+  // Close the database pool on shutdown only when buildApp created it.
+  if (!options.dbPool) app.addHook('onClose', () => dbPool.end());
   try {
-    installContracts(app);
+    for (const schema of schemas) app.addSchema(schema);
+    app.setValidatorCompiler(createValidatorCompiler());
+
+    // Expose API documentation at /api/documentation
     const specificationPath = fileURLToPath(new URL('../../openapi.json', import.meta.url));
     await app.register(swagger, {
       mode: 'static',
@@ -63,13 +68,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
       },
     });
     await app.register(swaggerUi, { routePrefix: '/api/documentation' });
+
     installErrorHandler(app);
+
     app.get('/health', async () => {
-      await pool.query('select 1');
+      await dbPool.query('select 1');
       return { status: 'ok' };
     });
 
-    const { importAi: ai, chatAi } = createAi(config, options);
+    const { importAi, chatAi } = createAi(config, options);
     await app.register(routes.configRoutes, {
       config: {
         logtoEndpoint: config.logtoEndpoint,
@@ -79,66 +86,73 @@ export async function buildApp(options: BuildAppOptions = {}) {
         supportedMediaTypes: config.supportedMediaTypes,
         sampleDataEnabled: config.sampleDataEnabled,
         chatEnabled: !!chatAi,
-        importEnabled: !!ai,
+        importEnabled: !!importAi,
       },
     });
 
     // Registry definitions are cached at startup; restart the server after changing seeded metadata.
-    const registry = await loadRegistry(pool);
+    const registry = await loadRegistry(dbPool);
     const blobs = options.blobs ?? createBlobs(config);
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
-    const changes = new OwnerChanges();
+    const events = new ApplicationEvents();
 
-    const assistant = new Assistant(pool, registry, blobs, chatAi, ai, config, changes);
+    const assistant = new Assistant(dbPool, registry, blobs, chatAi, importAi, config, events);
     const runner = new JobRunner(
-      [assistant, new ImportProcessor(pool, registry, blobs, ai, config, changes)],
+      [assistant, new ImportProcessor(dbPool, registry, blobs, importAi, config, events)],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
-      jobLease(pool, () => {
+      jobLease(dbPool, () => {
         // Stop immediately: another instance may recover jobs after this session loses its lock.
         app.log.fatal({ code: 'job_lock_lost' }, 'Background runner lost its database session');
         process.exit(1);
       }),
     );
-    const streams = createStreams(app);
+    const sse = new ServerSentEvents();
+    app.addHook('preClose', async () => sse.close());
     app.addHook('onReady', () => runner.start());
     app.addHook('preClose', () => runner.stop());
-    // Authentication applies to this scope; health, client configuration and API documentation remain public.
-    await app.register(async (api) => {
-      await api.register(auth, {
-        db: pool,
+
+    // This child scope applies authentication to its routes while public routes remain at the root.
+    await app.register(async function authenticatedRoutes(authenticatedApi) {
+      await authenticatedApi.register(auth, {
+        db: dbPool,
         verify: options.verifyIdentity ?? logtoVerifier(config),
       });
-      await api.register(multipart, {
+      await authenticatedApi.register(multipart, {
         limits: { fileSize: config.maxUploadBytes, files: 1, fields: 0 },
       });
 
-      await api.register(routes.profileRoutes, { db: pool });
-      await api.register(routes.sampleRoutes, {
-        pool,
+      await authenticatedApi.register(routes.profileRoutes, { db: dbPool });
+      await authenticatedApi.register(routes.sampleRoutes, {
+        pool: dbPool,
         registry,
         enabled: config.sampleDataEnabled,
-        changes,
+        events,
       });
-      await api.register(routes.importRoutes, {
-        pool,
+      await authenticatedApi.register(routes.importRoutes, {
+        pool: dbPool,
         registry,
         runner,
-        changes,
-        enabled: !!ai,
-        streams,
+        events,
+        enabled: !!importAi,
+        sse,
       });
-      await api.register(routes.registryRoutes, { db: pool, registry });
-      await api.register(routes.thingRoutes, { db: pool, registry, changes });
-      await api.register(routes.tagRoutes, { db: pool, changes });
-      await api.register(routes.attachmentRoutes, { db: pool, blobs, config, changes });
-      await api.register(routes.activityRoutes, { db: pool, changes });
-      await api.register(routes.conversationRoutes, {
-        db: pool,
+      await authenticatedApi.register(routes.registryRoutes, { db: dbPool, registry });
+      await authenticatedApi.register(routes.thingRoutes, { db: dbPool, registry, events });
+      await authenticatedApi.register(routes.tagRoutes, { db: dbPool, events });
+      await authenticatedApi.register(routes.attachmentRoutes, {
+        db: dbPool,
+        blobs,
+        config,
+        events,
+      });
+      await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
+      await authenticatedApi.register(routes.conversationRoutes, {
+        db: dbPool,
         runner,
         assistant,
-        changes,
+        events,
         enabled: !!chatAi,
-        streams,
+        sse,
       });
     });
     await app.register(web);

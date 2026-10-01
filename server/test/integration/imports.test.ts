@@ -60,7 +60,7 @@ before(async () => {
   }
   await transaction(pool, seedRegistry);
   app = await buildApp({
-    pool,
+    dbPool: pool,
     importAi: ai,
     config: {
       ...readConfig(),
@@ -425,7 +425,7 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
   await app.close();
   await pool.query("update bt.imports set status='MAPPING' where id=$1", [job.id]);
   app = await buildApp({
-    pool,
+    dbPool: pool,
     config: { ...readConfig(), blobDirectory: directory },
     importAi: ai,
     verifyIdentity,

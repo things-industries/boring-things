@@ -7,11 +7,10 @@ import type {
   RouteGenericInterface,
   RouteHandlerMethod,
 } from 'fastify';
-import type { AnySchema } from 'ajv';
 import type { paths } from '../../../shared/api.js';
 import spec from '../../../openapi.json' with { type: 'json' };
 
-import { schemaRefs, schemas, createValidator, type JsonSchema } from './schemas.js';
+import { schemaRefs, type JsonSchema } from './schemas.js';
 interface Reference {
   $ref: string;
 }
@@ -50,7 +49,9 @@ type BodyOf<O> = O extends { requestBody: { content: { 'application/json': infer
   : never;
 type ResponseBody<R> = R extends { content: { 'application/json': infer B } }
   ? B
-  : R extends { content: { 'application/octet-stream': unknown } }
+  : R extends {
+        content: { 'application/octet-stream': unknown } | { 'text/event-stream': unknown };
+      }
     ? NodeJS.ReadableStream
     : void;
 type Replies<O> = O extends { responses: infer R } ? { [S in keyof R]: ResponseBody<R[S]> } : never;
@@ -68,18 +69,8 @@ type Handler<R extends RouteGenericInterface> = (
   reply: FastifyReply<R>,
 ) => Success<R['Reply']> | FastifyReply<R> | Promise<Success<R['Reply']> | FastifyReply<R>>;
 
-export function installContracts(app: FastifyInstance) {
-  // Query strings need coercion; JSON bodies retain their supplied types and reject unknown fields.
-  const bodyAjv = createValidator();
-  const queryAjv = createValidator(true);
-  // Custom AJV instances own validation schemas; Fastify also needs them for response serialization.
-  for (const schema of schemas) app.addSchema(schema);
-  app.setValidatorCompiler(({ schema, httpPart }) =>
-    (httpPart === 'querystring' ? queryAjv : bodyAjv).compile(schema as AnySchema),
-  );
-}
-
-export function fastifyPath(path: string) {
+// Converts OpenAPI path parameters and literal colons to Fastify route syntax.
+export function fastifyPath(path: string): string {
   return path
     .split(/(\{\w+\})/)
     .map((part, index, parts) => {
@@ -90,6 +81,7 @@ export function fastifyPath(path: string) {
     .join('');
 }
 
+// Resolves local OpenAPI response references and rejects unsupported references.
 function responseSchema(response: Response | Reference): Response {
   if (!('$ref' in response)) return response;
   const prefix = '#/components/responses/';

@@ -92,7 +92,7 @@ export async function startTestApp(
     await transaction(pool, seedRegistry);
     const importAi = new FixtureAi();
     const chatAi = new FixtureChat();
-    const app = await buildApp({ pool, config, importAi, chatAi });
+    const app = await buildApp({ dbPool: pool, config, importAi, chatAi });
     cleanup.push(() => app.close());
 
     // Long enough for a reused e2e server; the key only exists for this process.

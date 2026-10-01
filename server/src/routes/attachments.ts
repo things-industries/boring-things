@@ -13,20 +13,20 @@ import {
   type UploadedFile,
 } from '../application/attachments.js';
 import type { BlobStorage } from '../providers/blobs/index.js';
-import type { Config } from '../config.js';
-import type { OwnerChanges } from '../application/streams.js';
+import type { EnvConfig } from '../config.js';
+import type { ApplicationEvents } from '../application/events.js';
 import { transaction } from '../db/connection.js';
 
 interface Options {
   db: pg.Pool;
   blobs: BlobStorage;
-  config: Config;
-  changes: OwnerChanges;
+  config: EnvConfig;
+  events: ApplicationEvents;
 }
 
 const attachmentRoutes: FastifyPluginAsync<Options> = async (
   app,
-  { db, blobs, config, changes },
+  { db, blobs, config, events },
 ) => {
   route(app, 'GET', '/api/attachments', (req) => listAttachments(db, req.ownerId, req.query));
   route(app, 'POST', '/api/attachments', async (req, reply) => {
@@ -70,7 +70,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
 
     ensure(file, 'Choose a file');
     const result = await uploadAttachment(db, blobs, req.ownerId, file);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });
   route(app, 'GET', '/api/attachments/{id}', async (req) =>
@@ -83,7 +83,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
         sourceRefs: [],
       }),
     );
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
   route(app, 'GET', '/api/attachments/{id}/content', async (req, reply) => {
@@ -101,13 +101,13 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   });
   route(app, 'DELETE', '/api/attachments/{id}', async (req, reply) => {
     await removeAttachment(db, blobs, req.ownerId, req.params.id);
-    changes.publish(req.ownerId);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(204).send();
   });
   for (const method of ['PUT', 'DELETE'] as const)
     route(app, method, '/api/attachments/{id}/things/{thingId}', async (req, reply) => {
       await setAttachmentLink(db, req.ownerId, req.params.id, req.params.thingId, method === 'PUT');
-      changes.publish(req.ownerId);
+      events.publish({ type: 'data.changed', ownerId: req.ownerId });
       return reply.code(204).send();
     });
 };
