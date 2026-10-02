@@ -14,7 +14,7 @@
   border-radius: 0;
 }
 :host(.arrive) {
-  animation: sheet-arrive 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sheet-arrive 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
