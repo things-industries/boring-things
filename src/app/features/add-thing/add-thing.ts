@@ -1,9 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { provideIcons } from '@ng-icons/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  addManually,
   chooseFile,
   choosePhoto,
+  connectMailbox,
+  forwardEmail,
   pasteText,
   privacyNotice,
   setupNotice,
@@ -19,9 +22,19 @@ import { TermPipe } from '../../pipes/term.pipe';
 
 @Component({
   selector: 'bt-add-thing',
-  imports: [RouterLink, Notice, OptionTile, ScrollContainer, TopBar, TermPipe],
+  imports: [RouterLink, NgIcon, Notice, OptionTile, ScrollContainer, TopBar, TermPipe],
   viewProviders: [
-    provideIcons({ chooseFile, choosePhoto, pasteText, privacyNotice, setupNotice, takePhoto }),
+    provideIcons({
+      addManually,
+      chooseFile,
+      choosePhoto,
+      connectMailbox,
+      forwardEmail,
+      pasteText,
+      privacyNotice,
+      setupNotice,
+      takePhoto,
+    }),
   ],
   templateUrl: './add-thing.html',
   styleUrl: './add-thing.scss',

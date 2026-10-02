@@ -7,10 +7,7 @@
   <section class="add-thing-methods" aria-labelledby="add-thing-methods">
     <h2 id="add-thing-methods">Choose how to add</h2>
     @if (!config.importEnabled) {
-      <bt-notice icon="setupNotice">
-        AI import is unavailable right now.
-        <span noticeDetail>You can still enter details manually.</span>
-      </bt-notice>
+      <bt-notice icon="setupNotice">AI import is unavailable right now.</bt-notice>
     }
     <div class="add-thing-tiles">
       <button
@@ -68,6 +65,20 @@
       [accept]="config.supportedMediaTypes.join(',')"
       (change)="file($event)"
     />
+    <div class="add-thing-options">
+      <button class="button-secondary" type="button" disabled>
+        <ng-icon name="connectMailbox" aria-hidden="true" /> Connect to mailbox
+        <span class="visually-hidden">(coming soon)</span>
+      </button>
+      <button class="button-secondary" type="button" disabled>
+        <ng-icon name="forwardEmail" aria-hidden="true" /> Forward an email
+        <span class="visually-hidden">(coming soon)</span>
+      </button>
+      <button class="button-secondary" type="button" disabled>
+        <ng-icon name="addManually" aria-hidden="true" /> Add a Thing manually
+        <span class="visually-hidden">(coming soon)</span>
+      </button>
+    </div>
   </section>
   <div role="status">
     @if (busy()) {
@@ -78,7 +89,4 @@
       </bt-notice>
     }
   </div>
-  <p class="add-thing-manual">
-    <a class="button-link" routerLink="/things/new/manual">Enter details manually</a>
-  </p>
 </bt-scroll-container>

@@ -11,7 +11,7 @@ const configure = (page: Page, changes: Record<string, unknown>) =>
     await route.fulfill({ response, json: { ...(await response.json()), ...changes } });
   });
 
-test('Add a Thing offers file, photo and text imports and manual entry', async ({ page }) => {
+test('Add a Thing offers file, photo and text imports', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Add a thing', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/new$/);
@@ -29,8 +29,7 @@ test('Add a Thing offers file, photo and text imports and manual entry', async (
   await expect(page).toHaveURL(/\/things\/new\/text$/);
   await expect(page.getByRole('button', { name: 'Import text' })).toBeDisabled();
   await page.getByRole('link', { name: 'Back' }).click();
-  await page.getByRole('link', { name: 'Enter details manually' }).click();
-  await expect(page).toHaveURL(/\/things\/new\/manual$/);
+  await expect(page).toHaveURL(/\/things\/new$/);
 });
 
 test('a manually created Thing shows in the Things list without a reload', async ({ page }) => {
@@ -38,8 +37,7 @@ test('a manually created Thing shows in the Things list without a reload', async
 
   await page.goto('/things');
   await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Add a thing', exact: true }).click();
-  await page.getByRole('link', { name: 'Enter details manually' }).click();
+  await page.goto('/things/new/manual');
   await page.getByRole('textbox', { name: 'Name' }).fill(name);
   await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
   await page.getByRole('button', { name: 'Create thing' }).click();
@@ -83,7 +81,7 @@ test.describe('with a small upload limit', () => {
 });
 
 test.describe('with AI imports unconfigured', () => {
-  test('import tiles are disabled and manual entry stays available', async ({ page }) => {
+  test('import tiles are disabled', async ({ page }) => {
     await configure(page, { importEnabled: false });
     await page.goto('/things/new');
     await expect(page.getByText('AI import is unavailable right now.')).toBeVisible();
@@ -91,7 +89,6 @@ test.describe('with AI imports unconfigured', () => {
     for (const name of [...tiles, 'Text'])
       await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
 
-    await expect(page.getByRole('link', { name: 'Enter details manually' })).toBeVisible();
     await page.goto('/things/new/text');
     await expect(page).toHaveURL(/\/things\/new$/);
   });

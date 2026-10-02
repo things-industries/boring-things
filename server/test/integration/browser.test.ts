@@ -220,7 +220,7 @@ test(
         path: 'test-results/add-thing-desktop.png',
         fullPage: true,
       });
-      await page.getByRole('link', { name: 'Enter details manually', exact: true }).click();
+      await page.goto(`${base}/things/new/manual`);
       await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Browser test policy');
       await page.getByLabel('Category', { exact: true }).selectOption('insurance');
       await page.getByLabel('Details to include').selectOption('insurance.combined');

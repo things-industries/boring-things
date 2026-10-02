@@ -101,6 +101,9 @@ import {
   remixFileSettingsLine,
   remixFileInfoLine,
   remixLinkM,
+  remixInbox2Line,
+  remixMailSendLine,
+  remixEditBoxLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftSLine;
@@ -151,6 +154,9 @@ export const takePhoto = remixCameraLine;
 export const choosePhoto = remixImageLine;
 export const chooseFile = remixFileLine;
 export const pasteText = remixText;
+export const connectMailbox = remixInbox2Line;
+export const forwardEmail = remixMailSendLine;
+export const addManually = remixEditBoxLine;
 export const privacyNotice = remixShieldCheckLine;
 
 // Thing detail
