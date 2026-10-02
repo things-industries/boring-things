@@ -2,7 +2,6 @@ import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import { rows, type Database } from '../connection.js';
 import { ensure } from '../../application/errors.js';
-import { ownedThing } from './things.js';
 import { page, pageResult } from '../../application/pagination.js';
 
 type Activity = {
@@ -31,7 +30,6 @@ export async function listActivity<K extends ActivityKind>(
   kind: K,
   query: IssueQuery | EventQuery | PurchasableQuery,
 ): Promise<ActivityPage<K>> {
-  if (query.thingId) await ownedThing(db, owner, query.thingId);
   const { limit, offset } = page(query);
   const filters = ['owner_id=$1'];
   const params: unknown[] = [owner];

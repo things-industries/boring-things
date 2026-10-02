@@ -301,6 +301,91 @@ async function upload(content = 'manual', type = 'text/plain', owner = 'alice') 
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="manual.txt"\r\nContent-Type: ${type}\r\n\r\n${content}\r\n--${boundary}--\r\n`,
   });
 }
+test('list filters omit inaccessible records on every page', async (t) => {
+  const alice = await create();
+  const bob = await create({}, 'bob');
+  t.after(async () => {
+    await request('DELETE', `/things/${alice.id}`);
+    await request('DELETE', `/things/${bob.id}`, undefined, 'bob');
+  });
+  const paths = ['/attachments', '/issues', '/events', '/purchasables'];
+  const foreignIds = new Set<string>();
+  for (const [owner, thing] of [
+    ['alice', alice],
+    ['bob', bob],
+  ] as const) {
+    const ownerId = (await request('GET', '/profile', undefined, owner)).json().id;
+    for (let index = 0; index < 2; index++) {
+      const file = (await upload('manual', 'text/plain', owner)).json<Schema['Attachment']>();
+      assert.equal(
+        (await request('PUT', `/attachments/${file.id}/things/${thing.id}`, undefined, owner))
+          .statusCode,
+        204,
+      );
+      const ids = [file.id];
+      for (const path of ['/issues', '/events']) {
+        const response = await request(
+          'POST',
+          path,
+          { thingId: thing.id, title: 'List fixture' },
+          owner,
+        );
+        assert.equal(response.statusCode, 201, response.body);
+        ids.push(response.json().id);
+      }
+      const productId = randomUUID();
+      await pool.query(
+        "insert into bt.purchasables(id,owner_id,thing_id,kind,name,merchant_url) values($1,$2,$3,'CONSUMABLE','List fixture','https://example.com/product')",
+        [productId, ownerId, thing.id],
+      );
+      ids.push(productId);
+      if (owner === 'bob') for (const id of ids) foreignIds.add(id);
+    }
+  }
+  for (const path of paths) {
+    const query = new URLSearchParams({ thingId: alice.id, limit: '1' });
+    const first = await request('GET', path + '?' + query);
+    assert.equal(first.statusCode, 200, first.body);
+    assert.equal(first.json().items.length, 1);
+    assert.ok(first.json().nextCursor);
+    query.set('cursor', first.json().nextCursor);
+    const second = await request('GET', path + '?' + query);
+    assert.equal(second.statusCode, 200, second.body);
+    assert.equal(second.json().items.length, 1);
+    assert.notEqual(second.json().items[0].id, first.json().items[0].id);
+    assert.equal(second.json().nextCursor, null);
+    for (const thingId of [bob.id, randomUUID()]) {
+      for (const cursor of ['', first.json().nextCursor]) {
+        const response = await request(
+          'GET',
+          path + '?' + new URLSearchParams({ thingId, limit: '1', ...(cursor ? { cursor } : {}) }),
+        );
+        assert.equal(response.statusCode, 200, response.body);
+        assert.deepEqual(response.json(), { items: [], nextCursor: null });
+      }
+    }
+    query.delete('thingId');
+    query.delete('cursor');
+    let cursor: string | null;
+    do {
+      const response = await request('GET', path + '?' + query);
+      assert.equal(response.statusCode, 200, response.body);
+      const page = response.json<{ items: { id: string }[]; nextCursor: string | null }>();
+      for (const item of page.items) assert.ok(!foreignIds.has(item.id));
+      cursor = page.nextCursor;
+      if (cursor) query.set('cursor', cursor);
+    } while (cursor);
+    assert.equal((await request('GET', path + '?thingId=invalid')).statusCode, 422);
+  }
+  const tag = (await request('POST', '/tags', { name: 'Private filter' }, 'bob')).json();
+  await request('PATCH', `/things/${bob.id}`, { tagIds: [tag.id] }, 'bob');
+  for (const tagId of [tag.id, randomUUID()]) {
+    const response = await request('GET', '/things?tagId=' + tagId);
+    assert.equal(response.statusCode, 200, response.body);
+    assert.deepEqual(response.json(), { items: [], nextCursor: null });
+  }
+});
+
 test('shared attachments, authorized downloads, unlinking and retained-import deletion checks', async () => {
   const a = await create(),
     b = await create();

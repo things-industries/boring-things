@@ -12,6 +12,40 @@ import type { Schema } from '../../../../shared/model.js';
 import { rows, transaction, type Database } from '../connection.js';
 import { ownedThing, bumpThing } from './things.js';
 import { ensure } from '../../application/errors.js';
+import type { RouteTypes } from '../../contracts/routes.js';
+import { page, pageResult } from '../../application/pagination.js';
+
+type ConversationQuery = RouteTypes<'/api/conversations', 'get'>['Querystring'];
+
+export async function listConversations(
+  db: Database,
+  owner: string,
+  query: ConversationQuery,
+): Promise<Schema['ConversationSummaryList']> {
+  const { limit, offset } = page(query);
+  const items = await rows<Schema['ConversationSummary']>(
+    db,
+    `select c.id,c.thing_id,c.created_at,
+      (select text from bt.messages where conversation_id=c.id and role='USER'
+        order by created_at,id limit 1) as title,
+      m.message_count,coalesce(m.last_message_at,c.created_at) as last_message_at
+    from bt.conversations c
+    cross join lateral (
+      select count(*)::integer as message_count,max(created_at) as last_message_at
+      from bt.messages where conversation_id=c.id
+    ) m
+    where c.owner_id=$1 and ($2::uuid is null or c.thing_id=$2) and m.message_count >= $3
+    order by last_message_at desc,c.id limit $4 offset $5`,
+    [owner, query.thingId ?? null, query.minMessageCount ?? 0, limit + 1, offset],
+  );
+  return pageResult(
+    items.map((item) => ({
+      ...item,
+      title: item.title === null ? null : [...item.title.trim()].slice(0, 80).join(''),
+    })),
+    query,
+  );
+}
 
 export type MessageRow = Schema['Message'] & {
   toolResults: {

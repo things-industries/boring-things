@@ -1054,7 +1054,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Thing id."
+            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
           }
         ],
         "tags": ["Attachments"],
@@ -1505,7 +1505,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Thing id."
+            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
           },
           {
             "name": "status",
@@ -1744,7 +1744,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Thing id."
+            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
           },
           {
             "name": "status",
@@ -2012,7 +2012,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Thing id."
+            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
           },
           {
             "name": "kind",
@@ -2079,6 +2079,83 @@
       }
     },
     "/api/conversations": {
+      "get": {
+        "operationId": "listConversations",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSummaryList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Maximum number of results."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "Opaque cursor returned by the previous page."
+          },
+          {
+            "name": "thingId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
+          },
+          {
+            "name": "minMessageCount",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647,
+              "default": 0
+            },
+            "description": "Minimum persisted message count, including user and assistant messages in every status. Use 1 to exclude empty conversations."
+          }
+        ],
+        "tags": ["Conversations"],
+        "summary": "List conversations",
+        "description": "Owner-scoped conversation summaries ordered by lastMessageAt descending, then ID ascending. Includes Thing and global conversations when thingId is omitted. Offset cursors can shift when messages or conversations are added between pages."
+      },
       "post": {
         "operationId": "createConversation",
         "responses": {
@@ -4149,6 +4226,58 @@
         },
         "required": ["id", "thingId", "messages"],
         "description": "Active owner-scoped conversation and its persisted messages."
+      },
+      "ConversationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thingId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "title": {
+            "type": ["string", "null"],
+            "maxLength": 80,
+            "description": "First user message ordered by creation time then ID, trimmed and truncated to 80 Unicode code points. Null when there is no user message."
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of persisted user and assistant messages in every status. Retries reuse existing messages."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Newest message creation time, or conversation creation time when empty. Completing or retrying a message does not change this time."
+          }
+        },
+        "required": ["id", "thingId", "title", "messageCount", "createdAt", "lastMessageAt"],
+        "description": "Owner-scoped conversation metadata for history lists."
+      },
+      "ConversationSummaryList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationSummary"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "description": "Paginated conversation summaries."
       },
       "ConversationInput": {
         "type": "object",

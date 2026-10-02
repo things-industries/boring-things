@@ -37,6 +37,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 
 - Logto sign-in/sign-out, JWT signature/issuer/audience/expiry validation, local profile creation and owner-scoped access.
 - Authored OpenAPI contract, generated TypeScript types and runtime request validation.
+- List endpoints return accessible records matching all supplied filters. Missing or inaccessible filter targets return empty lists. Invalid filter values return validation errors. Pagination reapplies ownership and filters on every page; offset cursors can shift when records change.
 - Category and field-set registry; mandatory dependencies, separate set-scoped values, inline edits and empty-field prompts.
 - Manual Thing creation/deletion, category correction, pins, tags and custom fields.
 - Top-level uploads, downloads, attachment metadata APIs, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
@@ -69,6 +70,8 @@ On an existing Thing, **Add details from a source** starts another import. Uploa
 
 Choose **Ask a question** on Home, **Ask** in the bottom navigation or **Ask about this thing** on a Thing. Each entry starts a new conversation. The active conversation supports follow-up messages; navigating away or reloading starts a new chat. Messages remain stored for recovery and audit, with no conversation browser or previous-chat resumption.
 
+`GET /api/conversations` lists the owner's conversation summaries, newest message creation time first, with `limit` and `cursor` pagination. Optional `thingId` filters to one Thing; `minMessageCount=1` excludes empty conversations. Counts include persisted user and assistant messages in every status. Titles use the first user message, trimmed and cut to 80 Unicode code points. Empty conversations have a null title and use their creation time for ordering. Details and streams load through the existing conversation-ID endpoints. Frontend history integration remains pending.
+
 - Answers use masked Thing details, linked attachment content and owner-scoped search. Chat may send relevant private documents to OpenAI; document content can contain information beyond the masked field projection. The model is instructed to omit secrets. Source documents and tool results are treated as untrusted evidence.
 - Select **Ask a question**, **Create maintenance event** or **Report issue** before sending. The selected action authorises the matching write tool. Each message can create one suggested Event or one open Issue; scheduling and completion use the existing card controls. These are application records, without calendar sync or external booking.
 - Typed cards open Things, highlight set-scoped fields, download private documents, schedule/complete Events, resolve Issues and open cited merchant pages. Deleted resources show as unavailable. Sample merchant actions stay disabled.
@@ -79,7 +82,7 @@ Choose **Ask a question** on Home, **Ask** in the bottom navigation or **Ask abo
 
 Field sections collapse unbranched inclusion chains under the specialist name. Sibling and shared-dependency sections remain separate. Every field keeps its original set ID for editing, citations and pins. Pinned details appear together above the editor, with sensitive values masked. Purchasables are grouped as consumables, accessories and upgrades.
 
-Sharing, checkout, repair booking, calendar sync and conversation history remain deferred. Render deployment configuration is available; hosted rollout must be verified separately.
+Sharing, checkout, repair booking, calendar sync and the conversation history UI remain deferred. Render deployment configuration is available; hosted rollout must be verified separately.
 
 ## Fields and privacy
 
