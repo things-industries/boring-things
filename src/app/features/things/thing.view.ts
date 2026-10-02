@@ -1,7 +1,4 @@
 import type { Schema, Value } from '../../../../shared/model';
-import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
-import type { EventKind } from '../../interfaces/event.interface';
-import type { IssueKind } from '../../interfaces/issue.interface';
 import type { ThingDetail } from '../../interfaces/thing.interface';
 import { timeLeft, timeSince } from '../../utils/date.util';
 import { fieldIcon } from '../../utils/field-icon.util';
@@ -124,52 +121,3 @@ export function keyDetails(detail: ThingDetail): KeyDetail[] {
       : [];
   });
 }
-
-export const attachmentBadges: Record<
-  Schema['AttachmentDocumentTypeEnum'] | 'IMAGE' | 'FILE',
-  { icon: string; tone: IconBadgeTone }
-> = {
-  MANUAL: { icon: 'attachmentManual', tone: 'info' },
-  RECEIPT: { icon: 'attachmentReceipt', tone: 'neutral' },
-  INVOICE: { icon: 'attachmentInvoice', tone: 'neutral' },
-  INSTALLATION_GUIDE: { icon: 'attachmentGuide', tone: 'neutral' },
-  SPECIFICATION: { icon: 'attachmentSpecification', tone: 'neutral' },
-  OTHER: { icon: 'attachmentFile', tone: 'neutral' },
-  IMAGE: { icon: 'attachmentImage', tone: 'neutral' },
-  FILE: { icon: 'attachmentFile', tone: 'neutral' },
-};
-
-export function attachmentBadge(file: Schema['Attachment']) {
-  return attachmentBadges[
-    file.documentType ?? (file.mediaType.startsWith('image/') ? 'IMAGE' : 'FILE')
-  ];
-}
-
-const formats: Record<string, string> = {
-  'application/pdf': 'PDF',
-  'image/jpeg': 'JPG',
-  'image/png': 'PNG',
-  'image/webp': 'WebP',
-  'text/plain': 'Text',
-};
-
-/** Short file format name for an attachment's media type. */
-export function attachmentFormat(mediaType: string): string {
-  return formats[mediaType] ?? mediaType.split('/').pop()?.toUpperCase() ?? '';
-}
-
-export const taskBadges: Record<EventKind, { icon: string; tone: IconBadgeTone }> = {
-  CLEANING: { icon: 'taskCleaning', tone: 'info' },
-  INSPECTION: { icon: 'taskInspection', tone: 'neutral' },
-  REPAIR: { icon: 'taskRepair', tone: 'neutral' },
-  REPLACEMENT: { icon: 'taskReplacement', tone: 'neutral' },
-  SERVICE: { icon: 'taskService', tone: 'neutral' },
-  OTHER: { icon: 'taskOther', tone: 'neutral' },
-};
-
-export const issueBadges: Record<IssueKind, { icon: string; tone: IconBadgeTone }> = {
-  RENEWAL: { icon: 'issueRenewal', tone: 'info' },
-  WARRANTY: { icon: 'issueWarranty', tone: 'accent' },
-  FAULT: { icon: 'issueFault', tone: 'warning' },
-  OTHER: { icon: 'issueOther', tone: 'neutral' },
-};

@@ -40,8 +40,8 @@
         <bt-list-row
           [title]="issue.title"
           [link]="['/things', issue.thingId]"
-          [icon]="kindBadges[issue.kind].icon"
-          [tone]="kindBadges[issue.kind].tone"
+          [icon]="issueBadges[issue.kind].icon"
+          [tone]="issueBadges[issue.kind].tone"
         >
           <span rowSubtitle>
             @if (issue.statusText) {

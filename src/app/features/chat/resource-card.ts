@@ -55,10 +55,12 @@ import { ListRow } from '../../components/list-row/list-row';
 import { ThingCard } from '../../components/thing-card/thing-card';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
+import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
 import { errorCode } from '../../utils/error.util';
+import { taskBadges } from '../../utils/event.util';
 import { fieldIcon } from '../../utils/field-icon.util';
 import { formatFieldValue } from '../../utils/field.util';
-import { attachmentBadge, attachmentFormat, issueBadges, taskBadges } from '../things/thing.view';
+import { issueBadges } from '../../utils/issue.util';
 
 type CardStatus = 'idle' | 'loading' | 'missing' | 'error';
 

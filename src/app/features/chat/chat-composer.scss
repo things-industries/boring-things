@@ -39,6 +39,7 @@
     resize: none;
     field-sizing: content;
     @include typography.role(body);
+    @include mixins.touch-field-text;
     &::placeholder {
       color: tokens.color(primary-muted);
     }

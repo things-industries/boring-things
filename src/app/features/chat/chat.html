@@ -156,6 +156,8 @@
     [disabled]="!conversation() || sending() || inFlight()"
     [(text)]="text"
     (send)="send()"
+    (focusin)="composerFocus($event)"
+    (focusout)="composerFocus($event)"
   />
 }
 

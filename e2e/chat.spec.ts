@@ -15,6 +15,23 @@ test('global chat starts empty with the composer', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 });
 
+test('chat fits the visible area while the composer has focus', async ({ page }) => {
+  await page.goto('/chat');
+
+  const chat = page.locator('bt-chat');
+  const message = page.getByLabel('Message', { exact: true });
+
+  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await message.focus();
+  await expect(chat).toHaveClass(/keyboard/);
+  // An on-screen keyboard shrinks the visual viewport.
+  await page.setViewportSize({ width: 390, height: 400 });
+  await expect.poll(async () => (await chat.boundingBox())?.height).toBe(400);
+
+  await message.blur();
+  await expect(chat).not.toHaveClass(/keyboard/);
+});
+
 test('Thing chat shows its Thing and streams an answer with cards', async ({ page }) => {
   await page.goto('/things');
   await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();

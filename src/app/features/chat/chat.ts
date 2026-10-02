@@ -62,6 +62,11 @@ import { ResourceCard } from './resource-card';
   viewProviders: [provideIcons({ chatUnavailable, loading, moreActions, responseFailed })],
   templateUrl: './chat.html',
   styleUrl: './chat.scss',
+  host: {
+    '[class.keyboard]': '!!visible()',
+    '[style.top.px]': 'visible()?.top',
+    '[style.height.px]': 'visible()?.height',
+  },
 })
 export class ChatPage {
   private conversations = inject(ConversationsStore);
@@ -83,6 +88,9 @@ export class ChatPage {
   readonly sending = signal(false);
   readonly text = signal('');
   readonly scheduling = signal<Schema['Event'] | null>(null);
+
+  /** Visible area while the composer has focus, so the page fits above the on-screen keyboard. */
+  readonly visible = signal<{ top: number; height: number } | null>(null);
 
   readonly conversation = computed(() => {
     const id = this.id();
@@ -126,8 +134,13 @@ export class ChatPage {
   /** Whether the list follows new messages; false once the user scrolls up. */
   private following = true;
 
+  private stopTracking: (() => void) | null = null;
+
   constructor() {
-    this.destroyRef.onDestroy(() => (this.destroyed = true));
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.stopTracking?.();
+    });
 
     if (this.thingId) {
       void this.categories.ensureLoaded();
@@ -204,6 +217,38 @@ export class ChatPage {
     if (result.ok) {
       if (this.pending === input) this.pending = null;
     } else if (this.pending === input && !this.text()) this.text.set(input.text);
+  }
+
+  /** Tracks the visual viewport while focus is in the composer. */
+  composerFocus(event: FocusEvent) {
+    const composer = event.currentTarget as HTMLElement;
+    const inside = composer.contains(event.relatedTarget as Node | null);
+
+    if (event.type === 'focusin' && !this.stopTracking) this.trackViewport();
+    if (event.type === 'focusout' && !inside) {
+      this.stopTracking?.();
+      this.stopTracking = null;
+      this.visible.set(null);
+    }
+  }
+
+  private trackViewport() {
+    const viewport = window.visualViewport;
+
+    if (!viewport) return;
+
+    const update = () => {
+      this.visible.set({ top: viewport.offsetTop, height: viewport.height });
+      if (this.following) afterNextRender(() => this.toBottom(), { injector: this.injector });
+    };
+
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+    this.stopTracking = () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    };
+    update();
   }
 
   scrolled(event: Event) {

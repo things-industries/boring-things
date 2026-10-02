@@ -6,6 +6,13 @@
   --top-bar-background: #{tokens.color('white')};
   background: tokens.color('white');
 }
+// Sized to the visual viewport while the keyboard may be open; the keyboard covers the home indicator.
+:host(.keyboard) {
+  bottom: auto;
+  bt-chat-composer {
+    padding-bottom: tokens.space(3);
+  }
+}
 bt-scroll-container {
   padding-bottom: tokens.space(4);
 }

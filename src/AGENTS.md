@@ -31,7 +31,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`, `bt-menu`), page layout (`bt-scroll-container`, `bt-hero`, `bt-sheet`), `bt-dialog`, `bt-schedule-dialog`, `bt-key-value-row`, `bt-rich-text` (sanitised Markdown), `bt-thing-card`, `bt-status-summary`, `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, `bt-option-tile`, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
 - `app/interfaces/`: exported frontend interfaces and types, grouped by concept.
 - `app/validators/`: form validators returning error keys.
-- `app/utils/`: pure helpers in concept-named files, including dates and field values. Do not create a catch-all utility file.
+- `app/utils/`: pure helpers in concept-named files, including dates, field values, and icon badges and formats for Issues, Events and attachments (`issue.util.ts`, `event.util.ts`, `attachment.util.ts`). Do not create a catch-all utility file.
 - `styles.scss`: global Sass entry point; imports only.
 - `styles/`: design system, one file per style scope (`_buttons.scss`, `_forms.scss`, …) or one folder when a scope needs several files (`colors/`, `typography/`), plus `_core.scss`, `_mixins.scss` and `CHEATSHEET.md`.
 - Root `shared/api.ts`: generated OpenAPI types. Root `shared/model.ts`: derived aliases and shared shapes. Import or derive API types instead of duplicating them.

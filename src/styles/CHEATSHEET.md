@@ -105,6 +105,7 @@ Unknown keys fail Sass compilation. CSS custom properties are emitted through `t
 - `mixins.skeleton-line`: a skeleton text line; `mixins.skeleton-circle($size)`: a round skeleton, such as an icon badge.
 - `mixins.viewport-page`: page host that fills the viewport above the bottom nav, with a `bt-top-bar` over a `bt-scroll-container`. Only the container scrolls.
 - `mixins.page-gutter`: inline padding that centres content in the page column on a full-width element.
+- `mixins.touch-field-text`: field text of at least 16px on touch screens, so iOS Safari does not zoom in on focus. Global `input`, `select` and `textarea` styles include it; include it again after a `typography.role` on a field.
 - `mixins.hero-backdrop`: fixed image area at the top of a `viewport-page`, behind its top bar and content (`bt-hero`).
 - `mixins.hero-scrim`: dark-to-clear gradient at the top of the hero, behind the top bar controls.
 - `mixins.hero-sheet`: white sheet that scrolls over the `hero-backdrop` (`bt-sheet`, the Thing skeleton). Its scroll container needs no top padding.

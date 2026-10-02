@@ -30,11 +30,10 @@ import { ListRow } from '../../components/list-row/list-row';
 import { PromoCard } from '../../components/promo-card/promo-card';
 import { SectionHeader } from '../../components/section-header/section-header';
 import { ThingRow } from '../../components/thing-row/thing-row';
-import type { IssueKind } from '../../interfaces/issue.interface';
-import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
 import { TermPipe } from '../../pipes/term.pipe';
 import { daysUntil } from '../../utils/date.util';
+import { issueBadges } from '../../utils/issue.util';
 import { HomeSkeleton } from './home-skeleton';
 
 @Component({
@@ -77,12 +76,7 @@ export class HomePage {
 
   readonly config = inject(CONFIG);
   readonly daysUntil = daysUntil;
-  readonly kindBadges: Record<IssueKind, { icon: string; tone: IconBadgeTone }> = {
-    RENEWAL: { icon: 'issueRenewal', tone: 'info' },
-    WARRANTY: { icon: 'issueWarranty', tone: 'accent' },
-    FAULT: { icon: 'issueFault', tone: 'warning' },
-    OTHER: { icon: 'issueOther', tone: 'neutral' },
-  };
+  readonly issueBadges = issueBadges;
 
   readonly period = dayPeriod(new Date());
   readonly profile = this.profileStore.profile;

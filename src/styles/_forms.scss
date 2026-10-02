@@ -1,4 +1,5 @@
 @use 'tokens';
+@use 'mixins';
 button,
 input,
 textarea,
@@ -23,6 +24,7 @@ textarea {
   padding: 11px tokens.space(3);
   color: tokens.color(text-input);
   min-width: 0;
+  @include mixins.touch-field-text;
 }
 label > input,
 label > select,
