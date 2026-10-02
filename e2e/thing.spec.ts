@@ -50,7 +50,7 @@ test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   await expect(ends).toContainText('Not recorded');
   await ends.getByRole('button', { name: 'Actions for Warranty ends' }).click();
   await expect(page.getByRole('menuitem', { name: 'Edit (coming soon)' })).toBeDisabled();
-  await expect(page.getByRole('menuitem', { name: 'Delete', exact: true })).toBeDisabled();
+  await expect(page.getByRole('menuitem', { name: 'Delete', exact: true })).toBeEnabled();
   await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
   await expect(ends.getByRole('img', { name: 'Pinned' })).toBeVisible();
 
