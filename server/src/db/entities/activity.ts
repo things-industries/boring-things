@@ -47,6 +47,9 @@ export async function listActivity<K extends ActivityKind>(
     }
   }
   let order = 'created_at desc';
+  if (kind === 'issues' && q.status === 'OPEN') {
+    order = 'due_date asc nulls last,created_at desc';
+  }
   if (kind === 'events') {
     const timeZone = (query as EventQuery).timeZone ?? 'UTC';
     const zones = await rows(db, 'select 1 from pg_timezone_names where name=$1', [timeZone]);
