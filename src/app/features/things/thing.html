@@ -77,7 +77,7 @@
     <bt-thing-skeleton />
   } @else if (thing(); as t) {
     @if (!discovering()) {
-      <bt-sheet [arrive]="sheetArrives()">
+      <bt-sheet [arrive]="sheetArrives()" [flat]="sheetAtTop()">
         <header class="thing-header">
           <div class="thing-identity">
             <h1>{{ t.name }}</h1>
@@ -192,6 +192,8 @@
                 [icon]="row.icon"
                 [label]="row.label"
                 [loading]="processing() && row.value === null && !row.masked"
+                [class.thing-missing]="!processing() && row.value === null && !row.masked"
+                [copyable]="row.value !== null && !row.masked"
               >
                 @if (row.masked) {
                   ••••••••
@@ -209,6 +211,14 @@
                   {{ $any(row.value) | date: 'd MMM y, HH:mm' }}
                 } @else {
                   {{ formatValue(row.value) }}
+                }
+                @if (!processing() && row.value === null && !row.masked) {
+                  <ng-icon
+                    keyValueEnd
+                    class="thing-missing-edit"
+                    name="editDetails"
+                    aria-hidden="true"
+                  />
                 }
               </bt-key-value-row>
             } @empty {

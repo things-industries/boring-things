@@ -431,12 +431,14 @@ Layout, top to bottom:
   - **Reveal** or **Hide**: sensitive fields with a stored value only. Reveal calls `ThingsStore.reveal`; the revealed value replaces the dots until Hide or the Thing's next revision. Revealed values stay in component memory only.
   - **Delete**: removes the stored value after a confirmation dialog ("Delete {label}?", "Its value is removed from this thing.", `.button-danger` **Delete detail**, **Keep it**). Fields in a set and standalone fields send `values: [{ fieldSetId, fieldId, value: null }]`; custom fields send `removeUndefinedFieldIds` and drop their pin. Disabled when the field has no stored value.
 - While an import runs, Pin, Unpin and Delete are disabled.
+- Choosing a row with a shown value (Thing details rows, recorded fields, revealed sensitive fields) copies "Label: value" as displayed and shows "Copied" in place of the value for `copiedMs`. The Thing page's Key details rows copy the same way. In edit mode (#51) rows do not copy.
+- On the Thing page, a Key details row whose pinned field has no value has a `warning-subtle` tint and a decorative `editDetails` icon after "Not recorded" (clickable in #53).
 
 The Thing page's overflow item linking here reads **All details**, with the `allDetails` (list) icon.
 
 Components:
 
-- `bt-key-value-row`: projected `[keyValueLabel]` content after the label (the pin icon) and `[keyValueEnd]` content after the value (the row menu).
+- `bt-key-value-row`: projected `[keyValueLabel]` content after the label (the pin icon) and `[keyValueEnd]` content after the value (the row menu); `copyable` makes the row a copy button beneath the end content. Only adjacent rows are divided.
 - `bt-icon-button` and `bt-menu`: `size` input, `md` (default, `control-md`) or `sm` (`control-sm`, `sm` icon).
 
 Icons: `pinField` and `pinnedField` become the line and filled pushpin; `unpinField` (unpin), `moreDetails` (vertical dots), `revealValue` and `hideValue` (eye, eye off) added.

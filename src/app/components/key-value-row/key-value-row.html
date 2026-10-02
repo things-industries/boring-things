@@ -1,3 +1,9 @@
+@if (copyable()) {
+  <button type="button" class="key-value-copy" (click)="copy()">
+    <span class="visually-hidden">Copy {{ label() }}</span>
+  </button>
+  <span class="visually-hidden" role="status">{{ copied() ? label() + ' copied' : '' }}</span>
+}
 @if (icon(); as icon) {
   <ng-icon class="key-value-icon" [name]="icon" aria-hidden="true" />
 }
@@ -8,6 +14,9 @@
 @if (loading()) {
   <span class="key-value-skeleton" aria-hidden="true"></span>
 } @else {
-  <span class="key-value-value"><ng-content /></span>
+  @if (copied()) {
+    <span class="key-value-copied" aria-hidden="true">Copied</span>
+  }
+  <span #value class="key-value-value" [hidden]="copied()"><ng-content /></span>
 }
-<ng-content select="[keyValueEnd]" />
+<span class="key-value-end"><ng-content select="[keyValueEnd]" /></span>

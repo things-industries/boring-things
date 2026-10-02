@@ -90,6 +90,15 @@ export class ThingDetailsPage {
   readonly processing = computed(() => activeImport(this.detail()?.import));
   readonly formatValue = formatFieldValue;
 
+  /** Whether a row shows a value to copy: recorded, and revealed when sensitive. */
+  copyable(row: DetailRow) {
+    const revealed = this.revealed();
+
+    return revealed.has(row.anchor)
+      ? revealed.get(row.anchor) !== null
+      : row.value !== null && !row.masked;
+  }
+
   readonly category = computed<string | null>(
     () => this.categories.entityMap()[this.thing()?.categoryId ?? '']?.name ?? null,
   );

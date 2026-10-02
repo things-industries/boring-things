@@ -26,7 +26,7 @@
       <section class="details-section">
         <bt-section-header title="Thing details" />
         <bt-card-group>
-          <bt-key-value-row label="Name">
+          <bt-key-value-row label="Name" copyable>
             <span class="details-fixed-value">{{ t.name }}</span>
             <bt-menu
               keyValueEnd
@@ -40,7 +40,7 @@
               </button>
             </bt-menu>
           </bt-key-value-row>
-          <bt-key-value-row label="Category">
+          <bt-key-value-row label="Category" copyable>
             <span class="details-fixed-value">{{ category() ?? t.categoryId }}</span>
             <bt-menu
               keyValueEnd
@@ -55,7 +55,7 @@
             </bt-menu>
           </bt-key-value-row>
           @if (t.description) {
-            <bt-key-value-row label="Description">
+            <bt-key-value-row label="Description" copyable>
               <span class="details-fixed-value">{{ t.description }}</span>
               <bt-menu
                 keyValueEnd
@@ -88,7 +88,11 @@
           }
           <bt-card-group>
             @for (row of group.rows; track row.anchor) {
-              <bt-key-value-row [label]="row.label" [attr.id]="row.anchor">
+              <bt-key-value-row
+                [label]="row.label"
+                [attr.id]="row.anchor"
+                [copyable]="copyable(row)"
+              >
                 @if (row.pinned) {
                   <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
                     <ng-icon name="pinField" aria-hidden="true" />
@@ -142,7 +146,7 @@
                     type="button"
                     btMenuItem
                     icon="deleteItem"
-                    [disabled]="processing() || (row.value === null && !row.masked)"
+                    [disabled]="processing()"
                     (click)="deleting.set(row)"
                   >
                     Delete

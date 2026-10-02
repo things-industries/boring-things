@@ -89,6 +89,17 @@
   gap: tokens.space(2);
   padding-top: tokens.space(1);
 }
+.thing-missing {
+  margin-inline: calc(-1 * tokens.space(2));
+  padding-inline: tokens.space(2);
+  border-radius: tokens.radius(tile);
+  background: tokens.color(warning-subtle);
+}
+.thing-missing-edit {
+  flex-shrink: 0;
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
+}
 .thing-empty {
   margin: 0;
   padding: tokens.space(2) 0;
