@@ -43,20 +43,49 @@ test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   await expect(page.getByText('Pin details to see them here.')).toBeVisible();
   await page.getByRole('link', { name: 'See all details' }).click();
   await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit details (coming soon)' })).toBeDisabled();
 
-  const ends = page.locator('bt-field').filter({ hasText: 'Warranty ends' });
+  const ends = page.locator('bt-key-value-row').filter({ hasText: 'Warranty ends' });
 
-  await ends.getByRole('button', { name: 'Add', exact: true }).click();
-  await ends.getByLabel('Warranty ends', { exact: true }).fill('2099-01-01');
-  await ends.getByRole('button', { name: 'Save', exact: true }).click();
-  await ends.getByRole('button', { name: 'Pin Warranty ends' }).click();
-  await expect(ends.getByRole('button', { name: 'Unpin Warranty ends' })).toBeVisible();
+  await expect(ends).toContainText('Not recorded');
+  await ends.getByRole('button', { name: 'Actions for Warranty ends' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Edit (coming soon)' })).toBeDisabled();
+  await expect(page.getByRole('menuitem', { name: 'Delete', exact: true })).toBeDisabled();
+  await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
+  await expect(ends.getByRole('img', { name: 'Pinned' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Back to thing' }).click();
   await expect(page).toHaveURL(url);
   await expect(page.locator('bt-key-value-row', { hasText: 'Warranty ends' })).toContainText(
-    '1 Jan 2099',
+    'Not recorded',
   );
+});
+
+test('All details deletes a value after confirmation', async ({ page }) => {
+  await page.goto('/things/new/text');
+  await page.getByRole('textbox', { name: 'Text to import' }).fill('van');
+  await page.getByRole('button', { name: 'Import text' }).click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'See all details' }).click();
+
+  const payload = page.locator('bt-key-value-row').filter({ hasText: 'Payload (kg)' });
+
+  await expect(payload).toContainText('1200');
+  await payload.getByRole('button', { name: 'Actions for Payload (kg)' }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Delete Payload (kg)?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete detail' }).click();
+  await expect(payload).toContainText('Not recorded');
+  await page.reload();
+  await expect(payload).toContainText('Not recorded');
+});
+
+test('Thing details rows offer only a disabled Edit', async ({ page }) => {
+  await createThing(page, `Fixed kettle ${Date.now()}`);
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Actions for Name' }).click();
+  await expect(page.getByRole('menuitem')).toHaveCount(1);
+  await expect(page.getByRole('menuitem', { name: 'Edit (coming soon)' })).toBeDisabled();
 });
 
 test('the overflow menu changes the category and tags, then deletes the Thing', async ({
@@ -81,7 +110,7 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   await page.getByRole('button', { name: 'Close' }).click();
 
   await page.getByRole('button', { name: 'More actions' }).click();
-  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const deleted = page.waitForResponse(
     (response) => response.request().method() === 'DELETE' && response.ok(),
   );
@@ -214,10 +243,8 @@ test('import steps show while discovering, then the sheet slides up once', async
 test.describe('with a failing save', () => {
   test.use({ expectedConsoleErrors: [/status of 422/] });
 
-  test('a failed rename shows a toast and restores the name', async ({ page }) => {
-    const name = `Rename fridge ${Date.now()}`;
-
-    await createThing(page, name);
+  test('a failed pin shows a toast and restores the row', async ({ page }) => {
+    await createThing(page, `Pin fridge ${Date.now()}`);
     await page.route('**/api/things/*', (route) =>
       route.request().method() === 'PATCH'
         ? route.fulfill({ status: 422, json: { message: 'Rejected by test' } })
@@ -226,16 +253,11 @@ test.describe('with a failing save', () => {
 
     await page.getByRole('link', { name: 'See all details' }).click();
 
-    const input = page.getByRole('textbox', { name: 'Name' });
+    const ends = page.locator('bt-key-value-row').filter({ hasText: 'Warranty ends' });
 
-    await input.fill('Renamed fridge');
-    await page.getByRole('button', { name: 'Save basics' }).click();
-
-    const toast = page.locator('.ngx-toastr');
-
-    await expect(toast).toContainText("Couldn't save changes");
-    await expect(input).toHaveValue(name);
-    await page.getByRole('link', { name: 'Back to thing' }).click();
-    await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+    await ends.getByRole('button', { name: 'Actions for Warranty ends' }).click();
+    await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
+    await expect(page.locator('.ngx-toastr')).toContainText("Couldn't save changes");
+    await expect(ends.getByRole('img', { name: 'Pinned' })).toHaveCount(0);
   });
 });

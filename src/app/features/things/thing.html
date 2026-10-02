@@ -20,7 +20,7 @@
 >
   @if (loaded() && thing()) {
     <bt-menu label="More actions">
-      <a btMenuItem icon="editDetails" [routerLink]="['/things', id(), 'details']">Edit details</a>
+      <a btMenuItem icon="allDetails" [routerLink]="['/things', id(), 'details']">All details</a>
       @if (config.importEnabled) {
         <button
           type="button"

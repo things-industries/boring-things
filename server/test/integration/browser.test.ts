@@ -71,17 +71,19 @@ test(
           .access_count;
       await expect.poll(accessCount).toBe(1);
       await page.getByRole('link', { name: 'See all details', exact: true }).click();
-      const pin = page.locator('bt-field').filter({ hasText: 'Access PIN' });
+      const pin = page.locator('bt-key-value-row').filter({ hasText: 'Access PIN' });
+      const pinActions = pin.getByRole('button', { name: 'Actions for Access PIN', exact: true });
       await expect(pin).toContainText('••••••••');
       await expect(pin).not.toContainText('0000');
-      await pin.getByRole('button', { name: 'Reveal', exact: true }).click();
+      await pinActions.click();
+      await page.getByRole('menuitem', { name: 'Reveal', exact: true }).click();
       await expect(pin).toContainText('0000');
-      await pin.getByRole('button', { name: 'Hide', exact: true }).click();
+      await pinActions.click();
+      await page.getByRole('menuitem', { name: 'Hide', exact: true }).click();
       await expect(pin).not.toContainText('0000');
-      await pin.getByRole('button', { name: 'Pin Access PIN', exact: true }).click();
-      await expect(
-        pin.getByRole('button', { name: 'Unpin Access PIN', exact: true }),
-      ).toBeVisible();
+      await pinActions.click();
+      await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
+      await expect(pin.getByRole('img', { name: 'Pinned', exact: true })).toBeVisible();
       assert.equal(await accessCount(), 1);
       await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
       const pinnedPin = page.locator('bt-key-value-row').filter({ hasText: 'Access PIN' });
@@ -226,6 +228,22 @@ test(
       await expect(
         page.getByRole('heading', { name: 'Browser test policy', exact: true }),
       ).toBeVisible();
+      const policyId = new URL(page.url()).pathname.split('/').at(-1)!;
+      const buildingsSum = await app.inject({
+        method: 'PATCH',
+        url: `/api/things/${policyId}`,
+        headers: { authorization: 'Bearer ' + accessToken },
+        payload: {
+          values: [
+            {
+              fieldSetId: 'insurance.buildings',
+              fieldId: 'insurance.sumInsured',
+              value: { amountMinor: 50000000, currency: 'GBP' },
+            },
+          ],
+        },
+      });
+      assert.equal(buildingsSum.statusCode, 200, buildingsSum.body);
       await page.getByRole('link', { name: 'See all details', exact: true }).click();
       const buildings = page.locator('section').filter({
         has: page.getByRole('heading', {
@@ -233,15 +251,7 @@ test(
           exact: true,
         }),
       });
-      const sum = buildings.locator('bt-field').filter({ hasText: 'Sum insured' });
-      await sum.getByRole('button', { name: 'Add', exact: true }).click();
-      await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('1.234');
-      await sum.getByRole('button', { name: 'Save', exact: true }).click();
-      await expect(sum.getByRole('alert')).toHaveText(
-        'Use an amount with up to two decimal places.',
-      );
-      await sum.getByRole('textbox', { name: 'Sum insured', exact: true }).fill('500000');
-      await sum.getByRole('button', { name: 'Save', exact: true }).click();
+      const sum = buildings.locator('bt-key-value-row').filter({ hasText: 'Sum insured' });
       await expect(sum).toContainText('£500,000.00');
       const contents = page.locator('section').filter({
         has: page.getByRole('heading', {
@@ -249,8 +259,8 @@ test(
           exact: true,
         }),
       });
-      const contentsSum = contents.locator('bt-field').filter({ hasText: 'Sum insured' });
-      await expect(contentsSum).toContainText('Add a value');
+      const contentsSum = contents.locator('bt-key-value-row').filter({ hasText: 'Sum insured' });
+      await expect(contentsSum).toContainText('Not recorded');
       await page.reload();
       await expect(sum).toContainText('£500,000.00');
       await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
@@ -345,29 +355,23 @@ test(
       await expect(page.getByRole('link', { name: 'Open Thing 2', exact: true })).toBeVisible();
       await expect(progress).toHaveCount(0);
       await page.getByRole('link', { name: 'See all details', exact: true }).click();
-      await expect(page.locator('bt-field').filter({ hasText: 'Z-number (Z-Nr)' })).toContainText(
-        '0015',
-      );
-      await expect(
-        page.locator('bt-field').filter({ hasText: 'Installer reference' }),
-      ).toContainText('ABC-12');
-      await page.getByRole('combobox', { name: /^Section/ }).selectOption('appliances.ownership');
-      await page.getByRole('button', { name: 'Add section', exact: true }).click();
-      const acquiredOn = page.locator('bt-field').filter({ hasText: 'Acquired on' });
-      await acquiredOn.getByRole('button', { name: 'Add', exact: true }).click();
-      await expect(acquiredOn.getByLabel('Acquired on')).toHaveAttribute('type', 'date');
-      await acquiredOn.getByLabel('Acquired on').fill('2022-03-12');
-      await acquiredOn.getByRole('button', { name: 'Save', exact: true }).click();
-      await expect(acquiredOn).toContainText('2022-03-12');
-      await acquiredOn.getByRole('button', { name: 'Pin Acquired on', exact: true }).click();
-      await expect(
-        acquiredOn.getByRole('button', { name: 'Unpin Acquired on', exact: true }),
-      ).toBeVisible();
+      const zNumber = page.locator('bt-key-value-row').filter({ hasText: 'Z-number (Z-Nr)' });
+      await expect(zNumber).toContainText('0015');
+      await expect(zNumber.getByRole('img', { name: 'Pinned', exact: true })).toBeVisible();
+      const installer = page.locator('bt-key-value-row').filter({ hasText: 'Installer reference' });
+      await expect(installer).toContainText('ABC-12');
+      await installer
+        .getByRole('button', { name: 'Actions for Installer reference', exact: true })
+        .click();
+      await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
+      await expect(installer.getByRole('img', { name: 'Pinned', exact: true })).toBeVisible();
       await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
-      const pinnedDate = page.locator('bt-key-value-row').filter({ hasText: 'Acquired on' });
-      await expect(pinnedDate).toContainText('12 Mar 2022');
+      const pinnedInstaller = page
+        .locator('bt-key-value-row')
+        .filter({ hasText: 'Installer reference' });
+      await expect(pinnedInstaller).toContainText('ABC-12');
       await page.reload();
-      await expect(pinnedDate).toContainText('12 Mar 2022');
+      await expect(pinnedInstaller).toContainText('ABC-12');
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,

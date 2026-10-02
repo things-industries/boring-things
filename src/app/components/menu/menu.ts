@@ -35,6 +35,7 @@ export class Menu {
   readonly icon = input('moreActions');
   readonly label = input.required<string>();
   readonly variant = input<'surface' | 'elevated' | 'plain' | 'accent'>('surface');
+  readonly size = input<'md' | 'sm'>('md');
   readonly disabled = input(false);
   readonly open = signal(false);
 

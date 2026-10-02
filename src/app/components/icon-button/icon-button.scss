@@ -24,3 +24,8 @@
 :host(.accent) {
   background: tokens.color(accent-subtle);
 }
+:host(.small) {
+  width: tokens.size(control-sm);
+  height: tokens.size(control-sm);
+  @include mixins.icon-size(sm);
+}

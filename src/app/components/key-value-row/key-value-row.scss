@@ -13,9 +13,14 @@
   @include mixins.icon-size(sm);
 }
 .key-value-label {
+  display: flex;
   flex: 1;
-  min-width: 0;
+  align-items: center;
+  gap: tokens.space(1);
   color: tokens.color(primary-muted);
+}
+.key-value-text {
+  overflow-wrap: break-word;
 }
 .key-value-value {
   min-width: 0;

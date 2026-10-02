@@ -80,9 +80,9 @@ Three states of one page, driven by the Thing stream.
 
 ### View all details
 
-- Top bar: back, "All details", edit button.
-- One grouped card per field section (existing section grouping), key/value rows, empty values shown as prompts.
-- Edit mode reuses `bt-field` editors inside the same cards; sensitive fields keep Reveal/Hide.
+- Top bar: back, "All details", edit button (disabled until #51).
+- **Thing details** card (name, category) followed by one grouped card per field section (existing section grouping), key/value rows with a pin icon on pinned fields and a row overflow menu: Edit (disabled until #51), Pin/Unpin, Delete. Thing details rows offer only Edit.
+- Sensitive fields keep Reveal/Hide in the row menu.
 
 ### Chat (Thing and global)
 
@@ -372,7 +372,7 @@ Ready layout, top to bottom:
   - **Suggested tasks**: header with inert **See all** (#19); suggested Events as list rows with a kind badge, title, recurrence subtitle (#11 mock, omitted when unknown) and a trailing **+** icon button that opens the schedule dialog. Hidden when empty and not processing.
   - **Compatible products**: header with inert **See all** (#20); purchasables as list rows with an `accent` badge, name, description and a trailing `.button-accent.button-sm` **Buy** link opening `merchantUrl` in a new tab; sample rows show a disabled **Buy** and "Sample" in the subtitle. Hidden when empty and not processing.
   - **Attachments**: header with an **Add** link opening the Add a file dialog (Upload a file; library files to link, unlinked ones also deletable); list rows with an icon and tone by `documentType`, `title` or filename, meta "{format} · {n} pages · {publisher or document date}", a trailing download icon button and an attachment menu. Empty: "No documents yet."
-- Overflow menu: **Edit details** (link to `/things/:id/details`), **Add details from a source** (when imports are enabled), **Change category**, **Tags**, **Delete**.
+- Overflow menu: **All details** (link to `/things/:id/details`), **Add details from a source** (when imports are enabled), **Change category**, **Tags**, **Delete**.
 - Attachment menu: **Set as image** (images; **Use category image** on the current image), **Extract details** (supported types with imports enabled), **Unlink**, **Delete**.
 
 Dialogs (`bt-dialog`):
@@ -412,7 +412,38 @@ Validation: `CI=true pnpm check`; e2e Thing detail spec (ready layout sections f
 
 ### 6. View all details
 
-- Grouped section cards, edit mode with `bt-field`, sections/custom fields management.
+One page, `/things/:id/details` (`thing-details.*` in `features/things/`), without the bottom nav. It lists every detail of a Thing in grouped cards. Editing is a backlog feature (#51): the page offers pin, unpin, delete and reveal, and its edit controls render disabled.
+
+Data: `routeThing()` as on the Thing page. A failed first load shows `bt-error-message` with Retry; a missing Thing shows "This thing is unavailable." with a link home; loading shows key/value skeleton rows.
+
+Layout, top to bottom:
+
+- `bt-top-bar` titled "All details", back link to `/things/:id` ("Back to thing"), and a trailing disabled **Edit** icon button ("Edit details (coming soon)") using the `editDetails` icon. The page background is `secondary-subtle`.
+- One section per group, each a `bt-section-header` over a `bt-card-group` of `bt-key-value-row`s:
+  - **Thing details**: Name, Category, and Description when it has text. Values in `caption`, semibold, `primary-muted`. The row menu holds **Edit** (disabled) only: these values always show on the Thing page and cannot be pinned or deleted.
+  - One section per field section from `fieldSections()` (existing grouping), titled with the section name, holding the fields of every set in it. Sections with no fields are skipped.
+  - **Other details**: standalone fields, when there are any.
+  - **Custom fields**: custom (undefined) fields, when there are any.
+- Field rows: label in `label`, `primary-muted`, followed by the `pinField` icon (`sm`, `primary-muted`, labelled "Pinned") when the field is pinned; value in `label`, right-aligned, formatted as on the Thing page's Key details (masked values as dots, missing as "Not recorded" in `primary-muted`, `false` as No, dates as "d MMM y"); a trailing row menu. Each row keeps its field anchor (`fieldAnchor()`, `custom-<id>`) so a linked fragment scrolls to it and highlights it.
+- Row menu (`bt-menu`, `moreDetails` vertical-dots icon, `plain` variant, small size, labelled "Actions for {label}"):
+  - **Edit**: disabled (#51).
+  - **Pin** or **Unpin**: toggles the pin through `ThingsStore.update({ pinnedFields })`.
+  - **Reveal** or **Hide**: sensitive fields with a stored value only. Reveal calls `ThingsStore.reveal`; the revealed value replaces the dots until Hide or the Thing's next revision. Revealed values stay in component memory only.
+  - **Delete**: removes the stored value after a confirmation dialog ("Delete {label}?", "Its value is removed from this thing.", `.button-danger` **Delete detail**, **Keep it**). Fields in a set and standalone fields send `values: [{ fieldSetId, fieldId, value: null }]`; custom fields send `removeUndefinedFieldIds` and drop their pin. Disabled when the field has no stored value.
+- While an import runs, Pin, Unpin and Delete are disabled.
+
+The Thing page's overflow item linking here reads **All details**, with the `allDetails` (list) icon.
+
+Components:
+
+- `bt-key-value-row`: projected `[keyValueLabel]` content after the label (the pin icon) and `[keyValueEnd]` content after the value (the row menu).
+- `bt-icon-button` and `bt-menu`: `size` input, `md` (default, `control-md`) or `sm` (`control-sm`, `sm` icon).
+
+Icons: `pinField` and `pinnedField` become the line and filled pushpin; `unpinField` (unpin), `moreDetails` (vertical dots), `revealValue` and `hideValue` (eye, eye off) added.
+
+Not carried over from the previous editor, all part of #51: name and description editing, value editing, adding and removing sections, adding individual fields and adding custom fields. `bt-field` stays for #51.
+
+Validation: `CI=true pnpm check`; e2e: pinning a detail from its row menu shows it in Key details with the pin icon on All details, a failed pin reverts with a toast, deleting a value after confirmation, sensitive values revealed and hidden from the row menu; integration browser test reads values and pins through the row menus; mobile (390px) and desktop screenshots compared with the View all details frame.
 
 ### 7. Chat
 
@@ -461,6 +492,7 @@ Inert in the POC. Track these as `Feature` issues, using area labels according t
 | #20   | Compatible products list (**See all**)                | 5     |
 | #21   | Chat file attachments                                 | 7     |
 | #22   | Chat overflow actions and conversation history        | 7     |
+| #51   | Edit mode on All details                              | 6     |
 
 ## Re-homed features
 
@@ -469,7 +501,8 @@ Existing behaviour without a slot in the design:
 | Feature                                                  | Location                                        |
 | -------------------------------------------------------- | ----------------------------------------------- |
 | Manual creation                                          | Add Thing, **Enter details manually**           |
-| Edit fields, pins, sections, custom fields, reveal       | View all details, edit mode                     |
+| Pins, delete values, reveal                              | View all details, row menu                      |
+| Edit fields, sections, custom fields                     | View all details edit mode (#51)                |
 | Add details from a source, change category, tags, delete | Thing overflow menu                             |
 | Set as image, extract details, unlink, delete            | Attachment row menu                             |
 | Multi-Thing confirmation                                 | Thing detail, in place of the processing notice |

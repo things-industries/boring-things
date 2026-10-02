@@ -1,9 +1,13 @@
 @if (icon(); as icon) {
   <ng-icon class="key-value-icon" [name]="icon" aria-hidden="true" />
 }
-<span class="key-value-label">{{ label() }}</span>
+<span class="key-value-label"
+  ><span class="key-value-text">{{ label() }}</span
+  ><ng-content select="[keyValueLabel]"
+/></span>
 @if (loading()) {
   <span class="key-value-skeleton" aria-hidden="true"></span>
 } @else {
   <span class="key-value-value"><ng-content /></span>
 }
+<ng-content select="[keyValueEnd]" />
