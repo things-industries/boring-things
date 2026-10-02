@@ -12,6 +12,7 @@ import {
   ownedConversation,
   enqueueMessage,
   createConversation,
+  listConversations,
 } from '../db/entities/conversations.js';
 import type { JobRunner } from '../application/jobs/runner.js';
 import type { Assistant } from '../application/conversations/assistant.js';
@@ -31,6 +32,8 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   app,
   { db, runner, assistant, events, enabled, sse },
 ) => {
+  route(app, 'GET', '/api/conversations', (req) => listConversations(db, req.ownerId, req.query));
+
   route(app, 'POST', '/api/conversations', async (req, reply) => {
     const result = await createConversation(db, req.ownerId, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });

@@ -431,7 +431,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List conversations
+         * @description Owner-scoped conversation summaries ordered by lastMessageAt descending, then ID ascending. Includes Thing and global conversations when thingId is omitted. Offset cursors can shift when messages or conversations are added between pages.
+         */
+        get: operations["listConversations"];
         put?: never;
         /**
          * Create conversation
@@ -1067,6 +1071,29 @@ export interface components {
             /** Format: uuid */
             thingId: string | null;
             messages: components["schemas"]["Message"][];
+        };
+        /** @description Owner-scoped conversation metadata for history lists. */
+        ConversationSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            thingId: string | null;
+            /** @description First user message ordered by creation time then ID, trimmed and truncated to 80 Unicode code points. Null when there is no user message. */
+            title: string | null;
+            /** @description Number of persisted user and assistant messages in every status. Retries reuse existing messages. */
+            messageCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Newest message creation time, or conversation creation time when empty. Completing or retrying a message does not change this time.
+             */
+            lastMessageAt: string;
+        };
+        /** @description Paginated conversation summaries. */
+        ConversationSummaryList: {
+            items: components["schemas"]["ConversationSummary"][];
+            nextCursor: string | null;
         };
         /** @description Optional Thing context for a new conversation. */
         ConversationInput: {
@@ -1960,7 +1987,7 @@ export interface operations {
                 limit?: number;
                 /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
-                /** @description Thing id. */
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
                 thingId?: string;
             };
             header?: never;
@@ -2199,7 +2226,7 @@ export interface operations {
                 limit?: number;
                 /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
-                /** @description Thing id. */
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
                 thingId?: string;
                 /** @description Status. */
                 status?: components["schemas"]["IssueStatusEnum"];
@@ -2323,7 +2350,7 @@ export interface operations {
                 limit?: number;
                 /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
-                /** @description Thing id. */
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
                 thingId?: string;
                 /** @description Status. */
                 status?: components["schemas"]["EventStatusEnum"];
@@ -2453,7 +2480,7 @@ export interface operations {
                 limit?: number;
                 /** @description Opaque cursor returned by the previous page. */
                 cursor?: string;
-                /** @description Thing id. */
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
                 thingId?: string;
                 /** @description Kind. */
                 kind?: components["schemas"]["PurchasableKindEnum"];
@@ -2502,6 +2529,39 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of results. */
+                limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
+                cursor?: string;
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
+                thingId?: string;
+                /** @description Minimum persisted message count, including user and assistant messages in every status. Use 1 to exclude empty conversations. */
+                minMessageCount?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummaryList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];

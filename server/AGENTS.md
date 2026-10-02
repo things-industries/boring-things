@@ -56,8 +56,8 @@ Use typed functions accepting a database executor, owner ID and named input wher
 - Prefer `type: ["string", "null"]` and equivalent type arrays for nullable primitive schemas. Use composition for nullable references. Runtime schemas use the tested common AJV 2020/serializer subset.
 - Domain enums use UPPER_SNAKE_CASE values in dedicated named schemas at the end of `components.schemas`. Standard JSON Schema/provider values retain their required spelling. Changes to persisted enum values need a data migration and corresponding frontend/provider updates.
 - Derive HTTP shapes from `shared/api.ts`; keep database-only and provider-only shapes separate. Route registration infers body, path, query and reply types from method/path. The API error handler translates semantic application errors into HTTP status codes.
-- Preserve boundary validation and consistent errors: invalid values/references use 422, conflicts use 409, and missing or inaccessible records use the existing 404 behaviour.
-- List endpoints use `limit` and opaque cursors; reapply owner filters on each page. The current offset cursor can shift when records change.
+- Preserve boundary validation and consistent errors: invalid values/references use 422, conflicts use 409, and single-record operations use 404 for missing or inaccessible records.
+- List endpoints return accessible records matching the supplied filters. Missing or inaccessible filter targets produce empty lists. Use `limit` and opaque cursors; reapply owner filters on each page. The current offset cursor can shift when records change.
 - Root `supabase/migrations/` is the schema authority. Add migrations; never rewrite an applied migration or add an ORM-owned schema system.
 - Use `pnpm db:migrate` to preserve local data. Registry changes go in `src/db/seeds/registry.ts`, then `pnpm db:seed`; restart the API to reload the registry. Incompatible definition changes need value migration.
 - Keep sample owned data in the opt-in sample workflow. Seeds must not overwrite user data.
@@ -65,7 +65,7 @@ Use typed functions accepting a database executor, owner ID and named input wher
 
 ## AI imports and assistant work
 
-- Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history/resumption remains deferred.
+- Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history is available through `GET /api/conversations`, with optional `thingId` and `minMessageCount` filters; details and streams load by conversation ID. Frontend history integration remains pending.
 - Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.

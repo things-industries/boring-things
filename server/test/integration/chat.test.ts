@@ -106,6 +106,143 @@ async function wait(id: string, statuses = ['COMPLETE', 'FAILED']) {
   }
   throw new Error('Assistant timed out');
 }
+test('conversation summaries filter, paginate and omit message payloads', async () => {
+  const owner = 'history-' + randomUUID();
+  const { thing } = await setup(owner);
+  const createdAt = '2026-01-01T00:00:00.000Z';
+  const latestAt = '2026-01-03T00:00:00.000Z';
+  const make = async (thingId: string | null) => {
+    const response = await request('POST', '/conversations', { thingId }, owner);
+    assert.equal(response.statusCode, 201, response.body);
+    return response.json<Schema['Conversation']>();
+  };
+  const empty = await make(null);
+  const active = await make(thing.id);
+  const tied = await make(thing.id);
+  const global = await make(null);
+  const foreign = await setup('history-foreign-' + randomUUID());
+  const title = '😀'.repeat(79) + 'A';
+  const message = async (
+    id: string,
+    role: Schema['Message']['role'],
+    text: string,
+    status: Schema['Message']['status'],
+    at: string,
+    messageId = randomUUID(),
+  ) => {
+    await pool.query(
+      'insert into bt.messages(id,conversation_id,request_id,role,text,status,created_at) values($1,$2,$3,$4,$5,$6,$7)',
+      [messageId, id, randomUUID(), role, text, status, at],
+    );
+  };
+  await pool.query(
+    'update bt.conversations set created_at=$1 where owner_id=(select id from bt.users where auth_subject=$2)',
+    [createdAt, owner],
+  );
+  await message(active.id, 'ASSISTANT', 'Earlier assistant text', 'COMPLETE', createdAt);
+  await message(
+    active.id,
+    'USER',
+    '\t\n ' + title + 'B  \n',
+    'COMPLETE',
+    createdAt,
+    '00000000-0000-4000-8000-000000000001',
+  );
+  await message(
+    active.id,
+    'USER',
+    'Later tied user message',
+    'COMPLETE',
+    createdAt,
+    '00000000-0000-4000-8000-000000000002',
+  );
+  await message(active.id, 'ASSISTANT', '', 'PROCESSING', latestAt);
+  await message(tied.id, 'USER', '  Short title  ', 'COMPLETE', createdAt);
+  await message(tied.id, 'ASSISTANT', 'Failed reply', 'FAILED', latestAt);
+  await message(global.id, 'ASSISTANT', 'No user message', 'COMPLETE', '2026-01-02T00:00:00.000Z');
+  const list = async (query = '', asOwner = owner) => {
+    const response = await request('GET', '/conversations?' + query, undefined, asOwner);
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.headers['cache-control'], 'private, no-store');
+    return response.json<Schema['ConversationSummaryList']>();
+  };
+  const all = await list();
+  assert.equal(all.items.length, 5);
+  assert.equal(all.nextCursor, null);
+  assert.deepEqual(
+    all.items.slice(0, 2).map((item) => item.id),
+    [active.id, tied.id].sort(),
+  );
+  assert.deepEqual(
+    all.items.find((item) => item.id === active.id),
+    {
+      id: active.id,
+      thingId: thing.id,
+      title,
+      messageCount: 4,
+      createdAt,
+      lastMessageAt: latestAt,
+    },
+  );
+  assert.deepEqual(
+    all.items.find((item) => item.id === empty.id),
+    {
+      id: empty.id,
+      thingId: null,
+      title: null,
+      messageCount: 0,
+      createdAt,
+      lastMessageAt: createdAt,
+    },
+  );
+  assert.equal(all.items.find((item) => item.id === tied.id)?.title, 'Short title');
+  assert.equal(all.items.find((item) => item.id === global.id)?.title, null);
+  const keys = ['id', 'thingId', 'title', 'messageCount', 'createdAt', 'lastMessageAt'].sort();
+  for (const item of all.items) assert.deepEqual(Object.keys(item).sort(), keys);
+  assert.equal((await list('minMessageCount=0')).items.length, 5);
+  assert.equal((await list('minMessageCount=1')).items.length, 3);
+  assert.deepEqual(
+    (await list('minMessageCount=3')).items.map((item) => item.id),
+    [active.id],
+  );
+  assert.deepEqual(await list('minMessageCount=81'), { items: [], nextCursor: null });
+  const query = new URLSearchParams({ thingId: thing.id, minMessageCount: '2', limit: '1' });
+  const first = await list(query.toString());
+  assert.equal(first.items.length, 1);
+  assert.ok(first.nextCursor);
+  query.set('cursor', first.nextCursor);
+  const second = await list(query.toString());
+  assert.equal(second.nextCursor, null);
+  assert.deepEqual(
+    [...first.items, ...second.items].map((item) => item.id),
+    [active.id, tied.id].sort(),
+  );
+  assert.deepEqual(await list(query.toString(), 'history-outsider-' + randomUUID()), {
+    items: [],
+    nextCursor: null,
+  });
+  for (const thingId of [foreign.thing.id, randomUUID()]) {
+    assert.deepEqual(await list('thingId=' + thingId), { items: [], nextCursor: null });
+    query.set('thingId', thingId);
+    assert.deepEqual(await list(query.toString()), { items: [], nextCursor: null });
+  }
+  for (const invalid of [
+    'minMessageCount=-1',
+    'minMessageCount=1.5',
+    'minMessageCount=true',
+    'minMessageCount=2147483648',
+    'thingId=invalid',
+    'limit=0',
+    'limit=101',
+    'cursor=invalid',
+  ])
+    assert.equal(
+      (await request('GET', '/conversations?' + invalid, undefined, owner)).statusCode,
+      422,
+      invalid,
+    );
+});
+
 test('chat writes, retry receipts, multiple messages, owner isolation and deleted cards', async () => {
   const { thing, chat } = await setup();
   const input = {
@@ -287,8 +424,16 @@ test('restart retains activity and marks interrupted messages retryable', async 
   await boot();
   const interrupted = await wait(chat.id);
   assert.equal(interrupted.message.error, 'interrupted');
+  const beforeRetry = (await request('GET', `/conversations?thingId=${thing.id}`)).json<
+    Schema['ConversationSummaryList']
+  >();
+  assert.equal(beforeRetry.items[0].messageCount, 2);
   await request('POST', `/conversations/${chat.id}/messages`, input);
   assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  assert.deepEqual(
+    (await request('GET', `/conversations?thingId=${thing.id}`)).json(),
+    beforeRetry,
+  );
   assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 1);
 });
 

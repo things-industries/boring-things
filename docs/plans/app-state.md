@@ -115,7 +115,7 @@ The API accepts client-generated IDs for creates. Frontend adoption remains in `
 | Issue | Change                                                                                                                                                                                              | Needed by |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | #34   | Optional client `id` (UUID) on `ThingCreate`, `IssueInput`, `EventInput`, `TagInput` and `ConversationInput`. Implemented: successful creation returns `201`; reusing any existing ID returns `409` | 3a        |
-| #35   | `GET /conversations` with `thingId` and `cursor`, returning conversation summaries (ID, Thing, title, last message time) for chat history                                                           | 7         |
+| #35   | Implemented: `GET /conversations` with `thingId`, `minMessageCount`, `limit` and `cursor`, returning conversation summaries for chat history. Frontend history integration remains pending.         | 7         |
 
 ## Validation
 

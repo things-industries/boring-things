@@ -3,7 +3,6 @@ import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import { rows, type Database } from '../connection.js';
 import { ensure } from '../../application/errors.js';
-import { ownedThing } from './things.js';
 import { page, pageResult } from '../../application/pagination.js';
 
 export type AttachmentRow = Omit<Schema['Attachment'], 'pageCount'> & {
@@ -43,7 +42,6 @@ export async function listAttachments(
   owner: string,
   query: AttachmentQuery,
 ): Promise<Schema['AttachmentList']> {
-  if (query.thingId) await ownedThing(db, owner, query.thingId);
   const { limit, offset } = page(query);
   return pageResult(
     await rows<Schema['Attachment']>(
