@@ -148,7 +148,10 @@ export interface paths {
          */
         get: operations["listThingSummaries"];
         put?: never;
-        /** Create thing */
+        /**
+         * Create thing
+         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         */
         post: operations["createThing"];
         delete?: never;
         options?: never;
@@ -202,7 +205,10 @@ export interface paths {
         /** List tags */
         get: operations["listTags"];
         put?: never;
-        /** Create tag */
+        /**
+         * Create tag
+         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         */
         post: operations["createTag"];
         delete?: never;
         options?: never;
@@ -313,7 +319,10 @@ export interface paths {
         /** List issues */
         get: operations["listIssues"];
         put?: never;
-        /** Create issue */
+        /**
+         * Create issue
+         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         */
         post: operations["createIssue"];
         delete?: never;
         options?: never;
@@ -352,7 +361,10 @@ export interface paths {
          */
         get: operations["listEvents"];
         put?: never;
-        /** Create event */
+        /**
+         * Create event
+         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         */
         post: operations["createEvent"];
         delete?: never;
         options?: never;
@@ -421,7 +433,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create conversation */
+        /**
+         * Create conversation
+         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         */
         post: operations["createConversation"];
         delete?: never;
         options?: never;
@@ -737,6 +752,11 @@ export interface components {
         };
         /** @description Name for an owner-scoped tag; whitespace-only names are rejected. */
         TagInput: {
+            /**
+             * Format: uuid
+             * @description Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409. Ignored on PATCH; the path ID is authoritative.
+             */
+            id?: string;
             name: string;
         };
         /** @description Public Thing metadata excluding stored field values. */
@@ -825,6 +845,11 @@ export interface components {
         };
         /** @description Initial Thing metadata and optional field, tag and pin selections. */
         ThingCreate: {
+            /**
+             * Format: uuid
+             * @description Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.
+             */
+            id?: string;
             name: string;
             description?: string;
             categoryId: string;
@@ -907,6 +932,11 @@ export interface components {
         };
         /** @description New Thing issue; defaults to OPEN. */
         IssueInput: {
+            /**
+             * Format: uuid
+             * @description Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.
+             */
+            id?: string;
             /** Format: uuid */
             thingId: string;
             title: string;
@@ -958,6 +988,11 @@ export interface components {
         };
         /** @description New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
         EventInput: {
+            /**
+             * Format: uuid
+             * @description Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.
+             */
+            id?: string;
             /** Format: uuid */
             thingId: string;
             /** Format: uuid */
@@ -1035,6 +1070,11 @@ export interface components {
         };
         /** @description Optional Thing context for a new conversation. */
         ConversationInput: {
+            /**
+             * Format: uuid
+             * @description Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.
+             */
+            id?: string;
             /** Format: uuid */
             thingId?: string | null;
         };

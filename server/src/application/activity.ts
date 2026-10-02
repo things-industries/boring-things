@@ -21,6 +21,7 @@ export async function writeIssue(
     db,
     owner,
     {
+      id: 'id' in input ? input.id : undefined,
       thingId,
       title,
       description: input.description ?? existing?.description ?? '',
@@ -62,6 +63,7 @@ export async function writeEvent(
     db,
     owner,
     {
+      id: 'id' in input ? input.id : undefined,
       thingId,
       title,
       description: input.description ?? existing?.description ?? '',

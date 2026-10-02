@@ -550,7 +550,8 @@
           }
         },
         "tags": ["Things"],
-        "summary": "Create thing"
+        "summary": "Create thing",
+        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
       }
     },
     "/api/things/{id}": {
@@ -880,7 +881,8 @@
           }
         },
         "tags": ["Tags"],
-        "summary": "Create tag"
+        "summary": "Create tag",
+        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
       }
     },
     "/api/tags/{id}": {
@@ -1565,7 +1567,8 @@
           }
         },
         "tags": ["Activity"],
-        "summary": "Create issue"
+        "summary": "Create issue",
+        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
       }
     },
     "/api/issues/{id}": {
@@ -1832,7 +1835,8 @@
           }
         },
         "tags": ["Activity"],
-        "summary": "Create event"
+        "summary": "Create event",
+        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
       }
     },
     "/api/events/{id}": {
@@ -2123,7 +2127,8 @@
           }
         },
         "tags": ["Conversations"],
-        "summary": "Create conversation"
+        "summary": "Create conversation",
+        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
       }
     },
     "/api/conversations/{id}": {
@@ -3156,6 +3161,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409. Ignored on PATCH; the path ID is authoritative."
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -3478,6 +3488,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -3772,6 +3787,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+          },
           "thingId": {
             "type": "string",
             "format": "uuid"
@@ -3898,6 +3918,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+          },
           "thingId": {
             "type": "string",
             "format": "uuid"
@@ -4129,6 +4154,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+          },
           "thingId": {
             "type": ["string", "null"],
             "format": "uuid"

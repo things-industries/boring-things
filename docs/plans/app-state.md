@@ -108,14 +108,14 @@ The server computes the result of these operations, so they are not optimistic. 
 4. Migrate Home, the dashboard and Profile to the stores. Manual creation and the import panel migrate in stage 4, Thing detail in stage 5 and chat in stage 7.
 5. In `src/AGENTS.md`, replace the local-signals and "no store library" rules with the layer rules, the store rules, the optimistic-mutation rule and the toast rule.
 
-Until #34 is delivered, creates wait for the server response before inserting (mock seam: `app/core/mocks/client-ids.mock.ts`).
+The API accepts client-generated IDs for creates. Frontend adoption remains in `app/core/mocks/client-ids.mock.ts`.
 
 ## Backend follow-up
 
-| Issue | Change                                                                                                                                                                                                                                              | Needed by |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| #34   | Optional client `id` (UUID) on `ThingCreate`, `IssueInput`, `EventInput`, `TagInput` and `ConversationInput`. Repeating a create with the same ID and body returns the existing entity; reusing the ID with a different owner or body returns `409` | 3a        |
-| #35   | `GET /conversations` with `thingId` and `cursor`, returning conversation summaries (ID, Thing, title, last message time) for chat history                                                                                                           | 7         |
+| Issue | Change                                                                                                                                                                                              | Needed by |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| #34   | Optional client `id` (UUID) on `ThingCreate`, `IssueInput`, `EventInput`, `TagInput` and `ConversationInput`. Implemented: successful creation returns `201`; reusing any existing ID returns `409` | 3a        |
+| #35   | `GET /conversations` with `thingId` and `cursor`, returning conversation summaries (ID, Thing, title, last message time) for chat history                                                           | 7         |
 
 ## Validation
 

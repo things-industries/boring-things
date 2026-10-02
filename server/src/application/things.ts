@@ -34,7 +34,7 @@ export async function detail(
 export async function writeThing(
   pool: pg.Pool,
   owner: string,
-  input: ThingPatch,
+  input: Schema['ThingCreate'] | ThingPatch,
   registry: Registry,
   id?: string,
 ) {
@@ -49,6 +49,7 @@ export async function writeThing(
 
     if (!thing)
       thing = await insertThing(db, owner, {
+        id: 'id' in input ? input.id : undefined,
         categoryId: category,
         name: input.name!.trim(),
         description: input.description ?? '',
