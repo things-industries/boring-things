@@ -80,8 +80,6 @@ import { SectionHeader } from '../../components/section-header/section-header';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { Sheet } from '../../components/sheet/sheet';
 import { TopBar } from '../../components/top-bar/top-bar';
-import type { IssueKind } from '../../interfaces/issue.interface';
-import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
 import { daysUntil, eventStart, localDateTimeToUtc } from '../../utils/date.util';
 import { formatFieldValue } from '../../utils/field.util';
@@ -97,6 +95,7 @@ import {
   attachmentFormat,
   discovering,
   fieldValueById,
+  issueBadges,
   keyDetails,
   taskBadges,
 } from './thing.view';
@@ -205,12 +204,7 @@ export class ThingPage {
   readonly taskBadges = taskBadges;
   readonly formatValue = formatFieldValue;
 
-  readonly issueBadges: Record<IssueKind, { icon: string; tone: IconBadgeTone }> = {
-    RENEWAL: { icon: 'issueRenewal', tone: 'info' },
-    WARRANTY: { icon: 'issueWarranty', tone: 'accent' },
-    FAULT: { icon: 'issueFault', tone: 'warning' },
-    OTHER: { icon: 'issueOther', tone: 'neutral' },
-  };
+  readonly issueBadges = issueBadges;
 
   readonly category = computed<Schema['Category'] | null>(
     () => this.categories.entityMap()[this.thing()?.categoryId ?? ''] ?? null,

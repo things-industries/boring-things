@@ -1,0 +1,7 @@
+<bt-thing-thumbnail [imageId]="thing().imageAttachmentId" [category]="category()?.icon ?? null" />
+<span class="thing-card-copy">
+  <a class="thing-card-name" [routerLink]="['/things', thing().id]">{{ thing().name }}</a>
+  @if (category(); as category) {
+    <span class="thing-card-category">{{ category.name }}</span>
+  }
+</span>

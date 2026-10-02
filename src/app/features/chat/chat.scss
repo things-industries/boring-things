@@ -1,36 +1,99 @@
 @use 'tokens';
+@use 'typography';
 @use 'mixins';
 :host {
   @include mixins.viewport-page;
+  --top-bar-background: #{tokens.color('white')};
+  background: tokens.color('white');
 }
-.messages {
-  display: grid;
-  gap: tokens.space(4);
+bt-scroll-container {
+  padding-bottom: tokens.space(4);
 }
-.message {
-  min-width: 0;
+.chat-context {
+  margin-bottom: tokens.space(4);
 }
-.message.user {
-  background: tokens.color('surface-subtle');
+.chat-context-skeleton {
+  @include mixins.skeleton;
+  min-height: calc(#{tokens.size(thumbnail-md)} + 2 * #{tokens.space(3)});
 }
-.message-text {
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(3);
+}
+.chat-user-text {
+  margin: 0;
+  color: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.message h2 {
-  font-size: 1rem;
+.chat-time {
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
 }
-.sources {
-  display: grid;
+.chat-pending {
+  display: flex;
+  align-items: center;
   gap: tokens.space(2);
-  overflow-wrap: anywhere;
+  margin: 0;
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
 }
-.composer {
-  margin-top: tokens.space(5);
-  display: grid;
+.chat-spinner {
+  animation: chat-spin 1s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@keyframes chat-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+.chat-sources {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  @include typography.role(caption);
+  overflow-wrap: anywhere;
+  a {
+    color: tokens.color(accent);
+  }
+}
+.chat-retry {
+  align-self: flex-start;
+}
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+  p {
+    margin: 0;
+  }
+}
+.chat-data-notice {
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
+}
+.chat-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: tokens.space(3);
 }
 .chat-skeleton {
   @include mixins.skeleton;
-  min-height: 12rem;
+  min-height: tokens.size(hero);
+}
+.chat-status {
+  flex-shrink: 0;
+  padding-bottom: tokens.space(2);
+  @include mixins.page-gutter;
+  &:empty {
+    display: none;
+  }
 }

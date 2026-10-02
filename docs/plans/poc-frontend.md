@@ -449,11 +449,60 @@ Validation: `CI=true pnpm check`; e2e: pinning a detail from its row menu shows 
 
 ### 7. Chat
 
-- Thing chat and global chat on one component; context card, bubbles, rich text, resource cards, composer.
-- Add `marked` and `dompurify`; `bt-rich-text` renders sanitised Markdown.
-- Preserve the text-and-request-ID message contract for sends and retries.
-- Mocks: saved-document card.
-- Move chat onto `ConversationsStore` (`create`, `send`, `watch`, `loadOne`). Resource card actions use `IssuesStore`, `EventsStore` and `AttachmentsStore`. Afterwards only domain services call `Api`; drop the exception from `src/AGENTS.md`.
+One page (`features/chat/chat.*`) at `/chat` (global chat) and `/things/:id/chat` (Thing chat), without the bottom nav. Each visit starts a new conversation; history and resumption are #22.
+
+Data: the page reads its conversation from `ConversationsStore`: `create(thingId)` on entry, then `watch(id)` until the page is destroyed; `send` posts messages. The Thing chat reads its Thing from `ThingsStore` (`loadOne` when missing) and its category from `CategoriesStore`. A failed start shows `bt-error-message` with Retry. With chat unconfigured (`chatEnabled` false) the page shows an info `bt-notice` "The assistant is not configured." and no composer.
+
+Layout, top to bottom (white page):
+
+- `bt-top-bar` titled "Assistant": back to the Thing ("Back to thing") in Thing chat, otherwise to `/` ("Home"); trailing disabled overflow icon button ("Conversation actions (coming soon)", #22).
+- Thing chat: `bt-thing-card` for the Thing, linking to it.
+- Empty conversation: "Ask about a detail, a manual, maintenance or compatible products." in `body`, `primary-muted`, and the data notice "Questions and relevant records or documents are sent to OpenAI. Review answers and sources." in `caption`, `primary-muted`.
+- Messages (`bt-chat-bubble`), `space(3)` apart:
+  - User: right-aligned bubble on `secondary-subtle`, radius `card` with a `tail` bottom-end corner, max 80% of the column; text in `body` (line breaks kept) over the send time (`HH:mm`) in `caption`, `primary-muted`.
+  - Assistant: full width, no fill. Thing cards first, then the text through `bt-rich-text`, then the other resource cards, then sources (public links open in a new tab; cited documents download, with the page when given).
+  - Status: `QUEUED` "Waiting to respond…", `PROCESSING` with no text "Preparing an answer…", both with a spinner in `caption`, `primary-muted`. Streamed deltas render as they arrive. `FAILED` shows a warning `bt-notice` "The response was interrupted. Saved actions remain available." with **Retry response** (`.button-secondary.button-sm`) on the last message.
+  - A visually hidden `role="status"` region announces the latest assistant state (waiting, preparing, answered, interrupted) instead of every streamed fragment.
+  - The list scrolls to the newest message when one is added and while the newest streams, unless the user has scrolled up.
+- Disconnected stream: warning `bt-notice` (busy) "Connection interrupted. Reconnecting to saved messages…" above the composer, in a `role="status"` region.
+- `bt-chat-composer` pinned below the scrolling messages.
+
+Resource cards (`features/chat/resource-card.*`), each read from its store and loaded with `loadOne` when missing; a card marked `available: false`, or whose record returns `404`, shows "This {record} is no longer available." in `caption`, `primary-muted`. Rows sit on `secondary-subtle`, radius `tile`:
+
+- **Thing**: `bt-thing-card` linking to the Thing. Thing chat leaves out cards for its own Thing. A field card whose Thing has no Thing card in the message, and is not the Thing chat's Thing, gets one.
+- **Field**: `bt-key-value-row` with the field icon, name and value formatted as in Key details (masked as dots, missing as "Not recorded", `false` as No, dates as "d MMM y"); copyable when a value shows.
+- **Attachment**: list row with the attachment kind badge, title or filename, meta "{format} · {n} pages" and a trailing download icon button. A saved document (#14 mock) shows on `accent-subtle` with the `savedDocument` icon, "Saved a new document" in `caption`, semibold, `primary-muted`, and the title.
+- **Event**: suggested Events as list rows with the task kind badge, recurrence subtitle (#11 mock) and a trailing **+** that opens `bt-schedule-dialog`; scheduled Events as `bt-event-card` with "Due {date} · {relative time}" and **Mark complete**; completed Events as list rows with "Completed". Rows link to the Thing.
+- **Issue**: list rows with the Issue kind badge (#9 mock), status and due-date subtitle and a trailing **Resolve** while open; "Resolved" once resolved. Rows link to the Thing.
+- **Purchasable**: list row with an `accent` badge, name, description and a `.button-accent.button-sm` **Buy** link to `merchantUrl` in a new tab; sample rows show a disabled **Buy** and "Sample".
+
+Sending:
+
+- Enter sends; Shift+Enter adds a line. Send is disabled while the text is empty, a send is in flight or the last assistant message is `QUEUED` or `PROCESSING`.
+- The composer clears when the message is staged and gets the text back when the send fails (the store reverts and toasts `sendMessage`). A failed send keeps its request ID, so sending the same text again reuses it; editing the text starts a new request ID.
+- **Retry response** resends the user message's text with its request ID.
+
+Components:
+
+- `bt-thing-card` (`components/thing-card/`): link card with `bt-thing-thumbnail` (`md`), Thing name in `section` and category in `caption`, semibold, `primary-muted`. `secondary-subtle` fill, `secondary` outline, radius `card`, `space(3)` padding. Inputs `thing` (`ThingSummary`) and `category`.
+- `bt-chat-bubble` (`features/chat/`): input `role` (`USER` or `ASSISTANT`); projected content, and `[bubbleMeta]` content below it.
+- `bt-chat-composer` (`features/chat/`): field on `secondary-subtle` (radius `card`, min height `control-md`) holding an auto-growing textarea labelled "Message" (`body`, up to `composer-max` high), with placeholder "Ask about this Thing" or "Ask across all your Things", and a disabled attach icon button ("Attach a file (coming soon)", #21); then a `primary` **Send** icon button. White bar with a `secondary` top border, `space(3)` `space(4)` padding plus the bottom safe-area inset. Inputs `placeholder` and `disabled`; two-way `text`; output `send`.
+- `bt-schedule-dialog` (`components/schedule-dialog/`): `bt-dialog` with a date and an optional time; **Schedule** calls `EventsStore.schedule`. Open while its `event` input is set.
+- `bt-rich-text` (`components/rich-text/`): renders Markdown with `marked` (GitHub-flavoured, line breaks kept) sanitised with DOMPurify; links open in a new tab with `rel="noopener noreferrer"`. Headings render in `body`, bold; paragraphs and list items `space(1)` apart; lists keep their markers; code in a `secondary-subtle` inline block.
+
+Styles: radius `tail` (4px, bubble corner); size `composer-max` (144px); `bt-icon-button` `primary` variant (dark fill, white icon).
+
+Icons: `sendMessage` becomes the paper plane; `savedDocument` (bookmark) added; `moreActions` on the top bar.
+
+Mocks: `saved-document.mock.ts` (#14) marks an attachment card as a saved document when it carries `created: true`; until #14 the API never sends it, so live chats show the plain attachment row.
+
+Stores:
+
+- `PurchasablesStore.loadOne(id)` fetches a single purchasable for a card.
+- Chat-created Events and Issues load into their stores through their cards, so the Thing page and Home show them without a reload.
+- No `Api` calls remain outside domain services; the exception in `src/AGENTS.md` is removed.
+
+Validation: `CI=true pnpm check`; e2e chat spec (global chat empty state and composer, Thing chat context card, a sent message and its streamed answer, the reconnect spec updated for the new markup); integration browser test updated for the new composer, retry and schedule dialog, with the chat-created Event on the Thing page without a reload; mobile (390px) and desktop screenshots compared with the Thing chat and Global chat frames.
 
 ### 8. Things list and Profile
 

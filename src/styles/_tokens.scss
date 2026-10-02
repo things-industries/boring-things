@@ -27,6 +27,7 @@ $radii: (
   card: 18px,
   sheet: 28px,
   pill: 999px,
+  tail: 4px,
 );
 $shadows: (
   raised: 0 4px 4px rgb(0 0 0 / 25%),
@@ -53,6 +54,7 @@ $sizes: (
   top-bar: 60px,
   bottom-nav: 64px,
   content-max: 480px,
+  composer-max: 144px,
 );
 @function color($name) {
   @if not map.has-key($colors, $name) {

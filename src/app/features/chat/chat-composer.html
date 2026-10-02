@@ -1,0 +1,31 @@
+<form class="composer-form" (submit)="$event.preventDefault(); submit()">
+  <div class="composer-field">
+    <textarea
+      name="message"
+      aria-label="Message"
+      rows="1"
+      maxlength="8000"
+      [placeholder]="placeholder()"
+      [value]="text()"
+      (input)="text.set($any($event.target).value)"
+      (keydown)="keydown($event)"
+    ></textarea>
+    <button
+      type="button"
+      btIconButton
+      variant="plain"
+      size="sm"
+      icon="attachToMessage"
+      label="Attach a file (coming soon)"
+      disabled
+    ></button>
+  </div>
+  <button
+    type="submit"
+    btIconButton
+    variant="primary"
+    icon="sendMessage"
+    label="Send"
+    [disabled]="disabled() || !text().trim()"
+  ></button>
+</form>

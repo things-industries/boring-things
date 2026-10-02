@@ -1,0 +1,79 @@
+@use 'tokens';
+@use 'typography';
+bt-rich-text {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  @include typography.role(body);
+}
+bt-rich-text {
+  > :first-child {
+    margin-top: 0;
+  }
+  > :last-child {
+    margin-bottom: 0;
+  }
+  p,
+  ul,
+  ol,
+  pre,
+  blockquote,
+  table {
+    margin: 0 0 tokens.space(3);
+    color: inherit;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: tokens.space(4) 0 tokens.space(1);
+    @include typography.role(body);
+    font-weight: typography.weight(bold);
+  }
+  ul,
+  ol {
+    padding-left: tokens.space(5);
+  }
+  li + li {
+    margin-top: tokens.space(1);
+  }
+  a {
+    color: tokens.color(accent);
+  }
+  code {
+    padding: 0 tokens.space(1);
+    border-radius: tokens.radius(tail);
+    background: tokens.color(secondary-subtle);
+  }
+  pre {
+    overflow-x: auto;
+    padding: tokens.space(3);
+    border-radius: tokens.radius(tile);
+    background: tokens.color(secondary-subtle);
+    code {
+      padding: 0;
+    }
+  }
+  blockquote {
+    padding-left: tokens.space(3);
+    border-left: 2px solid tokens.color(secondary);
+    color: tokens.color(primary-muted);
+  }
+  table {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    padding: tokens.space(1) tokens.space(2);
+    border-bottom: 1px solid tokens.color(secondary);
+    text-align: left;
+  }
+  hr {
+    border: 0;
+    border-top: 1px solid tokens.color(secondary);
+  }
+}

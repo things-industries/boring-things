@@ -1,0 +1,29 @@
+<bt-dialog title="Schedule task" [open]="!!event()" (closed)="close()">
+  <form [id]="formId" class="schedule-form" (ngSubmit)="schedule()">
+    <label class="schedule-field"
+      >Date
+      <input
+        name="date"
+        type="date"
+        required
+        [ngModel]="date()"
+        (ngModelChange)="date.set($event)"
+      />
+    </label>
+    <label class="schedule-field"
+      >Time (optional)
+      <input name="time" type="time" [ngModel]="time()" (ngModelChange)="time.set($event)" />
+    </label>
+  </form>
+  <div dialogActions>
+    <button type="button" class="button-secondary button-sm" (click)="close()">Cancel</button>
+    <button
+      type="submit"
+      [attr.form]="formId"
+      class="button-primary button-sm"
+      [disabled]="!date()"
+    >
+      Schedule
+    </button>
+  </div>
+</bt-dialog>

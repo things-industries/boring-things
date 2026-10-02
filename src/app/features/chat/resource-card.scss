@@ -1,14 +1,43 @@
 @use 'tokens';
+@use 'typography';
+@use 'mixins';
 :host {
   display: block;
-  margin-block: tokens.space(3);
 }
-.resource {
-  padding: tokens.space(4);
-  border: 1px solid tokens.color('border');
-  border-radius: tokens.radius(card);
+.resource-row {
+  padding-inline: tokens.space(3);
+  border-radius: tokens.radius(tile);
+  background: tokens.color(secondary-subtle);
+}
+.resource-saved {
+  @include mixins.list-row;
+  background: tokens.color(accent-subtle);
+}
+.resource-saved-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: tokens.space(half);
+  min-width: 0;
+  @include typography.role(body);
+  font-weight: typography.weight(medium);
   overflow-wrap: anywhere;
 }
-.resource a {
-  margin-right: tokens.space(3);
+.resource-saved-icon {
+  color: tokens.color(accent);
+  @include mixins.icon-size(md);
+}
+.resource-saved-lead {
+  @include typography.role(caption);
+  font-weight: typography.weight(semibold);
+  color: tokens.color(primary-muted);
+}
+.resource-note {
+  margin: 0;
+  @include typography.role(caption);
+  color: tokens.color(primary-muted);
+}
+.resource-skeleton {
+  @include mixins.skeleton;
+  min-height: tokens.size(list-row);
 }

@@ -1,0 +1,19 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(3);
+  min-width: 0;
+  padding-block: tokens.space(1);
+  @include typography.role(body);
+  color: tokens.color(primary);
+}
+:host(.user) {
+  align-self: flex-end;
+  gap: tokens.space(1);
+  max-width: 80%;
+  padding: tokens.space(3);
+  border-radius: tokens.radius(card) tokens.radius(card) tokens.radius(tail) tokens.radius(card);
+  background: tokens.color(secondary-subtle);
+}

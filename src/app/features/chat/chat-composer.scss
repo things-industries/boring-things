@@ -1,0 +1,49 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: block;
+  flex-shrink: 0;
+  padding-block: tokens.space(3) calc(#{tokens.space(4)} + env(safe-area-inset-bottom));
+  border-top: 1px solid tokens.color(secondary);
+  background: tokens.color('white');
+  @include mixins.page-gutter;
+}
+.composer-form {
+  display: flex;
+  align-items: flex-end;
+  gap: tokens.space(3);
+}
+.composer-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: tokens.space(2);
+  min-width: 0;
+  min-height: tokens.size(control-md);
+  padding: tokens.space(1) tokens.space(1) tokens.space(1) tokens.space(4);
+  border-radius: tokens.radius(card);
+  background: tokens.color(secondary-subtle);
+  &:focus-within {
+    outline: 1px solid tokens.color(primary-muted);
+  }
+  textarea {
+    flex: 1;
+    min-width: 0;
+    max-height: tokens.size(composer-max);
+    padding: tokens.space(2) 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: tokens.color(primary);
+    resize: none;
+    field-sizing: content;
+    @include typography.role(body);
+    &::placeholder {
+      color: tokens.color(primary-muted);
+    }
+    &:focus {
+      outline: none;
+    }
+  }
+}

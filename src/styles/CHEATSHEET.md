@@ -89,10 +89,10 @@ Each set has four tokens, and optionally a fifth. The element decides where each
 ## Spacing, radii, shadows and sizes
 
 - `tokens.space(name)`: `0` 0, `half` 2px (tight text stacks only), `1` 4, `2` 8, `3` 12, `4` 16, `5` 20, `6` 24, `7` 32, `8` 40, `9` 48, `10` 64 pixels.
-- `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges). `control` (9px) is legacy.
+- `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges), `tail` 4px (chat bubble corner). `control` (9px) is legacy.
 - `tokens.shadow(name)`: `raised` (call-to-action cards), `floating` (controls over images), `sheet` (sheet over an image).
 - `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px, `artwork` 96px (category artwork in the hero).
-- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `hero` 400px, `hero-overlap` 104px (sheet over the hero image), `top-bar` 60px, `bottom-nav` 64px, `content-max` 480px (page column width).
+- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `hero` 400px, `hero-overlap` 104px (sheet over the hero image), `top-bar` 60px, `bottom-nav` 64px, `content-max` 480px (page column width), `composer-max` 144px (chat message field height).
 
 Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; set tokens resolve to their palette variable.
 

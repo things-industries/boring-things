@@ -1,6 +1,7 @@
 import type { Schema, Value } from '../../../../shared/model';
 import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 import type { EventKind } from '../../interfaces/event.interface';
+import type { IssueKind } from '../../interfaces/issue.interface';
 import type { ThingDetail } from '../../interfaces/thing.interface';
 import { timeLeft, timeSince } from '../../utils/date.util';
 import { fieldIcon } from '../../utils/field-icon.util';
@@ -164,4 +165,11 @@ export const taskBadges: Record<EventKind, { icon: string; tone: IconBadgeTone }
   REPLACEMENT: { icon: 'taskReplacement', tone: 'neutral' },
   SERVICE: { icon: 'taskService', tone: 'neutral' },
   OTHER: { icon: 'taskOther', tone: 'neutral' },
+};
+
+export const issueBadges: Record<IssueKind, { icon: string; tone: IconBadgeTone }> = {
+  RENEWAL: { icon: 'issueRenewal', tone: 'info' },
+  WARRANTY: { icon: 'issueWarranty', tone: 'accent' },
+  FAULT: { icon: 'issueFault', tone: 'warning' },
+  OTHER: { icon: 'issueOther', tone: 'neutral' },
 };
