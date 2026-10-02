@@ -240,19 +240,6 @@ export const ThingsStore = signalStore(
         return extract(upload.value.id, thingId);
       },
 
-      extract,
-
-      /** Resolves once every Thing the import created or enriched has loaded. */
-      async confirmImport(id: string, body: Schema['ImportConfirmation']) {
-        const result = await store.mutate('confirmImport', [], () =>
-          store._imports.confirm(id, body),
-        );
-
-        if (result.ok)
-          await Promise.all(result.value.thingIds.map((thing) => store.loadOne(thing)));
-        return result;
-      },
-
       async retryImport(id: string) {
         const result = await store.mutate('retryImport', [], () => store._imports.retry(id));
 

@@ -28,6 +28,7 @@ import {
   complete,
   deleteItem,
   downloadAttachment,
+  allDetails,
   editDetails,
   editTags,
   extractDetails,
@@ -147,6 +148,7 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
       complete,
       deleteItem,
       downloadAttachment,
+      allDetails,
       editDetails,
       editTags,
       extractDetails,
@@ -439,10 +441,6 @@ export class ThingPage {
 
   setImage(attachmentId: string | null) {
     void this.things.update(this.id(), { imageAttachmentId: attachmentId });
-  }
-
-  extract(attachmentId: string) {
-    void this.things.extract(attachmentId, this.id());
   }
 
   unlink(attachmentId: string) {

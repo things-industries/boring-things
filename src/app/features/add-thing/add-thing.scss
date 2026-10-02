@@ -40,7 +40,14 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: tokens.space(3);
 }
-.add-thing-manual {
-  margin: 0;
-  text-align: center;
+.add-thing-options {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(3);
+  // Match the option tiles above.
+  .button-secondary {
+    width: 100%;
+    border-color: tokens.color(secondary);
+    border-radius: tokens.radius(tile);
+  }
 }

@@ -1,4 +1,13 @@
-<bt-top-bar title="All details" [back]="['/things', id()]" backLabel="Back to thing" />
+<bt-top-bar title="All details" [back]="['/things', id()]" backLabel="Back to thing">
+  <button
+    type="button"
+    btIconButton
+    icon="editDetails"
+    variant="elevated"
+    label="Edit details (coming soon)"
+    disabled
+  ></button>
+</bt-top-bar>
 <bt-scroll-container>
   @if (error()) {
     <div class="details-error">
@@ -13,150 +22,175 @@
     <bt-row-skeleton kind="key-value" [rows]="6" />
     <span class="visually-hidden" role="status">Loading thing details…</span>
   } @else if (thing(); as t) {
-    @if (detail(); as d) {
-      <fieldset class="details-content" [disabled]="processing()">
-        <section class="content-panel">
-          <h2>The basics</h2>
-          <form (ngSubmit)="saveBasics()" class="basics-form">
-            <label
-              >Name<input
-                name="name"
-                [(ngModel)]="name"
-                required
-                maxlength="200"
-                placeholder="e.g. Kitchen hob"
-            /></label>
-            <label
-              >Description<textarea
-                name="description"
-                [(ngModel)]="description"
-                rows="2"
-                maxlength="4000"
-                placeholder="A little context, if you need it"
-              ></textarea>
-            </label>
-            <div>
-              <button class="button-primary button-sm" type="submit">Save basics</button>
-            </div>
-          </form>
-        </section>
-        @for (section of sections(); track section.id) {
-          <section class="content-panel field-section">
-            <div class="page-section-title">
-              <h2>{{ section.name }}</h2>
-              <button
-                class="quiet small"
-                [disabled]="requiredSet(section.id)"
-                [title]="
-                  requiredSet(section.id)
-                    ? 'Required by another selected section'
-                    : 'Populated fields will be kept as custom fields'
-                "
-                (click)="update({ removeFieldSetIds: [section.id] })"
-              >
-                Remove section
-              </button>
-            </div>
-            @for (set of section.sets; track set.id) {
-              @for (field of set.fields; track field.id) {
-                <bt-field
-                  [disabled]="processing()"
-                  [field]="field"
-                  [thingId]="id()"
-                  [setId]="set.id"
-                  [attr.id]="fieldAnchor(set.id, field.id)"
-                  [pinned]="pinned({ fieldSetId: set.id, fieldId: field.id })"
-                  (valueChange)="fieldValue(field, set.id, $event)"
-                  (pin)="pin({ fieldSetId: set.id, fieldId: field.id })"
-                />
-              }
-              @if (!set.fields.length) {
-                <p class="text-primary-muted">Details are held in the included sections below.</p>
-              }
-            }
-          </section>
-        }
-        @if (d.standaloneFields.length) {
-          <section class="content-panel">
-            <h2>Other details</h2>
-            @for (field of d.standaloneFields; track field.id) {
-              <bt-field
-                [disabled]="processing()"
-                [field]="field"
-                [thingId]="id()"
-                [attr.id]="fieldAnchor(null, field.id)"
-                [pinned]="pinned({ fieldSetId: null, fieldId: field.id })"
-                (valueChange)="fieldValue(field, null, $event)"
-                (pin)="pin({ fieldSetId: null, fieldId: field.id })"
-              />
-            }
-          </section>
-        }
-        @if (d.undefinedFields.length) {
-          <section class="content-panel">
-            <h2>Custom fields</h2>
-            @for (field of d.undefinedFields; track field.id) {
-              <bt-field
-                [disabled]="processing()"
-                [field]="localField(field)"
-                [thingId]="id()"
-                [localId]="field.id"
-                [attr.id]="'custom-' + field.id"
-                [pinned]="pinned({ undefinedFieldId: field.id })"
-                (valueChange)="localChange(field, $event)"
-                (pin)="pin({ undefinedFieldId: field.id })"
-              />
-            }
-          </section>
-        }
-        <section class="content-panel">
-          <h2>Add details</h2>
-          <label
-            >Section<select [(ngModel)]="selectedSet">
-              <option value="">Choose a section…</option>
-              @for (set of availableSets(); track set.id) {
-                <option [value]="set.id">{{ set.name }}</option>
-              }
-            </select></label
-          ><button class="secondary small" [disabled]="!selectedSet()" (click)="addSet()">
-            Add section
-          </button>
-          <details>
-            <summary>Add an individual field</summary>
-            <label
-              >Field<select [(ngModel)]="newField">
-                <option value="">Choose a field…</option>
-                @for (field of fields(); track field.id) {
-                  <option [value]="field.id">{{ field.name }} · {{ field.id }}</option>
-                }
-              </select></label
+    <div class="details-content">
+      <section class="details-section">
+        <bt-section-header title="Thing details" />
+        <bt-card-group>
+          <bt-key-value-row label="Name" copyable>
+            <span class="details-fixed-value">{{ t.name }}</span>
+            <bt-menu
+              keyValueEnd
+              icon="moreDetails"
+              variant="plain"
+              size="sm"
+              label="Actions for Name"
             >
-            @if (standaloneDefinition(); as field) {
-              <bt-field
-                [disabled]="processing()"
-                [field]="field"
-                [thingId]="id()"
-                (valueChange)="fieldValue(field, null, $event)"
-              />
+              <button type="button" btMenuItem icon="editDetails" disabled>
+                Edit<span class="visually-hidden"> (coming soon)</span>
+              </button>
+            </bt-menu>
+          </bt-key-value-row>
+          <bt-key-value-row label="Category" copyable>
+            <span class="details-fixed-value">{{ category() ?? t.categoryId }}</span>
+            <bt-menu
+              keyValueEnd
+              icon="moreDetails"
+              variant="plain"
+              size="sm"
+              label="Actions for Category"
+            >
+              <button type="button" btMenuItem icon="editDetails" disabled>
+                Edit<span class="visually-hidden"> (coming soon)</span>
+              </button>
+            </bt-menu>
+          </bt-key-value-row>
+          @if (t.description) {
+            <bt-key-value-row label="Description" copyable>
+              <span class="details-fixed-value">{{ t.description }}</span>
+              <bt-menu
+                keyValueEnd
+                icon="moreDetails"
+                variant="plain"
+                size="sm"
+                label="Actions for Description"
+              >
+                <button type="button" btMenuItem icon="editDetails" disabled>
+                  Edit<span class="visually-hidden"> (coming soon)</span>
+                </button>
+              </bt-menu>
+            </bt-key-value-row>
+          }
+        </bt-card-group>
+      </section>
+
+      @for (group of groups(); track group.id) {
+        <section class="details-section">
+          @switch (group.kind) {
+            @case ('standalone') {
+              <bt-section-header title="Other details" />
             }
-          </details>
-          <details>
-            <summary>Add a custom field</summary>
-            <label>Label<input [(ngModel)]="localLabel" maxlength="160" /></label
-            ><label
-              >Value<input
-                [(ngModel)]="localValue"
-                [type]="localSensitive() ? 'password' : 'text'"
-                autocomplete="off" /></label
-            ><label class="check-label"
-              ><input type="checkbox" [(ngModel)]="localSensitive" />Sensitive — hide by
-              default</label
-            ><button class="secondary small" [disabled]="!localLabel().trim()" (click)="addLocal()">
-              Add field
-            </button>
-          </details>
+            @case ('custom') {
+              <bt-section-header title="Custom fields" />
+            }
+            @default {
+              <bt-section-header [title]="group.title" />
+            }
+          }
+          <bt-card-group>
+            @for (row of group.rows; track row.anchor) {
+              <bt-key-value-row
+                [label]="row.label"
+                [attr.id]="row.anchor"
+                [copyable]="copyable(row)"
+              >
+                @if (row.pinned) {
+                  <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
+                    <ng-icon name="pinField" aria-hidden="true" />
+                  </span>
+                }
+                @if (revealed().has(row.anchor)) {
+                  <ng-container
+                    *ngTemplateOutlet="
+                      value;
+                      context: { $implicit: row, value: revealed().get(row.anchor) }
+                    "
+                  />
+                } @else if (row.masked) {
+                  ••••••••
+                } @else {
+                  <ng-container
+                    *ngTemplateOutlet="value; context: { $implicit: row, value: row.value }"
+                  />
+                }
+                <bt-menu
+                  keyValueEnd
+                  icon="moreDetails"
+                  variant="plain"
+                  size="sm"
+                  [label]="'Actions for ' + row.label"
+                >
+                  <button type="button" btMenuItem icon="editDetails" disabled>
+                    Edit<span class="visually-hidden"> (coming soon)</span>
+                  </button>
+                  <button
+                    type="button"
+                    btMenuItem
+                    [icon]="row.pinned ? 'unpinField' : 'pinField'"
+                    [disabled]="processing()"
+                    (click)="togglePin(row)"
+                  >
+                    {{ row.pinned ? 'Unpin' : 'Pin' }}
+                  </button>
+                  @if (row.masked) {
+                    <button
+                      type="button"
+                      btMenuItem
+                      [icon]="revealed().has(row.anchor) ? 'hideValue' : 'revealValue'"
+                      [disabled]="revealing() === row.anchor"
+                      (click)="toggleReveal(row)"
+                    >
+                      {{ revealed().has(row.anchor) ? 'Hide' : 'Reveal' }}
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    btMenuItem
+                    icon="deleteItem"
+                    [disabled]="processing()"
+                    (click)="deleting.set(row)"
+                  >
+                    Delete
+                  </button>
+                </bt-menu>
+              </bt-key-value-row>
+            }
+          </bt-card-group>
         </section>
-      </fieldset>
-    }
+      }
+    </div>
+
+    <bt-dialog
+      [title]="'Delete ' + (deleting()?.label ?? '') + '?'"
+      [open]="!!deleting()"
+      (closed)="deleting.set(null)"
+    >
+      <p class="details-dialog-copy">Its value is removed from this thing.</p>
+      <div dialogActions>
+        <button type="button" class="button-secondary button-sm" (click)="deleting.set(null)">
+          Keep it
+        </button>
+        <button type="button" class="button-danger button-sm" (click)="confirmDelete()">
+          Delete detail
+        </button>
+      </div>
+    </bt-dialog>
   }
 </bt-scroll-container>
+
+<ng-template #value let-row let-value="value">
+  @if (value === null) {
+    <span class="text-primary-muted">Not recorded</span>
+  } @else if (value === '') {
+    Empty text
+  } @else if (value === false) {
+    No
+  } @else if (value === true) {
+    Yes
+  } @else if (row.format === 'date') {
+    {{ value | date: 'd MMM y' }}
+  } @else if (row.format === 'date-time') {
+    {{ value | date: 'd MMM y, HH:mm' }}
+  } @else {
+    {{ formatValue(value) }}
+  }
+</ng-template>

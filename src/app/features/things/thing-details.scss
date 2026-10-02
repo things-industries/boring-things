@@ -1,17 +1,32 @@
 @use 'tokens';
+@use 'typography';
 @use 'mixins';
 :host {
   @include mixins.viewport-page;
 }
 .details-content {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
+  padding-bottom: tokens.space(7);
 }
-.basics-form {
-  display: grid;
-  gap: tokens.space(4);
+.details-section {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+}
+bt-card-group {
+  padding-block: tokens.space(1);
+}
+.details-fixed-value {
+  @include typography.role(caption);
+  font-weight: typography.weight(semibold);
+  color: tokens.color(primary-muted);
+}
+.details-pin {
+  display: inline-flex;
+  flex-shrink: 0;
+  @include mixins.icon-size(sm);
 }
 .details-error {
   display: flex;
@@ -19,10 +34,12 @@
   align-items: flex-start;
   gap: tokens.space(3);
 }
-.details-empty {
+.details-empty,
+.details-dialog-copy {
+  margin: 0;
   color: tokens.color(primary-muted);
 }
-bt-field:target {
+bt-key-value-row:target {
   outline: 2px solid tokens.color(primary);
   scroll-margin-top: tokens.space(10);
 }

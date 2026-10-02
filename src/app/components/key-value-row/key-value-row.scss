@@ -4,18 +4,28 @@
 :host {
   @include mixins.key-value-row;
   padding: tokens.space(2) 0;
-  border-bottom: 1px solid tokens.color(secondary);
   @include typography.role(label);
   font-weight: typography.weight(regular);
+}
+:host(.is-copyable) {
+  position: relative;
+}
+:host + :host {
+  border-top: 1px solid tokens.color(secondary);
 }
 .key-value-icon {
   color: tokens.color(primary-muted);
   @include mixins.icon-size(sm);
 }
 .key-value-label {
+  display: flex;
   flex: 1;
-  min-width: 0;
+  align-items: center;
+  gap: tokens.space(1);
   color: tokens.color(primary-muted);
+}
+.key-value-text {
+  overflow-wrap: break-word;
 }
 .key-value-value {
   min-width: 0;
@@ -25,4 +35,36 @@
 .key-value-skeleton {
   @include mixins.skeleton-line;
   width: 30%;
+}
+.key-value-copy {
+  position: absolute;
+  inset: 0 calc(-1 * tokens.space(2));
+  padding: 0;
+  border: 0;
+  border-radius: tokens.radius(tile);
+  background: none;
+  cursor: pointer;
+  &:hover,
+  &:focus-visible {
+    background: tokens.color(secondary-subtle);
+  }
+}
+.key-value-icon,
+.key-value-label,
+.key-value-value,
+.key-value-copied {
+  position: relative;
+  pointer-events: none;
+}
+.key-value-copied {
+  color: tokens.color(accent);
+}
+.key-value-end {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  &:empty {
+    display: none;
+  }
 }

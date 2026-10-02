@@ -34,13 +34,15 @@ test('All details masks sensitive fields until revealed', async ({ page }) => {
   await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('button', { name: 'More actions' }).click();
-  await page.getByRole('menuitem', { name: 'Edit details' }).click();
+  await page.getByRole('menuitem', { name: 'All details' }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+\/details$/);
-  const pin = page.locator('bt-field').filter({ hasText: 'Access PIN' });
+  const pin = page.locator('bt-key-value-row').filter({ hasText: 'Access PIN' });
   await expect(pin).toContainText('••••••••');
-  await pin.getByRole('button', { name: 'Reveal', exact: true }).click();
+  await pin.getByRole('button', { name: 'Actions for Access PIN' }).click();
+  await page.getByRole('menuitem', { name: 'Reveal' }).click();
   await expect(pin).toContainText('0000');
-  await pin.getByRole('button', { name: 'Hide', exact: true }).click();
+  await pin.getByRole('button', { name: 'Actions for Access PIN' }).click();
+  await page.getByRole('menuitem', { name: 'Hide' }).click();
   await expect(pin).not.toContainText('0000');
 });
 

@@ -1,9 +1,6 @@
 @let current = job();
 <div role="status">
   @switch (current.status) {
-    @case ('AWAITING_SELECTION') {
-      <h2 class="import-heading">Which Things would you like to keep?</h2>
-    }
     @case ('FAILED') {
       <bt-notice tone="warning" icon="setupNotice">
         The import could not finish.
@@ -25,39 +22,8 @@
     }
   }
 </div>
-@if (current.status === 'AWAITING_SELECTION') {
-  <div class="import-candidates">
-    @for (candidate of current.candidates; track candidate.id) {
-      <label
-        >{{ candidate.name }}
-        <select
-          [ngModel]="selections()[candidate.id] || ''"
-          (ngModelChange)="select(candidate.id, $event)"
-          [disabled]="busy()"
-        >
-          <option value="">Create a Thing</option>
-          <option value="skip">Skip</option>
-          @for (thing of existing(); track thing.id) {
-            <option [value]="thing.id">Add to {{ thing.name }}</option>
-          }
-        </select>
-      </label>
-    }
-    <button type="button" class="button-primary" [disabled]="busy()" (click)="confirm()">
-      Keep selected Things
-    </button>
-  </div>
-}
 @if (current.status === 'FAILED' || current.status === 'INCOMPLETE') {
   <button type="button" class="button-secondary button-sm" [disabled]="busy()" (click)="retry()">
     Retry import
   </button>
-}
-@if (current.thingIds.length > 1) {
-  <p class="import-things">
-    Things from this source:
-    @for (id of current.thingIds; track id; let number = $index) {
-      <a class="button-link" [routerLink]="['/things', id]">Open Thing {{ number + 1 }}</a>
-    }
-  </p>
 }

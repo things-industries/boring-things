@@ -32,12 +32,17 @@ import {
   remixLoader4Line,
   remixMoreLine,
   remixPencilLine,
+  remixListUnordered,
   remixPriceTag3Line,
   remixSearchLine,
   remixShieldCheckLine,
   remixShoppingBagLine,
-  remixStarLine,
-  remixStarFill,
+  remixPushpinLine,
+  remixPushpinFill,
+  remixUnpinLine,
+  remixMore2Line,
+  remixEyeLine,
+  remixEyeOffLine,
   remixText,
   remixTimeLine,
   remixToolsLine,
@@ -96,14 +101,20 @@ import {
   remixFileSettingsLine,
   remixFileInfoLine,
   remixLinkM,
+  remixInbox2Line,
+  remixMailSendLine,
+  remixEditBoxLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftSLine;
 export const open = remixArrowRightUpLine;
 export const complete = remixCheckLine;
 export const searchThings = remixSearchLine;
-export const pinField = remixStarLine;
-export const pinnedField = remixStarFill;
+export const pinField = remixPushpinLine;
+export const pinnedField = remixPushpinFill;
+export const unpinField = remixUnpinLine;
+export const revealValue = remixEyeLine;
+export const hideValue = remixEyeOffLine;
 
 export const scheduleEvent = remixArrowRightLine;
 export const uploadFile = remixUploadLine;
@@ -120,6 +131,7 @@ export const navAsk = remixChat3Line;
 export const navAskActive = remixChat3Fill;
 export const openProfile = remixAccountCircleLine;
 export const moreActions = remixMoreLine;
+export const moreDetails = remixMore2Line;
 export const openRow = remixArrowRightSLine;
 export const close = remixCloseLine;
 export const loading = remixLoader4Line;
@@ -142,6 +154,9 @@ export const takePhoto = remixCameraLine;
 export const choosePhoto = remixImageLine;
 export const chooseFile = remixFileLine;
 export const pasteText = remixText;
+export const connectMailbox = remixInbox2Line;
+export const forwardEmail = remixMailSendLine;
+export const addManually = remixEditBoxLine;
 export const privacyNotice = remixShieldCheckLine;
 
 // Thing detail
@@ -154,6 +169,7 @@ export const compatibleProduct = remixShoppingBagLine;
 export const attachmentDocument = remixFileTextLine;
 export const downloadAttachment = remixDownloadLine;
 export const editDetails = remixPencilLine;
+export const allDetails = remixListUnordered;
 export const changeCategory = remixExchangeLine;
 export const editTags = remixPriceTag3Line;
 export const deleteItem = remixDeleteBinLine;
