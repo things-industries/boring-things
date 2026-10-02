@@ -15,9 +15,15 @@ export function checkContract() {
   for (const [path, item] of Object.entries(spec.paths)) {
     for (const [method, value] of Object.entries(item)) {
       if (!methods.has(method)) throw new Error(`Unsupported path item: ${path}/${method}`);
-      const operation = value as { operationId: string; summary?: string; tags?: string[] };
+      const operation = value as {
+        operationId: string;
+        summary?: string;
+        description?: string;
+        tags?: string[];
+      };
       if (
         !operation.summary ||
+        !operation.description ||
         !operation.tags?.length ||
         operation.tags.some((tag) => !tags.has(tag))
       )
@@ -52,7 +58,10 @@ export function checkContract() {
           throw new Error(`Invalid domain enum: ${path.join('/')}`);
       }
       if (key === '$ref') {
-        if (typeof item !== 'string' || !/^#\/components\/(schemas|responses)\/[\w-]+$/.test(item))
+        if (
+          typeof item !== 'string' ||
+          !/^#\/components\/(schemas|responses|parameters)\/[\w-]+$/.test(item)
+        )
           throw new Error(`Unsupported reference: ${String(item)}`);
         const [, , group, name] = item.split('/');
         const components = spec.components as unknown as Record<string, Record<string, unknown>>;

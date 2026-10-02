@@ -27,7 +27,7 @@ interface Response {
   content?: Record<string, Media>;
 }
 interface Operation {
-  parameters?: Parameter[];
+  parameters?: (Parameter | Reference)[];
   requestBody?: { content: Record<string, Media> };
   responses: Record<string, Response | Reference>;
 }
@@ -92,6 +92,16 @@ function responseSchema(response: Response | Reference): Response {
   return resolved;
 }
 
+function parameterSchema(parameter: Parameter | Reference): Parameter {
+  if (!('$ref' in parameter)) return parameter;
+  const prefix = '#/components/parameters/';
+  const parameters: Record<string, Parameter> = spec.components.parameters;
+  const resolved =
+    parameter.$ref.startsWith(prefix) && parameters[parameter.$ref.slice(prefix.length)];
+  if (!resolved) throw new Error(`Unsupported parameter reference: ${parameter.$ref}`);
+  return resolved;
+}
+
 // Connect a Fastify route to a contract operation, validating request and response against the OpenAPI spec.
 export function route<M extends Uppercase<Method>, P extends RoutePath<Lowercase<M>>>(
   app: FastifyInstance,
@@ -103,11 +113,12 @@ export function route<M extends Uppercase<Method>, P extends RoutePath<Lowercase
   const operation = paths[path]?.[method.toLowerCase()];
   if (!operation) throw new Error(`No contract for ${method} ${path}`);
   const schema: Record<string, unknown> = {};
+  const parameters = operation.parameters?.map(parameterSchema) ?? [];
   for (const [location, key] of [
     ['path', 'params'],
     ['query', 'querystring'],
   ]) {
-    const params = operation.parameters?.filter((p) => p.in === location) ?? [];
+    const params = parameters.filter((p) => p.in === location);
     schema[key] = {
       type: 'object',
       additionalProperties: false,

@@ -9,6 +9,9 @@
     "/api/config": {
       "get": {
         "operationId": "getConfig",
+        "summary": "Get config",
+        "description": "Returns sign-in settings, upload limits and feature availability for the browser client.",
+        "tags": ["Configuration"],
         "responses": {
           "200": {
             "description": "Success",
@@ -27,14 +30,15 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "security": [],
-        "tags": ["Configuration"],
-        "summary": "Get config"
+        "security": []
       }
     },
     "/api/profile": {
       "get": {
         "operationId": "getProfile",
+        "summary": "Get profile",
+        "description": "Returns the signed-in user's profile and whether sample data has been added.",
+        "tags": ["Profile"],
         "responses": {
           "200": {
             "description": "Success",
@@ -63,14 +67,15 @@
           {
             "bearerAuth": []
           }
-        ],
-        "tags": ["Profile"],
-        "summary": "Get profile"
+        ]
       }
     },
     "/api/profile:seed-samples": {
       "post": {
         "operationId": "seedSamples",
+        "summary": "Seed samples",
+        "description": "Adds sample Things and related activity, then returns the updated profile. Repeated requests preserve the existing sample collection. Returns 404 when sample data is disabled.",
+        "tags": ["Profile"],
         "responses": {
           "200": {
             "description": "Success",
@@ -105,14 +110,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "tags": ["Profile"],
-        "summary": "Seed samples"
+        ]
       }
     },
     "/api/categories": {
       "get": {
         "operationId": "listCategories",
+        "summary": "List categories",
+        "description": "Lists Thing categories with the number of your Things in each category.",
+        "tags": ["Registry"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -141,36 +155,29 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          }
-        ],
-        "tags": ["Registry"],
-        "summary": "List categories"
+        ]
       }
     },
     "/api/field-sets": {
       "get": {
         "operationId": "listFieldSets",
+        "summary": "List field sets",
+        "description": "Lists field sets, optionally filtered by category and search text.",
+        "tags": ["Registry"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/categoryId"
+          },
+          {
+            "$ref": "#/components/parameters/search"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -199,53 +206,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "categoryId",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Category id."
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 400
-            },
-            "description": "Text used to search matching records."
-          }
-        ],
-        "tags": ["Registry"],
-        "summary": "List field sets"
+        ]
       }
     },
     "/api/field-sets/{id}": {
       "get": {
         "operationId": "getFieldSet",
+        "summary": "Get field set",
+        "description": "Returns a field set with its field definitions, required dependencies and suggested related sets.",
+        "tags": ["Registry"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/registryId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -277,25 +251,26 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Registry"],
-        "summary": "Get field set"
+        ]
       }
     },
     "/api/fields": {
       "get": {
         "operationId": "listFieldDefinitions",
+        "summary": "List field definitions",
+        "description": "Lists reusable field definitions, optionally filtered by search text.",
+        "tags": ["Registry"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/search"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -324,45 +299,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 400
-            },
-            "description": "Text used to search matching records."
-          }
-        ],
-        "tags": ["Registry"],
-        "summary": "List field definitions"
+        ]
       }
     },
     "/api/fields/{id}": {
       "get": {
         "operationId": "getField",
+        "summary": "Get field",
+        "description": "Returns a field definition with its validation rules, display settings and sensitivity.",
+        "tags": ["Registry"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/registryId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -394,25 +344,46 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Registry"],
-        "summary": "Get field"
+        ]
       }
     },
     "/api/things": {
       "get": {
         "operationId": "listThingSummaries",
+        "summary": "List thing summaries",
+        "description": "Lists Thing summaries, optionally filtered by category, tag and search text. Results default to most recently updated first, with ties ordered by ID. A Thing is displayed as new for seven days after creation.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/categoryId"
+          },
+          {
+            "name": "tagId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Tag id."
+          },
+          {
+            "$ref": "#/components/parameters/search"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ThingSortEnum"
+            },
+            "description": "Sort order; defaults to UPDATED. Applied before pagination."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -441,69 +412,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "categoryId",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Category id."
-          },
-          {
-            "name": "tagId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Tag id."
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 400
-            },
-            "description": "Text used to search matching records."
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ThingSortEnum"
-            },
-            "description": "Sort order; defaults to UPDATED. Applied before pagination."
-          }
-        ],
-        "tags": ["Things"],
-        "summary": "List thing summaries",
-        "description": "Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days."
+        ]
       },
       "post": {
         "operationId": "createThing",
+        "summary": "Create thing",
+        "description": "Creates a Thing with the supplied category, fields, tags and pins. Accepts an optional client-generated UUID; an ID already in use returns 409.",
+        "tags": ["Things"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingCreate"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Success",
@@ -538,25 +463,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ThingCreate"
-              }
-            }
-          }
-        },
-        "tags": ["Things"],
-        "summary": "Create thing",
-        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
+        ]
       }
     },
     "/api/things/{id}": {
       "get": {
         "operationId": "getThing",
+        "summary": "Get thing",
+        "description": "Returns a Thing with its fields, linked resources and current import status. Sensitive field values are masked.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -588,24 +508,28 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Things"],
-        "summary": "Get thing"
+        ]
       },
       "patch": {
         "operationId": "patchThing",
+        "summary": "Patch thing",
+        "description": "Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set or changing category preserves displaced values as custom fields. Returns 409 while an import is active.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingPatch"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -640,34 +564,18 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ThingPatch"
-              }
-            }
-          }
-        },
-        "tags": ["Things"],
-        "summary": "Patch thing"
+        ]
       },
       "delete": {
         "operationId": "deleteThing",
+        "summary": "Delete thing",
+        "description": "Deletes a Thing. Returns 409 while an import is active.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "204": {
             "description": "Success"
@@ -695,26 +603,30 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Things"],
-        "summary": "Delete thing"
+        ]
       }
     },
     "/api/things/{id}:reveal-field": {
       "post": {
         "operationId": "revealField",
+        "summary": "Reveal field",
+        "description": "Returns the stored value of a selected field, including sensitive values masked in Thing responses. The response must not be cached.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevealRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -749,36 +661,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RevealRequest"
-              }
-            }
-          }
-        },
-        "tags": ["Things"],
-        "summary": "Reveal field"
+        ]
       }
     },
     "/api/tags": {
       "get": {
         "operationId": "listTags",
+        "summary": "List tags",
+        "description": "Lists labels available for organising Things.",
+        "tags": ["Tags"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -807,34 +706,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          }
-        ],
-        "tags": ["Tags"],
-        "summary": "List tags"
+        ]
       },
       "post": {
         "operationId": "createTag",
+        "summary": "Create tag",
+        "description": "Creates a label for organising Things. Accepts an optional client-generated UUID; an ID already in use returns 409.",
+        "tags": ["Tags"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TagInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Success",
@@ -869,6 +757,19 @@
           {
             "bearerAuth": []
           }
+        ]
+      }
+    },
+    "/api/tags/{id}": {
+      "patch": {
+        "operationId": "patchTag",
+        "summary": "Patch tag",
+        "description": "Renames a tag across all Things that use it. Whitespace-only names are rejected.",
+        "tags": ["Tags"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -880,14 +781,6 @@
             }
           }
         },
-        "tags": ["Tags"],
-        "summary": "Create tag",
-        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
-      }
-    },
-    "/api/tags/{id}": {
-      "patch": {
-        "operationId": "patchTag",
         "responses": {
           "200": {
             "description": "Success",
@@ -922,34 +815,18 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TagInput"
-              }
-            }
-          }
-        },
-        "tags": ["Tags"],
-        "summary": "Patch tag"
+        ]
       },
       "delete": {
         "operationId": "deleteTag",
+        "summary": "Delete tag",
+        "description": "Deletes a tag and removes it from the Things that use it.",
+        "tags": ["Tags"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "204": {
             "description": "Success"
@@ -977,26 +854,26 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Tags"],
-        "summary": "Delete tag"
+        ]
       }
     },
     "/api/attachments": {
       "get": {
         "operationId": "listAttachments",
+        "summary": "List attachments",
+        "description": "Lists attachment metadata, optionally filtered to files linked to a Thing.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/thingId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1025,43 +902,31 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "thingId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "List attachments"
+        ]
       },
       "post": {
         "operationId": "uploadAttachment",
+        "summary": "Upload attachment",
+        "description": "Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.",
+        "tags": ["Attachments"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Success",
@@ -1102,32 +967,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                },
-                "required": ["file"]
-              }
-            }
-          }
-        },
-        "tags": ["Attachments"],
-        "summary": "Upload attachment"
+        ]
       }
     },
     "/api/attachments/{id}": {
       "get": {
         "operationId": "getAttachment",
+        "summary": "Get attachment",
+        "description": "Returns attachment metadata and the IDs of linked Things.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1159,24 +1012,18 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "Get attachment"
+        ]
       },
       "delete": {
         "operationId": "deleteAttachment",
+        "summary": "Delete attachment",
+        "description": "Deletes an attachment and its stored file. Returns 409 while the attachment is linked to a Thing or referenced by an import.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "204": {
             "description": "Success"
@@ -1204,24 +1051,28 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "Delete attachment"
+        ]
       },
       "patch": {
         "operationId": "patchAttachment",
+        "summary": "Edit attachment metadata",
+        "description": "Updates selected attachment properties across all linked Things. Omitted properties keep their values; null removes a value. Automatic document processing preserves values edited or removed by the user.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachmentPatch"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -1253,37 +1104,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "Edit attachment metadata",
-        "description": "Owner-scoped partial update shared across all linked Things. User edits and clears take precedence over later extraction.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachmentPatch"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/api/attachments/{id}/content": {
       "get": {
         "operationId": "downloadAttachment",
+        "summary": "Download attachment",
+        "description": "Downloads the stored file using its media type and filename.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1316,26 +1150,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "Download attachment"
+        ]
       }
     },
     "/api/attachments/{id}/things/{thingId}": {
       "put": {
         "operationId": "linkAttachment",
+        "summary": "Link attachment",
+        "description": "Links an attachment to a Thing. Repeating an existing link succeeds. Returns 409 while the Thing has an active import.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          },
+          {
+            "$ref": "#/components/parameters/thingIdPath"
+          }
+        ],
         "responses": {
           "204": {
             "description": "Success"
@@ -1363,34 +1194,21 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          },
-          {
-            "name": "thingId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Thing id."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "Link attachment"
+        ]
       },
       "delete": {
         "operationId": "unlinkAttachment",
+        "summary": "Unlink attachment",
+        "description": "Removes the link between an attachment and a Thing, retaining the attachment. Returns 409 while the Thing has an active import.",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          },
+          {
+            "$ref": "#/components/parameters/thingIdPath"
+          }
+        ],
         "responses": {
           "204": {
             "description": "Success"
@@ -1418,36 +1236,34 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          },
-          {
-            "name": "thingId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Thing id."
-          }
-        ],
-        "tags": ["Attachments"],
-        "summary": "Unlink attachment"
+        ]
       }
     },
     "/api/issues": {
       "get": {
         "operationId": "listIssues",
+        "summary": "List issues",
+        "description": "Lists issues, optionally filtered by Thing and resolution status.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/thingId"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/IssueStatusEnum"
+            },
+            "description": "Status."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1476,51 +1292,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "thingId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/IssueStatusEnum"
-            },
-            "description": "Status."
-          }
-        ],
-        "tags": ["Activity"],
-        "summary": "List issues"
+        ]
       },
       "post": {
         "operationId": "createIssue",
+        "summary": "Create issue",
+        "description": "Creates an issue for a Thing, with status OPEN by default. Accepts an optional client-generated UUID; an ID already in use returns 409.",
+        "tags": ["Activity"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Success",
@@ -1555,25 +1343,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IssueInput"
-              }
-            }
-          }
-        },
-        "tags": ["Activity"],
-        "summary": "Create issue",
-        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
+        ]
       }
     },
     "/api/issues/{id}": {
       "get": {
         "operationId": "getIssue",
+        "summary": "Get issue",
+        "description": "Returns an issue with its status, due date and resolution timestamp.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1605,24 +1388,28 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Activity"],
-        "summary": "Get issue"
+        ]
       },
       "patch": {
         "operationId": "patchIssue",
+        "summary": "Patch issue",
+        "description": "Updates selected issue properties. Resolving an open issue records the resolution time; reopening it removes that timestamp. Null removes the status text or due date.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssuePatch"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -1657,94 +1444,24 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IssuePatch"
-              }
-            }
-          }
-        },
-        "tags": ["Activity"],
-        "summary": "Patch issue"
+        ]
       }
     },
     "/api/events": {
       "get": {
         "operationId": "listEvents",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EventList"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "422": {
-            "$ref": "#/components/responses/InvalidInput"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "List events",
+        "description": "Lists events by schedule, earliest first, then ID, with unscheduled events last. Filters can select a Thing, status or date range. Date-only events sort at midnight in timeZone. Range bounds are inclusive: timed events use instants, and date-only events use the calendar date of each bound in timeZone.",
+        "tags": ["Activity"],
         "parameters": [
           {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
+            "$ref": "#/components/parameters/limit"
           },
           {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
+            "$ref": "#/components/parameters/cursor"
           },
           {
-            "name": "thingId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
+            "$ref": "#/components/parameters/thingId"
           },
           {
             "name": "status",
@@ -1783,12 +1500,51 @@
             "description": "IANA timezone used to compare date-only events to from/to and order mixed schedules. Defaults to UTC."
           }
         ],
-        "tags": ["Activity"],
-        "summary": "List events",
-        "description": "Events ordered by schedule ascending, then ID; unscheduled events last. Date-only events sort at midnight in timeZone. Bounds are inclusive: timed events compare instants; date-only events compare the calendar date of each bound in timeZone, including the entire matching day."
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
         "operationId": "createEvent",
+        "summary": "Create event",
+        "description": "Creates an event for a Thing, with status SUGGESTED by default. Scheduled events require a date or timestamp. A linked issue must belong to the same Thing. Accepts an optional client-generated UUID; an ID already in use returns 409.",
+        "tags": ["Activity"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Success",
@@ -1823,25 +1579,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EventInput"
-              }
-            }
-          }
-        },
-        "tags": ["Activity"],
-        "summary": "Create event",
-        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
+        ]
       }
     },
     "/api/events/{id}": {
       "get": {
         "operationId": "getEvent",
+        "summary": "Get event",
+        "description": "Returns an event with its schedule, completion timestamp and supporting sources.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1873,24 +1624,28 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Activity"],
-        "summary": "Get event"
+        ]
       },
       "patch": {
         "operationId": "patchEvent",
+        "summary": "Patch event",
+        "description": "Updates selected event properties. When switching between a date and timestamp, set the previous schedule property to null. Scheduled events require one schedule value. A linked issue must belong to the same Thing.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventPatch"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -1925,36 +1680,34 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EventPatch"
-              }
-            }
-          }
-        },
-        "tags": ["Activity"],
-        "summary": "Patch event"
+        ]
       }
     },
     "/api/purchasables": {
       "get": {
         "operationId": "listPurchasables",
+        "summary": "List purchasables",
+        "description": "Lists product suggestions, optionally filtered by Thing and suggestion kind.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/thingId"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/PurchasableKindEnum"
+            },
+            "description": "Kind."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1983,53 +1736,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "thingId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
-          },
-          {
-            "name": "kind",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/PurchasableKindEnum"
-            },
-            "description": "Kind."
-          }
-        ],
-        "tags": ["Activity"],
-        "summary": "List purchasables"
+        ]
       }
     },
     "/api/purchasables/{id}": {
       "get": {
         "operationId": "getPurchasable",
+        "summary": "Get purchasable",
+        "description": "Returns a product suggestion with its merchant link, price when available and supporting sources. Merchant actions for sample suggestions are disabled.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -2061,26 +1781,37 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Activity"],
-        "summary": "Get purchasable"
+        ]
       }
     },
     "/api/conversations": {
       "get": {
         "operationId": "listConversations",
+        "summary": "List conversations",
+        "description": "Lists conversation summaries, most recent message first, then ID. Omitting thingId includes conversations with and without Thing context. minMessageCount can exclude empty conversations. Page contents can shift when messages or conversations are added between requests.",
+        "tags": ["Conversations"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/thingId"
+          },
+          {
+            "name": "minMessageCount",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647,
+              "default": 0
+            },
+            "description": "Minimum persisted message count, including user and assistant messages in every status. Use 1 to exclude empty conversations."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -2109,55 +1840,23 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            },
-            "description": "Maximum number of results."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "maxLength": 32
-            },
-            "description": "Opaque cursor returned by the previous page."
-          },
-          {
-            "name": "thingId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
-          },
-          {
-            "name": "minMessageCount",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 2147483647,
-              "default": 0
-            },
-            "description": "Minimum persisted message count, including user and assistant messages in every status. Use 1 to exclude empty conversations."
-          }
-        ],
-        "tags": ["Conversations"],
-        "summary": "List conversations",
-        "description": "Owner-scoped conversation summaries ordered by lastMessageAt descending, then ID ascending. Includes Thing and global conversations when thingId is omitted. Offset cursors can shift when messages or conversations are added between pages."
+        ]
       },
       "post": {
         "operationId": "createConversation",
+        "summary": "Create conversation",
+        "description": "Creates a conversation, optionally associated with a Thing. Accepts an optional client-generated UUID; an ID already in use returns 409.",
+        "tags": ["Conversations"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Success",
@@ -2192,25 +1891,20 @@
           {
             "bearerAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConversationInput"
-              }
-            }
-          }
-        },
-        "tags": ["Conversations"],
-        "summary": "Create conversation",
-        "description": "Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body."
+        ]
       }
     },
     "/api/conversations/{id}": {
       "get": {
         "operationId": "getConversation",
+        "summary": "Get conversation",
+        "description": "Returns a conversation and its messages in chronological order. Resource cards indicate whether their referenced records are still available.",
+        "tags": ["Conversations"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -2242,32 +1936,26 @@
           {
             "bearerAuth": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Conversations"],
-        "summary": "Get conversation"
+        ]
       }
     },
     "/api/things:import": {
       "post": {
         "operationId": "startImport",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Start import",
+        "description": "Queues document processing for an uploaded attachment and links it to the target Thing. Omitting thingId creates a placeholder Thing. Returns 409 if the target already has an active import.",
+        "tags": ["Imports"],
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportStart"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Success",
@@ -2298,38 +1986,22 @@
             "$ref": "#/components/responses/Unavailable"
           }
         },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportStart"
-              }
-            }
+        "security": [
+          {
+            "bearerAuth": []
           }
-        },
-        "tags": ["Imports"],
-        "summary": "Start import"
+        ]
       }
     },
     "/api/imports/{id}": {
       "get": {
         "operationId": "getImport",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Get import",
+        "description": "Returns import progress, detected candidates, resulting Thing IDs and any processing error.",
+        "tags": ["Imports"],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
+            "$ref": "#/components/parameters/resourceId"
           }
         ],
         "responses": {
@@ -2359,60 +2031,24 @@
             "$ref": "#/components/responses/Unavailable"
           }
         },
-        "tags": ["Imports"],
-        "summary": "Get import"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/imports/{id}:confirm": {
       "post": {
         "operationId": "confirmImport",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Confirm import",
+        "description": "Selects detected Things to import and resumes processing. Each selection can update an existing Thing or create one. Returns 409 unless the import is awaiting selection.",
+        "tags": ["Imports"],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
+            "$ref": "#/components/parameters/resourceId"
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Import"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/InvalidInput"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          }
-        },
         "requestBody": {
           "required": true,
           "content": {
@@ -2423,28 +2059,52 @@
             }
           }
         },
-        "tags": ["Imports"],
-        "summary": "Confirm import"
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Import"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/imports/{id}:retry": {
       "post": {
         "operationId": "retryImport",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Retry import",
+        "description": "Queues another attempt for a failed or incomplete import, reusing its saved progress. Returns 409 if the import is in another state, a target was deleted or a target has another active import.",
+        "tags": ["Imports"],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
+            "$ref": "#/components/parameters/resourceId"
           }
         ],
         "responses": {
@@ -2477,28 +2137,22 @@
             "$ref": "#/components/responses/Unavailable"
           }
         },
-        "tags": ["Imports"],
-        "summary": "Retry import"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/things/{thingId}/stream": {
       "get": {
         "operationId": "streamThing",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Stream thing",
+        "description": "Streams Thing updates as server-sent events. Each thing.snapshot event contains a complete Thing; replace local state with the snapshot on connection or reconnect.",
+        "tags": ["Things"],
         "parameters": [
           {
-            "name": "thingId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Thing id."
+            "$ref": "#/components/parameters/thingIdPath"
           }
         ],
         "responses": {
@@ -2528,13 +2182,34 @@
             "$ref": "#/components/responses/Unavailable"
           }
         },
-        "tags": ["Things"],
-        "summary": "Stream thing"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/conversations/{id}/messages": {
       "post": {
         "operationId": "sendMessage",
+        "summary": "Send message",
+        "description": "Adds a user message and queues an assistant response. Repeating the same request ID and text returns the existing conversation or retries its latest failed response. Changed text, another response in progress or a full conversation returns 409.",
+        "tags": ["Conversations"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageInput"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Success",
@@ -2569,51 +2244,18 @@
           {
             "bearerAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MessageInput"
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
-          }
-        ],
-        "tags": ["Conversations"],
-        "summary": "Send message"
+        ]
       }
     },
     "/api/conversations/{id}/stream": {
       "get": {
         "operationId": "streamConversation",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "summary": "Stream conversation",
+        "description": "Streams conversation updates as server-sent events. conversation.snapshot contains a Conversation and replaces local state on reconnect. conversation.delta contains a ConversationDelta with a message ID, text offset and text. Retry the latest failed response by sending the same request ID and text.",
+        "tags": ["Conversations"],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
+            "$ref": "#/components/parameters/resourceId"
           }
         ],
         "responses": {
@@ -2643,27 +2285,22 @@
             "$ref": "#/components/responses/Unavailable"
           }
         },
-        "description": "Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID.",
-        "tags": ["Conversations"],
-        "summary": "Stream conversation"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/things/{id}:view": {
       "post": {
         "operationId": "recordThingView",
         "summary": "Record a user view",
-        "description": "Call once when a user opens a Thing page. Atomically increments accessCount and records server time in lastViewedAt. Reads and stream refreshes do not record views. Does not change updatedAt or content revision. Each successful request counts once; clients must not automatically retry.",
+        "description": "Records a user opening a Thing page by incrementing accessCount and setting lastViewedAt to the server time. Each successful request counts once, so clients must not automatically retry. Reading or streaming a Thing does not record a view. Recording a view preserves updatedAt and the content revision.",
         "tags": ["Things"],
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Id."
+            "$ref": "#/components/parameters/resourceId"
           }
         ],
         "responses": {
@@ -2704,7 +2341,8 @@
     "schemas": {
       "Error": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "HTTP error status and a message suitable for display to the user.",
+        "required": ["message", "statusCode"],
         "properties": {
           "message": {
             "type": "string"
@@ -2713,12 +2351,12 @@
             "type": "integer"
           }
         },
-        "required": ["message", "statusCode"],
-        "description": "Public failure message and HTTP status; private diagnostic details are omitted."
+        "additionalProperties": false
       },
       "Money": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Amount in integer minor units and a supported currency with two decimal places.",
+        "required": ["amountMinor", "currency"],
         "properties": {
           "amountMinor": {
             "type": "integer",
@@ -2729,10 +2367,10 @@
             "$ref": "#/components/schemas/CurrencyEnum"
           }
         },
-        "required": ["amountMinor", "currency"],
-        "description": "Amount in integer minor units and a supported currency with two decimal places."
+        "additionalProperties": false
       },
       "Value": {
+        "description": "A text, numeric, boolean or money value. Identifiers retain their string representation.",
         "oneOf": [
           {
             "type": "string"
@@ -2746,10 +2384,10 @@
           {
             "$ref": "#/components/schemas/Money"
           }
-        ],
-        "description": "A stored scalar or money value. Identifiers retain their string representation."
+        ]
       },
       "NullableValue": {
+        "description": "A field value, or null for an empty, removed or masked value.",
         "anyOf": [
           {
             "$ref": "#/components/schemas/Value"
@@ -2757,12 +2395,11 @@
           {
             "type": "null"
           }
-        ],
-        "description": "A field value, or null for an empty, cleared or masked field."
+        ]
       },
       "SourceRef": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Attachment or public URL supporting a value, with an optional page and quote. Sensitive field quotes may be omitted.",
         "properties": {
           "attachmentId": {
             "type": "string",
@@ -2781,11 +2418,11 @@
             "format": "uri"
           }
         },
-        "description": "Attachment or public URL supporting a value; quotes may be omitted for sensitive fields."
+        "additionalProperties": false
       },
       "Pin": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Reference to a field selected for prominent display on a Thing.",
         "properties": {
           "fieldSetId": {
             "type": ["string", "null"],
@@ -2802,11 +2439,12 @@
             "format": "uuid"
           }
         },
-        "description": "Reference to a field within its set, a standalone field, or a custom field."
+        "additionalProperties": false
       },
       "FieldSchema": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Supported JSON Schema rules for validating a field value.",
+        "required": ["type"],
         "properties": {
           "type": {
             "$ref": "#/components/schemas/SchemaTypeEnum"
@@ -2851,12 +2489,12 @@
             "type": "boolean"
           }
         },
-        "required": ["type"],
-        "description": "Supported JSON Schema subset used to validate registry field values."
+        "additionalProperties": false
       },
       "FieldDefinition": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Reusable field definition with validation rules, display settings and sensitivity.",
+        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"],
         "properties": {
           "id": {
             "type": "string"
@@ -2884,17 +2522,29 @@
           },
           "icon": {
             "type": ["string", "null"],
+            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys.",
             "maxLength": 80,
-            "pattern": "^[A-Za-z][A-Za-z0-9]*$",
-            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys."
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
           }
         },
-        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"],
-        "description": "Authored registry definition reused across categories and field sets."
+        "additionalProperties": false
       },
       "Field": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Field definition with its current value, source information and masking state.",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "keywords",
+          "schema",
+          "uiHint",
+          "sensitive",
+          "value",
+          "masked",
+          "origin",
+          "sourceRefs"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -2944,29 +2594,26 @@
           },
           "icon": {
             "type": ["string", "null"],
+            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys.",
             "maxLength": 80,
-            "pattern": "^[A-Za-z][A-Za-z0-9]*$",
-            "description": "Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys."
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "keywords",
-          "schema",
-          "uiHint",
-          "sensitive",
-          "value",
-          "masked",
-          "origin",
-          "sourceRefs"
-        ],
-        "description": "A field definition with its current value, provenance and masking state."
+        "additionalProperties": false
       },
       "FieldSet": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Category-specific group of field definitions, required dependencies and suggested related sets.",
+        "required": [
+          "id",
+          "categoryId",
+          "name",
+          "eligibility",
+          "keywords",
+          "includes",
+          "considerAlongside",
+          "fields"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -3007,6 +2654,11 @@
             }
           }
         },
+        "additionalProperties": false
+      },
+      "DetailFieldSet": {
+        "type": "object",
+        "description": "Selected field set with current values and source information for each field.",
         "required": [
           "id",
           "categoryId",
@@ -3017,11 +2669,6 @@
           "considerAlongside",
           "fields"
         ],
-        "description": "Category-specific field group with required and suggested related sets."
-      },
-      "DetailFieldSet": {
-        "type": "object",
-        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
@@ -3062,21 +2709,21 @@
             }
           }
         },
-        "required": [
-          "id",
-          "categoryId",
-          "name",
-          "eligibility",
-          "keywords",
-          "includes",
-          "considerAlongside",
-          "fields"
-        ],
-        "description": "Selected field set expanded with current field values."
+        "additionalProperties": false
       },
       "UndefinedField": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Custom field with its value, sensitivity and source information.",
+        "required": [
+          "id",
+          "label",
+          "value",
+          "sensitive",
+          "masked",
+          "origin",
+          "sourceRefs",
+          "valueType"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3107,21 +2754,20 @@
             "$ref": "#/components/schemas/ValueTypeEnum"
           }
         },
-        "required": [
-          "id",
-          "label",
-          "value",
-          "sensitive",
-          "masked",
-          "origin",
-          "sourceRefs",
-          "valueType"
-        ],
-        "description": "Owner-specific custom field preserving data without a registry definition."
+        "additionalProperties": false
       },
       "Category": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Thing category with display settings and the number of your Things in that category.",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "defaultImage",
+          "sortOrder",
+          "thingCount"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -3146,20 +2792,12 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "icon",
-          "defaultImage",
-          "sortOrder",
-          "thingCount"
-        ],
-        "description": "Authored Thing category with owner-scoped Thing count."
+        "additionalProperties": false
       },
       "Profile": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Signed-in user profile and whether sample data has been added.",
+        "required": ["id", "displayName", "samplesAdded"],
         "properties": {
           "id": {
             "type": "string",
@@ -3172,12 +2810,21 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "displayName", "samplesAdded"],
-        "description": "Authenticated owner profile and sample-data status."
+        "additionalProperties": false
       },
       "Config": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Browser sign-in settings, upload limits and feature availability.",
+        "required": [
+          "logtoEndpoint",
+          "logtoAppId",
+          "apiResource",
+          "maxUploadBytes",
+          "supportedMediaTypes",
+          "sampleDataEnabled",
+          "importEnabled",
+          "chatEnabled"
+        ],
         "properties": {
           "logtoEndpoint": {
             "type": "string"
@@ -3207,21 +2854,12 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "logtoEndpoint",
-          "logtoAppId",
-          "apiResource",
-          "maxUploadBytes",
-          "supportedMediaTypes",
-          "sampleDataEnabled",
-          "importEnabled",
-          "chatEnabled"
-        ],
-        "description": "Public client configuration and feature availability; contains no server credentials."
+        "additionalProperties": false
       },
       "Tag": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "User-defined label for organising Things.",
+        "required": ["id", "name"],
         "properties": {
           "id": {
             "type": "string",
@@ -3231,17 +2869,17 @@
             "type": "string"
           }
         },
-        "required": ["id", "name"],
-        "description": "Owner-defined label used to organise Things."
+        "additionalProperties": false
       },
       "TagInput": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Tag name and optional ID for creation. Whitespace-only names are rejected.",
+        "required": ["name"],
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409. Ignored on PATCH; the path ID is authoritative."
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409. Ignored on PATCH; the path ID is authoritative.",
+            "format": "uuid"
           },
           "name": {
             "type": "string",
@@ -3249,12 +2887,25 @@
             "maxLength": 80
           }
         },
-        "required": ["name"],
-        "description": "Name for an owner-scoped tag; whitespace-only names are rejected."
+        "additionalProperties": false
       },
       "ThingSummary": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Thing metadata for lists, including category, tags and view counts.",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "categoryId",
+          "revision",
+          "imageAttachmentId",
+          "tagIds",
+          "createdAt",
+          "updatedAt",
+          "isSample",
+          "accessCount",
+          "lastViewedAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3300,15 +2951,20 @@
           },
           "accessCount": {
             "type": "integer",
-            "minimum": 0,
-            "description": "Number of explicit user views recorded for this Thing."
+            "description": "Number of explicit user views recorded for this Thing.",
+            "minimum": 0
           },
           "lastViewedAt": {
             "type": ["string", "null"],
-            "format": "date-time",
-            "description": "Most recent explicit user view; null until first viewed."
+            "description": "Most recent explicit user view; null until first viewed.",
+            "format": "date-time"
           }
         },
+        "additionalProperties": false
+      },
+      "Thing": {
+        "type": "object",
+        "description": "Thing details with fields, linked resource IDs and import status. Sensitive field values are masked.",
         "required": [
           "id",
           "name",
@@ -3320,14 +2976,18 @@
           "createdAt",
           "updatedAt",
           "isSample",
+          "fieldSets",
+          "standaloneFields",
+          "undefinedFields",
+          "pinnedFields",
+          "attachmentIds",
+          "issueIds",
+          "eventIds",
+          "purchasableIds",
+          "conversationIds",
           "accessCount",
           "lastViewedAt"
         ],
-        "description": "Public Thing metadata excluding stored field values."
-      },
-      "Thing": {
-        "type": "object",
-        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
@@ -3433,7 +3093,16 @@
           },
           "import": {
             "type": ["object", "null"],
-            "additionalProperties": false,
+            "required": [
+              "id",
+              "attachmentId",
+              "thingId",
+              "status",
+              "candidates",
+              "thingIds",
+              "error",
+              "usage"
+            ],
             "properties": {
               "id": {
                 "type": "string",
@@ -3470,56 +3139,25 @@
                 "$ref": "#/components/schemas/ImportUsage"
               }
             },
-            "required": [
-              "id",
-              "attachmentId",
-              "thingId",
-              "status",
-              "candidates",
-              "thingIds",
-              "error",
-              "usage"
-            ]
+            "additionalProperties": false
           },
           "accessCount": {
             "type": "integer",
-            "minimum": 0,
-            "description": "Number of explicit user views recorded for this Thing."
+            "description": "Number of explicit user views recorded for this Thing.",
+            "minimum": 0
           },
           "lastViewedAt": {
             "type": ["string", "null"],
-            "format": "date-time",
-            "description": "Most recent explicit user view; null until first viewed."
+            "description": "Most recent explicit user view; null until first viewed.",
+            "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "categoryId",
-          "revision",
-          "imageAttachmentId",
-          "tagIds",
-          "createdAt",
-          "updatedAt",
-          "isSample",
-          "fieldSets",
-          "standaloneFields",
-          "undefinedFields",
-          "pinnedFields",
-          "attachmentIds",
-          "issueIds",
-          "eventIds",
-          "purchasableIds",
-          "conversationIds",
-          "accessCount",
-          "lastViewedAt"
-        ],
-        "description": "Owner-scoped Thing detail with masked fields, links and current import state."
+        "additionalProperties": false
       },
       "ValuePatch": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Update to a field in a set or a standalone field. Null removes its stored value.",
+        "required": ["fieldSetId", "fieldId", "value"],
         "properties": {
           "fieldSetId": {
             "type": ["string", "null"],
@@ -3535,12 +3173,12 @@
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": ["fieldSetId", "fieldId", "value"],
-        "description": "Set or standalone field update; null clears the stored value."
+        "additionalProperties": false
       },
       "UndefinedPatch": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Update to a custom field, including its label, value and sensitivity.",
+        "required": ["label", "value", "sensitive"],
         "properties": {
           "id": {
             "type": "string",
@@ -3558,17 +3196,17 @@
             "type": "boolean"
           }
         },
-        "required": ["label", "value", "sensitive"],
-        "description": "Custom field update retaining its identity and sensitivity."
+        "additionalProperties": false
       },
       "ThingCreate": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Properties for creating a Thing, including its category and optional fields, tags and pins.",
+        "required": ["name", "categoryId"],
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.",
+            "format": "uuid"
           },
           "name": {
             "type": "string",
@@ -3638,12 +3276,11 @@
             "format": "uuid"
           }
         },
-        "required": ["name", "categoryId"],
-        "description": "Initial Thing metadata and optional field, tag and pin selections."
+        "additionalProperties": false
       },
       "ThingPatch": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Selected Thing properties to update. Omitted properties keep their current values.",
         "properties": {
           "name": {
             "type": "string",
@@ -3713,26 +3350,41 @@
             "format": "uuid"
           }
         },
-        "description": "Specified Thing updates, merged under a lock while preserving other values."
+        "additionalProperties": false
       },
       "RevealRequest": {
-        "$ref": "#/components/schemas/Pin",
-        "description": "Field reference for an explicit owner-authorised sensitive-value read."
+        "description": "Reference to the field whose stored value should be revealed.",
+        "$ref": "#/components/schemas/Pin"
       },
       "RevealResult": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Stored field value returned by an explicit reveal request. The response must not be cached.",
+        "required": ["value"],
         "properties": {
           "value": {
             "$ref": "#/components/schemas/NullableValue"
           }
         },
-        "required": ["value"],
-        "description": "Revealed field value; responses must not be cached."
+        "additionalProperties": false
       },
       "Attachment": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "File metadata, document properties and IDs of linked Things.",
+        "required": [
+          "id",
+          "filename",
+          "mediaType",
+          "byteSize",
+          "sourceUrl",
+          "thingIds",
+          "createdAt",
+          "title",
+          "documentType",
+          "publisher",
+          "documentDate",
+          "pageCount",
+          "metadataSources"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3765,9 +3417,9 @@
           },
           "title": {
             "type": ["string", "null"],
+            "description": "Display title; null displays the original filename.",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Display title; null displays the original filename."
+            "maxLength": 200
           },
           "documentType": {
             "anyOf": [
@@ -3781,46 +3433,32 @@
           },
           "publisher": {
             "type": ["string", "null"],
+            "description": "Manufacturer, retailer or organisation that issued the document.",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Manufacturer, retailer or organisation that issued the document."
+            "maxLength": 200
           },
           "documentDate": {
             "type": ["string", "null"],
-            "format": "date",
             "description": "Original document date, independent of upload time.",
+            "format": "date",
             "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
           },
           "pageCount": {
             "type": ["integer", "null"],
+            "description": "PDF page count derived from the file. Null for non-PDF, unparsed, malformed or encrypted files.",
             "minimum": 1,
-            "readOnly": true,
-            "description": "PDF page count derived from the file. Null for non-PDF, unparsed, malformed or encrypted files."
+            "readOnly": true
           },
           "metadataSources": {
             "$ref": "#/components/schemas/AttachmentMetadataSources"
           }
         },
-        "required": [
-          "id",
-          "filename",
-          "mediaType",
-          "byteSize",
-          "sourceUrl",
-          "thingIds",
-          "createdAt",
-          "title",
-          "documentType",
-          "publisher",
-          "documentDate",
-          "pageCount",
-          "metadataSources"
-        ],
-        "description": "Private attachment metadata and linked Things; excludes storage keys."
+        "additionalProperties": false
       },
       "Issue": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Problem associated with a Thing, including status, due date and resolution time.",
+        "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"],
         "properties": {
           "id": {
             "type": "string",
@@ -3848,26 +3486,26 @@
           },
           "statusText": {
             "type": ["string", "null"],
-            "maxLength": 500,
-            "description": "Optional freeform status shown on an Issue card. Null clears it."
+            "description": "Optional freeform status shown on an Issue card. Null clears it.",
+            "maxLength": 500
           },
           "dueDate": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Optional calendar due date, without a time or timezone. Null clears it."
+            "description": "Optional calendar due date, without a time or timezone. Null clears it.",
+            "format": "date"
           }
         },
-        "required": ["id", "thingId", "title", "description", "status", "resolvedAt", "isSample"],
-        "description": "Problem associated with one Thing, including resolution state."
+        "additionalProperties": false
       },
       "IssueInput": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Properties for creating an issue for a Thing. Status defaults to OPEN.",
+        "required": ["thingId", "title"],
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.",
+            "format": "uuid"
           },
           "thingId": {
             "type": "string",
@@ -3887,21 +3525,20 @@
           },
           "statusText": {
             "type": ["string", "null"],
-            "maxLength": 500,
-            "description": "Optional freeform status shown on an Issue card. Null clears it."
+            "description": "Optional freeform status shown on an Issue card. Null clears it.",
+            "maxLength": 500
           },
           "dueDate": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Optional calendar due date, without a time or timezone. Null clears it."
+            "description": "Optional calendar due date, without a time or timezone. Null clears it.",
+            "format": "date"
           }
         },
-        "required": ["thingId", "title"],
-        "description": "New Thing issue; defaults to OPEN."
+        "additionalProperties": false
       },
       "IssuePatch": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Selected issue properties to update. Null removes optional text or dates.",
         "properties": {
           "title": {
             "type": "string",
@@ -3917,20 +3554,33 @@
           },
           "statusText": {
             "type": ["string", "null"],
-            "maxLength": 500,
-            "description": "Optional freeform status shown on an Issue card. Null clears it."
+            "description": "Optional freeform status shown on an Issue card. Null clears it.",
+            "maxLength": 500
           },
           "dueDate": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Optional calendar due date, without a time or timezone. Null clears it."
+            "description": "Optional calendar due date, without a time or timezone. Null clears it.",
+            "format": "date"
           }
         },
-        "description": "Specified issue updates; resolving retains the first resolution timestamp."
+        "additionalProperties": false
       },
       "Event": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Task or reminder for a Thing, with its schedule, completion time and supporting sources. SCHEDULED requires either startsOn or startsAt; other statuses allow neither. Both schedule properties cannot have a value together.",
+        "required": [
+          "id",
+          "thingId",
+          "issueId",
+          "title",
+          "description",
+          "status",
+          "startsAt",
+          "completedAt",
+          "sourceRefs",
+          "isSample",
+          "startsOn"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3972,33 +3622,21 @@
           },
           "startsOn": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
+            "format": "date"
           }
         },
-        "required": [
-          "id",
-          "thingId",
-          "issueId",
-          "title",
-          "description",
-          "status",
-          "startsAt",
-          "completedAt",
-          "sourceRefs",
-          "isSample",
-          "startsOn"
-        ],
-        "description": "Suggested or scheduled Thing task with lifecycle timestamps and provenance. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
+        "additionalProperties": false
       },
       "EventInput": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Properties for creating an event for a Thing. Status defaults to SUGGESTED. SCHEDULED requires either startsOn or startsAt; both schedule properties cannot have a value together.",
+        "required": ["thingId", "title"],
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.",
+            "format": "uuid"
           },
           "thingId": {
             "type": "string",
@@ -4026,16 +3664,15 @@
           },
           "startsOn": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
+            "format": "date"
           }
         },
-        "required": ["thingId", "title"],
-        "description": "New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
+        "additionalProperties": false
       },
       "EventPatch": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Selected event properties to update. Null removes an optional issue link or schedule value. SCHEDULED requires either startsOn or startsAt; when switching, set the previous schedule property to null.",
         "properties": {
           "issueId": {
             "type": ["string", "null"],
@@ -4059,15 +3696,28 @@
           },
           "startsOn": {
             "type": ["string", "null"],
-            "format": "date",
-            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly."
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
+            "format": "date"
           }
         },
-        "description": "Specified event updates; null clears optional links or dates. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both."
+        "additionalProperties": false
       },
       "Purchasable": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Consumable, accessory or upgrade suggestion with supporting sources. Merchant actions for samples are disabled.",
+        "required": [
+          "id",
+          "thingId",
+          "kind",
+          "name",
+          "description",
+          "merchantUrl",
+          "imageUrl",
+          "price",
+          "sourceRefs",
+          "checkedAt",
+          "isSample"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4118,24 +3768,22 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "id",
-          "thingId",
-          "kind",
-          "name",
-          "description",
-          "merchantUrl",
-          "imageUrl",
-          "price",
-          "sourceRefs",
-          "checkedAt",
-          "isSample"
-        ],
-        "description": "Cited consumable, accessory or upgrade suggestion; sample actions are disabled."
+        "additionalProperties": false
       },
       "Message": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Conversation message with its text, resource cards, supporting sources and processing status.",
+        "required": [
+          "id",
+          "conversationId",
+          "requestId",
+          "role",
+          "text",
+          "cards",
+          "sourceRefs",
+          "status",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4192,22 +3840,12 @@
             ]
           }
         },
-        "required": [
-          "id",
-          "conversationId",
-          "requestId",
-          "role",
-          "text",
-          "cards",
-          "sourceRefs",
-          "status",
-          "createdAt"
-        ],
-        "description": "Persisted conversation message with citations, cards and execution state."
+        "additionalProperties": false
       },
       "Conversation": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Conversation with optional Thing context and its messages.",
+        "required": ["id", "thingId", "messages"],
         "properties": {
           "id": {
             "type": "string",
@@ -4224,12 +3862,12 @@
             }
           }
         },
-        "required": ["id", "thingId", "messages"],
-        "description": "Active owner-scoped conversation and its persisted messages."
+        "additionalProperties": false
       },
       "ConversationSummary": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Conversation details for history lists, including a title from the first user message, message count and timestamps.",
+        "required": ["id", "thingId", "title", "messageCount", "createdAt", "lastMessageAt"],
         "properties": {
           "id": {
             "type": "string",
@@ -4259,12 +3897,12 @@
             "description": "Newest message creation time, or conversation creation time when empty. Completing or retrying a message does not change this time."
           }
         },
-        "required": ["id", "thingId", "title", "messageCount", "createdAt", "lastMessageAt"],
-        "description": "Owner-scoped conversation metadata for history lists."
+        "additionalProperties": false
       },
       "ConversationSummaryList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of conversation summaries. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4276,28 +3914,28 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated conversation summaries."
+        "additionalProperties": false
       },
       "ConversationInput": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Optional ID and Thing context for a new conversation.",
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409."
+            "description": "Optional client-generated ID for creation. Omit to generate an ID on the server. An existing ID returns 409.",
+            "format": "uuid"
           },
           "thingId": {
             "type": ["string", "null"],
             "format": "uuid"
           }
         },
-        "description": "Optional Thing context for a new conversation."
+        "additionalProperties": false
       },
       "CategoryList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of categories. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4309,12 +3947,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated category results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "FieldSetList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of field sets. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4326,12 +3964,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated field set results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "FieldDefinitionList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of field definitions. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4343,12 +3981,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated field definition results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "ThingSummaryList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of Thing summaries. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4360,12 +3998,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated thing summary results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "TagList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of tags. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4377,12 +4015,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated tag results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "AttachmentList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of attachments. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4394,12 +4032,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated attachment results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "IssueList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of issues. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4411,12 +4049,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated issue results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "EventList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of events. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4428,12 +4066,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated event results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "PurchasableList": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "A page of product suggestions. nextCursor is null when no further page is available.",
+        "required": ["items", "nextCursor"],
         "properties": {
           "items": {
             "type": "array",
@@ -4445,12 +4083,12 @@
             "type": ["string", "null"]
           }
         },
-        "required": ["items", "nextCursor"],
-        "description": "Paginated purchasable results and an opaque continuation cursor."
+        "additionalProperties": false
       },
       "ImportCandidate": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Thing detected in an attachment and offered for confirmation.",
+        "required": ["id", "name", "categoryId"],
         "properties": {
           "id": {
             "type": "string"
@@ -4464,12 +4102,19 @@
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           }
         },
-        "required": ["id", "name", "categoryId"],
-        "description": "Detected Thing offered for owner confirmation."
+        "additionalProperties": false
       },
       "ImportUsage": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "AI model, token counts, elapsed time and tool results for a processing attempt.",
+        "required": [
+          "model",
+          "inputTokens",
+          "outputTokens",
+          "cachedTokens",
+          "elapsedMs",
+          "toolCalls"
+        ],
         "properties": {
           "model": {
             "type": "string"
@@ -4494,7 +4139,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "additionalProperties": false,
+              "required": ["name", "resultCount", "truncated"],
               "properties": {
                 "name": {
                   "type": "string"
@@ -4506,23 +4151,25 @@
                   "type": "boolean"
                 }
               },
-              "required": ["name", "resultCount", "truncated"]
+              "additionalProperties": false
             }
           }
         },
-        "required": [
-          "model",
-          "inputTokens",
-          "outputTokens",
-          "cachedTokens",
-          "elapsedMs",
-          "toolCalls"
-        ],
-        "description": "Provider usage and bounded tool execution totals for an attempt."
+        "additionalProperties": false
       },
       "Import": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Import status, detected candidates, resulting Thing IDs and processing details.",
+        "required": [
+          "id",
+          "attachmentId",
+          "thingId",
+          "status",
+          "candidates",
+          "thingIds",
+          "error",
+          "usage"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4559,21 +4206,12 @@
             "$ref": "#/components/schemas/ImportUsage"
           }
         },
-        "required": [
-          "id",
-          "attachmentId",
-          "thingId",
-          "status",
-          "candidates",
-          "thingIds",
-          "error",
-          "usage"
-        ],
-        "description": "Public import state excluding raw extraction and private source content."
+        "additionalProperties": false
       },
       "ImportStart": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Attachment to process and an optional existing Thing to update.",
+        "required": ["attachmentId"],
         "properties": {
           "attachmentId": {
             "type": "string",
@@ -4584,12 +4222,12 @@
             "format": "uuid"
           }
         },
-        "required": ["attachmentId"],
-        "description": "Source attachment and optional existing Thing to enrich."
+        "additionalProperties": false
       },
       "ImportAccepted": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Queued import ID, target Thing ID and initial status.",
+        "required": ["importId", "thingId", "status"],
         "properties": {
           "importId": {
             "type": "string",
@@ -4603,18 +4241,18 @@
             "$ref": "#/components/schemas/ImportStatusEnum"
           }
         },
-        "required": ["importId", "thingId", "status"],
-        "description": "Queued import identity and initial Thing identity."
+        "additionalProperties": false
       },
       "ImportConfirmation": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Detected candidates selected for import. Each targetThingId identifies an existing Thing or is null to create one.",
+        "required": ["selections"],
         "properties": {
           "selections": {
             "type": "array",
             "items": {
               "type": "object",
-              "additionalProperties": false,
+              "required": ["candidateId", "targetThingId"],
               "properties": {
                 "candidateId": {
                   "type": "string"
@@ -4624,20 +4262,20 @@
                   "format": "uuid"
                 }
               },
-              "required": ["candidateId", "targetThingId"]
+              "additionalProperties": false
             },
             "minItems": 1,
             "maxItems": 10
           }
         },
-        "required": ["selections"],
-        "description": "Selected detected candidates and their optional existing targets."
+        "additionalProperties": false
       },
       "ResourceCard": {
+        "description": "Reference to a Thing, field, attachment, issue, event or product suggestion. Availability indicates whether the referenced record can still be accessed.",
         "oneOf": [
           {
             "type": "object",
-            "additionalProperties": false,
+            "required": ["type", "thingId"],
             "properties": {
               "type": {
                 "type": "string",
@@ -4651,11 +4289,11 @@
                 "type": "boolean"
               }
             },
-            "required": ["type", "thingId"]
+            "additionalProperties": false
           },
           {
             "type": "object",
-            "additionalProperties": false,
+            "required": ["type", "thingId", "fieldSetId", "fieldId"],
             "properties": {
               "type": {
                 "type": "string",
@@ -4675,11 +4313,11 @@
                 "type": "string"
               }
             },
-            "required": ["type", "thingId", "fieldSetId", "fieldId"]
+            "additionalProperties": false
           },
           {
             "type": "object",
-            "additionalProperties": false,
+            "required": ["type", "attachmentId"],
             "properties": {
               "type": {
                 "type": "string",
@@ -4697,11 +4335,11 @@
                 "minimum": 1
               }
             },
-            "required": ["type", "attachmentId"]
+            "additionalProperties": false
           },
           {
             "type": "object",
-            "additionalProperties": false,
+            "required": ["type", "issueId"],
             "properties": {
               "type": {
                 "type": "string",
@@ -4715,11 +4353,11 @@
                 "type": "boolean"
               }
             },
-            "required": ["type", "issueId"]
+            "additionalProperties": false
           },
           {
             "type": "object",
-            "additionalProperties": false,
+            "required": ["type", "eventId"],
             "properties": {
               "type": {
                 "type": "string",
@@ -4733,11 +4371,11 @@
                 "type": "boolean"
               }
             },
-            "required": ["type", "eventId"]
+            "additionalProperties": false
           },
           {
             "type": "object",
-            "additionalProperties": false,
+            "required": ["type", "purchasableId"],
             "properties": {
               "type": {
                 "type": "string",
@@ -4751,14 +4389,14 @@
                 "type": "boolean"
               }
             },
-            "required": ["type", "purchasableId"]
+            "additionalProperties": false
           }
-        ],
-        "description": "Typed reference to an owned resource; availability reflects current access."
+        ]
       },
       "MessageInput": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "User message and request ID. Reuse the ID and text to retry the same message.",
+        "required": ["text", "requestId"],
         "properties": {
           "text": {
             "type": "string",
@@ -4770,12 +4408,12 @@
             "format": "uuid"
           }
         },
-        "required": ["text", "requestId"],
-        "description": "Idempotent message request. The assistant infers requested actions from the conversation."
+        "additionalProperties": false
       },
       "ConversationDelta": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Streamed text fragment with its message ID and offset in the message text.",
+        "required": ["messageId", "offset", "text"],
         "properties": {
           "messageId": {
             "type": "string",
@@ -4789,37 +4427,35 @@
             "type": "string"
           }
         },
-        "required": ["messageId", "offset", "text"],
-        "description": "Transient text update identified by message and text offset."
+        "additionalProperties": false
       },
       "ThingAccess": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "View count and last-viewed timestamp after recording a user opening a Thing.",
+        "required": ["accessCount", "lastViewedAt"],
         "properties": {
           "accessCount": {
             "type": "integer",
-            "minimum": 0,
-            "description": "Number of explicit user views recorded for this Thing."
+            "description": "Number of explicit user views recorded for this Thing.",
+            "minimum": 0
           },
           "lastViewedAt": {
             "type": ["string", "null"],
-            "format": "date-time",
-            "description": "Most recent explicit user view; null until first viewed."
+            "description": "Most recent explicit user view; null until first viewed.",
+            "format": "date-time"
           }
         },
-        "required": ["accessCount", "lastViewedAt"],
-        "description": "Usage metadata returned after recording a user view."
+        "additionalProperties": false
       },
       "AttachmentPatch": {
         "type": "object",
-        "additionalProperties": false,
-        "minProperties": 1,
+        "description": "Selected attachment properties to update. Omitted properties keep their values; null removes a value. Automatic document processing preserves values edited or removed by the user. Filename, file content and page count are read-only.",
         "properties": {
           "title": {
             "type": ["string", "null"],
+            "description": "Display title; null displays the original filename.",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Display title; null displays the original filename."
+            "maxLength": 200
           },
           "documentType": {
             "anyOf": [
@@ -4833,22 +4469,24 @@
           },
           "publisher": {
             "type": ["string", "null"],
+            "description": "Manufacturer, retailer or organisation that issued the document.",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Manufacturer, retailer or organisation that issued the document."
+            "maxLength": 200
           },
           "documentDate": {
             "type": ["string", "null"],
-            "format": "date",
             "description": "Original document date, independent of upload time.",
+            "format": "date",
             "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
           }
         },
-        "description": "Specified attachment metadata updates. Omitted properties are preserved; null clears a value and protects that clear from automated extraction. Filename, content and page count are not editable."
+        "additionalProperties": false,
+        "minProperties": 1
       },
       "AttachmentMetadataSource": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Origin and supporting sources for an attachment property. USER also records values explicitly removed by the user.",
+        "required": ["origin", "sourceRefs"],
         "properties": {
           "origin": {
             "$ref": "#/components/schemas/AttachmentMetadataOriginEnum"
@@ -4861,12 +4499,11 @@
             "maxItems": 8
           }
         },
-        "required": ["origin", "sourceRefs"],
-        "description": "Origin and supporting document or URL for a metadata value. USER entries also preserve explicit clears."
+        "additionalProperties": false
       },
       "AttachmentMetadataSources": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Source information for each attachment property. An absent entry means its origin is unknown. Extracted quotes are omitted.",
         "properties": {
           "title": {
             "$ref": "#/components/schemas/AttachmentMetadataSource"
@@ -4881,41 +4518,41 @@
             "$ref": "#/components/schemas/AttachmentMetadataSource"
           }
         },
-        "description": "Per-property metadata provenance; absent entries indicate unknown origin. Raw extracted quotes are omitted."
+        "additionalProperties": false
       },
       "IssueStatusEnum": {
         "type": "string",
-        "description": "Issue status.",
+        "description": "Whether an issue is open or resolved.",
         "enum": ["OPEN", "RESOLVED"]
       },
       "EventStatusEnum": {
         "type": "string",
-        "description": "Event status.",
+        "description": "Whether an event is suggested, scheduled, completed or dismissed.",
         "enum": ["SUGGESTED", "SCHEDULED", "COMPLETED", "DISMISSED"]
       },
       "PurchasableKindEnum": {
         "type": "string",
-        "description": "Purchasable kind.",
+        "description": "Type of product suggestion: consumable, accessory or upgrade.",
         "enum": ["CONSUMABLE", "ACCESSORY", "UPGRADE"]
       },
       "CurrencyEnum": {
         "type": "string",
-        "description": "Currency.",
+        "description": "Supported ISO 4217 currency code.",
         "enum": ["GBP", "EUR", "USD"]
       },
       "SchemaTypeEnum": {
         "type": "string",
-        "description": "Schema type.",
+        "description": "JSON data type accepted by a field validation schema.",
         "enum": ["string", "number", "integer", "boolean", "object"]
       },
       "SchemaFormatEnum": {
         "type": "string",
-        "description": "Schema format.",
+        "description": "Date or timestamp format accepted by a field validation schema.",
         "enum": ["date", "date-time"]
       },
       "UiHintEnum": {
         "type": "string",
-        "description": "Ui hint.",
+        "description": "Suggested input control for displaying and editing a field.",
         "enum": [
           "TEXT",
           "TEXTAREA",
@@ -4930,17 +4567,17 @@
       },
       "FieldOriginEnum": {
         "type": "string",
-        "description": "Field origin.",
+        "description": "Whether a field value was entered by the user or obtained from an import.",
         "enum": ["USER", "IMPORT"]
       },
       "ValueTypeEnum": {
         "type": "string",
-        "description": "Value type.",
+        "description": "Data type of a custom field value.",
         "enum": ["STRING", "NUMBER", "BOOLEAN", "MONEY"]
       },
       "ImportStatusEnum": {
         "type": "string",
-        "description": "Import status.",
+        "description": "Current stage or outcome of document processing.",
         "enum": [
           "QUEUED",
           "EXTRACTING",
@@ -4954,28 +4591,28 @@
       },
       "MessageRoleEnum": {
         "type": "string",
-        "description": "Message role.",
+        "description": "Whether a message was written by the user or the assistant.",
         "enum": ["USER", "ASSISTANT"]
       },
       "MessageStatusEnum": {
         "type": "string",
-        "description": "Message status.",
+        "description": "Current processing state of a conversation message.",
         "enum": ["QUEUED", "PROCESSING", "COMPLETE", "FAILED"]
       },
       "ThingSortEnum": {
         "type": "string",
-        "enum": ["UPDATED", "RECENTLY_VIEWED", "MOST_VIEWED"],
-        "description": "Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED."
+        "description": "Descending Thing list order. MOST_VIEWED breaks ties by lastViewedAt; all orders finally break ties by ID. Unviewed Things sort last for RECENTLY_VIEWED.",
+        "enum": ["UPDATED", "RECENTLY_VIEWED", "MOST_VIEWED"]
       },
       "AttachmentDocumentTypeEnum": {
         "type": "string",
-        "enum": ["MANUAL", "RECEIPT", "INVOICE", "INSTALLATION_GUIDE", "SPECIFICATION", "OTHER"],
-        "description": "Document classification; null on Attachment means unknown."
+        "description": "Document classification, such as a manual, receipt or invoice. Null on an Attachment means unknown.",
+        "enum": ["MANUAL", "RECEIPT", "INVOICE", "INSTALLATION_GUIDE", "SPECIFICATION", "OTHER"]
       },
       "AttachmentMetadataOriginEnum": {
         "type": "string",
-        "enum": ["USER", "IMPORT", "DISCOVERY"],
-        "description": "Source of attachment metadata."
+        "description": "Whether attachment metadata came from a user edit, an import or source discovery.",
+        "enum": ["USER", "IMPORT", "DISCOVERY"]
       }
     },
     "responses": {
@@ -5058,6 +4695,83 @@
             }
           }
         }
+      }
+    },
+    "parameters": {
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        },
+        "description": "Maximum number of results."
+      },
+      "cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "description": "Opaque cursor returned by the previous page."
+      },
+      "categoryId": {
+        "name": "categoryId",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Category id."
+      },
+      "search": {
+        "name": "q",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "description": "Text used to search matching records."
+      },
+      "registryId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Id."
+      },
+      "resourceId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Id."
+      },
+      "thingId": {
+        "name": "thingId",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
+      },
+      "thingIdPath": {
+        "name": "thingId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Thing id."
       }
     }
   },

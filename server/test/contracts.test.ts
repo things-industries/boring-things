@@ -137,12 +137,14 @@ test('nested route plugins inherit coercion, rejection and response serializatio
   installErrorHandler(app);
   const id = '00000000-0000-4000-8000-000000000001';
   let limit: number | undefined;
+  let cursor: string | undefined;
   let patch: ThingPatch | undefined;
   let tagCalls = 0;
   await app.register(async (api) => {
     await api.register(async (feature) => {
       route(feature, 'GET', '/api/tags', async (request) => {
         limit = request.query.limit;
+        cursor = request.query.cursor;
         tagCalls++;
         return { items: [{ id, name: 'Tag', privateSecret: 'hidden' }], nextCursor: null };
       });
@@ -153,13 +155,21 @@ test('nested route plugins inherit coercion, rejection and response serializatio
     });
   });
 
-  const response = await app.inject('/api/tags?limit=2');
+  const response = await app.inject('/api/tags?limit=2&cursor=next-page');
   assert.equal(response.statusCode, 200);
   assert.equal(limit, 2);
+  assert.equal(cursor, 'next-page');
   assert.deepEqual(response.json(), { items: [{ id, name: 'Tag' }], nextCursor: null });
   assert.equal((await app.inject('/api/tags')).statusCode, 200);
   assert.equal(limit, undefined);
-  for (const query of ['limit=invalid', 'limit=2&extra=secret']) {
+  assert.equal(cursor, undefined);
+  for (const query of [
+    'limit=invalid',
+    'limit=0',
+    'limit=101',
+    'cursor=' + 'x'.repeat(33),
+    'limit=2&extra=secret',
+  ]) {
     assert.equal((await app.inject('/api/tags?' + query)).statusCode, 422);
   }
   assert.equal(tagCalls, 2);

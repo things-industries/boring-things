@@ -6,7 +6,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get config */
+        /**
+         * Get config
+         * @description Returns sign-in settings, upload limits and feature availability for the browser client.
+         */
         get: operations["getConfig"];
         put?: never;
         post?: never;
@@ -23,7 +26,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get profile */
+        /**
+         * Get profile
+         * @description Returns the signed-in user's profile and whether sample data has been added.
+         */
         get: operations["getProfile"];
         put?: never;
         post?: never;
@@ -42,7 +48,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Seed samples */
+        /**
+         * Seed samples
+         * @description Adds sample Things and related activity, then returns the updated profile. Repeated requests preserve the existing sample collection. Returns 404 when sample data is disabled.
+         */
         post: operations["seedSamples"];
         delete?: never;
         options?: never;
@@ -57,7 +66,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List categories */
+        /**
+         * List categories
+         * @description Lists Thing categories with the number of your Things in each category.
+         */
         get: operations["listCategories"];
         put?: never;
         post?: never;
@@ -74,7 +86,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List field sets */
+        /**
+         * List field sets
+         * @description Lists field sets, optionally filtered by category and search text.
+         */
         get: operations["listFieldSets"];
         put?: never;
         post?: never;
@@ -91,7 +106,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get field set */
+        /**
+         * Get field set
+         * @description Returns a field set with its field definitions, required dependencies and suggested related sets.
+         */
         get: operations["getFieldSet"];
         put?: never;
         post?: never;
@@ -108,7 +126,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List field definitions */
+        /**
+         * List field definitions
+         * @description Lists reusable field definitions, optionally filtered by search text.
+         */
         get: operations["listFieldDefinitions"];
         put?: never;
         post?: never;
@@ -125,7 +146,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get field */
+        /**
+         * Get field
+         * @description Returns a field definition with its validation rules, display settings and sensitivity.
+         */
         get: operations["getField"];
         put?: never;
         post?: never;
@@ -144,13 +168,13 @@ export interface paths {
         };
         /**
          * List thing summaries
-         * @description Owner-scoped summaries ordered by updatedAt descending by default, then ID ascending. Category names provide card subtitles; a Thing is New while its creation age is less than seven days.
+         * @description Lists Thing summaries, optionally filtered by category, tag and search text. Results default to most recently updated first, with ties ordered by ID. A Thing is displayed as new for seven days after creation.
          */
         get: operations["listThingSummaries"];
         put?: never;
         /**
          * Create thing
-         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         * @description Creates a Thing with the supplied category, fields, tags and pins. Accepts an optional client-generated UUID; an ID already in use returns 409.
          */
         post: operations["createThing"];
         delete?: never;
@@ -166,15 +190,24 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get thing */
+        /**
+         * Get thing
+         * @description Returns a Thing with its fields, linked resources and current import status. Sensitive field values are masked.
+         */
         get: operations["getThing"];
         put?: never;
         post?: never;
-        /** Delete thing */
+        /**
+         * Delete thing
+         * @description Deletes a Thing. Returns 409 while an import is active.
+         */
         delete: operations["deleteThing"];
         options?: never;
         head?: never;
-        /** Patch thing */
+        /**
+         * Patch thing
+         * @description Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set or changing category preserves displaced values as custom fields. Returns 409 while an import is active.
+         */
         patch: operations["patchThing"];
         trace?: never;
     };
@@ -187,7 +220,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reveal field */
+        /**
+         * Reveal field
+         * @description Returns the stored value of a selected field, including sensitive values masked in Thing responses. The response must not be cached.
+         */
         post: operations["revealField"];
         delete?: never;
         options?: never;
@@ -202,12 +238,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List tags */
+        /**
+         * List tags
+         * @description Lists labels available for organising Things.
+         */
         get: operations["listTags"];
         put?: never;
         /**
          * Create tag
-         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         * @description Creates a label for organising Things. Accepts an optional client-generated UUID; an ID already in use returns 409.
          */
         post: operations["createTag"];
         delete?: never;
@@ -226,11 +265,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete tag */
+        /**
+         * Delete tag
+         * @description Deletes a tag and removes it from the Things that use it.
+         */
         delete: operations["deleteTag"];
         options?: never;
         head?: never;
-        /** Patch tag */
+        /**
+         * Patch tag
+         * @description Renames a tag across all Things that use it. Whitespace-only names are rejected.
+         */
         patch: operations["patchTag"];
         trace?: never;
     };
@@ -241,10 +286,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List attachments */
+        /**
+         * List attachments
+         * @description Lists attachment metadata, optionally filtered to files linked to a Thing.
+         */
         get: operations["listAttachments"];
         put?: never;
-        /** Upload attachment */
+        /**
+         * Upload attachment
+         * @description Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.
+         */
         post: operations["uploadAttachment"];
         delete?: never;
         options?: never;
@@ -259,17 +310,23 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get attachment */
+        /**
+         * Get attachment
+         * @description Returns attachment metadata and the IDs of linked Things.
+         */
         get: operations["getAttachment"];
         put?: never;
         post?: never;
-        /** Delete attachment */
+        /**
+         * Delete attachment
+         * @description Deletes an attachment and its stored file. Returns 409 while the attachment is linked to a Thing or referenced by an import.
+         */
         delete: operations["deleteAttachment"];
         options?: never;
         head?: never;
         /**
          * Edit attachment metadata
-         * @description Owner-scoped partial update shared across all linked Things. User edits and clears take precedence over later extraction.
+         * @description Updates selected attachment properties across all linked Things. Omitted properties keep their values; null removes a value. Automatic document processing preserves values edited or removed by the user.
          */
         patch: operations["patchAttachment"];
         trace?: never;
@@ -281,7 +338,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download attachment */
+        /**
+         * Download attachment
+         * @description Downloads the stored file using its media type and filename.
+         */
         get: operations["downloadAttachment"];
         put?: never;
         post?: never;
@@ -299,10 +359,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Link attachment */
+        /**
+         * Link attachment
+         * @description Links an attachment to a Thing. Repeating an existing link succeeds. Returns 409 while the Thing has an active import.
+         */
         put: operations["linkAttachment"];
         post?: never;
-        /** Unlink attachment */
+        /**
+         * Unlink attachment
+         * @description Removes the link between an attachment and a Thing, retaining the attachment. Returns 409 while the Thing has an active import.
+         */
         delete: operations["unlinkAttachment"];
         options?: never;
         head?: never;
@@ -316,12 +382,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List issues */
+        /**
+         * List issues
+         * @description Lists issues, optionally filtered by Thing and resolution status.
+         */
         get: operations["listIssues"];
         put?: never;
         /**
          * Create issue
-         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         * @description Creates an issue for a Thing, with status OPEN by default. Accepts an optional client-generated UUID; an ID already in use returns 409.
          */
         post: operations["createIssue"];
         delete?: never;
@@ -337,14 +406,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get issue */
+        /**
+         * Get issue
+         * @description Returns an issue with its status, due date and resolution timestamp.
+         */
         get: operations["getIssue"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Patch issue */
+        /**
+         * Patch issue
+         * @description Updates selected issue properties. Resolving an open issue records the resolution time; reopening it removes that timestamp. Null removes the status text or due date.
+         */
         patch: operations["patchIssue"];
         trace?: never;
     };
@@ -357,13 +432,13 @@ export interface paths {
         };
         /**
          * List events
-         * @description Events ordered by schedule ascending, then ID; unscheduled events last. Date-only events sort at midnight in timeZone. Bounds are inclusive: timed events compare instants; date-only events compare the calendar date of each bound in timeZone, including the entire matching day.
+         * @description Lists events by schedule, earliest first, then ID, with unscheduled events last. Filters can select a Thing, status or date range. Date-only events sort at midnight in timeZone. Range bounds are inclusive: timed events use instants, and date-only events use the calendar date of each bound in timeZone.
          */
         get: operations["listEvents"];
         put?: never;
         /**
          * Create event
-         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         * @description Creates an event for a Thing, with status SUGGESTED by default. Scheduled events require a date or timestamp. A linked issue must belong to the same Thing. Accepts an optional client-generated UUID; an ID already in use returns 409.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -379,14 +454,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get event */
+        /**
+         * Get event
+         * @description Returns an event with its schedule, completion timestamp and supporting sources.
+         */
         get: operations["getEvent"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Patch event */
+        /**
+         * Patch event
+         * @description Updates selected event properties. When switching between a date and timestamp, set the previous schedule property to null. Scheduled events require one schedule value. A linked issue must belong to the same Thing.
+         */
         patch: operations["patchEvent"];
         trace?: never;
     };
@@ -397,7 +478,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List purchasables */
+        /**
+         * List purchasables
+         * @description Lists product suggestions, optionally filtered by Thing and suggestion kind.
+         */
         get: operations["listPurchasables"];
         put?: never;
         post?: never;
@@ -414,7 +498,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get purchasable */
+        /**
+         * Get purchasable
+         * @description Returns a product suggestion with its merchant link, price when available and supporting sources. Merchant actions for sample suggestions are disabled.
+         */
         get: operations["getPurchasable"];
         put?: never;
         post?: never;
@@ -433,13 +520,13 @@ export interface paths {
         };
         /**
          * List conversations
-         * @description Owner-scoped conversation summaries ordered by lastMessageAt descending, then ID ascending. Includes Thing and global conversations when thingId is omitted. Offset cursors can shift when messages or conversations are added between pages.
+         * @description Lists conversation summaries, most recent message first, then ID. Omitting thingId includes conversations with and without Thing context. minMessageCount can exclude empty conversations. Page contents can shift when messages or conversations are added between requests.
          */
         get: operations["listConversations"];
         put?: never;
         /**
          * Create conversation
-         * @description Accepts an optional client-generated UUID. Successful creation returns 201. Reusing an existing ID returns 409, regardless of owner or request body.
+         * @description Creates a conversation, optionally associated with a Thing. Accepts an optional client-generated UUID; an ID already in use returns 409.
          */
         post: operations["createConversation"];
         delete?: never;
@@ -455,7 +542,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get conversation */
+        /**
+         * Get conversation
+         * @description Returns a conversation and its messages in chronological order. Resource cards indicate whether their referenced records are still available.
+         */
         get: operations["getConversation"];
         put?: never;
         post?: never;
@@ -474,7 +564,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start import */
+        /**
+         * Start import
+         * @description Queues document processing for an uploaded attachment and links it to the target Thing. Omitting thingId creates a placeholder Thing. Returns 409 if the target already has an active import.
+         */
         post: operations["startImport"];
         delete?: never;
         options?: never;
@@ -489,7 +582,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get import */
+        /**
+         * Get import
+         * @description Returns import progress, detected candidates, resulting Thing IDs and any processing error.
+         */
         get: operations["getImport"];
         put?: never;
         post?: never;
@@ -508,7 +604,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm import */
+        /**
+         * Confirm import
+         * @description Selects detected Things to import and resumes processing. Each selection can update an existing Thing or create one. Returns 409 unless the import is awaiting selection.
+         */
         post: operations["confirmImport"];
         delete?: never;
         options?: never;
@@ -525,7 +624,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Retry import */
+        /**
+         * Retry import
+         * @description Queues another attempt for a failed or incomplete import, reusing its saved progress. Returns 409 if the import is in another state, a target was deleted or a target has another active import.
+         */
         post: operations["retryImport"];
         delete?: never;
         options?: never;
@@ -540,7 +642,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Stream thing */
+        /**
+         * Stream thing
+         * @description Streams Thing updates as server-sent events. Each thing.snapshot event contains a complete Thing; replace local state with the snapshot on connection or reconnect.
+         */
         get: operations["streamThing"];
         put?: never;
         post?: never;
@@ -559,7 +664,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send message */
+        /**
+         * Send message
+         * @description Adds a user message and queues an assistant response. Repeating the same request ID and text returns the existing conversation or retries its latest failed response. Changed text, another response in progress or a full conversation returns 409.
+         */
         post: operations["sendMessage"];
         delete?: never;
         options?: never;
@@ -576,7 +684,7 @@ export interface paths {
         };
         /**
          * Stream conversation
-         * @description Authenticated SSE: conversation.snapshot contains Conversation; conversation.delta contains ConversationDelta (message ID, text offset). Snapshots replace local state on reconnect. Failed messages retry with the same request ID.
+         * @description Streams conversation updates as server-sent events. conversation.snapshot contains a Conversation and replaces local state on reconnect. conversation.delta contains a ConversationDelta with a message ID, text offset and text. Retry the latest failed response by sending the same request ID and text.
          */
         get: operations["streamConversation"];
         put?: never;
@@ -598,7 +706,7 @@ export interface paths {
         put?: never;
         /**
          * Record a user view
-         * @description Call once when a user opens a Thing page. Atomically increments accessCount and records server time in lastViewedAt. Reads and stream refreshes do not record views. Does not change updatedAt or content revision. Each successful request counts once; clients must not automatically retry.
+         * @description Records a user opening a Thing page by incrementing accessCount and setting lastViewedAt to the server time. Each successful request counts once, so clients must not automatically retry. Reading or streaming a Thing does not record a view. Recording a view preserves updatedAt and the content revision.
          */
         post: operations["recordThingView"];
         delete?: never;
@@ -611,7 +719,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Public failure message and HTTP status; private diagnostic details are omitted. */
+        /** @description HTTP error status and a message suitable for display to the user. */
         Error: {
             message: string;
             statusCode: number;
@@ -621,11 +729,11 @@ export interface components {
             amountMinor: number;
             currency: components["schemas"]["CurrencyEnum"];
         };
-        /** @description A stored scalar or money value. Identifiers retain their string representation. */
+        /** @description A text, numeric, boolean or money value. Identifiers retain their string representation. */
         Value: string | number | boolean | components["schemas"]["Money"];
-        /** @description A field value, or null for an empty, cleared or masked field. */
+        /** @description A field value, or null for an empty, removed or masked value. */
         NullableValue: components["schemas"]["Value"] | null;
-        /** @description Attachment or public URL supporting a value; quotes may be omitted for sensitive fields. */
+        /** @description Attachment or public URL supporting a value, with an optional page and quote. Sensitive field quotes may be omitted. */
         SourceRef: {
             /** Format: uuid */
             attachmentId?: string;
@@ -634,14 +742,14 @@ export interface components {
             /** Format: uri */
             url?: string;
         };
-        /** @description Reference to a field within its set, a standalone field, or a custom field. */
+        /** @description Reference to a field selected for prominent display on a Thing. */
         Pin: {
             fieldSetId?: string | null;
             fieldId?: string;
             /** Format: uuid */
             undefinedFieldId?: string;
         };
-        /** @description Supported JSON Schema subset used to validate registry field values. */
+        /** @description Supported JSON Schema rules for validating a field value. */
         FieldSchema: {
             type: components["schemas"]["SchemaTypeEnum"];
             format?: components["schemas"]["SchemaFormatEnum"];
@@ -657,7 +765,7 @@ export interface components {
             required?: string[];
             additionalProperties?: boolean;
         };
-        /** @description Authored registry definition reused across categories and field sets. */
+        /** @description Reusable field definition with validation rules, display settings and sensitivity. */
         FieldDefinition: {
             id: string;
             name: string;
@@ -669,7 +777,7 @@ export interface components {
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
         };
-        /** @description A field definition with its current value, provenance and masking state. */
+        /** @description Field definition with its current value, source information and masking state. */
         Field: {
             id: string;
             name: string;
@@ -685,7 +793,7 @@ export interface components {
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
         };
-        /** @description Category-specific field group with required and suggested related sets. */
+        /** @description Category-specific group of field definitions, required dependencies and suggested related sets. */
         FieldSet: {
             id: string;
             categoryId: string;
@@ -696,7 +804,7 @@ export interface components {
             considerAlongside: string[];
             fields: components["schemas"]["FieldDefinition"][];
         };
-        /** @description Selected field set expanded with current field values. */
+        /** @description Selected field set with current values and source information for each field. */
         DetailFieldSet: {
             id: string;
             categoryId: string;
@@ -707,7 +815,7 @@ export interface components {
             considerAlongside: string[];
             fields: components["schemas"]["Field"][];
         };
-        /** @description Owner-specific custom field preserving data without a registry definition. */
+        /** @description Custom field with its value, sensitivity and source information. */
         UndefinedField: {
             /** Format: uuid */
             id: string;
@@ -719,7 +827,7 @@ export interface components {
             sourceRefs: components["schemas"]["SourceRef"][];
             valueType: components["schemas"]["ValueTypeEnum"];
         };
-        /** @description Authored Thing category with owner-scoped Thing count. */
+        /** @description Thing category with display settings and the number of your Things in that category. */
         Category: {
             id: string;
             name: string;
@@ -730,14 +838,14 @@ export interface components {
             sortOrder: number;
             thingCount: number;
         };
-        /** @description Authenticated owner profile and sample-data status. */
+        /** @description Signed-in user profile and whether sample data has been added. */
         Profile: {
             /** Format: uuid */
             id: string;
             displayName: string;
             samplesAdded: boolean;
         };
-        /** @description Public client configuration and feature availability; contains no server credentials. */
+        /** @description Browser sign-in settings, upload limits and feature availability. */
         Config: {
             logtoEndpoint: string;
             logtoAppId: string;
@@ -748,13 +856,13 @@ export interface components {
             importEnabled: boolean;
             chatEnabled: boolean;
         };
-        /** @description Owner-defined label used to organise Things. */
+        /** @description User-defined label for organising Things. */
         Tag: {
             /** Format: uuid */
             id: string;
             name: string;
         };
-        /** @description Name for an owner-scoped tag; whitespace-only names are rejected. */
+        /** @description Tag name and optional ID for creation. Whitespace-only names are rejected. */
         TagInput: {
             /**
              * Format: uuid
@@ -763,7 +871,7 @@ export interface components {
             id?: string;
             name: string;
         };
-        /** @description Public Thing metadata excluding stored field values. */
+        /** @description Thing metadata for lists, including category, tags and view counts. */
         ThingSummary: {
             /** Format: uuid */
             id: string;
@@ -787,7 +895,7 @@ export interface components {
              */
             lastViewedAt: string | null;
         };
-        /** @description Owner-scoped Thing detail with masked fields, links and current import state. */
+        /** @description Thing details with fields, linked resource IDs and import status. Sensitive field values are masked. */
         Thing: {
             /** Format: uuid */
             id: string;
@@ -833,13 +941,13 @@ export interface components {
              */
             lastViewedAt: string | null;
         };
-        /** @description Set or standalone field update; null clears the stored value. */
+        /** @description Update to a field in a set or a standalone field. Null removes its stored value. */
         ValuePatch: {
             fieldSetId: string | null;
             fieldId: string;
             value: components["schemas"]["NullableValue"];
         };
-        /** @description Custom field update retaining its identity and sensitivity. */
+        /** @description Update to a custom field, including its label, value and sensitivity. */
         UndefinedPatch: {
             /** Format: uuid */
             id?: string;
@@ -847,7 +955,7 @@ export interface components {
             value: components["schemas"]["Value"];
             sensitive: boolean;
         };
-        /** @description Initial Thing metadata and optional field, tag and pin selections. */
+        /** @description Properties for creating a Thing, including its category and optional fields, tags and pins. */
         ThingCreate: {
             /**
              * Format: uuid
@@ -867,7 +975,7 @@ export interface components {
             /** Format: uuid */
             imageAttachmentId?: string | null;
         };
-        /** @description Specified Thing updates, merged under a lock while preserving other values. */
+        /** @description Selected Thing properties to update. Omitted properties keep their current values. */
         ThingPatch: {
             name?: string;
             description?: string;
@@ -882,13 +990,13 @@ export interface components {
             /** Format: uuid */
             imageAttachmentId?: string | null;
         };
-        /** @description Field reference for an explicit owner-authorised sensitive-value read. */
+        /** @description Reference to the field whose stored value should be revealed. */
         RevealRequest: components["schemas"]["Pin"];
-        /** @description Revealed field value; responses must not be cached. */
+        /** @description Stored field value returned by an explicit reveal request. The response must not be cached. */
         RevealResult: {
             value: components["schemas"]["NullableValue"];
         };
-        /** @description Private attachment metadata and linked Things; excludes storage keys. */
+        /** @description File metadata, document properties and IDs of linked Things. */
         Attachment: {
             /** Format: uuid */
             id: string;
@@ -914,7 +1022,7 @@ export interface components {
             readonly pageCount: number | null;
             metadataSources: components["schemas"]["AttachmentMetadataSources"];
         };
-        /** @description Problem associated with one Thing, including resolution state. */
+        /** @description Problem associated with a Thing, including status, due date and resolution time. */
         Issue: {
             /** Format: uuid */
             id: string;
@@ -934,7 +1042,7 @@ export interface components {
              */
             dueDate?: string | null;
         };
-        /** @description New Thing issue; defaults to OPEN. */
+        /** @description Properties for creating an issue for a Thing. Status defaults to OPEN. */
         IssueInput: {
             /**
              * Format: uuid
@@ -954,7 +1062,7 @@ export interface components {
              */
             dueDate?: string | null;
         };
-        /** @description Specified issue updates; resolving retains the first resolution timestamp. */
+        /** @description Selected issue properties to update. Null removes optional text or dates. */
         IssuePatch: {
             title?: string;
             description?: string;
@@ -967,7 +1075,7 @@ export interface components {
              */
             dueDate?: string | null;
         };
-        /** @description Suggested or scheduled Thing task with lifecycle timestamps and provenance. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
+        /** @description Task or reminder for a Thing, with its schedule, completion time and supporting sources. SCHEDULED requires either startsOn or startsAt; other statuses allow neither. Both schedule properties cannot have a value together. */
         Event: {
             /** Format: uuid */
             id: string;
@@ -990,7 +1098,7 @@ export interface components {
              */
             startsOn: string | null;
         };
-        /** @description New Thing event. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
+        /** @description Properties for creating an event for a Thing. Status defaults to SUGGESTED. SCHEDULED requires either startsOn or startsAt; both schedule properties cannot have a value together. */
         EventInput: {
             /**
              * Format: uuid
@@ -1012,7 +1120,7 @@ export interface components {
              */
             startsOn?: string | null;
         };
-        /** @description Specified event updates; null clears optional links or dates. SCHEDULED requires exactly one of startsOn or startsAt; other statuses allow neither, but never both. */
+        /** @description Selected event properties to update. Null removes an optional issue link or schedule value. SCHEDULED requires either startsOn or startsAt; when switching, set the previous schedule property to null. */
         EventPatch: {
             /** Format: uuid */
             issueId?: string | null;
@@ -1027,7 +1135,7 @@ export interface components {
              */
             startsOn?: string | null;
         };
-        /** @description Cited consumable, accessory or upgrade suggestion; sample actions are disabled. */
+        /** @description Consumable, accessory or upgrade suggestion with supporting sources. Merchant actions for samples are disabled. */
         Purchasable: {
             /** Format: uuid */
             id: string;
@@ -1046,7 +1154,7 @@ export interface components {
             checkedAt: string | null;
             isSample: boolean;
         };
-        /** @description Persisted conversation message with citations, cards and execution state. */
+        /** @description Conversation message with its text, resource cards, supporting sources and processing status. */
         Message: {
             /** Format: uuid */
             id: string;
@@ -1064,7 +1172,7 @@ export interface components {
             error?: string | null;
             usage?: components["schemas"]["ImportUsage"] | null;
         };
-        /** @description Active owner-scoped conversation and its persisted messages. */
+        /** @description Conversation with optional Thing context and its messages. */
         Conversation: {
             /** Format: uuid */
             id: string;
@@ -1072,7 +1180,7 @@ export interface components {
             thingId: string | null;
             messages: components["schemas"]["Message"][];
         };
-        /** @description Owner-scoped conversation metadata for history lists. */
+        /** @description Conversation details for history lists, including a title from the first user message, message count and timestamps. */
         ConversationSummary: {
             /** Format: uuid */
             id: string;
@@ -1090,12 +1198,12 @@ export interface components {
              */
             lastMessageAt: string;
         };
-        /** @description Paginated conversation summaries. */
+        /** @description A page of conversation summaries. nextCursor is null when no further page is available. */
         ConversationSummaryList: {
             items: components["schemas"]["ConversationSummary"][];
             nextCursor: string | null;
         };
-        /** @description Optional Thing context for a new conversation. */
+        /** @description Optional ID and Thing context for a new conversation. */
         ConversationInput: {
             /**
              * Format: uuid
@@ -1105,58 +1213,58 @@ export interface components {
             /** Format: uuid */
             thingId?: string | null;
         };
-        /** @description Paginated category results and an opaque continuation cursor. */
+        /** @description A page of categories. nextCursor is null when no further page is available. */
         CategoryList: {
             items: components["schemas"]["Category"][];
             nextCursor: string | null;
         };
-        /** @description Paginated field set results and an opaque continuation cursor. */
+        /** @description A page of field sets. nextCursor is null when no further page is available. */
         FieldSetList: {
             items: components["schemas"]["FieldSet"][];
             nextCursor: string | null;
         };
-        /** @description Paginated field definition results and an opaque continuation cursor. */
+        /** @description A page of field definitions. nextCursor is null when no further page is available. */
         FieldDefinitionList: {
             items: components["schemas"]["FieldDefinition"][];
             nextCursor: string | null;
         };
-        /** @description Paginated thing summary results and an opaque continuation cursor. */
+        /** @description A page of Thing summaries. nextCursor is null when no further page is available. */
         ThingSummaryList: {
             items: components["schemas"]["ThingSummary"][];
             nextCursor: string | null;
         };
-        /** @description Paginated tag results and an opaque continuation cursor. */
+        /** @description A page of tags. nextCursor is null when no further page is available. */
         TagList: {
             items: components["schemas"]["Tag"][];
             nextCursor: string | null;
         };
-        /** @description Paginated attachment results and an opaque continuation cursor. */
+        /** @description A page of attachments. nextCursor is null when no further page is available. */
         AttachmentList: {
             items: components["schemas"]["Attachment"][];
             nextCursor: string | null;
         };
-        /** @description Paginated issue results and an opaque continuation cursor. */
+        /** @description A page of issues. nextCursor is null when no further page is available. */
         IssueList: {
             items: components["schemas"]["Issue"][];
             nextCursor: string | null;
         };
-        /** @description Paginated event results and an opaque continuation cursor. */
+        /** @description A page of events. nextCursor is null when no further page is available. */
         EventList: {
             items: components["schemas"]["Event"][];
             nextCursor: string | null;
         };
-        /** @description Paginated purchasable results and an opaque continuation cursor. */
+        /** @description A page of product suggestions. nextCursor is null when no further page is available. */
         PurchasableList: {
             items: components["schemas"]["Purchasable"][];
             nextCursor: string | null;
         };
-        /** @description Detected Thing offered for owner confirmation. */
+        /** @description Thing detected in an attachment and offered for confirmation. */
         ImportCandidate: {
             id: string;
             name: string;
             categoryId: string;
         };
-        /** @description Provider usage and bounded tool execution totals for an attempt. */
+        /** @description AI model, token counts, elapsed time and tool results for a processing attempt. */
         ImportUsage: {
             model: string;
             inputTokens: number;
@@ -1169,7 +1277,7 @@ export interface components {
                 truncated: boolean;
             }[];
         };
-        /** @description Public import state excluding raw extraction and private source content. */
+        /** @description Import status, detected candidates, resulting Thing IDs and processing details. */
         Import: {
             /** Format: uuid */
             id: string;
@@ -1183,14 +1291,14 @@ export interface components {
             error: string | null;
             usage: components["schemas"]["ImportUsage"];
         };
-        /** @description Source attachment and optional existing Thing to enrich. */
+        /** @description Attachment to process and an optional existing Thing to update. */
         ImportStart: {
             /** Format: uuid */
             attachmentId: string;
             /** Format: uuid */
             thingId?: string;
         };
-        /** @description Queued import identity and initial Thing identity. */
+        /** @description Queued import ID, target Thing ID and initial status. */
         ImportAccepted: {
             /** Format: uuid */
             importId: string;
@@ -1198,7 +1306,7 @@ export interface components {
             thingId: string;
             status: components["schemas"]["ImportStatusEnum"];
         };
-        /** @description Selected detected candidates and their optional existing targets. */
+        /** @description Detected candidates selected for import. Each targetThingId identifies an existing Thing or is null to create one. */
         ImportConfirmation: {
             selections: {
                 candidateId: string;
@@ -1206,7 +1314,7 @@ export interface components {
                 targetThingId: string | null;
             }[];
         };
-        /** @description Typed reference to an owned resource; availability reflects current access. */
+        /** @description Reference to a Thing, field, attachment, issue, event or product suggestion. Availability indicates whether the referenced record can still be accessed. */
         ResourceCard: {
             /** @constant */
             type: "THING";
@@ -1247,20 +1355,20 @@ export interface components {
             purchasableId: string;
             available?: boolean;
         };
-        /** @description Idempotent message request. The assistant infers requested actions from the conversation. */
+        /** @description User message and request ID. Reuse the ID and text to retry the same message. */
         MessageInput: {
             text: string;
             /** Format: uuid */
             requestId: string;
         };
-        /** @description Transient text update identified by message and text offset. */
+        /** @description Streamed text fragment with its message ID and offset in the message text. */
         ConversationDelta: {
             /** Format: uuid */
             messageId: string;
             offset: number;
             text: string;
         };
-        /** @description Usage metadata returned after recording a user view. */
+        /** @description View count and last-viewed timestamp after recording a user opening a Thing. */
         ThingAccess: {
             /** @description Number of explicit user views recorded for this Thing. */
             accessCount: number;
@@ -1270,7 +1378,7 @@ export interface components {
              */
             lastViewedAt: string | null;
         };
-        /** @description Specified attachment metadata updates. Omitted properties are preserved; null clears a value and protects that clear from automated extraction. Filename, content and page count are not editable. */
+        /** @description Selected attachment properties to update. Omitted properties keep their values; null removes a value. Automatic document processing preserves values edited or removed by the user. Filename, file content and page count are read-only. */
         AttachmentPatch: {
             /** @description Display title; null displays the original filename. */
             title?: string | null;
@@ -1283,12 +1391,12 @@ export interface components {
              */
             documentDate?: string | null;
         };
-        /** @description Origin and supporting document or URL for a metadata value. USER entries also preserve explicit clears. */
+        /** @description Origin and supporting sources for an attachment property. USER also records values explicitly removed by the user. */
         AttachmentMetadataSource: {
             origin: components["schemas"]["AttachmentMetadataOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
         };
-        /** @description Per-property metadata provenance; absent entries indicate unknown origin. Raw extracted quotes are omitted. */
+        /** @description Source information for each attachment property. An absent entry means its origin is unknown. Extracted quotes are omitted. */
         AttachmentMetadataSources: {
             title?: components["schemas"]["AttachmentMetadataSource"];
             documentType?: components["schemas"]["AttachmentMetadataSource"];
@@ -1296,62 +1404,62 @@ export interface components {
             documentDate?: components["schemas"]["AttachmentMetadataSource"];
         };
         /**
-         * @description Issue status.
+         * @description Whether an issue is open or resolved.
          * @enum {string}
          */
         IssueStatusEnum: "OPEN" | "RESOLVED";
         /**
-         * @description Event status.
+         * @description Whether an event is suggested, scheduled, completed or dismissed.
          * @enum {string}
          */
         EventStatusEnum: "SUGGESTED" | "SCHEDULED" | "COMPLETED" | "DISMISSED";
         /**
-         * @description Purchasable kind.
+         * @description Type of product suggestion: consumable, accessory or upgrade.
          * @enum {string}
          */
         PurchasableKindEnum: "CONSUMABLE" | "ACCESSORY" | "UPGRADE";
         /**
-         * @description Currency.
+         * @description Supported ISO 4217 currency code.
          * @enum {string}
          */
         CurrencyEnum: "GBP" | "EUR" | "USD";
         /**
-         * @description Schema type.
+         * @description JSON data type accepted by a field validation schema.
          * @enum {string}
          */
         SchemaTypeEnum: "string" | "number" | "integer" | "boolean" | "object";
         /**
-         * @description Schema format.
+         * @description Date or timestamp format accepted by a field validation schema.
          * @enum {string}
          */
         SchemaFormatEnum: "date" | "date-time";
         /**
-         * @description Ui hint.
+         * @description Suggested input control for displaying and editing a field.
          * @enum {string}
          */
         UiHintEnum: "TEXT" | "TEXTAREA" | "NUMBER" | "CHECKBOX" | "SELECT" | "DATE" | "DATETIME" | "MONEY" | "PASSWORD";
         /**
-         * @description Field origin.
+         * @description Whether a field value was entered by the user or obtained from an import.
          * @enum {string}
          */
         FieldOriginEnum: "USER" | "IMPORT";
         /**
-         * @description Value type.
+         * @description Data type of a custom field value.
          * @enum {string}
          */
         ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY";
         /**
-         * @description Import status.
+         * @description Current stage or outcome of document processing.
          * @enum {string}
          */
         ImportStatusEnum: "QUEUED" | "EXTRACTING" | "AWAITING_SELECTION" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED";
         /**
-         * @description Message role.
+         * @description Whether a message was written by the user or the assistant.
          * @enum {string}
          */
         MessageRoleEnum: "USER" | "ASSISTANT";
         /**
-         * @description Message status.
+         * @description Current processing state of a conversation message.
          * @enum {string}
          */
         MessageStatusEnum: "QUEUED" | "PROCESSING" | "COMPLETE" | "FAILED";
@@ -1361,12 +1469,12 @@ export interface components {
          */
         ThingSortEnum: "UPDATED" | "RECENTLY_VIEWED" | "MOST_VIEWED";
         /**
-         * @description Document classification; null on Attachment means unknown.
+         * @description Document classification, such as a manual, receipt or invoice. Null on an Attachment means unknown.
          * @enum {string}
          */
         AttachmentDocumentTypeEnum: "MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER";
         /**
-         * @description Source of attachment metadata.
+         * @description Whether attachment metadata came from a user edit, an import or source discovery.
          * @enum {string}
          */
         AttachmentMetadataOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
@@ -1445,7 +1553,24 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Maximum number of results. */
+        limit: number;
+        /** @description Opaque cursor returned by the previous page. */
+        cursor: string;
+        /** @description Category id. */
+        categoryId: string;
+        /** @description Text used to search matching records. */
+        search: string;
+        /** @description Id. */
+        registryId: string;
+        /** @description Id. */
+        resourceId: string;
+        /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
+        thingId: string;
+        /** @description Thing id. */
+        thingIdPath: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -1528,9 +1653,9 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
             };
             header?: never;
             path?: never;
@@ -1557,13 +1682,13 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Category id. */
-                categoryId?: string;
+                categoryId?: components["parameters"]["categoryId"];
                 /** @description Text used to search matching records. */
-                q?: string;
+                q?: components["parameters"]["search"];
             };
             header?: never;
             path?: never;
@@ -1592,7 +1717,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["registryId"];
             };
             cookie?: never;
         };
@@ -1618,11 +1743,11 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Text used to search matching records. */
-                q?: string;
+                q?: components["parameters"]["search"];
             };
             header?: never;
             path?: never;
@@ -1651,7 +1776,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["registryId"];
             };
             cookie?: never;
         };
@@ -1677,15 +1802,15 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Category id. */
-                categoryId?: string;
+                categoryId?: components["parameters"]["categoryId"];
                 /** @description Tag id. */
                 tagId?: string;
                 /** @description Text used to search matching records. */
-                q?: string;
+                q?: components["parameters"]["search"];
                 /** @description Sort order; defaults to UPDATED. Applied before pagination. */
                 sort?: components["schemas"]["ThingSortEnum"];
             };
@@ -1746,7 +1871,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -1774,7 +1899,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -1801,7 +1926,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -1834,7 +1959,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -1865,9 +1990,9 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
             };
             header?: never;
             path?: never;
@@ -1926,7 +2051,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -1953,7 +2078,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -1984,11 +2109,11 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
-                thingId?: string;
+                thingId?: components["parameters"]["thingId"];
             };
             header?: never;
             path?: never;
@@ -2052,7 +2177,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2080,7 +2205,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2107,7 +2232,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2139,7 +2264,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2167,9 +2292,9 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
                 /** @description Thing id. */
-                thingId: string;
+                thingId: components["parameters"]["thingIdPath"];
             };
             cookie?: never;
         };
@@ -2196,9 +2321,9 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
                 /** @description Thing id. */
-                thingId: string;
+                thingId: components["parameters"]["thingIdPath"];
             };
             cookie?: never;
         };
@@ -2223,11 +2348,11 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
-                thingId?: string;
+                thingId?: components["parameters"]["thingId"];
                 /** @description Status. */
                 status?: components["schemas"]["IssueStatusEnum"];
             };
@@ -2288,7 +2413,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2316,7 +2441,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2347,11 +2472,11 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
-                thingId?: string;
+                thingId?: components["parameters"]["thingId"];
                 /** @description Status. */
                 status?: components["schemas"]["EventStatusEnum"];
                 /** @description Inclusive lower start-time bound. */
@@ -2418,7 +2543,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2446,7 +2571,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2477,11 +2602,11 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
-                thingId?: string;
+                thingId?: components["parameters"]["thingId"];
                 /** @description Kind. */
                 kind?: components["schemas"]["PurchasableKindEnum"];
             };
@@ -2512,7 +2637,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2538,11 +2663,11 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Maximum number of results. */
-                limit?: number;
+                limit?: components["parameters"]["limit"];
                 /** @description Opaque cursor returned by the previous page. */
-                cursor?: string;
+                cursor?: components["parameters"]["cursor"];
                 /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
-                thingId?: string;
+                thingId?: components["parameters"]["thingId"];
                 /** @description Minimum persisted message count, including user and assistant messages in every status. Use 1 to exclude empty conversations. */
                 minMessageCount?: number;
             };
@@ -2603,7 +2728,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2661,7 +2786,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2689,7 +2814,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2722,7 +2847,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2751,7 +2876,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Thing id. */
-                thingId: string;
+                thingId: components["parameters"]["thingIdPath"];
             };
             cookie?: never;
         };
@@ -2779,7 +2904,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2812,7 +2937,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
@@ -2840,7 +2965,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Id. */
-                id: string;
+                id: components["parameters"]["resourceId"];
             };
             cookie?: never;
         };
