@@ -74,8 +74,12 @@ test('All details deletes a value after confirmation', async ({ page }) => {
   await payload.getByRole('button', { name: 'Actions for Payload (kg)' }).click();
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Delete Payload (kg)?' })).toBeVisible();
+  // The change shows optimistically; reloading before the save lands would abort it.
+  const saved = page.waitForResponse((response) => response.request().method() === 'PATCH');
+
   await page.getByRole('button', { name: 'Delete detail' }).click();
   await expect(payload).toContainText('Not recorded');
+  await saved;
   await page.reload();
   await expect(payload).toContainText('Not recorded');
 });
