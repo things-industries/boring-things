@@ -1,5 +1,4 @@
 <button
-  #trigger
   type="button"
   btIconButton
   [icon]="icon()"
@@ -9,17 +8,19 @@
   [disabled]="disabled()"
   aria-haspopup="menu"
   [attr.aria-expanded]="open()"
-  (click)="toggle()"
+  [attr.popovertarget]="panelId"
 ></button>
-@if (open()) {
-  <div
-    #panel
-    class="menu-panel"
-    role="menu"
-    [attr.aria-label]="label()"
-    (keydown)="move($event)"
-    (click)="close()"
-  >
-    <ng-content />
-  </div>
-}
+<div
+  #panel
+  class="menu-panel"
+  popover
+  role="menu"
+  [id]="panelId"
+  [attr.aria-label]="label()"
+  (beforetoggle)="beforeToggle($event)"
+  (toggle)="toggled($event)"
+  (keydown)="move($event)"
+  (click)="close()"
+>
+  <ng-content />
+</div>
