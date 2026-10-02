@@ -249,14 +249,15 @@ export async function processingMessage(db: Database, job: ChatJob): Promise<Mes
 export async function createConversation(
   pool: pg.Pool,
   owner: string,
-  thingId?: string | null,
+  input: Schema['ConversationInput'],
 ): Promise<Schema['Conversation']> {
+  const { thingId } = input;
   return transaction(pool, async (db) => {
     if (thingId) await ownedThing(db, owner, thingId, true);
     const [item] = await rows<{ id: string }>(
       db,
-      'insert into bt.conversations(owner_id,thing_id) values($1,$2) returning id',
-      [owner, thingId ?? null],
+      'insert into bt.conversations(owner_id,thing_id,id) values($1,$2,coalesce($3::uuid,gen_random_uuid())) returning id',
+      [owner, thingId ?? null, input.id],
     );
     if (thingId) await bumpThing(db, owner, thingId);
     return conversation(db, owner, item.id);

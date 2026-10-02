@@ -35,8 +35,8 @@ export async function saveTag(
       )
     : await rows<Schema['Tag']>(
         db,
-        'insert into bt.tags(owner_id,name) values($1,$2) returning id,name',
-        [owner, input.name.trim()],
+        'insert into bt.tags(owner_id,name,id) values($1,$2,coalesce($3::uuid,gen_random_uuid())) returning id,name',
+        [owner, input.name.trim(), input.id],
       );
   ensure(tag, 'Tag not found', 'NOT_FOUND');
   return tag;

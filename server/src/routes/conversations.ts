@@ -32,7 +32,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   { db, runner, assistant, events, enabled, sse },
 ) => {
   route(app, 'POST', '/api/conversations', async (req, reply) => {
-    const result = await createConversation(db, req.ownerId, req.body.thingId);
+    const result = await createConversation(db, req.ownerId, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });

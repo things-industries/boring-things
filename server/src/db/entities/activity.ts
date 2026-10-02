@@ -114,7 +114,7 @@ export type EventWrite = Pick<
 export async function saveIssue(
   db: Database,
   owner: string,
-  value: IssueWrite,
+  value: IssueWrite & Pick<Schema['IssueInput'], 'id'>,
   id?: string,
 ): Promise<Schema['Issue']> {
   const params = [
@@ -131,15 +131,15 @@ export async function saveIssue(
     db,
     id
       ? `update bt.issues set title=$1,description=$2,status=$3,resolved_at=$4,status_text=$5,due_date=$6 where id=$7 and owner_id=$8 returning ${columns.issues}`
-      : `insert into bt.issues(title,description,status,resolved_at,status_text,due_date,thing_id,owner_id) values($1,$2,$3,$4,$5,$6,$7,$8) returning ${columns.issues}`,
-    params,
+      : `insert into bt.issues(title,description,status,resolved_at,status_text,due_date,thing_id,owner_id,id) values($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9::uuid,gen_random_uuid())) returning ${columns.issues}`,
+    id ? params : [...params, value.id],
   );
   return item;
 }
 export async function saveEvent(
   db: Database,
   owner: string,
-  value: EventWrite,
+  value: EventWrite & Pick<Schema['EventInput'], 'id'>,
   id?: string,
 ): Promise<Schema['Event']> {
   const params = [
@@ -157,8 +157,8 @@ export async function saveEvent(
     db,
     id
       ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,completed_at=$5,issue_id=$6,starts_on=$7 where id=$8 and owner_id=$9 returning ${columns.events}`
-      : `insert into bt.events(title,description,status,starts_at,completed_at,issue_id,starts_on,thing_id,owner_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning ${columns.events}`,
-    params,
+      : `insert into bt.events(title,description,status,starts_at,completed_at,issue_id,starts_on,thing_id,owner_id,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,coalesce($10::uuid,gen_random_uuid())) returning ${columns.events}`,
+    id ? params : [...params, value.id],
   );
   return item;
 }

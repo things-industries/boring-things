@@ -105,12 +105,12 @@ export interface ThingWrite {
 export async function insertThing(
   db: Database,
   owner: string,
-  input: ThingWrite,
+  input: ThingWrite & Pick<Schema['ThingCreate'], 'id'>,
 ): Promise<ThingRow> {
   const [created] = await rows<{ id: string }>(
     db,
-    'insert into bt.things(owner_id,category_id,name,description,data) values($1,$2,$3,$4,$5) returning id',
-    [owner, input.categoryId, input.name, input.description, JSON.stringify(input.data)],
+    'insert into bt.things(owner_id,category_id,name,description,data,id) values($1,$2,$3,$4,$5,coalesce($6::uuid,gen_random_uuid())) returning id',
+    [owner, input.categoryId, input.name, input.description, JSON.stringify(input.data), input.id],
   );
   return ownedThing(db, owner, created.id);
 }
