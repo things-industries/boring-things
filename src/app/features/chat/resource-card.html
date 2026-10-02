@@ -1,51 +1,228 @@
-<div class="resource">
-  @if (loading()) {
-    <span role="status">Loading resource…</span>
-  } @else if (unavailable()) {
-    <p class="text-primary-muted">This resource is unavailable.</p>
-    <button class="quiet small" (click)="load(card())">Retry</button>
-  } @else {
-    @if (thing(); as thing) {
-      @if (card().type === 'FIELD' && field(); as field) {
-        <a [routerLink]="['/things', thing.id]" [fragment]="fieldAnchor(fieldSetId(), field.id)"
-          >{{ thing.name }} · {{ field.name }}</a
-        >
-        <p>
-          @if (field.masked) {
-            ••••••••
-          } @else if (field.value === null) {
-            Not recorded
-          } @else if (field.value === '') {
-            Empty text
-          } @else {
-            {{ formatValue(field.value) }}
+@let c = card();
+@if (unavailable()) {
+  <p class="resource-note">
+    @switch (c.type) {
+      @case ('THING') {
+        This thing is no longer available.
+      }
+      @case ('FIELD') {
+        This detail is no longer available.
+      }
+      @case ('ATTACHMENT') {
+        This document is no longer available.
+      }
+      @case ('EVENT') {
+        This task is no longer available.
+      }
+      @case ('ISSUE') {
+        This issue is no longer available.
+      }
+      @default {
+        This product is no longer available.
+      }
+    }
+  </p>
+} @else if (status() === 'error') {
+  <p class="resource-note">
+    Couldn't load this record.
+    <button type="button" class="button-link" (click)="load(c)">Retry</button>
+  </p>
+} @else if (status() === 'loading') {
+  <div class="resource-skeleton" role="status">
+    <span class="visually-hidden">Loading</span>
+  </div>
+} @else if (c.type === 'THING') {
+  @if (thing(); as thing) {
+    <bt-thing-card [thing]="thing" [category]="category()" />
+  }
+} @else if (c.type === 'FIELD') {
+  @if (field(); as field) {
+    <bt-key-value-row
+      class="resource-row"
+      [icon]="fieldIcon(field.icon)"
+      [label]="field.name"
+      [copyable]="field.value !== null && !field.masked"
+    >
+      @if (field.masked) {
+        ••••••••
+      } @else if (field.value === null) {
+        Not recorded
+      } @else if (field.value === '') {
+        Empty text
+      } @else if (field.value === false) {
+        No
+      } @else if (field.value === true) {
+        Yes
+      } @else if (field.schema.format === 'date') {
+        {{ $any(field.value) | date: 'd MMM y' }}
+      } @else if (field.schema.format === 'date-time') {
+        {{ $any(field.value) | date: 'd MMM y, HH:mm' }}
+      } @else {
+        {{ formatValue(field.value) }}
+      }
+    </bt-key-value-row>
+  }
+} @else if (c.type === 'ATTACHMENT') {
+  @if (file(); as file) {
+    @let name = file.title ?? file.filename;
+    @if (saved()) {
+      <div class="resource-row resource-saved">
+        <ng-icon class="resource-saved-icon" name="savedDocument" aria-hidden="true" />
+        <span class="resource-saved-copy">
+          <span class="resource-saved-lead">Saved a new document</span>
+          <span>{{ name }}</span>
+        </span>
+        <button
+          type="button"
+          btIconButton
+          variant="plain"
+          icon="downloadAttachment"
+          [label]="'Download ' + name"
+          (click)="download(file)"
+        ></button>
+      </div>
+    } @else {
+      @let badge = attachmentBadge(file);
+      <bt-list-row class="resource-row" [title]="name" [icon]="badge.icon" [tone]="badge.tone">
+        <span rowSubtitle>
+          {{ attachmentFormat(file.mediaType) }}
+          @if (file.pageCount) {
+            · {{ file.pageCount }} {{ file.pageCount === 1 ? 'page' : 'pages' }}
           }
-        </p>
-      } @else {
-        <a [routerLink]="['/things', thing.id]">{{ thing.name }}</a>
-      }
+          @if (c.page) {
+            · Cited on page {{ c.page }}
+          }
+        </span>
+        <button
+          rowTrailing
+          type="button"
+          btIconButton
+          variant="plain"
+          icon="downloadAttachment"
+          [label]="'Download ' + name"
+          (click)="download(file)"
+        ></button>
+      </bt-list-row>
     }
-    @if (file(); as file) {
-      <button class="quiet" (click)="download()">Open {{ file.filename }}</button>
-    }
-    <bt-activity [events]="events()" [issues]="issues()" [busy]="busy()" (action)="act($event)" />
-    @if (purchase(); as item) {
-      <span class="eyebrow">{{ item.kind.toLowerCase() }}</span>
-      <h3>{{ item.name }}</h3>
-      <p>{{ item.description }}</p>
-      @if (item.isSample) {
-        <span class="sample-label">Sample · example suggestion</span>
-      } @else {
-        <a [href]="item.merchantUrl" target="_blank" rel="noopener noreferrer">View at merchant</a>
-      }
-      @for (source of item.sourceRefs; track $index) {
-        @if (source.url) {
-          <a [href]="source.url" target="_blank" rel="noopener noreferrer">Source</a>
+  }
+} @else if (c.type === 'EVENT') {
+  @if (event(); as event) {
+    @if (event.status === 'SCHEDULED') {
+      @let start = event.startsOn ?? event.startsAt ?? '';
+      <bt-event-card [title]="event.title" icon="upcomingEvent" [link]="['/things', event.thingId]">
+        <span rowSubtitle
+          >Due {{ start | date: 'd MMM y' }} · {{ start | relativeTime }}
+          @if (event.isSample) {
+            · Sample
+          }
+        </span>
+        <button
+          rowTrailing
+          type="button"
+          btIconButton
+          variant="plain"
+          icon="complete"
+          [label]="'Mark complete: ' + event.title"
+          (click)="complete(event.id)"
+        ></button>
+      </bt-event-card>
+    } @else {
+      @let badge = taskBadges[event.kind];
+      <bt-list-row
+        class="resource-row"
+        [title]="event.title"
+        [icon]="event.status === 'COMPLETED' ? 'complete' : badge.icon"
+        [tone]="event.status === 'COMPLETED' ? 'accent' : badge.tone"
+        [link]="['/things', event.thingId]"
+      >
+        <span rowSubtitle>
+          @if (event.status === 'COMPLETED') {
+            Completed
+          } @else if (event.recurrence; as recurrence) {
+            @let unit = recurrence.unit.toLowerCase();
+            @if (recurrence.interval === 1) {
+              Once a {{ unit }}
+            } @else {
+              Once every {{ recurrence.interval }} {{ unit }}s
+            }
+          } @else {
+            Suggested task
+          }
+          @if (event.isSample) {
+            · Sample
+          }
+        </span>
+        @if (event.status === 'SUGGESTED') {
+          <button
+            rowTrailing
+            type="button"
+            btIconButton
+            variant="accent"
+            icon="scheduleTask"
+            [label]="'Schedule: ' + event.title"
+            (click)="schedule.emit(event)"
+          ></button>
         }
-      }
+      </bt-list-row>
     }
   }
-  @if (actionFailed()) {
-    <p class="error-banner" role="alert">The action could not be completed. Try again.</p>
+} @else if (c.type === 'ISSUE') {
+  @if (issue(); as issue) {
+    @let badge = issueBadges[issue.kind];
+    <bt-list-row
+      class="resource-row"
+      [title]="issue.title"
+      [icon]="badge.icon"
+      [tone]="badge.tone"
+      [link]="['/things', issue.thingId]"
+    >
+      <span rowSubtitle>
+        @if (issue.status === 'RESOLVED') {
+          Resolved
+        } @else {
+          {{ issue.statusText ?? 'Open' }}
+          @if (issue.dueDate) {
+            · Due {{ issue.dueDate | date: 'd MMM y' }} · {{ issue.dueDate | relativeTime }}
+          }
+        }
+        @if (issue.isSample) {
+          · Sample
+        }
+      </span>
+      @if (issue.status === 'OPEN') {
+        <button
+          rowTrailing
+          type="button"
+          class="button-secondary button-sm"
+          [attr.aria-label]="'Resolve: ' + issue.title"
+          (click)="resolve(issue.id)"
+        >
+          Resolve
+        </button>
+      }
+    </bt-list-row>
   }
-</div>
+} @else if (purchasable(); as item) {
+  <bt-list-row class="resource-row" [title]="item.name" icon="compatibleProduct" tone="accent">
+    <span rowSubtitle
+      >{{ item.description }}
+      @if (item.isSample) {
+        · Sample
+      }
+    </span>
+    @if (item.isSample) {
+      <button rowTrailing type="button" class="button-accent button-sm" disabled>
+        Buy<span class="visually-hidden"> (sample)</span>
+      </button>
+    } @else {
+      <a
+        rowTrailing
+        class="button-accent button-sm"
+        [href]="item.merchantUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Buy<span class="visually-hidden"> {{ item.name }} (opens in a new tab)</span></a
+      >
+    }
+  </bt-list-row>
+}

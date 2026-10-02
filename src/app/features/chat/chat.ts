@@ -1,163 +1,284 @@
-import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  Injector,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import type { Schema } from '../../../../shared/model';
-import { Api } from '../../core/services/api.service';
+import { chatUnavailable, loading, moreActions, responseFailed } from '../../core/app-icons';
+import { APP_CONFIG } from '../../core/app.config';
 import { AttachmentsService } from '../../core/data/attachments.service';
-import { Auth } from '../../core/services/auth.service';
 import { CONFIG } from '../../core/runtime-config';
-import { apiData } from '../../core/api/api-client';
-import { watchSse } from '../../core/api/thing-stream';
-import { errorCode } from '../../utils/error.util';
-import type { UiErrorCode } from '../../interfaces/error.interface';
+import { Toasts } from '../../core/services/toasts.service';
+import { AttachmentsStore } from '../../core/state/attachments.store';
+import { CategoriesStore } from '../../core/state/categories.store';
+import { ConversationsStore } from '../../core/state/conversations.store';
+import { ThingsStore } from '../../core/state/things.store';
 import { ErrorMessage } from '../../components/error-message/error-message';
-import { TermPipe } from '../../pipes/term.pipe';
-import { ResourceCard } from './resource-card';
+import { IconButton } from '../../components/icon-button/icon-button';
+import { Notice } from '../../components/notice/notice';
+import { RichText } from '../../components/rich-text/rich-text';
+import { ScheduleDialog } from '../../components/schedule-dialog/schedule-dialog';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
+import { ThingCard } from '../../components/thing-card/thing-card';
 import { TopBar } from '../../components/top-bar/top-bar';
+import type { UiErrorCode } from '../../interfaces/error.interface';
+import { TermPipe } from '../../pipes/term.pipe';
+import { errorCode } from '../../utils/error.util';
+import { ChatBubble } from './chat-bubble';
+import { ChatComposer } from './chat-composer';
+import { assistantState, messageCards } from './chat.view';
+import { ResourceCard } from './resource-card';
+
+/** A new conversation, global or about the Thing in the route, kept current by its stream. */
 @Component({
   selector: 'bt-chat',
-  imports: [FormsModule, ErrorMessage, ResourceCard, TermPipe, ScrollContainer, TopBar],
+  imports: [
+    DatePipe,
+    ChatBubble,
+    ChatComposer,
+    ErrorMessage,
+    IconButton,
+    NgIcon,
+    Notice,
+    ResourceCard,
+    RichText,
+    ScheduleDialog,
+    ScrollContainer,
+    TermPipe,
+    ThingCard,
+    TopBar,
+  ],
+  viewProviders: [provideIcons({ chatUnavailable, loading, moreActions, responseFailed })],
   templateUrl: './chat.html',
   styleUrl: './chat.scss',
+  host: {
+    '[class.keyboard]': '!!visible()',
+    '[style.top.px]': 'visible()?.top',
+    '[style.height.px]': 'visible()?.height',
+  },
 })
-export class ChatPage implements OnDestroy {
-  private api = inject(Api);
-  private attachments = inject(AttachmentsService);
-  private auth = inject(Auth);
+export class ChatPage {
+  private conversations = inject(ConversationsStore);
+  private things = inject(ThingsStore);
+  private categories = inject(CategoriesStore);
+  private files = inject(AttachmentsService);
+  private toasts = inject(Toasts);
+  private attachments = inject(AttachmentsStore);
+  private injector = inject(Injector);
+  private destroyRef = inject(DestroyRef);
+  private scroller = viewChild(ScrollContainer, { read: ElementRef<HTMLElement> });
+  private destroyed = false;
+
   readonly config = inject(CONFIG);
-  private route = inject(ActivatedRoute);
-  private stream = new AbortController();
-  conversation = signal<Schema['Conversation'] | null>(null);
-  error = signal<UiErrorCode | null>(null);
-  busy = signal(false);
-  disconnected = signal(false);
-  inFlight = computed(
-    () =>
-      this.conversation()?.messages.some((m) => ['QUEUED', 'PROCESSING'].includes(m.status)) ??
-      false,
+  readonly thingId = inject(ActivatedRoute).snapshot.paramMap.get('id');
+  readonly id = signal<string | null>(null);
+  readonly starting = signal(false);
+  readonly error = signal<UiErrorCode | null>(null);
+  readonly sending = signal(false);
+  readonly text = signal('');
+  readonly scheduling = signal<Schema['Event'] | null>(null);
+
+  /** Visible area while the composer has focus, so the page fits above the on-screen keyboard. */
+  readonly visible = signal<{ top: number; height: number } | null>(null);
+
+  readonly conversation = computed(() => {
+    const id = this.id();
+
+    return id ? (this.conversations.entityMap()[id] ?? null) : null;
+  });
+
+  readonly disconnected = computed(() => {
+    const id = this.id();
+
+    return !!id && !!this.conversations.disconnected()[id];
+  });
+
+  readonly thing = computed(() =>
+    this.thingId ? (this.things.entityMap()[this.thingId] ?? null) : null,
   );
-  readonly thingId = this.route.snapshot.paramMap.get('id');
-  text = '';
-  // Keep the request ID through uncertain network outcomes as well as server failures.
+
+  readonly category = computed(
+    () => this.categories.entityMap()[this.thing()?.categoryId ?? ''] ?? null,
+  );
+
+  readonly messages = computed(() =>
+    (this.conversation()?.messages ?? []).map((message) => ({
+      message,
+      ...messageCards(message.cards, this.thingId),
+    })),
+  );
+
+  readonly inFlight = computed(
+    () =>
+      this.conversation()?.messages.some(
+        (m) => m.status === 'QUEUED' || m.status === 'PROCESSING',
+      ) ?? false,
+  );
+
+  readonly assistantState = computed(() => assistantState(this.conversation()?.messages ?? []));
+
+  /** Request reused when the same text is sent again after a failed or uncertain send. */
   private pending: Schema['MessageInput'] | null = null;
+
+  /** Whether the list follows new messages; false once the user scrolls up. */
+  private following = true;
+
+  private stopTracking: (() => void) | null = null;
+
   constructor() {
-    effect(() => {
-      if (!this.auth.signedIn()) {
-        this.stream.abort();
-        this.conversation.set(null);
-      }
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.stopTracking?.();
     });
+
+    if (this.thingId) {
+      void this.categories.ensureLoaded();
+      if (!this.things.entityMap()[this.thingId]) void this.things.loadOne(this.thingId);
+    }
+
+    // Follows the newest message as messages arrive and stream in.
+    effect(() => {
+      const last = this.conversation()?.messages.at(-1);
+
+      void last?.text.length;
+      untracked(() => {
+        if (this.following && last)
+          afterNextRender(() => this.toBottom(), { injector: this.injector });
+      });
+    });
+
     void this.start();
   }
-  ngOnDestroy() {
-    this.stream.abort();
-  }
+
   async start() {
-    if (!this.config.chatEnabled) return;
+    if (!this.config.chatEnabled || this.starting()) return;
     this.error.set(null);
-    try {
-      const thingId = this.thingId;
-      const chat = await this.api.client
-        .POST('/api/conversations', { body: thingId ? { thingId } : {} })
-        .then(apiData);
-      if (this.stream.signal.aborted) return;
-      this.conversation.set(chat);
-      void watchSse(
-        () =>
-          this.api.client.GET('/api/conversations/{id}/stream', {
-            params: { path: { id: chat.id } },
-            parseAs: 'stream',
-            signal: this.stream.signal,
-          }),
-        this.stream.signal,
-        (event, data) => {
-          this.disconnected.set(false);
-          if (event === 'conversation.snapshot') {
-            const snapshot = data as Schema['Conversation'];
-            this.conversation.set(snapshot);
-            if (
-              this.pending &&
-              snapshot.messages.some(
-                (m) => m.requestId === this.pending!.requestId && m.role === 'ASSISTANT',
-              )
-            ) {
-              this.pending = null;
-              this.text = '';
-            }
-          } else if (event === 'conversation.delta') {
-            const delta = data as Schema['ConversationDelta'];
-            this.conversation.update((c) =>
-              c
-                ? {
-                    ...c,
-                    messages: c.messages.map((m) =>
-                      m.id === delta.messageId &&
-                      m.status === 'PROCESSING' &&
-                      m.text.length === delta.offset
-                        ? { ...m, text: m.text + delta.text }
-                        : m,
-                    ),
-                  }
-                : c,
-            );
-          }
-        },
-        () => this.disconnected.set(true),
-      );
-    } catch (e) {
-      if (!this.stream.signal.aborted) this.error.set(errorCode(e));
+    this.starting.set(true);
+
+    const result = await this.conversations.create(this.thingId);
+
+    this.starting.set(false);
+    if (this.destroyed) return;
+    if (!result.ok) {
+      this.error.set(result.code);
+      return;
     }
+
+    const id = result.value.id;
+
+    this.destroyRef.onDestroy(this.conversations.watch(id));
+    this.id.set(id);
   }
-  async send(retry?: Schema['Message']) {
-    const chat = this.conversation();
-    if (!chat || this.busy() || this.inFlight()) return;
-    const user = retry
-      ? chat.messages.find((m) => m.requestId === retry.requestId && m.role === 'USER')
-      : undefined;
+
+  send() {
+    const id = this.id();
+    const text = this.text().trim();
+
+    if (!id || !text || this.sending() || this.inFlight()) return;
+
     const input =
-      retry && user
-        ? {
-            text: user.text,
-            requestId: retry.requestId,
-          }
-        : (this.pending ?? {
-            text: this.text.trim(),
-            requestId: crypto.randomUUID(),
-          });
-    if (!input.text) return;
+      this.pending?.text === text ? this.pending : { text, requestId: crypto.randomUUID() };
+
     this.pending = input;
-    this.busy.set(true);
-    this.error.set(null);
-    try {
-      const accepted = await this.api.client
-        .POST('/api/conversations/{id}/messages', {
-          params: { path: { id: chat.id } },
-          body: input,
-        })
-        .then(apiData);
-      if (this.stream.signal.aborted) return;
-      // A subsequent stream snapshot may already be newer than this acceptance response.
-      this.conversation.update((current) =>
-        current?.messages.some(
-          (m) => m.requestId === input.requestId && m.role === 'ASSISTANT' && m.status !== 'FAILED',
-        )
-          ? current
-          : accepted,
-      );
-      this.pending = null;
-      this.text = '';
-    } catch (e) {
-      if (!this.stream.signal.aborted) this.error.set(errorCode(e));
-    } finally {
-      this.busy.set(false);
+    this.text.set('');
+    this.following = true;
+    void this.submit(id, input);
+  }
+
+  /** Sends the user message of a failed response again with its request ID. */
+  retry(message: Schema['Message']) {
+    const id = this.id();
+    const user = this.conversation()?.messages.find(
+      (m) => m.requestId === message.requestId && m.role === 'USER',
+    );
+
+    if (!id || !user || this.sending() || this.inFlight()) return;
+    this.following = true;
+    void this.submit(id, { text: user.text, requestId: message.requestId });
+  }
+
+  private async submit(id: string, input: Schema['MessageInput']) {
+    this.sending.set(true);
+
+    const result = await this.conversations.send(id, input);
+
+    this.sending.set(false);
+    if (result.ok) {
+      if (this.pending === input) this.pending = null;
+    } else if (this.pending === input && !this.text()) this.text.set(input.text);
+  }
+
+  /** Tracks the visual viewport while focus is in the composer. */
+  composerFocus(event: FocusEvent) {
+    const composer = event.currentTarget as HTMLElement;
+    const inside = composer.contains(event.relatedTarget as Node | null);
+
+    if (event.type === 'focusin' && !this.stopTracking) this.trackViewport();
+    if (event.type === 'focusout' && !inside) {
+      this.stopTracking?.();
+      this.stopTracking = null;
+      this.visible.set(null);
     }
   }
-  async attachment(id: string) {
+
+  private trackViewport() {
+    const viewport = window.visualViewport;
+
+    if (!viewport) return;
+
+    const update = () => {
+      this.visible.set({ top: viewport.offsetTop, height: viewport.height });
+      if (this.following) afterNextRender(() => this.toBottom(), { injector: this.injector });
+    };
+
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+    this.stopTracking = () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    };
+    update();
+  }
+
+  scrolled(event: Event) {
+    const el = event.target as HTMLElement;
+
+    this.following = el.scrollHeight - el.scrollTop - el.clientHeight < APP_CONFIG.chatStickPx;
+  }
+
+  private toBottom() {
+    const el = this.scroller()?.nativeElement;
+
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  /** Downloads a cited document. */
+  async openSource(attachmentId: string) {
+    const code = this.attachments.entityMap()[attachmentId]
+      ? null
+      : await this.attachments.loadOne(attachmentId);
+    const file = this.attachments.entityMap()[attachmentId];
+
+    if (!file) {
+      this.toasts.error('downloadFile', code ?? 'not-found');
+      return;
+    }
+
     try {
-      await this.attachments.download(await this.attachments.get(id));
+      await this.files.download(file);
     } catch (e) {
-      this.error.set(errorCode(e));
+      this.toasts.error('downloadFile', errorCode(e));
     }
   }
 }

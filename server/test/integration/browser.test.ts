@@ -95,14 +95,14 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
     await expect(page.getByLabel('Action', { exact: true })).toHaveCount(0);
     chatAi.failOnce = true;
+    await expect(page.locator('bt-thing-card')).toContainText('Museum membership');
     await page.getByLabel('Message', { exact: true }).fill('Create a filter check');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByRole('button', { name: 'Retry response', exact: true }).click();
+    const chatTask = page.locator('bt-resource-card').filter({ hasText: 'Check the filter' });
+    await expect(chatTask).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Check the filter', exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.locator('.message-text').filter({ hasText: 'The saved details are ready.' }),
+      page.locator('bt-rich-text').filter({ hasText: 'The saved details are ready.' }),
     ).toHaveCount(1);
     assert.equal(
       (
@@ -112,9 +112,13 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
       ).rows[0].count,
       1,
     );
-    await page.getByLabel('Schedule for').fill('2026-10-01T09:00');
+    await chatTask.getByRole('button', { name: 'Schedule: Check the filter' }).click();
+    await page.getByLabel('Date', { exact: true }).fill('2026-10-01');
+    await page.getByLabel('Time (optional)').fill('09:00');
     await page.getByRole('button', { name: 'Schedule', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Mark complete', exact: true })).toBeVisible();
+    await expect(
+      chatTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
+    ).toBeVisible();
     await page.screenshot({
       path: 'test-results/chat-desktop.png',
       fullPage: true,
@@ -131,9 +135,12 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await page.setViewportSize({ width: 1440, height: 1100 });
     await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Museum membership', level: 1 })).toBeVisible();
-    // Chat writes bypass the stores until stage 7, so the Thing shows them after a reload.
-    await page.reload();
+    // The chat's scheduled Event is already in the store, so the Thing shows it without a reload.
     const filterTask = page.locator('bt-event-card').filter({ hasText: 'Check the filter' });
+    await expect(
+      filterTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
+    ).toBeVisible();
+    await page.reload();
     await expect(
       filterTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
     ).toBeVisible();

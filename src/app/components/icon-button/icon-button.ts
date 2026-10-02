@@ -11,12 +11,13 @@ import { NgIcon } from '@ng-icons/core';
     '[class.elevated]': "variant() === 'elevated'",
     '[class.plain]': "variant() === 'plain'",
     '[class.accent]': "variant() === 'accent'",
+    '[class.primary]': "variant() === 'primary'",
     '[class.small]': "size() === 'sm'",
   },
 })
 export class IconButton {
   readonly icon = input.required<string>();
   readonly label = input.required<string>();
-  readonly variant = input<'surface' | 'elevated' | 'plain' | 'accent'>('surface');
+  readonly variant = input<'surface' | 'elevated' | 'plain' | 'accent' | 'primary'>('surface');
   readonly size = input<'md' | 'sm'>('md');
 }

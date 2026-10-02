@@ -32,6 +32,12 @@
     calc((100% - #{tokens.size(content-max)}) / 2 + #{tokens.space(4)})
   );
 }
+/** Field text of at least 16px on touch screens, below which iOS Safari zooms in on focus. */
+@mixin touch-field-text {
+  @media (pointer: coarse) {
+    font-size: max(16px, 1em);
+  }
+}
 /**
  * Page host that fills the viewport above the bottom nav, with a `bt-top-bar` over a
  * `bt-scroll-container`. Only the container scrolls.

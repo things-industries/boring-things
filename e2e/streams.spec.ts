@@ -46,7 +46,7 @@ test('assistant reconnect restores streamed text without duplication', async ({ 
   await expect(page.getByLabel('Message', { exact: true })).toBeEnabled();
   await page.getByLabel('Message', { exact: true }).fill('Read the saved details');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  const answer = page.locator('.message:not(.user) .message-text');
+  const answer = page.locator('bt-chat-bubble:not(.user) bt-rich-text');
   await expect(answer).toHaveText('The saved details are ready.');
   await expect.poll(() => connections).toBeGreaterThan(1);
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();

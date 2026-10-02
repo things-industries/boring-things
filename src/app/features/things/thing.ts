@@ -80,26 +80,19 @@ import { SectionHeader } from '../../components/section-header/section-header';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { Sheet } from '../../components/sheet/sheet';
 import { TopBar } from '../../components/top-bar/top-bar';
-import type { IssueKind } from '../../interfaces/issue.interface';
-import type { IconBadgeTone } from '../../interfaces/icon-badge.interface';
 import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
 import { daysUntil, eventStart, localDateTimeToUtc } from '../../utils/date.util';
+import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
+import { taskBadges } from '../../utils/event.util';
 import { formatFieldValue } from '../../utils/field.util';
+import { issueBadges } from '../../utils/issue.util';
 import { ImportProgress } from './import-progress';
 import { ImportSteps } from './import-steps';
 import { ImportSources } from './import-sources';
 import { routeThing } from './thing-loader';
 import { RowSkeleton } from './row-skeleton';
 import { ThingSkeleton } from './thing-skeleton';
-import {
-  activeImport,
-  attachmentBadge,
-  attachmentFormat,
-  discovering,
-  fieldValueById,
-  keyDetails,
-  taskBadges,
-} from './thing.view';
+import { activeImport, discovering, fieldValueById, keyDetails } from './thing.view';
 
 type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'link' | 'deleteFile';
 
@@ -205,12 +198,7 @@ export class ThingPage {
   readonly taskBadges = taskBadges;
   readonly formatValue = formatFieldValue;
 
-  readonly issueBadges: Record<IssueKind, { icon: string; tone: IconBadgeTone }> = {
-    RENEWAL: { icon: 'issueRenewal', tone: 'info' },
-    WARRANTY: { icon: 'issueWarranty', tone: 'accent' },
-    FAULT: { icon: 'issueFault', tone: 'warning' },
-    OTHER: { icon: 'issueOther', tone: 'neutral' },
-  };
+  readonly issueBadges = issueBadges;
 
   readonly category = computed<Schema['Category'] | null>(
     () => this.categories.entityMap()[this.thing()?.categoryId ?? ''] ?? null,

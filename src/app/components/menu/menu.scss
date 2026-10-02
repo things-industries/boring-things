@@ -1,18 +1,28 @@
 @use 'tokens';
 :host {
-  position: relative;
   display: inline-flex;
+  anchor-name: var(--menu-anchor);
 }
+// The panel is a popover in the top layer, so no page stacking context can cover it. It anchors
+// below the trigger's end edge and flips above or across when the viewport runs out of room.
 .menu-panel {
-  position: absolute;
-  top: calc(100% + #{tokens.space(1)});
-  right: 0;
-  z-index: 10;
-  display: flex;
+  position-anchor: var(--menu-anchor);
+  position-area: block-end span-inline-start;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  inset: auto;
+  margin: tokens.space(1) 0;
   flex-direction: column;
   min-width: max-content;
   padding: tokens.space(1);
+  border: 0;
   border-radius: tokens.radius(tile);
   background: tokens.color('white');
+  color: inherit;
   box-shadow: tokens.shadow(floating);
+  &:popover-open {
+    display: flex;
+  }
 }

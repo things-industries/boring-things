@@ -5,7 +5,6 @@ import {
   remixArrowLeftSLine,
   remixArrowRightUpLine,
   remixArrowRightSLine,
-  remixArrowUpLine,
   remixAttachment2,
   remixBookOpenLine,
   remixBox3Fill,
@@ -104,6 +103,8 @@ import {
   remixInbox2Line,
   remixMailSendLine,
   remixEditBoxLine,
+  remixSendPlane2Line,
+  remixBookmarkLine,
 } from '@ng-icons/remixicon';
 export const addThing = remixAddLine;
 export const back = remixArrowLeftSLine;
@@ -195,7 +196,10 @@ export const taskOther = remixCalendarCheckLine;
 
 // Chat
 export const attachToMessage = remixAttachment2;
-export const sendMessage = remixArrowUpLine;
+export const sendMessage = remixSendPlane2Line;
+export const savedDocument = remixBookmarkLine;
+export const chatUnavailable = remixInformationLine;
+export const responseFailed = remixErrorWarningLine;
 
 // Categories, keyed by the registry's `Category.icon`. Read through `categoryIcon()`.
 export const categoryIcons = {

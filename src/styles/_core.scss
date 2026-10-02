@@ -7,6 +7,8 @@
   color: tokens.color(primary);
   background: tokens.color(secondary-subtle);
   font-synthesis: none;
+  // iOS bounces the whole document past its ends, taking the fixed bottom nav with it.
+  overscroll-behavior-y: none;
   @include typography.role(body);
 }
 * {

@@ -109,9 +109,12 @@ export class ThingDetailsPage {
     return detail ? detailGroups(detail) : [];
   });
 
+  // A computed source, so only a new revision clears revealed values, not every snapshot.
+  private revision = computed(() => this.thing()?.revision);
+
   /** Revealed values by row anchor, cleared whenever the Thing changes. */
   readonly revealed = linkedSignal<number | undefined, ReadonlyMap<string, Value | null>>({
-    source: () => this.thing()?.revision,
+    source: this.revision,
     computation: () => new Map(),
   });
 

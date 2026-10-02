@@ -70,6 +70,9 @@ export const PurchasablesStore = signalStore(
           ? Promise.resolve()
           : (store._inFlight.get(thingId) ?? fetch(thingId)),
 
+      /** Fetches one purchasable; a `404` removes it. Resolves to the error code on failure. */
+      loadOne: (id: string) => store.refresh(id, () => store._service.get(id)),
+
       reset() {
         store._inFlight.clear();
         store._clearEntities();

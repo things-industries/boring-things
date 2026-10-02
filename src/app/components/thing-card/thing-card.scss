@@ -1,0 +1,38 @@
+@use 'tokens';
+@use 'typography';
+:host {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: tokens.space(3);
+  padding: tokens.space(3);
+  border: 1px solid tokens.color(secondary);
+  border-radius: tokens.radius(card);
+  background: tokens.color(secondary-subtle);
+  &:has(.thing-card-name:hover) {
+    background: tokens.color(secondary-muted);
+  }
+}
+.thing-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+  min-width: 0;
+}
+.thing-card-name {
+  @include typography.role(section);
+  color: tokens.color(primary);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+}
+.thing-card-category {
+  @include typography.role(caption);
+  font-weight: typography.weight(semibold);
+  color: tokens.color(primary-muted);
+}

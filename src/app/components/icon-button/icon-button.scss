@@ -24,6 +24,10 @@
 :host(.accent) {
   background: tokens.color(accent-subtle);
 }
+:host(.primary) {
+  background: tokens.color(primary);
+  color: tokens.color(primary-contrast);
+}
 :host(.small) {
   width: tokens.size(control-sm);
   height: tokens.size(control-sm);
