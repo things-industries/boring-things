@@ -14,12 +14,6 @@ export class ImportsService {
     return this.client.GET('/api/imports/{id}', { params: { path: { id } } }).then(apiData);
   }
 
-  confirm(id: string, body: Schema['ImportConfirmation']) {
-    return this.client
-      .POST('/api/imports/{id}:confirm', { params: { path: { id } }, body })
-      .then(apiData);
-  }
-
   retry(id: string) {
     return this.client.POST('/api/imports/{id}:retry', { params: { path: { id } } }).then(apiData);
   }

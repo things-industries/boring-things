@@ -109,7 +109,7 @@
 
         @if (job(); as job) {
           @if (showImport()) {
-            <bt-import-progress [thingId]="id()" [job]="job" />
+            <bt-import-progress [job]="job" />
           }
         }
 
@@ -420,18 +420,6 @@
                         Set as image
                       </button>
                     }
-                  }
-                  @if (
-                    config.importEnabled && config.supportedMediaTypes.includes(file.mediaType)
-                  ) {
-                    <button
-                      type="button"
-                      btMenuItem
-                      icon="extractDetails"
-                      (click)="extract(file.id)"
-                    >
-                      Extract details
-                    </button>
                   }
                   <button
                     type="button"

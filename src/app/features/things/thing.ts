@@ -443,10 +443,6 @@ export class ThingPage {
     void this.things.update(this.id(), { imageAttachmentId: attachmentId });
   }
 
-  extract(attachmentId: string) {
-    void this.things.extract(attachmentId, this.id());
-  }
-
   unlink(attachmentId: string) {
     void this.attachments.unlink(attachmentId, this.id());
   }

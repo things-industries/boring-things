@@ -31,7 +31,6 @@ export const ACTION_TERMS = {
   startChat: "Couldn't start a chat",
   sendMessage: "Couldn't send the message",
   importThing: "Couldn't start the import",
-  confirmImport: "Couldn't confirm the import",
   retryImport: "Couldn't retry the import",
   revealField: "Couldn't reveal the value",
   addSampleData: "Couldn't add sample data",

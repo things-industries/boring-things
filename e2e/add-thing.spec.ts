@@ -49,16 +49,6 @@ test('a manually created Thing shows in the Things list without a reload', async
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 });
 
-test('pasted text with two Things asks which to keep', async ({ page }) => {
-  await page.goto('/things/new/text');
-  await page.getByRole('textbox', { name: 'Text to import' }).fill('two');
-  await page.getByRole('button', { name: 'Import text' }).click();
-  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
-  await expect(
-    page.getByRole('heading', { name: 'Which Things would you like to keep?' }),
-  ).toBeVisible();
-});
-
 test.describe('with a small upload limit', () => {
   test('a file over the limit shows a toast', async ({ page }) => {
     await configure(page, { maxUploadBytes: 4 });
