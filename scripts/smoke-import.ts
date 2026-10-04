@@ -29,6 +29,7 @@ const ai = new OpenAiImports(
 );
 const trace: unknown[] = [];
 const recorded: ImportAi = {
+  extractDocument: (...args) => ai.extractDocument(...args),
   async extract(source, categories, context) {
     const result = await ai.extract(source, categories, context);
     trace.push({ stage: 'extraction', result });
@@ -66,8 +67,8 @@ const recorded: ImportAi = {
       },
     };
   },
-  async discover(candidate, context, focus) {
-    const result = await ai.discover(candidate, context, focus);
+  async discover(candidate, context, focus, searchCalls) {
+    const result = await ai.discover(candidate, context, focus, searchCalls);
     trace.push({ stage: 'discovery', result });
     return result;
   },

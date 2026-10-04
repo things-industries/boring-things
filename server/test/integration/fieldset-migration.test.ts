@@ -286,6 +286,9 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       sets: (await pool.query('select * from bt.field_sets order by id')).rows,
       things: (await pool.query('select * from bt.things order by id')).rows,
     });
+    await pool.query(
+      await readFile(new URL('20261004123600_research_field_metadata.sql', directory), 'utf8'),
+    );
     const migrated = await snapshot();
     assert.equal(migrated.fields.length, 413);
     assert.equal(migrated.sets.length, 165);

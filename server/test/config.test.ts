@@ -73,3 +73,15 @@ test('production validates authentication, database and storage together', () =>
     /requires BLOB_STORAGE=s3/,
   );
 });
+
+test('document extraction model has independent configuration with the import model fallback', () => {
+  assert.equal(
+    readConfig({ OPENAI_MODEL: 'import-model' }).documentExtractionModel,
+    'import-model',
+  );
+  assert.equal(
+    readConfig({ OPENAI_MODEL: 'import-model', DOCUMENT_EXTRACTION_MODEL: 'document-model' })
+      .documentExtractionModel,
+    'document-model',
+  );
+});

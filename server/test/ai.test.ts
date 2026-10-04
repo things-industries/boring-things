@@ -228,6 +228,8 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       id: 'candidate-1',
       name: 'Bosch SYNTHETIC/01',
       categoryId: 'appliances',
+      fields: [],
+      targets: [],
     },
     {
       signal: new AbortController().signal,
@@ -240,4 +242,43 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
   assert.equal(requests[0].max_tool_calls, 3);
   assert.ok(JSON.stringify(requests[1].input).includes(pdf));
   assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
+});
+
+test('SDK document extraction uses the configured model, contained schema and per-task usage without search or write tools', async (t) => {
+  const usage: Partial<Usage>[] = [];
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.model, 'document-model');
+    assert.equal(body.store, false);
+    assert.equal(body.tools, undefined);
+    assert.equal(body.text.format.schema.properties.applicable.type, 'boolean');
+    assert.ok(body.input[0].content.some((part: { type: string }) => part.type === 'input_file'));
+    return jsonResponse({
+      ...output({ applicable: false, applicability: null, values: [] }),
+      usage: { input_tokens: 25, output_tokens: 10, input_tokens_details: { cached_tokens: 5 } },
+    });
+  });
+  const ai = new OpenAiImports('test-key', 'import-model', 1000, 3, 'document-model');
+  await ai.extractDocument(
+    {
+      attachmentId: 'document',
+      url: 'https://example.com/manual.pdf',
+      filename: 'manual.pdf',
+      mediaType: 'application/pdf',
+      content: Buffer.from('%PDF-synthetic'),
+      pageCount: 1,
+    },
+    { id: 'subject', categoryId: 'devices', name: 'Example', fields: [], targets: [] },
+    [],
+    {
+      ...context(),
+      record: async (entry) => {
+        usage.push(entry);
+      },
+    },
+  );
+  assert.equal(usage[0].entries?.[0].task, 'document_extraction');
+  assert.equal(usage[0].entries?.[0].model, 'document-model');
+  assert.equal(usage[0].entries?.[0].inputTokens, 25);
+  assert.equal(usage[0].cachedTokens, 5);
 });

@@ -123,6 +123,38 @@ export interface components {
                 } | null;
             }[];
         };
+        /** @description Applicability and supported values from one reference document for the requested Thing and field addresses. */
+        DocumentExtraction: {
+            /** @description True only when document evidence establishes matching subject, variant, region, language and version where relevant. */
+            applicable: boolean;
+            /** @description Evidence establishing applicability; null when the document does not apply. */
+            applicability: {
+                /** @description One-based page in this document. */
+                page: number;
+                /** @description Verbatim evidence from the cited page. */
+                quote: string;
+            } | null;
+            /** @description Supported requested fields; unsupported values remain absent. */
+            values: {
+                /** @description Requested set address; null for standalone fields. */
+                fieldSetId: string | null;
+                /** @description Requested field definition ID. */
+                fieldId: string;
+                value: string | number | boolean | {
+                    /** @description amount Minor. */
+                    amountMinor: number;
+                    /**
+                     * @description currency.
+                     * @enum {string}
+                     */
+                    currency: "GBP" | "EUR" | "USD";
+                };
+                /** @description One-based page in this document. */
+                page: number;
+                /** @description Verbatim evidence from the cited page. */
+                quote: string;
+            }[];
+        };
         /** @description result. */
         search_field_sets: {
             /** @description Readable source transcription. */

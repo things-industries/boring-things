@@ -20,12 +20,7 @@ import type {
   MappingStage,
 } from './types.js';
 import { blankUsage } from './types.js';
-import {
-  applyImportStage,
-  buildResearchContext,
-  retainFacts,
-  validateExtraction,
-} from './mapping.js';
+import { applyImportStage, retainFacts, validateExtraction } from './mapping.js';
 import { searchFieldSets, searchFields } from '../registry/search.js';
 import { ensure } from '../errors.js';
 import * as database from '../../db/connection.js';
@@ -33,7 +28,7 @@ import * as importsDb from '../../db/entities/imports.js';
 import type { ImportRow, Target } from '../../db/entities/imports.js';
 import * as thingsDb from '../../db/entities/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { persistDiscovery } from '../discovery/discovery.js';
+import { researchImportTarget } from './research.js';
 import { updateAttachmentMetadata } from '../attachments.js';
 import { pdfPageCount } from '../../lib/pdf.js';
 
@@ -71,7 +66,8 @@ export class ImportProcessor {
     const previousElapsed = usage.elapsedMs;
 
     const record = async (delta: Partial<Usage>) => {
-      usage.model = delta.model ?? usage.model;
+      if (!usage.model) usage.model = delta.model ?? usage.model;
+      if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
       usage.inputTokens += delta.inputTokens ?? 0;
       usage.outputTokens += delta.outputTokens ?? 0;
       usage.cachedTokens += delta.cachedTokens ?? 0;
@@ -179,43 +175,32 @@ export class ImportProcessor {
       for (const target of await importsDb.listImportTargets(this.pool, job)) {
         if (target.discovered) continue;
         await this.status(job, 'DISCOVERING');
-        const thing = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, target.thingId);
-        const researchContext = buildResearchContext(
-          job.extraction!.extractedThings.find((c) => c.id === target.candidateId)!,
-          thing.data,
-        );
-
         try {
-          if (researchContext || target.discovery) {
-            const discoverySignal = AbortSignal.any([
-              shutdown,
-              AbortSignal.timeout(this.config.discoveryTimeoutMs),
-            ]);
-
-            const discoveryContext = {
-              signal: discoverySignal,
-              record: async (delta: Partial<Usage>) => {
-                discoverySignal.throwIfAborted();
-                await record(delta);
-              },
-            };
-
-            const found =
-              target.discovery ??
-              (await awaitWithSignal(
-                this.ai!.discover(researchContext!, discoveryContext),
-                discoveryContext.signal,
-              ));
-            discoveryContext.signal.throwIfAborted();
-
-            if (!target.discovery)
-              await importsDb.saveTargetDiscovery(this.pool, job, target.candidateId, found);
-
-            await persistDiscovery(this.pool, this.blobs, job, target, found, {
+          const discoverySignal = AbortSignal.any([
+            shutdown,
+            AbortSignal.timeout(this.config.discoveryTimeoutMs),
+          ]);
+          const discoveryContext: AiContext = {
+            signal: discoverySignal,
+            record: async (delta) => {
+              discoverySignal.throwIfAborted();
+              await record(delta);
+            },
+          };
+          await researchImportTarget(
+            this.pool,
+            this.registry,
+            this.blobs,
+            this.ai!,
+            this.events,
+            job,
+            target,
+            discoveryContext,
+            {
               maxBytes: this.config.maxUploadBytes,
-              signal: discoverySignal,
-            });
-          }
+              searchCalls: this.config.discoverySearchCalls,
+            },
+          );
 
           await importsDb.markTargetStage(this.pool, job, target.candidateId, 'discovered');
           this.events.publish({ type: 'data.changed', ownerId: job.ownerId });

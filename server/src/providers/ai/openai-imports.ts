@@ -20,6 +20,9 @@ import type {
   MappingSession,
   RegistryTools,
   Source,
+  ReferenceDocument,
+  ResearchTarget,
+  DocumentExtraction,
 } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
 
@@ -34,6 +37,7 @@ export class OpenAiImports implements ImportAi {
     private model: string,
     private maxOutputTokens = 12000,
     private searchCalls = 3,
+    private documentModel = model,
   ) {
     this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
   }
@@ -42,8 +46,11 @@ export class OpenAiImports implements ImportAi {
     conversation: ResponseInput,
     context: AiContext,
     extra: Partial<ResponseCreateParamsNonStreaming> & { max_tool_calls?: number } = {},
+    task = 'structured_output',
   ): Promise<Response> {
     context.signal.throwIfAborted();
+    const started = Date.now();
+    const model = extra.model ?? this.model;
     let result: Response;
     try {
       result = await this.client.responses.create(
@@ -67,7 +74,17 @@ export class OpenAiImports implements ImportAi {
       );
     }
     await context.record({
-      model: this.model,
+      model,
+      entries: [
+        {
+          task,
+          model,
+          inputTokens: result.usage?.input_tokens ?? 0,
+          outputTokens: result.usage?.output_tokens ?? 0,
+          cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
+          elapsedMs: Date.now() - started,
+        },
+      ],
       inputTokens: result.usage?.input_tokens ?? 0,
       outputTokens: result.usage?.output_tokens ?? 0,
       cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
@@ -110,11 +127,19 @@ export class OpenAiImports implements ImportAi {
     conversation: ResponseInput,
     schema: object,
     context: AiContext,
+    task = 'structured_output',
+    model = this.model,
   ): Promise<T> {
-    const result = await this.requestResponse(conversation, context, {
-      text: this.outputFormat(schema),
-      include: ['reasoning.encrypted_content'],
-    });
+    const result = await this.requestResponse(
+      conversation,
+      context,
+      {
+        text: this.outputFormat(schema),
+        include: ['reasoning.encrypted_content'],
+        model,
+      },
+      task,
+    );
     return this.validateOutput<T>(result, schema);
   }
 
@@ -125,12 +150,17 @@ export class OpenAiImports implements ImportAi {
     context: AiContext,
   ): Promise<T> {
     for (let round = 0; round < 32; round++) {
-      const result = await this.requestResponse(conversation, context, {
-        text: this.outputFormat(schema),
-        tools: functions,
-        parallel_tool_calls: false,
-        include: ['reasoning.encrypted_content'],
-      });
+      const result = await this.requestResponse(
+        conversation,
+        context,
+        {
+          text: this.outputFormat(schema),
+          tools: functions,
+          parallel_tool_calls: false,
+          include: ['reasoning.encrypted_content'],
+        },
+        schema === schemas.$defs.selection ? 'field_selection' : 'fact_mapping',
+      );
       conversation.push(...(result.output as ResponseInput));
       const calls = result.output.filter((o) => o.type === 'function_call');
       if (!calls.length) return this.validateOutput<T>(result, schema);
@@ -178,6 +208,7 @@ export class OpenAiImports implements ImportAi {
       ],
       schemas.$defs.extraction,
       context,
+      'source_extraction',
     );
     return {
       text: extracted.text,
@@ -217,20 +248,22 @@ export class OpenAiImports implements ImportAi {
     candidate: ResearchContext,
     context: AiContext,
     focus: 'reference' | 'maintenance' | 'products' = 'reference',
+    searchCalls = this.searchCalls,
   ): Promise<Discovery> {
     const result = await this.requestResponse(
       [
         {
           role: 'user',
-          content: prompts.researchPrompt(candidate, focus, this.searchCalls),
+          content: prompts.researchPrompt(candidate, focus, searchCalls),
         },
       ],
       context,
       {
         tools: [{ type: 'web_search' }],
-        max_tool_calls: this.searchCalls,
+        max_tool_calls: searchCalls,
         include: ['web_search_call.action.sources'],
       },
+      'research',
     );
 
     // Citable URLs come from provider search metadata; persistence checks model-selected URLs against this list.
@@ -263,7 +296,7 @@ export class OpenAiImports implements ImportAi {
         })),
     });
     ensure(
-      result.output.filter((o) => o.type === 'web_search_call').length <= this.searchCalls,
+      result.output.filter((o) => o.type === 'web_search_call').length <= searchCalls,
       'Discovery tool limit exceeded',
     );
     if (!sources.length) return { items: [], sources: [] };
@@ -276,8 +309,51 @@ export class OpenAiImports implements ImportAi {
       ],
       schemas.$defs.discovery,
       context,
+      'research_structure',
     );
 
     return { ...parsed, sources };
+  }
+  async extractDocument(
+    document: ReferenceDocument,
+    research: ResearchContext,
+    targets: ResearchTarget[],
+    context: AiContext,
+  ): Promise<DocumentExtraction> {
+    ensure(
+      targets.length <= 20 &&
+        document.content.length <= 20 * 1024 * 1024 &&
+        document.pageCount <= 100,
+      'Document extraction limit exceeded',
+    );
+    const content: ResponseInputContent =
+      document.mediaType === 'text/plain'
+        ? { type: 'input_text', text: document.content.toString('utf8') }
+        : document.mediaType.startsWith('image/')
+          ? {
+              type: 'input_image',
+              image_url: `data:${document.mediaType};base64,${document.content.toString('base64')}`,
+              detail: 'auto',
+            }
+          : {
+              type: 'input_file',
+              filename: document.filename,
+              file_data: `data:${document.mediaType};base64,${document.content.toString('base64')}`,
+            };
+    return this.requestStructuredOutput<Outputs['DocumentExtraction']>(
+      [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: prompts.extractDocumentPrompt(research, targets) },
+            content,
+          ],
+        },
+      ],
+      schemas.$defs.documentExtraction,
+      context,
+      'document_extraction',
+      this.documentModel,
+    );
   }
 }

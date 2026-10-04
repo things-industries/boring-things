@@ -2,11 +2,11 @@
 
 <!-- Tracks staged import improvements, dependencies and acceptance criteria; marks implemented stages. -->
 
-Status: stage 1 implemented; readability review is the next checkpoint. Stages 2–9 are pending.
+Status: stages 1, 4 and 5 implemented. Stages 2 and 6–8 are pending; stage 3 is deferred.
 
 Imports should extract source information, identify one Thing, populate useful fields and enrich missing information from cited sources. Results become available progressively. Original sources, owner edits, explicit clears and provenance remain preserved.
 
-Stage 1 is the reviewable stopping point before changing import behaviour. Each subsequent stage has its own acceptance criteria and can be delivered separately. Stages 2–9 specify planned behaviour; [the import process guide](../setup/imports.md) describes the current implementation.
+Each stage has its own acceptance criteria and can be delivered separately. Stages 2, 3 and 6–8 specify planned behaviour; [the import process guide](../setup/imports.md) describes the current implementation.
 
 ## Decisions
 
@@ -26,24 +26,23 @@ Stage 1 is the reviewable stopping point before changing import behaviour. Each 
 | Submission     | [Import routes](../../server/src/routes/imports.ts) call [import persistence](../../server/src/db/entities/imports.ts), creating a skeleton Thing and queued import.                                                                                                                                                                                 |
 | Processing     | [ImportProcessor](../../server/src/application/import/processor.ts) sequences extraction, target allocation, mapping and discovery. [JobRunner](../../server/src/application/jobs/runner.ts) also processes assistant work.                                                                                                                          |
 | AI             | [OpenAiImports](../../server/src/providers/ai/openai-imports.ts) uses the SDK for structured requests, registry conversations and research; prompts and schemas live in separate provider files. [OpenAiChat](../../server/src/providers/ai/openai-chat.ts) uses SDK streaming and task prompts.                                                     |
-| Fact retention | [Mapping](../../server/src/application/import/mapping.ts) copies all extracted facts into custom fields before mapping. It builds research input from fixed field IDs.                                                                                                                                                                               |
-| Research       | [Discovery](../../server/src/application/discovery/discovery.ts) persists cited names, PDFs, maintenance suggestions and products. Field enrichment and image retrieval require implementation.                                                                                                                                                      |
+| Fact retention | [Mapping](../../server/src/application/import/mapping.ts) copies all extracted facts into custom fields before mapping. It builds research context and targets from field metadata.                                                                                                                                                                  |
+| Research       | [Discovery](../../server/src/application/discovery/discovery.ts) persists cited names, PDFs, maintenance suggestions and products. [Reference enrichment](../../server/src/application/import/research.ts) fills eligible missing fields from applicable PDFs. Image retrieval is pending.                                                           |
 | HTTP boundary  | [The route helper](../../server/src/contracts/routes.ts) supplies contract types, validation and response schemas. [Thing routes](../../server/src/routes/things.ts) perform separate record lookups.                                                                                                                                                |
 | Client         | [ThingsStore](../../src/app/core/state/things.store.ts), [ImportsService](../../src/app/core/data/imports.service.ts) and [AddThing](../../src/app/features/add-thing/add-thing.ts) depend on an immediately returned Thing ID. [ImportProgress](../../src/app/features/things/import-progress.ts) offers retry; the client has no selection action. |
 
 ## Delivery order
 
-| Stage | Deliverable                                                 | Dependency                                               |
-| ----- | ----------------------------------------------------------- | -------------------------------------------------------- |
-| 1     | Readable workflows, prompts, schemas, SDK and DB references | First review checkpoint                                  |
-| 2     | Useful fact selection                                       | 1                                                        |
-| 3     | Import identity and single-Thing lifecycle                  | 1; can ship independently of 2                           |
-| 4     | Research eligibility from field metadata                    | 1                                                        |
-| 5     | Category research and document-based field enrichment       | 2 and 4; can ship with the existing submission lifecycle |
-| 6     | Thing images                                                | 5                                                        |
-| 7     | Shared reference assets                                     | Stable document and image retrieval                      |
-| 8     | Cancellation and recovery improvements                      | 3                                                        |
-| 9     | Further latency and provider experiments                    | Evaluation evidence from earlier stages                  |
+| Stage | Deliverable                                                 | Dependency                                                 |
+| ----- | ----------------------------------------------------------- | ---------------------------------------------------------- |
+| 1     | Readable workflows, prompts, schemas, SDK and DB references | First review checkpoint                                    |
+| 2     | Useful fact selection                                       | 1                                                          |
+| 3     | Import identity and single-Thing lifecycle                  | 1; can ship independently of 2                             |
+| 4     | Research eligibility from field metadata                    | 1                                                          |
+| 5     | Category research and document-based field enrichment       | 1 and 4; uses the existing mapper and submission lifecycle |
+| 6     | Thing images                                                | 5                                                          |
+| 7     | Shared reference assets                                     | Stable document and image retrieval                        |
+| 8     | Further latency and provider experiments                    | Evaluation evidence from earlier stages                    |
 
 Create a small fixture baseline in stage 1 and extend it with each behaviour change. Stage 5 includes model cost evaluation for document extraction; that work belongs with the task's implementation.
 
@@ -125,6 +124,8 @@ Related scope: [#55](https://github.com/things-industries/boring-things/issues/5
 
 ## 4. Research eligibility from field metadata
 
+Implemented: migrated and seeded classifications, API/custom-field metadata and typed public context with eligible missing-field targets.
+
 Add `instance_specific` to registry persistence and expose it as `instanceSpecific` in the API and model definitions. Seed authored classifications and migrate existing definitions. Unclassified definitions default to instance-specific until classified.
 
 `instanceSpecific` means that the value belongs to the particular owned item, account or agreement. A policy number and acquisition date are instance-specific; a model's output power is reference information. `sensitive` independently controls masking and reveal. Neither flag is derived from the other, and sensitivity does not supply a second research eligibility rule.
@@ -140,6 +141,8 @@ Acceptance:
 - Search receives only the constructed research context; raw source text remains outside the public-search input.
 
 ## 5. Category research and document-based enrichment
+
+Implemented: category prompt text, bounded cited PDF retrieval, applicability checks, contained field extraction, guarded progressive `DISCOVERY` commits, persisted batch checkpoints and generic outcomes. The existing mapper and submission lifecycle remain in use. [Model evaluation](../setup/imports.md#reference-extraction-model-evaluation) compares three models on labelled text/PDF fixtures; the configured import model remains the default.
 
 Add a named category research prompt function to the prompts module. Category IDs come from the registry. Author short instructions for supported categories and provide a general fallback for newly added categories.
 
@@ -192,17 +195,7 @@ Record source URL, content hash, document type, applicability, language and vers
 
 Acceptance: two owners can reuse the same verified reference bytes; deleting one owner's association preserves the other's access; private uploads remain isolated. Update attachment persistence, blob handling, API access and lifecycle integration tests together.
 
-## 8. Cancellation and recovery
-
-Keep `JobRunner` and its database lease. Add persisted cancellation, checks before result commits, and a signal that aborts provider work while cancellation is pending. Already committed results and source attachments survive cancellation.
-
-Use import-specific progress notifications after persistence. Retain revisioned snapshots and periodic refresh for reconnect and cross-process delivery. Consider patch payloads only with revision and resynchronisation rules.
-
-Recovery distinguishes abandoned attempts from active work through execution ownership and deadlines. Keep multi-worker execution outside this stage; it would require atomic claims and attempt ownership beyond the current single active runner.
-
-Acceptance: cancellation reaches a terminal state, stops further writes, preserves committed results and remains effective across restart; recovery does not reclaim active work.
-
-## 9. Further latency and provider experiments
+## 8. Further latency and provider experiments
 
 Use measured stage timings to decide whether a separate identification pass helps. A fast pass must establish coverage sufficient to identify one subject before Thing creation. Long documents may require page-aware extraction; scanning opening pages alone cannot establish a single subject. Represent truncation and insufficient coverage explicitly. Measure the cost of reading the same source twice.
 
@@ -212,7 +205,7 @@ Evaluate Jev for bounded decisions over extracted evidence and Firecrawl for sou
 
 - Extend fixtures for a useful unmatched fact, an incidental marking, multiple purchased items, a family manual, a policy, an ambiguous existing-instance match, incorrect variants, owner clears and interrupted mapping.
 - Preserve ownership, masking, provenance, source retention, field membership, identifier types and retry deduplication checks.
-- Add integration coverage for lifecycle, migrations, cancellation, shared assets and progressive commits; browser coverage for import progress before Thing creation and terminal errors.
+- Add integration coverage for lifecycle, migrations, shared assets and progressive commits; browser coverage for import progress before Thing creation and terminal errors.
 - Maintain a labelled model-evaluation set alongside deterministic tests. Record retrieval success against each category's instructed targets, field precision/recall, unwanted custom fields, latency and task cost.
 - After code changes, run `pnpm format` and `CI=true pnpm check`, preserving unrelated work. Run relevant integration/browser checks. Update `openapi.json` and run `pnpm api:generate` and `pnpm api:check` for contract changes.
 - Update [README](../../README.md), the [backend guide](../../server/AGENTS.md), [product requirements](../requirements/product/PRODUCT.md) and [import process guide](../setup/imports.md) as stages become implemented. Correct the process guide's confirmation-UI description and keep operational documentation aligned with delivered behaviour.

@@ -220,19 +220,50 @@ export function retainFacts(
 }
 
 export function buildResearchContext(
-  candidate: ExtractedThing,
+  subject: Pick<ExtractedThing, 'id' | 'categoryId'>,
   data: ThingData,
+  registry: Registry,
 ): ResearchContext | null {
-  // Only public product identifiers leave this boundary for web discovery; extracted text and private facts are excluded.
-  const permitted = ['common.brand', 'common.manufacturer', 'common.model', 'appliances.eNumber'];
-  const values = [
-    ...Object.entries(data.standalone),
-    ...Object.values(data.values).flatMap((v) => Object.entries(v)),
-  ].filter(([id, stored]) => permitted.includes(id) && typeof stored.value === 'string');
-  if (!values.some(([id]) => ['common.model', 'appliances.eNumber'].includes(id))) return null;
+  const fields: ResearchContext['fields'] = [];
+  const targets: ResearchContext['targets'] = [];
+  const add = (fieldSetId: string | null, fieldId: string, stored?: StoredValue) => {
+    const definition = registry.fields.get(fieldId);
+    if (!definition || definition.instanceSpecific !== false) return;
+    const field = {
+      fieldSetId,
+      fieldId,
+      label: definition.name,
+      description: definition.description,
+    };
+    if (stored && stored.value !== null && stored.value !== undefined)
+      fields.push({ ...field, value: stored.value });
+    else if (!data.userEdited?.includes(`${fieldSetId ?? ''}:${fieldId}`))
+      targets.push({ ...field, schema: definition.schema });
+  };
+  for (const setId of data.setIds)
+    for (const field of registry.sets.get(setId)?.fields ?? [])
+      add(setId, field.id, data.values[setId]?.[field.id]);
+  for (const [id, stored] of Object.entries(data.standalone)) add(null, id, stored);
+  for (const field of data.undefinedFields)
+    if (field.instanceSpecific === false)
+      fields.push({
+        fieldSetId: null,
+        fieldId: field.id,
+        undefinedFieldId: field.id,
+        label: field.label,
+        description: field.label,
+        value: field.value,
+      });
+  if (!fields.length) return null;
   return {
-    id: candidate.id,
-    categoryId: candidate.categoryId,
-    name: [...new Set(values.map(([, v]) => String(v.value)))].join(' '),
+    id: subject.id,
+    categoryId: subject.categoryId,
+    name: [
+      ...new Set(
+        fields.map((f) => (typeof f.value === 'string' ? f.value : JSON.stringify(f.value))),
+      ),
+    ].join(' '),
+    fields,
+    targets,
   };
 }

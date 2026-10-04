@@ -721,3 +721,156 @@ test('failed PDF downloads preserve other results and retries skip saved files; 
   assert.equal((await files()).length, 3);
   assert.equal((await files()).filter((file) => file.mediaType === 'application/pdf').length, 2);
 });
+
+test('category document enrichment validates variants, commits cited values progressively, preserves owner clears and resumes without duplicate downloads', async () => {
+  const { researchImportTarget } = await import('../../src/application/import/research.js');
+  const { Registry } = await import('../../src/application/registry/registry.js');
+  const { ApplicationEvents } = await import('../../src/application/events.js');
+  const importsDb = await import('../../src/db/entities/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const updated = await request('PATCH', `/things/${accepted.thingId}`, {
+    addFieldSetIds: ['appliances.cookingOutput', 'appliances.electrical'],
+    values: [
+      { fieldSetId: 'appliances.neff', fieldId: 'appliances.eNumber', value: 'SYNTHETIC/01' },
+    ],
+    undefinedFields: [
+      { label: 'Public variant', value: 'UK', sensitive: true, instanceSpecific: false },
+      { label: 'Policy number', value: 'private-policy', sensitive: false },
+    ],
+  });
+  assert.equal(updated.statusCode, 200, updated.body);
+  const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
+  const blobs = new LocalBlobs(directory);
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  let [target] = await importsDb.listImportTargets(pool, job);
+  const events = new ApplicationEvents();
+  let progress = 0;
+  const unsubscribe = events.subscribe({ ownerId: owner })(() => {
+    progress++;
+  });
+  let downloads = 0,
+    extractions = 0,
+    searches = 0;
+  const budget: number[] = [];
+  const reference = (url: string) => ({
+    kind: 'reference' as const,
+    title: 'Synthetic manual',
+    description: 'Applies to SYNTHETIC/01',
+    url,
+    sourceUrl: url,
+  });
+  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
+  researchAi.discover = async (research, _context, focus, calls) => {
+    searches++;
+    budget.push(calls!);
+    assert.equal(focus, 'reference');
+    assert.ok(research.fields.some((field) => field.undefinedFieldId && field.value === 'UK'));
+    assert.ok(!JSON.stringify(research).includes('private-policy'));
+    const urls = [
+      'https://example.com/wrong.pdf',
+      'https://example.com/manual.pdf',
+      'https://example.com/failure.pdf',
+    ];
+    return { sources: urls, items: urls.map(reference) };
+  };
+  researchAi.extractDocument = async (document, _research, targets) => {
+    extractions++;
+    if (document.url.endsWith('/wrong.pdf'))
+      return { applicable: false, applicability: null, values: [] };
+    assert.ok(targets.some((field) => field.fieldId === 'appliances.outputPower'));
+    const cleared = await request('PATCH', `/things/${accepted.thingId}`, {
+      values: [
+        { fieldSetId: 'appliances.electrical', fieldId: 'appliances.ratedInputPower', value: null },
+      ],
+    });
+    assert.equal(cleared.statusCode, 200, cleared.body);
+    return {
+      applicable: true,
+      applicability: { page: 1, quote: 'SYNTHETIC/01 UK' },
+      values: [
+        {
+          fieldSetId: 'appliances.cookingOutput',
+          fieldId: 'appliances.outputPower',
+          value: '900 W',
+          page: 1,
+          quote: 'Output power 900 W',
+        },
+        {
+          fieldSetId: 'appliances.electrical',
+          fieldId: 'appliances.ratedInputPower',
+          value: '1500 W',
+          page: 1,
+          quote: 'Input power 1500 W',
+        },
+      ],
+    };
+  };
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage();
+  page.drawText('SYNTHETIC/01 UK. Output power 900 W. Input power 1500 W.');
+  const content = Buffer.from(await pdf.save());
+  let fail = true;
+  const options = {
+    maxBytes: 4096,
+    searchCalls: 3,
+    download: async (url: string) => {
+      downloads++;
+      if (url.endsWith('/failure.pdf') && fail) throw new Error('synthetic download failure');
+      return url.endsWith('/failure.pdf') ? null : content;
+    },
+  };
+  const context = { signal: new AbortController().signal, record: async () => {} };
+  await assert.rejects(
+    researchImportTarget(pool, registry, blobs, researchAi, events, job, target, context, options),
+    /retrieval or extraction failed/,
+  );
+  const result = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  const power = result.fieldSets
+    .find((set) => set.id === 'appliances.cookingOutput')!
+    .fields.find((field) => field.id === 'appliances.outputPower')!;
+  assert.equal(power.value, '900 W');
+  assert.equal(power.origin, 'DISCOVERY');
+  assert.equal(power.instanceSpecific, false);
+  assert.equal(power.sourceRefs[0].page, 1);
+  assert.equal(
+    result.fieldSets
+      .find((set) => set.id === 'appliances.electrical')!
+      .fields.find((field) => field.id === 'appliances.ratedInputPower')!.value,
+    null,
+  );
+  assert.ok(progress >= 3);
+  assert.equal(
+    (await request('GET', `/attachments?thingId=${accepted.thingId}`))
+      .json<Schema['AttachmentList']>()
+      .items.filter((file) => file.mediaType === 'application/pdf').length,
+    1,
+  );
+  assert.ok(
+    (await request('GET', `/imports/${job.id}`))
+      .json<Schema['Import']>()
+      .researchOutcomes?.some((outcome) => outcome.outcome === 'RETRIEVAL_FAILED'),
+  );
+  assert.equal((await request('GET', `/imports/${job.id}`, undefined, 'bob')).statusCode, 404);
+  const before = { downloads, extractions };
+  fail = false;
+  [target] = await importsDb.listImportTargets(pool, job);
+  await researchImportTarget(
+    pool,
+    registry,
+    blobs,
+    researchAi,
+    events,
+    job,
+    target,
+    context,
+    options,
+  );
+  assert.equal(extractions, before.extractions + 1); // Only the rejected variant is reconsidered.
+  assert.equal(downloads, before.downloads + 2); // Saved manual bytes are reused.
+  assert.ok(budget.reduce((sum, count) => sum + count, 0) <= 3);
+  assert.equal(searches, 1);
+  unsubscribe();
+});

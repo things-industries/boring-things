@@ -39,6 +39,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     chatToolCalls: numberOrFallback(env, 'CHAT_TOOL_CALLS', 12),
     openaiApiKey: env.OPENAI_API_KEY ?? '',
     openaiModel: env.OPENAI_MODEL ?? '',
+    documentExtractionModel: env.DOCUMENT_EXTRACTION_MODEL || env.OPENAI_MODEL || '',
     importTimeoutMs: numberOrFallback(env, 'IMPORT_TIMEOUT_MS', 180000),
     importToolRounds: numberOrFallback(env, 'IMPORT_TOOL_ROUNDS', 4),
     discoveryTimeoutMs: numberOrFallback(env, 'DISCOVERY_TIMEOUT_MS', 90000),

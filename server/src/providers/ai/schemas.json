@@ -353,6 +353,109 @@
       },
       "required": ["identity", "items"],
       "description": "result."
+    },
+    "documentExtraction": {
+      "type": "object",
+      "description": "Applicability and supported values from one reference document for the requested Thing and field addresses.",
+      "additionalProperties": false,
+      "properties": {
+        "applicable": {
+          "type": "boolean",
+          "description": "True only when document evidence establishes matching subject, variant, region, language and version where relevant."
+        },
+        "applicability": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "page": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "One-based page in this document."
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "description": "Verbatim evidence from the cited page."
+                }
+              },
+              "required": ["page", "quote"]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Evidence establishing applicability; null when the document does not apply."
+        },
+        "values": {
+          "type": "array",
+          "maxItems": 20,
+          "description": "Supported requested fields; unsupported values remain absent.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fieldSetId": {
+                "type": ["string", "null"],
+                "description": "Requested set address; null for standalone fields."
+              },
+              "fieldId": {
+                "type": "string",
+                "description": "Requested field definition ID."
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Readable source transcription."
+                  },
+                  {
+                    "type": "number",
+                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                  },
+                  {
+                    "type": "boolean",
+                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "amount Minor."
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": ["GBP", "EUR", "USD"],
+                        "description": "currency."
+                      }
+                    },
+                    "required": ["amountMinor", "currency"],
+                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                  }
+                ]
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "One-based page in this document."
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Verbatim evidence from the cited page."
+              }
+            },
+            "required": ["fieldSetId", "fieldId", "value", "page", "quote"]
+          }
+        }
+      },
+      "required": ["applicable", "applicability", "values"]
     }
   },
   "registryTools": [

@@ -185,25 +185,26 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 
 `readConfig(env)` eagerly parses an injectable environment source into `EnvConfig`; production requirements are checked before startup.
 
-| Variable                 | Purpose                                                     |
-| ------------------------ | ----------------------------------------------------------- |
-| `DATABASE_URL`           | Backend Postgres connection; local default uses port 55432  |
-| `LOGTO_ENDPOINT`         | Tenant endpoint, without `/oidc`                            |
-| `LOGTO_APP_ID`           | SPA application ID; public identifier                       |
-| `LOGTO_API_RESOURCE`     | API audience; `https://api.boring-things.local`             |
-| `BLOB_DIRECTORY`         | Local blob directory; default `.data/blobs`                 |
-| `MAX_UPLOAD_BYTES`       | Upload limit; default 20971520                              |
-| `ENABLE_SAMPLE_DATA`     | Enables the authenticated sample-data action; default false |
-| `OPENAI_API_KEY`         | Server-only OpenAI credential                               |
-| `OPENAI_MODEL`           | Configurable model; required for imports and chat           |
-| `IMPORT_TIMEOUT_MS`      | Extraction/mapping attempt deadline; default 180000         |
-| `IMPORT_TOOL_ROUNDS`     | Registry tool-call budget per candidate; default 4          |
-| `DISCOVERY_TIMEOUT_MS`   | Discovery deadline per candidate; default 90000             |
-| `DISCOVERY_SEARCH_CALLS` | Web tool-call budget per discovery; default 3               |
-| `CHAT_TIMEOUT_MS`        | Assistant attempt deadline; default 180000                  |
-| `CHAT_TOOL_CALLS`        | Function-call budget per assistant response; default 12     |
-| `AI_MAX_OUTPUT_TOKENS`   | Output token limit per provider response; default 12000     |
-| `HOST`, `PORT`           | API bind address; default `127.0.0.1:3000`                  |
+| Variable                    | Purpose                                                     |
+| --------------------------- | ----------------------------------------------------------- |
+| `DATABASE_URL`              | Backend Postgres connection; local default uses port 55432  |
+| `LOGTO_ENDPOINT`            | Tenant endpoint, without `/oidc`                            |
+| `LOGTO_APP_ID`              | SPA application ID; public identifier                       |
+| `LOGTO_API_RESOURCE`        | API audience; `https://api.boring-things.local`             |
+| `BLOB_DIRECTORY`            | Local blob directory; default `.data/blobs`                 |
+| `MAX_UPLOAD_BYTES`          | Upload limit; default 20971520                              |
+| `ENABLE_SAMPLE_DATA`        | Enables the authenticated sample-data action; default false |
+| `OPENAI_API_KEY`            | Server-only OpenAI credential                               |
+| `OPENAI_MODEL`              | Configurable model; required for imports and chat           |
+| `DOCUMENT_EXTRACTION_MODEL` | Reference extraction model; defaults to `OPENAI_MODEL`      |
+| `IMPORT_TIMEOUT_MS`         | Extraction/mapping attempt deadline; default 180000         |
+| `IMPORT_TOOL_ROUNDS`        | Registry tool-call budget per candidate; default 4          |
+| `DISCOVERY_TIMEOUT_MS`      | Discovery deadline per candidate; default 90000             |
+| `DISCOVERY_SEARCH_CALLS`    | Web tool-call budget per discovery; default 3               |
+| `CHAT_TIMEOUT_MS`           | Assistant attempt deadline; default 180000                  |
+| `CHAT_TOOL_CALLS`           | Function-call budget per assistant response; default 12     |
+| `AI_MAX_OUTPUT_TOKENS`      | Output token limit per provider response; default 12000     |
+| `HOST`, `PORT`              | API bind address; default `127.0.0.1:3000`                  |
 
 One tenant can supply identities to both local and production environments. Database records and files remain environment-specific. The API returns public auth configuration to the frontend at startup, so Logto settings do not require rebuilding Angular.
 
@@ -231,7 +232,9 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 ### Import verification
 
-`server/test/fixtures/imports.ts` contains synthetic failure/retry fixtures. The hob, van and combined-policy cases also form the SDK extraction replay baseline. Prompts live in `server/src/providers/ai/prompts.ts`; authored response/tool schemas live in `server/src/providers/ai/schemas.json`. Run `pnpm ai:generate` after schema edits; `pnpm ai:check` checks generated types and runs within `pnpm check`. Import and chat adapters use the [official OpenAI TypeScript SDK](https://developers.openai.com/api/docs/libraries), with storage and transport retries disabled. The importer awaits field-set selection and batches of 20 facts, validating and committing each result. `server/test/fixtures/import-recording.json` records extraction/mapping from a live synthetic run with `gpt-5.6-sol`; it is a regression example, not a quality benchmark. Integration/browser checks cover progressive fields, multi-Thing confirmation, owner isolation, shared sources, retry, discovery deduplication, restart recovery and SSE reconnect.
+`server/test/fixtures/imports.ts` contains synthetic failure/retry fixtures. The hob, van and combined-policy cases also form the SDK extraction replay baseline. Prompts live in `server/src/providers/ai/prompts.ts`; authored response/tool schemas live in `server/src/providers/ai/schemas.json`. Run `pnpm ai:generate` after schema edits; `pnpm ai:check` checks generated types and runs within `pnpm check`. Import and chat adapters use the [official OpenAI TypeScript SDK](https://developers.openai.com/api/docs/libraries), with storage and transport retries disabled. The importer awaits field-set selection and batches of 20 facts, validating and committing each result. `server/test/fixtures/import-recording.json` records extraction/mapping from a live synthetic run with `gpt-5.6-sol`; it is a regression example, not a quality benchmark. Integration/browser checks cover metadata-driven research, category reference extraction, progressive fields, multi-Thing confirmation, owner isolation, shared sources, retry, discovery deduplication, restart recovery and SSE reconnect.
+
+Reference enrichment uses populated fields with `instanceSpecific: false` as research context and fills empty eligible fields from applicable cited PDFs. Category prompt text supplies the research priorities. Owner clears, edits and per-set values survive retries. `DISCOVERY` values retain attachment/page/quote evidence; API import summaries include generic research outcomes and per-task model usage. See the [import process and model evaluation](docs/setup/imports.md#reference-extraction-model-evaluation) for limits, the paid comparison command and measured results.
 
 Run `node --import tsx --env-file=.env scripts/smoke-import.ts` for a **paid live** check using the configured model and synthetic hob/van/policy data. It creates and removes a temporary local database and blob directory; it does not change application records. Its trace and usage report are saved under ignored `test-results/import-smoke.json`. Live Logto redirects and physical-device camera capture require separate manual checks.
 

@@ -776,6 +776,8 @@ export interface components {
             sensitive: boolean;
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Field definition with its current value, source information and masking state. */
         Field: {
@@ -792,6 +794,8 @@ export interface components {
             sourceRefs: components["schemas"]["SourceRef"][];
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Category-specific group of field definitions, required dependencies and suggested related sets. */
         FieldSet: {
@@ -826,6 +830,8 @@ export interface components {
             origin: components["schemas"]["FieldOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
             valueType: components["schemas"]["ValueTypeEnum"];
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Thing category with display settings and the number of your Things in that category. */
         Category: {
@@ -947,13 +953,15 @@ export interface components {
             fieldId: string;
             value: components["schemas"]["NullableValue"];
         };
-        /** @description Update to a custom field, including its label, value and sensitivity. */
+        /** @description Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific. */
         UndefinedPatch: {
             /** Format: uuid */
             id?: string;
             label: string;
             value: components["schemas"]["Value"];
             sensitive: boolean;
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Properties for creating a Thing, including its category and optional fields, tags and pins. */
         ThingCreate: {
@@ -1276,6 +1284,8 @@ export interface components {
                 resultCount: number;
                 truncated: boolean;
             }[];
+            /** @description Per-request task, model, token counts and latency, including retries. Older jobs may omit these entries. */
+            entries?: components["schemas"]["AiUsageEntry"][];
         };
         /** @description Import status, detected candidates, resulting Thing IDs and processing details. */
         Import: {
@@ -1290,6 +1300,15 @@ export interface components {
             thingIds: string[];
             error: string | null;
             usage: components["schemas"]["ImportUsage"];
+            /** @description Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted. */
+            researchOutcomes?: {
+                /** Format: uuid */
+                thingId: string;
+                fieldSetId: string | null;
+                /** @description Null for a resource-level outcome. */
+                fieldId: string | null;
+                outcome: components["schemas"]["ResearchOutcomeEnum"];
+            }[];
         };
         /** @description Attachment to process and an optional existing Thing to update. */
         ImportStart: {
@@ -1403,6 +1422,15 @@ export interface components {
             publisher?: components["schemas"]["AttachmentMetadataSource"];
             documentDate?: components["schemas"]["AttachmentMetadataSource"];
         };
+        /** @description Usage for one provider request, identified by task and model. */
+        AiUsageEntry: {
+            task: string;
+            model: string;
+            inputTokens: number;
+            outputTokens: number;
+            cachedTokens: number;
+            elapsedMs: number;
+        };
         /**
          * @description Whether an issue is open or resolved.
          * @enum {string}
@@ -1439,10 +1467,10 @@ export interface components {
          */
         UiHintEnum: "TEXT" | "TEXTAREA" | "NUMBER" | "CHECKBOX" | "SELECT" | "DATE" | "DATETIME" | "MONEY" | "PASSWORD";
         /**
-         * @description Whether a field value was entered by the user or obtained from an import.
+         * @description Whether a field value was entered by the user, extracted from an uploaded source or enriched from a reference document.
          * @enum {string}
          */
-        FieldOriginEnum: "USER" | "IMPORT";
+        FieldOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
         /**
          * @description Data type of a custom field value.
          * @enum {string}
@@ -1478,6 +1506,11 @@ export interface components {
          * @enum {string}
          */
         AttachmentMetadataOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
+        /**
+         * @description Generic research result for a reference resource or missing field.
+         * @enum {string}
+         */
+        ResearchOutcomeEnum: "FOUND" | "UNAVAILABLE" | "RETRIEVAL_FAILED" | "BUDGET_EXHAUSTED";
     };
     responses: {
         /** @description A valid bearer token is required. */

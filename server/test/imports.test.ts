@@ -147,9 +147,9 @@ test('sensitive facts cannot map to an unmasked definition and discovery only re
     },
     'appliances.eNumber': { value: 'MODEL/01', origin: 'USER', sourceRefs: [] },
   };
-  const query = buildResearchContext(candidate, data)!;
+  const query = buildResearchContext(candidate, data, registry)!;
   assert.equal(query.name, 'MODEL/01');
-  assert.deepEqual(Object.keys(query).sort(), ['categoryId', 'id', 'name']);
+  assert.deepEqual(Object.keys(query).sort(), ['categoryId', 'fields', 'id', 'name', 'targets']);
   assert.ok(!JSON.stringify(query).includes('private-serial'));
 });
 test('extraction cannot smuggle category IDs and normalizes candidate/fact identifiers', () => {

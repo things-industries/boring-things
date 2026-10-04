@@ -37,6 +37,18 @@ export function publicUrl(value: string) {
   }
 }
 
+export function discoveryItemKey(
+  jobId: string,
+  candidateId: string,
+  item: Discovery['items'][number],
+) {
+  return createHash('sha256')
+    .update(
+      `${jobId}:${candidateId}:${item.kind}:${item.url}:${item.kind === 'reference' ? '' : item.title}`,
+    )
+    .digest('hex');
+}
+
 export async function persistDiscovery(
   pool: pg.Pool,
   blobs: BlobStorage,
@@ -118,11 +130,7 @@ export async function persistDiscovery(
       );
 
     // A stable import key deduplicates repeated discovery results when a job resumes after partial success.
-    const key = createHash('sha256')
-      .update(
-        `${job.id}:${target.candidateId}:${item.kind}:${item.url}:${item.kind === 'reference' ? '' : item.title}`,
-      )
-      .digest('hex');
+    const key = discoveryItemKey(job.id, target.candidateId, item);
 
     let blob: string | undefined;
     let used = false;

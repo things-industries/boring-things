@@ -47,6 +47,7 @@ export interface ImportRow {
   resultThingIds: string[];
   error: string | null;
   usage: Usage | null;
+  researchOutcomes?: Schema['Import']['researchOutcomes'];
 }
 
 type StoredImportRow = Omit<ImportRow, 'extraction'> & {
@@ -78,6 +79,8 @@ export interface Target {
   discovery: Discovery | null;
 }
 
+const researchOutcomesProjection = `coalesce((select jsonb_agg(jsonb_build_object('thingId',t.thing_id,'fieldSetId',o->'fieldSetId','fieldId',o->'fieldId','outcome',upper(o->>'outcome'))) from bt.import_targets t cross join lateral jsonb_array_elements(coalesce(t.discovery->'outcomes','[]'::jsonb)) o where t.import_id=i.id),'[]'::jsonb) as research_outcomes`;
+
 export async function getOwnedImportOrThrow(
   db: Database,
   owner: string,
@@ -86,7 +89,7 @@ export async function getOwnedImportOrThrow(
 ) {
   const [job] = await database.rows<StoredImportRow>(
     db,
-    `select * from bt.imports where id=$1 and owner_id=$2 ${options.lock ? 'for update' : ''}`,
+    `select i.*, ${researchOutcomesProjection} from bt.imports i where i.id=$1 and i.owner_id=$2 ${options.lock ? 'for update' : ''}`,
     [id, owner],
   );
   ensure(job, 'Import not found', 'NOT_FOUND');
@@ -111,13 +114,14 @@ export function projectImport(job: ImportRow): Schema['Import'] {
     thingIds: job.resultThingIds,
     error: job.error,
     usage: job.usage ?? blankUsage(),
+    researchOutcomes: job.researchOutcomes ?? [],
   };
 }
 
 export async function findThingImport(db: Database, owner: string, id: string) {
   const [job] = await database.rows<StoredImportRow>(
     db,
-    `select i.* from bt.imports i where i.owner_id=$1 and (i.target_thing_id=$2 or i.skeleton_id=$2 or exists(select 1 from bt.import_targets t where t.import_id=i.id and t.thing_id=$2)) order by (i.status=any($3::text[])) desc,i.created_at desc limit 1`,
+    `select i.*, ${researchOutcomesProjection} from bt.imports i where i.owner_id=$1 and (i.target_thing_id=$2 or i.skeleton_id=$2 or exists(select 1 from bt.import_targets t where t.import_id=i.id and t.thing_id=$2)) order by (i.status=any($3::text[])) desc,i.created_at desc limit 1`,
     [owner, id, activeStatuses],
   );
 

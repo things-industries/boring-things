@@ -140,6 +140,9 @@ export class FixtureAi implements ImportAi {
       },
     };
   }
+  async extractDocument() {
+    return { applicable: false, applicability: null, values: [] };
+  }
   async discover() {
     return { items: [], sources: [] };
   }

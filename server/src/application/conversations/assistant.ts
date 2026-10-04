@@ -103,7 +103,8 @@ export class Assistant {
       files = 0;
 
     const record = async (delta: Partial<Schema['ImportUsage']>) => {
-      usage.model = delta.model ?? usage.model;
+      if (!usage.model) usage.model = delta.model ?? usage.model;
+      if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
       usage.inputTokens += delta.inputTokens ?? 0;
       usage.outputTokens += delta.outputTokens ?? 0;
       usage.cachedTokens += delta.cachedTokens ?? 0;
@@ -193,14 +194,12 @@ export class Assistant {
         const candidate = buildResearchContext(
           {
             id: thing.id,
-            name: thing.name,
             categoryId: thing.categoryId,
-            terms: [],
-            facts: [],
           },
           stored.data,
+          this.registry,
         );
-        ensure(candidate, 'Public model identifiers are missing');
+        ensure(candidate, 'Public research context is missing');
         const discoveryKey = 'discover:' + thing.id + ':' + a['focus'];
         let found = job.toolResults.find((r) => r.key === discoveryKey)?.result as
           Discovery | undefined;

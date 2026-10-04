@@ -4,7 +4,7 @@ import type { FieldSearchLabel } from '../registry/registry.js';
  * and active job states.
  */
 
-import type { Schema, Value } from '../../../../shared/model.js';
+import type { FieldDefinition, Schema, Value } from '../../../../shared/model.js';
 
 export interface Fact {
   id: string;
@@ -59,6 +59,13 @@ export interface Discovery {
   items: DiscoveryItem[];
   sources: string[];
   identity?: { name: string; sourceUrl: string } | null;
+  researchRounds?: number;
+  documentBatches?: { attachmentId: string; targetKeys: string[] }[];
+  outcomes?: {
+    fieldSetId: string | null;
+    fieldId: string | null;
+    outcome: 'found' | 'unavailable' | 'retrieval_failed' | 'budget_exhausted';
+  }[];
 }
 
 export type Usage = Schema['ImportUsage'];
@@ -77,6 +84,39 @@ export interface ResearchContext {
   id: string;
   name: string;
   categoryId: string;
+  fields: ResearchField[];
+  targets: ResearchTarget[];
+}
+
+export interface ResearchTarget {
+  fieldSetId: string | null;
+  fieldId: string;
+  label: string;
+  description: string;
+  schema: FieldDefinition['schema'];
+}
+
+export interface ResearchField extends Omit<ResearchTarget, 'schema'> {
+  undefinedFieldId?: string;
+  value: Value;
+}
+
+export interface ReferenceDocument extends Source {
+  attachmentId: string;
+  url: string;
+  pageCount: number;
+}
+
+export interface DocumentExtraction {
+  applicable: boolean;
+  applicability: { page: number; quote: string } | null;
+  values: {
+    fieldSetId: string | null;
+    fieldId: string;
+    value: Value;
+    page: number;
+    quote: string;
+  }[];
 }
 
 export interface MappingSession {
@@ -95,7 +135,14 @@ export interface ImportAi {
     research: ResearchContext,
     context: AiContext,
     focus?: 'reference' | 'maintenance' | 'products',
+    searchCalls?: number,
   ): Promise<Discovery>;
+  extractDocument(
+    document: ReferenceDocument,
+    research: ResearchContext,
+    targets: ResearchTarget[],
+    context: AiContext,
+  ): Promise<DocumentExtraction>;
 }
 
 // Awaiting selection still locks the Thing until the owner confirms which candidates to import.
