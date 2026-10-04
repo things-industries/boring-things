@@ -8,8 +8,8 @@ import type { Schema } from '../../../shared/model.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { PDFDocument } from 'pdf-lib';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
@@ -18,10 +18,10 @@ assert.ok(
   ['localhost', '127.0.0.1'].includes(url.hostname),
   'Integration tests require a local database',
 );
-const database = 'bt_test_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
-url.pathname = '/' + database;
-const pool = createPool(url.toString());
+const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
+const admin = database.createPool(url.toString());
+url.pathname = '/' + databaseName;
+const pool = database.createPool(url.toString());
 let app: FastifyInstance;
 const ai = new FixtureAi();
 let directory: string;
@@ -53,12 +53,12 @@ async function create(input: Partial<Schema['ThingCreate']> = {}, owner = 'alice
 }
 before(async () => {
   directory = await mkdtemp(tmpdir() + '/boring-test-');
-  await admin.query(`create database ${database}`);
+  await admin.query(`create database ${databaseName}`);
   const migrations = new URL('../../../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   }
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
     importAi: ai,
@@ -75,7 +75,7 @@ before(async () => {
 after(async () => {
   await app?.close();
   await pool.end();
-  await admin.query(`drop database if exists ${database} with (force)`);
+  await admin.query(`drop database if exists ${databaseName} with (force)`);
   await admin.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
@@ -320,6 +320,56 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   assert.equal(new Set(thing.undefinedFields.map((f) => f.id)).size, thing.undefinedFields.length);
   assert.equal((await request('POST', `/imports/${failed.id}:retry`)).statusCode, 409);
 });
+test('application fact batches commit before interruption and retry saved extraction', async (t) => {
+  const originalExtract = ai.extract.bind(ai);
+  const originalSelect = ai.selectFieldSets.bind(ai);
+  let extractions = 0;
+  const batches: number[] = [];
+  let interrupt = true;
+  t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
+    extractions++;
+    const extraction = await originalExtract(...args);
+    const subject = extraction.extractedThings[0];
+    subject.facts.push(
+      ...Array.from({ length: 19 }, (_, i) => ({
+        ...subject.facts[1],
+        id: `fact-${i + 3}`,
+        label: `Installer reference ${i + 3}`,
+      })),
+    );
+    return extraction;
+  });
+  t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
+    const session = await originalSelect(...args);
+    return {
+      setIds: session.setIds,
+      mapFactBatch: async (facts: (typeof args)[0]['facts']) => {
+        batches.push(facts.length);
+        if (facts.length === 1 && interrupt) {
+          interrupt = false;
+          throw new Error('synthetic interrupted batch');
+        }
+        return facts.length === 1 ? { values: [] } : session.mapFactBatch(facts);
+      },
+    };
+  });
+  const accepted = await start('neff');
+  assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.equal(
+    thing.fieldSets
+      .find((s) => s.id === 'appliances.neff')!
+      .fields.find((f) => f.id === 'appliances.zNumber')!.value,
+    '0015',
+  );
+  assert.deepEqual(batches, [20, 1]);
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const completed = await wait(accepted.importId);
+  assert.equal(completed.status, 'COMPLETE', JSON.stringify(completed));
+  assert.deepEqual(completed.thingIds, [accepted.thingId]);
+  assert.equal(extractions, 1);
+  assert.deepEqual(batches, [20, 1, 20, 1]);
+});
 test('arbitrary model IDs never enter storage and tool exhaustion preserves partial data', async () => {
   ai.arbitraryId = true;
   const accepted = await start('neff');
@@ -442,13 +492,13 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
 
 test('discovery persists cited resources once and preserves edits on repeated writes', async () => {
   const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
+  const importsDb = await import('../../src/db/entities/imports.js');
   const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
-  const job = await ownedImport(pool, owner, accepted.importId),
-    [target] = await targets(pool, job);
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId),
+    [target] = await importsDb.listImportTargets(pool, job);
   const discovery = {
     sources: ['https://example.com/manual', 'https://example.com/product'],
     items: [
@@ -554,14 +604,14 @@ test('discovery persists cited resources once and preserves edits on repeated wr
 
 test('discovered names use only owner collisions and preserve existing or edited names', async () => {
   const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
+  const importsDb = await import('../../src/db/entities/imports.js');
   const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   await create({ name: 'Bosch Oven' }, 'bob');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
-  const job = await ownedImport(pool, owner, accepted.importId);
-  const [target] = await targets(pool, job);
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const [target] = await importsDb.listImportTargets(pool, job);
   const blobs = new LocalBlobs(directory);
   const options = { maxBytes: 4096, signal: new AbortController().signal };
   const discovery = {
@@ -605,8 +655,8 @@ test('discovered names use only owner collisions and preserve existing or edited
   });
   const other = await start('neff', existing.id);
   await wait(other.importId);
-  const otherJob = await ownedImport(pool, owner, other.importId);
-  const [otherTarget] = await targets(pool, otherJob);
+  const otherJob = await importsDb.getOwnedImportOrThrow(pool, owner, other.importId);
+  const [otherTarget] = await importsDb.listImportTargets(pool, otherJob);
   await persistDiscovery(pool, blobs, otherJob, otherTarget, discovery, options);
   assert.equal((await request('GET', `/things/${existing.id}`)).json().name, 'Existing oven');
   await assert.rejects(
@@ -626,13 +676,13 @@ test('discovered names use only owner collisions and preserve existing or edited
 
 test('failed PDF downloads preserve other results and retries skip saved files; HTML creates no attachment', async () => {
   const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
+  const importsDb = await import('../../src/db/entities/imports.js');
   const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
-  const job = await ownedImport(pool, owner, accepted.importId);
-  const [target] = await targets(pool, job);
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const [target] = await importsDb.listImportTargets(pool, job);
   const blobs = new LocalBlobs(directory);
   const options = { maxBytes: 4096, signal: new AbortController().signal };
   const sources = [

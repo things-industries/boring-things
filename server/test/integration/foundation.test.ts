@@ -8,8 +8,9 @@ import spec from '../../../openapi.json' with { type: 'json' };
 import type { Schema } from '../../../shared/model.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
+
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -17,10 +18,10 @@ assert.ok(
   ['localhost', '127.0.0.1'].includes(url.hostname),
   'Integration tests require a local database',
 );
-const database = 'bt_test_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
-url.pathname = '/' + database;
-const pool = createPool(url.toString());
+const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
+const admin = database.createPool(url.toString());
+url.pathname = '/' + databaseName;
+const pool = database.createPool(url.toString());
 let app: FastifyInstance;
 let directory: string;
 const verifyIdentity = async (token: string) => {
@@ -51,12 +52,12 @@ async function create(input: Partial<Schema['ThingCreate']> = {}, owner = 'alice
 }
 before(async () => {
   directory = await mkdtemp(tmpdir() + '/boring-test-');
-  await admin.query(`create database ${database}`);
+  await admin.query(`create database ${databaseName}`);
   const migrations = new URL('../../../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   }
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
     config: {
@@ -72,7 +73,7 @@ before(async () => {
 after(async () => {
   await app?.close();
   await pool.end();
-  await admin.query(`drop database if exists ${database} with (force)`);
+  await admin.query(`drop database if exists ${databaseName} with (force)`);
   await admin.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
@@ -127,7 +128,7 @@ test('reseeding replaces category glyphs and preserves appliance details', async
     await pool.query('update bt.categories set icon=$1 where id=$2', [glyphs[index], id]);
   }
   for (let pass = 0; pass < 2; pass++) {
-    await transaction(pool, seedRegistry);
+    await database.transaction(pool, registrySeedDb.seedRegistry);
     const response = await request('GET', '/categories');
     assert.equal(response.statusCode, 200, response.body);
     assert.deepEqual(

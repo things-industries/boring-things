@@ -5,8 +5,8 @@ import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
-import { createPool, transaction } from '../server/src/db/connection.js';
-import { seedRegistry } from '../server/src/db/seeds/registry.js';
+import * as database from '../server/src/db/connection.js';
+import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
 assert.ok(config.openaiApiKey && config.openaiModel);
@@ -15,9 +15,9 @@ const url = new URL(
 );
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
 const name = 'bt_chat_smoke_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
+const admin = database.createPool(url.toString());
 url.pathname = '/' + name;
-const pool = createPool(url.toString());
+const pool = database.createPool(url.toString());
 const directory = await mkdtemp(tmpdir() + '/bt-chat-smoke-');
 let app: Awaited<ReturnType<typeof buildApp>> | undefined;
 await admin.query(`create database ${name}`);
@@ -25,7 +25,7 @@ try {
   const migrations = new URL('../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
     config: { ...config, blobDirectory: directory },

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
-import { createPool } from '../../src/db/connection.js';
-import { jobLease } from '../../src/db/job-lease.js';
+import * as database from '../../src/db/connection.js';
+import * as jobLeaseDb from '../../src/db/job-lease.js';
 import { JobRunner } from '../../src/application/jobs/runner.js';
 
 test('overlapping runners recover only after leadership transfers', async () => {
@@ -11,11 +11,11 @@ test('overlapping runners recover only after leadership transfers', async () => 
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-  const admin = createPool(url.toString());
+  const admin = database.createPool(url.toString());
   const name = 'bt_lease_' + randomUUID().replaceAll('-', '');
   await admin.query(`create database ${name}`);
   url.pathname = '/' + name;
-  const pool = createPool(url.toString());
+  const pool = database.createPool(url.toString());
   const events: string[] = [];
   const failures: unknown[] = [];
   let started!: () => void;
@@ -41,7 +41,7 @@ test('overlapping runners recover only after leadership transfers', async () => 
       },
     ],
     (error) => failures.push(error),
-    jobLease(pool, () => failures.push('lost')),
+    jobLeaseDb.jobLease(pool, () => failures.push('lost')),
   );
   let recovered!: () => void;
   const transferred = new Promise<void>((resolve) => {
@@ -64,7 +64,7 @@ test('overlapping runners recover only after leadership transfers', async () => 
       },
     ],
     (error) => failures.push(error),
-    jobLease(pool, connectionLost),
+    jobLeaseDb.jobLease(pool, connectionLost),
   );
   try {
     await first.start();
@@ -94,9 +94,11 @@ test('overlapping runners recover only after leadership transfers', async () => 
         throw new Error('Lost session was not reported');
       }),
     ]);
-    const release = await jobLease(pool, () => {
-      throw new Error('Unexpected lock loss');
-    }).acquire();
+    const release = await jobLeaseDb
+      .jobLease(pool, () => {
+        throw new Error('Unexpected lock loss');
+      })
+      .acquire();
     assert.ok(release, 'terminated leader releases its database lock');
     await release();
   } finally {

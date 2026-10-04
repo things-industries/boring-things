@@ -1,15 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
-import { fields, sets } from '../src/db/seeds/registry.js';
+import * as registrySeedDb from '../src/db/seeds/registry.js';
 import { Registry } from '../src/application/registry/registry.js';
 import { emptyData } from '../../shared/model.js';
 import { patchData } from '../src/application/thing-data.js';
-const registry = new Registry(fields, sets);
+const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 
 test('catalogue covers reviewed categories with compatible dependencies and documented Remix mappings', async () => {
   assert.deepEqual(
-    new Set(sets.map((set) => set.categoryId)),
+    new Set(registrySeedDb.sets.map((set) => set.categoryId)),
     new Set([
       'appliances',
       'devices',
@@ -33,13 +33,13 @@ test('catalogue covers reviewed categories with compatible dependencies and docu
     ),
     'utf8',
   );
-  for (const field of fields) {
+  for (const field of registrySeedDb.fields) {
     assert.ok(field.icon, field.id);
     const icon = icons.get(field.icon);
     assert.ok(icon, field.id);
     assert.ok(exports.includes('declare const ' + icon + ' ='), icon);
   }
-  for (const set of sets) {
+  for (const set of registrySeedDb.sets) {
     assert.equal(new Set(set.fields.map((f) => f.id)).size, set.fields.length, set.id);
     assert.equal(new Set(set.includes).size, set.includes.length, set.id);
     registry.expand([set.id], set.categoryId);

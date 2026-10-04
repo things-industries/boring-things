@@ -110,3 +110,60 @@ test('an interrupted provider stream cannot complete an assistant response', asy
     /incomplete/,
   );
 });
+
+test('SDK streaming cancellation closes the response and prevents tool execution', async (t) => {
+  const controller = new AbortController();
+  let cancelled = false;
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async () =>
+      new Response(
+        new ReadableStream({
+          start(c) {
+            c.enqueue(
+              new TextEncoder().encode(
+                'data: {"type":"response.output_text.delta","delta":"Partial"}\n\n',
+              ),
+            );
+          },
+          cancel() {
+            cancelled = true;
+          },
+        }),
+      ),
+  );
+  await assert.rejects(
+    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+      task,
+      async () => assert.fail('tool executed after cancellation'),
+      {
+        signal: controller.signal,
+        delta: () => controller.abort(new Error('cancelled')),
+        record: async () => assert.fail('cancelled response recorded as complete'),
+      },
+    ),
+    /cancelled/,
+  );
+  assert.equal(cancelled, true);
+});
+
+test('SDK failed and incomplete stream events expose sanitised errors', async (t) => {
+  for (const type of ['error', 'response.failed', 'response.incomplete']) {
+    t.mock.method(globalThis, 'fetch', async () =>
+      stream([{ type, message: 'private source text' }]),
+    );
+    await assert.rejects(
+      new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+        task,
+        async () => assert.fail('failed response executed a tool'),
+        {
+          signal: new AbortController().signal,
+          delta: () => {},
+          record: async () => {},
+        },
+      ),
+      { message: 'chat_provider_failed' },
+    );
+  }
+});

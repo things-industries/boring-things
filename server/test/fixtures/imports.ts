@@ -1,8 +1,8 @@
 import type {
-  Candidate,
+  ExtractedThing,
   Extraction,
   ImportAi,
-  MappingStage,
+  MappingSession,
   MappingValue,
   Source,
   RegistryTools,
@@ -21,7 +21,7 @@ const fact = (
   page: null,
   sensitive: false,
 });
-export const candidates: Record<string, Candidate> = {
+export const extractedThings: Record<string, ExtractedThing> = {
   neff: {
     id: 'candidate-1',
     name: 'Neff hob',
@@ -58,6 +58,11 @@ const sets: Record<string, string[]> = {
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
 };
+export const extractionBaseline = Object.entries(extractedThings).map(([id, expected]) => ({
+  id,
+  source: [expected.name, ...expected.facts.map((fact) => fact.quote)].join('\n'),
+  expected,
+}));
 export class FixtureAi implements ImportAi {
   metadata?: Extraction['metadata'];
   failOnce = false;
@@ -69,69 +74,71 @@ export class FixtureAi implements ImportAi {
     if (name === 'bad') throw new Error('synthetic extraction failure');
     const chosen =
       name === 'two'
-        ? [candidates.neff, { ...candidates.policy, id: 'candidate-2' }]
-        : [candidates[name] ?? candidates.neff];
+        ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
+        : [extractedThings[name] ?? extractedThings.neff];
     return structuredClone({
       text: name,
-      candidates: chosen,
+      extractedThings: chosen,
       ...(this.metadata ? { metadata: this.metadata } : {}),
     });
   }
-  async *map(
-    candidate: Candidate,
+  async selectFieldSets(
+    candidate: ExtractedThing,
     tools: RegistryTools,
     context: AiContext,
-  ): AsyncIterable<MappingStage> {
+  ): Promise<MappingSession> {
     await tools.searchFieldSets(candidate.categoryId, candidate.terms);
-    yield {
-      kind: 'sets',
+    return {
       setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId],
+      mapFactBatch: async () => {
+        if (this.pause) await this.pause;
+        if (this.exhaustTools)
+          for (let i = 0; i < 5; i++)
+            await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+        if (this.failOnce) {
+          this.failOnce = false;
+          throw new Error('synthetic interrupted mapping');
+        }
+        const values: MappingValue[] =
+          candidate.categoryId === 'appliances'
+            ? [
+                {
+                  factId: 'fact-1',
+                  fieldSetId: 'appliances.neff',
+                  fieldId: 'appliances.zNumber',
+                  value: '0015',
+                  pin: true,
+                },
+              ]
+            : candidate.categoryId === 'vehicles'
+              ? [
+                  {
+                    factId: 'fact-1',
+                    fieldSetId: 'vehicles.van',
+                    fieldId: 'vehicles.payloadKg',
+                    value: 1200,
+                    pin: true,
+                  },
+                ]
+              : ['buildings', 'contents'].map((part, i) => ({
+                  factId: `fact-${i + 1}`,
+                  fieldSetId: `insurance.${part}`,
+                  fieldId: 'insurance.sumInsured',
+                  value: candidate.facts[i].value,
+                  pin: false,
+                }));
+        await context.record({
+          inputTokens: 100,
+          outputTokens: 30,
+          cachedTokens: 20,
+          model: 'fixture',
+        });
+
+        if (candidate.categoryId === 'appliances')
+          await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+        return { values };
+      },
     };
-    if (this.pause) await this.pause;
-    if (this.exhaustTools)
-      for (let i = 0; i < 5; i++)
-        await tools.searchFields([{ label: 'Installer reference', context: '' }]);
-    if (this.failOnce) {
-      this.failOnce = false;
-      throw new Error('synthetic interrupted mapping');
-    }
-    const values: MappingValue[] =
-      candidate.categoryId === 'appliances'
-        ? [
-            {
-              factId: 'fact-1',
-              fieldSetId: 'appliances.neff',
-              fieldId: 'appliances.zNumber',
-              value: '0015',
-              pin: true,
-            },
-          ]
-        : candidate.categoryId === 'vehicles'
-          ? [
-              {
-                factId: 'fact-1',
-                fieldSetId: 'vehicles.van',
-                fieldId: 'vehicles.payloadKg',
-                value: 1200,
-                pin: true,
-              },
-            ]
-          : ['buildings', 'contents'].map((part, i) => ({
-              factId: `fact-${i + 1}`,
-              fieldSetId: `insurance.${part}`,
-              fieldId: 'insurance.sumInsured',
-              value: candidate.facts[i].value,
-              pin: false,
-            }));
-    await context.record({
-      inputTokens: 100,
-      outputTokens: 30,
-      cachedTokens: 20,
-      model: 'fixture',
-    });
-    yield { kind: 'values', values };
-    if (candidate.categoryId === 'appliances')
-      await tools.searchFields([{ label: 'Installer reference', context: '' }]);
   }
   async discover() {
     return { items: [], sources: [] };

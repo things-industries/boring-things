@@ -15,8 +15,8 @@ import swaggerUi from '@fastify/swagger-ui';
 import type pg from 'pg';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPool } from './db/connection.js';
-import { jobLease } from './db/job-lease.js';
+import * as database from './db/connection.js';
+import * as jobLeaseDb from './db/job-lease.js';
 import { readConfig, type EnvConfig } from './config.js';
 import { schemas, createValidatorCompiler } from './contracts/schemas.js';
 import auth from './plugins/auth.js';
@@ -44,7 +44,7 @@ export interface BuildAppOptions {
 export async function buildApp(options: BuildAppOptions = {}) {
   const config = options.config ?? readConfig();
 
-  const dbPool = options.dbPool ?? createPool(config.databaseUrl);
+  const dbPool = options.dbPool ?? database.createPool(config.databaseUrl);
   const app = Fastify({
     logger: options.logger
       ? { redact: ['req.headers.authorization', 'req.headers.cookie'] }
@@ -100,7 +100,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     const runner = new JobRunner(
       [assistant, new ImportProcessor(dbPool, registry, blobs, importAi, config, events)],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
-      jobLease(dbPool, () => {
+      jobLeaseDb.jobLease(dbPool, () => {
         // Stop immediately: another instance may recover jobs after this session loses its lock.
         app.log.fatal({ code: 'job_lock_lost' }, 'Background runner lost its database session');
         process.exit(1);

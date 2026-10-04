@@ -1,7 +1,8 @@
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
-import { transaction } from '../../db/connection.js';
-import { processingMessage, saveMessage, type ChatJob } from '../../db/entities/conversations.js';
+import * as database from '../../db/connection.js';
+import * as conversationsDb from '../../db/entities/conversations.js';
+import type { ChatJob } from '../../db/entities/conversations.js';
 import { ensure } from '../errors.js';
 import { writeEvent, writeIssue } from '../activity.js';
 type ActivityInput = Pick<Schema['IssueInput'], 'thingId' | 'title' | 'description'>;
@@ -13,9 +14,9 @@ export async function createChatActivity(
   input: ActivityInput,
   signal: AbortSignal,
 ) {
-  return transaction(pool, async (db) => {
+  return database.transaction(pool, async (db) => {
     signal.throwIfAborted();
-    const current = await processingMessage(db, job);
+    const current = await conversationsDb.getProcessingMessageOrThrow(db, job);
     ensure(current, 'Message is no longer processing', 'CONFLICT');
     const previous = current.toolResults.find(
       (r) => r.key === 'create_event' || r.key === 'create_issue',
@@ -43,7 +44,7 @@ export async function createChatActivity(
 
     const result = { key: name, result: item, card };
     // Commit the record and receipt together, so retry can reuse its result.
-    await saveMessage(db, job, {
+    await conversationsDb.saveMessage(db, job, {
       toolResults: [...current.toolResults, result],
     });
     signal.throwIfAborted();

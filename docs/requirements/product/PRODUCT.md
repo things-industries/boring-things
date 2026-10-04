@@ -106,6 +106,12 @@ Boring Things does not need to replace every adjacent product to be useful. In m
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
 - Store physical dimensions as separate width, height, length and depth measurements, as applicable.
 
+### Import and enrichment scope
+
+The importer currently commits validated field-set selection and fact batches progressively, preserving source evidence and owner edits. The [import improvement plan](../../plans/import-improvements.md) defines the next import flow. An import identifies one Thing before creating or populating its record. Sources identifying multiple independent Things finish with an error and remain available as attachments. An explicit target supplies context for an existing Thing; an automatic match requires evidence identifying the owned instance.
+
+Populate matching fields in selected field sets first, then other registry fields, then useful custom fields. Discard incidental extracted data while preserving the source. Use populated non-instance-specific fields for public research and fill missing non-instance-specific fields from cited evidence. Sensitivity independently governs masking. Category prompts specify the supporting documents to find. Preserve owner edits and explicit clears as results arrive progressively.
+
 ### User stories
 
 As a Boring things user, I must be able to:
@@ -150,7 +156,7 @@ See the `UI Inspiration` folder for ideas for specific components
         - Chat UI
     - **Add new thing**:
         - Take photo, upload, type, forward email, or connect a service
-        - Thing is created as a skeleton and populated as data is discovered
+        - Import progress is available before Thing creation. Create or identify one Thing after analysing the source, then populate it progressively. Show an error when the source identifies multiple Things.
     - **Thing view**:
         - Image (uploaded asset or default image for tag)
         - Name and type of thing ("David's car", "Toyota Yaris XP210")

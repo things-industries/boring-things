@@ -19,6 +19,8 @@ Paths are relative to `server/`.
 
 Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish `data.changed` after successful mutations, using `ownerId` to scope delivery to that user, independently of HTTP response delivery. Subscribe before the initial snapshot and retain periodic refresh for cross-process changes. Keep transport lifecycle outside route modules. Use `dbPool` for the assembled database pool and retain provider names such as `importAi`. Make Fastify schema registration and validator installation explicit in `buildApp`. Add classes for state or lifecycle. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
 
+Use namespace imports for database modules throughout the repository, including routes, application workflows, other DB modules, scripts and tests; call functions through names such as `thingsDb` and `importsDb`. Named type imports remain suitable. Prefer readable boundaries and development speed at the current traffic volume; retain transaction support for associated queries. The [import improvement plan](../docs/plans/import-improvements.md) defines the staged refactor and future route entity resolution.
+
 ## Authentication and privacy
 
 - Register application routes within the authenticated scope in `buildApp`. Health, public auth configuration and API documentation are intentionally outside it.
@@ -67,10 +69,10 @@ Use typed functions accepting a database executor, owner ID and named input wher
 ## AI imports and assistant work
 
 - Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history is available through `GET /api/conversations`, with optional `thingId` and `minMessageCount` filters; details and streams load by conversation ID. Frontend history integration remains pending.
-- Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
+- Author task prompts in `src/providers/ai/prompts.ts` and response/tool schemas in `src/providers/ai/schemas.json`; generate schema types with `pnpm ai:generate` and check drift with `pnpm ai:check`. Keep SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
-- Several detected Things require user confirmation under the import plan. Retries must reuse persisted work without duplicating Things or overwriting user edits.
+- The planned [single-Thing import flow](../docs/plans/import-improvements.md#3-import-identity-and-single-thing-lifecycle) ends imports identifying multiple independent Things with an error. Retries must reuse persisted work without duplicating Things or overwriting user edits.
 - Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. A dedicated PostgreSQL session lock permits one active runner per database; recovery happens after acquiring it. Release the lock only after work stops. Loss of the lock session exits the process. Deploy overlap uses persisted SSE snapshots; token-level deltas remain process-local.
 
 ## Validation

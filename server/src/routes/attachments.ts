@@ -4,7 +4,7 @@ import { basename } from 'node:path';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
 import { matchesMedia } from '../lib/media.js';
-import { attachment, publicAttachment, listAttachments } from '../db/entities/attachments.js';
+import * as attachmentsDb from '../db/entities/attachments.js';
 import {
   uploadAttachment,
   removeAttachment,
@@ -15,7 +15,7 @@ import {
 import type { BlobStorage } from '../providers/blobs/index.js';
 import type { EnvConfig } from '../config.js';
 import type { ApplicationEvents } from '../application/events.js';
-import { transaction } from '../db/connection.js';
+import * as database from '../db/connection.js';
 
 interface Options {
   db: pg.Pool;
@@ -28,7 +28,9 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   app,
   { db, blobs, config, events },
 ) => {
-  route(app, 'GET', '/api/attachments', (req) => listAttachments(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/attachments', (req) =>
+    attachmentsDb.listAttachments(db, req.ownerId, req.query),
+  );
   route(app, 'POST', '/api/attachments', async (req, reply) => {
     const parts = req.parts({
       limits: {
@@ -74,10 +76,12 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
     return reply.code(201).send(result);
   });
   route(app, 'GET', '/api/attachments/{id}', async (req) =>
-    publicAttachment(await attachment(db, req.ownerId, req.params.id)),
+    attachmentsDb.publicAttachment(
+      await attachmentsDb.getOwnedAttachmentOrThrow(db, req.ownerId, req.params.id),
+    ),
   );
   route(app, 'PATCH', '/api/attachments/{id}', async (req) => {
-    const result = await transaction(db, (tx) =>
+    const result = await database.transaction(db, (tx) =>
       updateAttachmentMetadata(tx, req.ownerId, req.params.id, req.body, {
         origin: 'USER',
         sourceRefs: [],
@@ -87,7 +91,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
     return result;
   });
   route(app, 'GET', '/api/attachments/{id}/content', async (req, reply) => {
-    const file = await attachment(db, req.ownerId, req.params.id);
+    const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, req.ownerId, req.params.id);
     return reply
       .header('X-Content-Type-Options', 'nosniff')
       .header('Content-Security-Policy', "default-src 'none'; sandbox")

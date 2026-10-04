@@ -9,6 +9,7 @@
     "**/.git/**",
     "pnpm-lock.yaml",
     "shared/api.ts",
+    "server/src/providers/ai/schema-types.ts",
     "**/*.png",
     ".claude/settings.local.json"
   ],
@@ -44,6 +45,7 @@
     "Fastly",
     "fieldsets",
     "filechooser",
+    "Firecrawl",
     "flatshare",
     "fnm",
     "FTTP",
@@ -59,6 +61,7 @@
     "IMEI",
     "imgproxy",
     "itemit",
+    "Jev",
     "LLM",
     "logflare",
     "Logto",

@@ -6,7 +6,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 import { ApplicationError, ensure } from '../application/errors.js';
 import type { Database } from '../db/connection.js';
-import { ownerForSubject } from '../db/entities/users.js';
+import * as usersDb from '../db/entities/users.js';
 import type { Identity, VerifyIdentity } from '../providers/auth/logto.js';
 
 declare module 'fastify' {
@@ -35,7 +35,7 @@ const auth: FastifyPluginAsync<Options> = async (app, { db, verify }) => {
       throw new ApplicationError('UNAUTHENTICATED', 'Invalid or expired access token');
     }
 
-    request.ownerId = await ownerForSubject(db, identity.subject, identity.name);
+    request.ownerId = await usersDb.getOrCreateOwnerForSubject(db, identity.subject, identity.name);
   });
 };
 

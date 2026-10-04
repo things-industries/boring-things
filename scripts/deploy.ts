@@ -2,8 +2,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { CreateBucketCommand } from '@aws-sdk/client-s3';
-import { createPool, transaction } from '../server/src/db/connection.js';
-import { seedRegistry } from '../server/src/db/seeds/registry.js';
+import * as database from '../server/src/db/connection.js';
+import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { readConfig } from '../server/src/config.js';
 import { s3Client } from '../server/src/providers/blobs/s3.js';
 
@@ -33,7 +33,7 @@ async function deploy() {
   )
     throw new Error('S3_ENDPOINT must belong to the deployment project');
 
-  const pool = createPool(url.toString());
+  const pool = database.createPool(url.toString());
   try {
     stage = 'database connection';
     await pool.query('select 1');
@@ -64,7 +64,7 @@ async function deploy() {
       return;
     }
     stage = 'registry seed';
-    await transaction(pool, seedRegistry);
+    await database.transaction(pool, registrySeedDb.seedRegistry);
     stage = 'private storage bucket';
     const bucket = await pool.query('select public from storage.buckets where id=$1', [
       config.s3.bucket,

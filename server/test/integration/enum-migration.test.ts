@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { createPool } from '../../src/db/connection.js';
+import * as database from '../../src/db/connection.js';
 
 // The fixture starts with the released lowercase representation, including nested private values.
 test('enum and chat migrations preserve values, receipts, defaults and in-flight uniqueness', async () => {
@@ -10,12 +10,12 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-  const database = 'bt_test_' + randomUUID().replaceAll('-', '');
-  const admin = createPool(url.toString());
-  url.pathname = '/' + database;
-  const pool = createPool(url.toString());
+  const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
+  const admin = database.createPool(url.toString());
+  url.pathname = '/' + databaseName;
+  const pool = database.createPool(url.toString());
   try {
-    await admin.query(`create database ${database}`);
+    await admin.query(`create database ${databaseName}`);
     const directory = new URL('../../../supabase/migrations/', import.meta.url);
     const files = (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort();
     for (const file of files.filter((file) => file < '20260930000000_domain_enums.sql'))
@@ -152,7 +152,7 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
     );
   } finally {
     await pool.end();
-    await admin.query(`drop database if exists ${database} with (force)`);
+    await admin.query(`drop database if exists ${databaseName} with (force)`);
     await admin.end();
   }
 });

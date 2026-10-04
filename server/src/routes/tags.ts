@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { route } from '../contracts/routes.js';
-import { listTags, saveTag, deleteTag } from '../db/entities/tags.js';
+import * as tagsDb from '../db/entities/tags.js';
 import type { ApplicationEvents } from '../application/events.js';
 
 interface Options {
@@ -10,19 +10,19 @@ interface Options {
 }
 
 const tagRoutes: FastifyPluginAsync<Options> = async (app, { db, events }) => {
-  route(app, 'GET', '/api/tags', (req) => listTags(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/tags', (req) => tagsDb.listTags(db, req.ownerId, req.query));
   route(app, 'POST', '/api/tags', async (req, reply) => {
-    const result = await saveTag(db, req.ownerId, req.body);
+    const result = await tagsDb.saveTag(db, req.ownerId, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });
   route(app, 'PATCH', '/api/tags/{id}', async (req) => {
-    const result = await saveTag(db, req.ownerId, req.body, req.params.id);
+    const result = await tagsDb.saveTag(db, req.ownerId, req.body, req.params.id);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
   route(app, 'DELETE', '/api/tags/{id}', async (req, reply) => {
-    await deleteTag(db, req.ownerId, req.params.id);
+    await tagsDb.deleteTag(db, req.ownerId, req.params.id);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(204).send();
   });

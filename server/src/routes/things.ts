@@ -8,10 +8,10 @@ import type pg from 'pg';
 import type { ApplicationEvents } from '../application/events.js';
 import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
-import { transaction } from '../db/connection.js';
+import * as database from '../db/connection.js';
 import { detail, writeThing } from '../application/things.js';
-import { assertEditable } from '../db/entities/imports.js';
-import { ownedThing, listThings, deleteThing, recordThingView } from '../db/entities/things.js';
+import * as importsDb from '../db/entities/imports.js';
+import * as thingsDb from '../db/entities/things.js';
 import { revealValue } from '../application/thing-data.js';
 
 interface Options {
@@ -21,7 +21,7 @@ interface Options {
 }
 
 const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, events }) => {
-  route(app, 'GET', '/api/things', (req) => listThings(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/things', (req) => thingsDb.listThings(db, req.ownerId, req.query));
 
   route(app, 'POST', '/api/things', async (req, reply) => {
     const result = await writeThing(db, req.ownerId, req.body, registry);
@@ -32,7 +32,7 @@ const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, eve
   route(app, 'GET', '/api/things/{id}', (req) => detail(db, req.ownerId, req.params.id, registry));
 
   route(app, 'POST', '/api/things/{id}:view', async (req) => {
-    const result = await recordThingView(db, req.ownerId, req.params.id);
+    const result = await thingsDb.recordThingView(db, req.ownerId, req.params.id);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
@@ -44,17 +44,21 @@ const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, eve
   });
 
   route(app, 'DELETE', '/api/things/{id}', async (req, reply) => {
-    await transaction(db, async (tx) => {
-      await ownedThing(tx, req.ownerId, req.params.id, true);
-      await assertEditable(tx, req.ownerId, req.params.id);
-      await deleteThing(tx, req.ownerId, req.params.id);
+    await database.transaction(db, async (tx) => {
+      await thingsDb.getOwnedThingOrThrow(tx, req.ownerId, req.params.id, { lock: true });
+      await importsDb.assertThingEditable(tx, req.ownerId, req.params.id);
+      await thingsDb.deleteThing(tx, req.ownerId, req.params.id);
     });
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(204).send();
   });
 
   route(app, 'POST', '/api/things/{id}:reveal-field', async (req) => ({
-    value: revealValue((await ownedThing(db, req.ownerId, req.params.id)).data, req.body, registry),
+    value: revealValue(
+      (await thingsDb.getOwnedThingOrThrow(db, req.ownerId, req.params.id)).data,
+      req.body,
+      registry,
+    ),
   }));
 };
 

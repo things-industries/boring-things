@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyData } from '../../shared/model.js';
-import { fields, sets } from '../src/db/seeds/registry.js';
+import * as registrySeedDb from '../src/db/seeds/registry.js';
 import { Registry } from '../src/application/registry/registry.js';
 import { patchData, projectData, revealValue } from '../src/application/thing-data.js';
-const registry = new Registry(fields, sets);
+const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 test('mandatory inclusion expands and a required dependency cannot be removed', () => {
   const data = patchData(emptyData(), { addFieldSetIds: ['vehicles.van'] }, 'vehicles', registry);
   assert.deepEqual(data.setIds, ['vehicles.vehicle', 'vehicles.roadMotor', 'vehicles.van']);
@@ -18,12 +18,12 @@ test('mandatory inclusion expands and a required dependency cannot be removed', 
   );
 });
 test('cycles and bad alongside references are rejected', () => {
-  const bad = structuredClone(sets);
+  const bad = structuredClone(registrySeedDb.sets);
   bad.find((set) => set.id === 'vehicles.vehicle')!.includes = ['vehicles.van'];
-  assert.throws(() => new Registry(fields, bad), /cycle/);
-  const badLinks = structuredClone(sets);
+  assert.throws(() => new Registry(registrySeedDb.fields, bad), /cycle/);
+  const badLinks = structuredClone(registrySeedDb.sets);
   badLinks[0].considerAlongside = ['missing'];
-  assert.throws(() => new Registry(fields, badLinks), /Invalid relation/);
+  assert.throws(() => new Registry(registrySeedDb.fields, badLinks), /Invalid relation/);
 });
 test('shared definitions have independent set-scoped values', () => {
   const data = patchData(

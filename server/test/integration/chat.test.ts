@@ -10,16 +10,17 @@ import type { ImportAi } from '../../src/application/import/types.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
+
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-const database = 'bt_chat_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
-url.pathname = '/' + database;
-const pool = createPool(url.toString());
+const databaseName = 'bt_chat_' + randomUUID().replaceAll('-', '');
+const admin = database.createPool(url.toString());
+url.pathname = '/' + databaseName;
+const pool = database.createPool(url.toString());
 const ai = new FixtureChat();
 const discoveryAi: ImportAi = new FixtureAi();
 let app: FastifyInstance;
@@ -56,11 +57,11 @@ const request = (
   });
 before(async () => {
   directory = await mkdtemp(tmpdir() + '/boring-chat-');
-  await admin.query(`create database ${database}`);
+  await admin.query(`create database ${databaseName}`);
   const migrations = new URL('../../../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   await boot();
 });
 beforeEach(() => {
@@ -73,7 +74,7 @@ beforeEach(() => {
 after(async () => {
   await app?.close();
   await pool.end();
-  await admin.query(`drop database if exists ${database} with (force)`);
+  await admin.query(`drop database if exists ${databaseName} with (force)`);
   await admin.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });

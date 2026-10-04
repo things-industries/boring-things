@@ -15,7 +15,7 @@ export interface Fact {
   sensitive: boolean;
 }
 
-export interface Candidate {
+export interface ExtractedThing {
   id: string;
   name: string;
   categoryId: string;
@@ -25,7 +25,7 @@ export interface Candidate {
 
 export interface Extraction {
   text: string;
-  candidates: Candidate[];
+  extractedThings: ExtractedThing[];
   metadata?: Schema['AttachmentPatch'] | null;
 }
 
@@ -73,11 +73,26 @@ export interface RegistryTools {
   searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
 }
 
+export interface ResearchContext {
+  id: string;
+  name: string;
+  categoryId: string;
+}
+
+export interface MappingSession {
+  setIds: string[];
+  mapFactBatch(facts: Fact[]): Promise<{ values: MappingValue[] }>;
+}
+
 export interface ImportAi {
   extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
-  map(candidate: Candidate, tools: RegistryTools, context: AiContext): AsyncIterable<MappingStage>;
+  selectFieldSets(
+    extractedThing: ExtractedThing,
+    tools: RegistryTools,
+    context: AiContext,
+  ): Promise<MappingSession>;
   discover(
-    candidate: Candidate,
+    research: ResearchContext,
     context: AiContext,
     focus?: 'reference' | 'maintenance' | 'products',
   ): Promise<Discovery>;

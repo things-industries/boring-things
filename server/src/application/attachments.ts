@@ -1,21 +1,14 @@
 import type pg from 'pg';
 import type { BlobStorage } from '../providers/blobs/index.js';
-import { transaction } from '../db/connection.js';
-import {
-  attachment,
-  insertAttachment,
-  deleteAttachment,
-  linkAttachment,
-  publicAttachment,
-  saveAttachmentMetadata,
-} from '../db/entities/attachments.js';
+import * as database from '../db/connection.js';
+import * as attachmentsDb from '../db/entities/attachments.js';
 import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import { ensure } from './errors.js';
 import { schemaValidator } from '../contracts/schemas.js';
 import { pdfPageCount } from '../lib/pdf.js';
-import { ownedThing, bumpThing } from '../db/entities/things.js';
-import { assertEditable } from '../db/entities/imports.js';
+import * as thingsDb from '../db/entities/things.js';
+import * as importsDb from '../db/entities/imports.js';
 
 export interface UploadedFile {
   filename: string;
@@ -30,8 +23,8 @@ export async function uploadAttachment(
 ) {
   const key = await blobs.put(file.buffer);
   try {
-    return publicAttachment(
-      await insertAttachment(pool, owner, {
+    return attachmentsDb.publicAttachment(
+      await attachmentsDb.insertAttachment(pool, owner, {
         filename: file.filename,
         mediaType: file.type,
         byteSize: file.buffer.length,
@@ -67,7 +60,7 @@ export async function updateAttachmentMetadata(
   pageCount?: number | null,
 ): Promise<Schema['Attachment']> {
   const values = validateAttachmentMetadata(patch);
-  const file = await attachment(db, owner, id, true);
+  const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
   for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const) {
     const value = values[key];
     if (value === undefined) continue;
@@ -80,8 +73,8 @@ export async function updateAttachmentMetadata(
     file.metadataSources[key] = source;
   }
   if (pageCount != null && file.mediaType === 'application/pdf') file.pageCount = pageCount;
-  const saved = await saveAttachmentMetadata(db, owner, file);
-  for (const thingId of file.thingIds) await bumpThing(db, owner, thingId);
+  const saved = await attachmentsDb.saveAttachmentMetadata(db, owner, file);
+  for (const thingId of file.thingIds) await thingsDb.bumpThing(db, owner, thingId);
   return saved;
 }
 export async function removeAttachment(
@@ -90,9 +83,9 @@ export async function removeAttachment(
   owner: string,
   id: string,
 ): Promise<void> {
-  const key = await transaction(pool, async (db) => {
-    const file = await attachment(db, owner, id, true);
-    await deleteAttachment(db, owner, file);
+  const key = await database.transaction(pool, async (db) => {
+    const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
+    await attachmentsDb.deleteAttachment(db, owner, file);
     return file.storageKey;
   });
   await blobs.remove(key);
@@ -104,11 +97,11 @@ export async function setAttachmentLink(
   thingId: string,
   linked: boolean,
 ): Promise<void> {
-  await transaction(pool, async (db) => {
-    await attachment(db, owner, id, true);
-    await ownedThing(db, owner, thingId, true);
-    await assertEditable(db, owner, thingId);
-    await linkAttachment(db, owner, id, thingId, linked);
-    await bumpThing(db, owner, thingId);
+  await database.transaction(pool, async (db) => {
+    await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
+    await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    await importsDb.assertThingEditable(db, owner, thingId);
+    await attachmentsDb.linkAttachment(db, owner, id, thingId, linked);
+    await thingsDb.bumpThing(db, owner, thingId);
   });
 }

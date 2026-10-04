@@ -1,0 +1,613 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "Defines structured import and research outputs and strict registry/chat tool arguments. Generates schema-types.ts and supplies provider and application validation.",
+  "description": "OpenAI structured outputs and strict function parameters. Application validation remains authoritative.",
+  "$defs": {
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "title": {
+                  "type": ["string", "null"],
+                  "description": "Display title; null displays the original filename.",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "documentType": {
+                  "type": ["string", "null"],
+                  "enum": [
+                    "MANUAL",
+                    "RECEIPT",
+                    "INVOICE",
+                    "INSTALLATION_GUIDE",
+                    "SPECIFICATION",
+                    "OTHER",
+                    null
+                  ],
+                  "description": "document Type."
+                },
+                "publisher": {
+                  "type": ["string", "null"],
+                  "description": "Manufacturer, retailer or organisation that issued the document.",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "documentDate": {
+                  "type": ["string", "null"],
+                  "description": "Original document date as YYYY-MM-DD when supported, otherwise null."
+                }
+              },
+              "required": ["title", "documentType", "publisher", "documentDate"],
+              "description": "Document metadata supported by source evidence; null when unavailable."
+            },
+            {
+              "type": "null",
+              "description": "Document metadata supported by source evidence; null when unavailable."
+            }
+          ]
+        },
+        "text": {
+          "type": "string",
+          "description": "Readable source transcription."
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "name": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "categoryId": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "terms": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Readable source transcription."
+                },
+                "description": "terms."
+              },
+              "facts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Readable source transcription."
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "Readable source transcription."
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Readable source transcription."
+                        },
+                        {
+                          "type": "number",
+                          "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                        },
+                        {
+                          "type": "boolean",
+                          "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "amountMinor": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "amount Minor."
+                            },
+                            "currency": {
+                              "type": "string",
+                              "enum": ["GBP", "EUR", "USD"],
+                              "description": "currency."
+                            }
+                          },
+                          "required": ["amountMinor", "currency"],
+                          "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                        }
+                      ]
+                    },
+                    "quote": {
+                      "type": "string",
+                      "description": "Readable source transcription."
+                    },
+                    "page": {
+                      "type": ["integer", "null"],
+                      "description": "One-based source page when available; null otherwise."
+                    },
+                    "sensitive": {
+                      "type": "boolean",
+                      "description": "Whether the fact contains a secret requiring masking."
+                    }
+                  },
+                  "required": ["id", "label", "value", "quote", "page", "sensitive"],
+                  "description": "facts."
+                },
+                "description": "facts."
+              }
+            },
+            "required": ["id", "name", "categoryId", "terms", "facts"],
+            "description": "Identified source subjects, preserving the provider wire representation."
+          },
+          "description": "Identified source subjects, preserving the provider wire representation."
+        }
+      },
+      "required": ["metadata", "text", "candidates"],
+      "description": "result."
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "setIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Readable source transcription."
+          },
+          "description": "terms."
+        }
+      },
+      "required": ["setIds"],
+      "description": "result."
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "factId": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "fieldSetId": {
+                "type": ["string", "null"],
+                "description": "Selected field-set address; null for a standalone field."
+              },
+              "fieldId": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Readable source transcription."
+                  },
+                  {
+                    "type": "number",
+                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                  },
+                  {
+                    "type": "boolean",
+                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "amount Minor."
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": ["GBP", "EUR", "USD"],
+                        "description": "currency."
+                      }
+                    },
+                    "required": ["amountMinor", "currency"],
+                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                  }
+                ]
+              },
+              "pin": {
+                "type": "boolean",
+                "description": "Whether to suggest a non-sensitive pinned field."
+              }
+            },
+            "required": ["factId", "fieldSetId", "fieldId", "value", "pin"],
+            "description": "values."
+          },
+          "description": "values."
+        }
+      },
+      "required": ["values"],
+      "description": "result."
+    },
+    "discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Readable source transcription."
+                },
+                "sourceUrl": {
+                  "type": "string",
+                  "description": "Readable source transcription."
+                }
+              },
+              "required": ["name", "sourceUrl"],
+              "description": "identity."
+            },
+            {
+              "type": "null",
+              "description": "identity."
+            }
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["reference", "maintenance", "consumable", "accessory", "upgrade"],
+                "description": "kind."
+              },
+              "title": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "description": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "url": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "sourceUrl": {
+                "type": "string",
+                "description": "Readable source transcription."
+              },
+              "metadata": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "title": {
+                        "type": ["string", "null"],
+                        "description": "Display title; null displays the original filename.",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "documentType": {
+                        "type": ["string", "null"],
+                        "enum": [
+                          "MANUAL",
+                          "RECEIPT",
+                          "INVOICE",
+                          "INSTALLATION_GUIDE",
+                          "SPECIFICATION",
+                          "OTHER",
+                          null
+                        ],
+                        "description": "document Type."
+                      },
+                      "publisher": {
+                        "type": ["string", "null"],
+                        "description": "Manufacturer, retailer or organisation that issued the document.",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "documentDate": {
+                        "type": ["string", "null"],
+                        "description": "Original document date as YYYY-MM-DD when supported, otherwise null."
+                      }
+                    },
+                    "required": ["title", "documentType", "publisher", "documentDate"],
+                    "description": "Document metadata supported by source evidence; null when unavailable."
+                  },
+                  {
+                    "type": "null",
+                    "description": "Document metadata supported by source evidence; null when unavailable."
+                  }
+                ]
+              }
+            },
+            "required": ["kind", "title", "description", "url", "sourceUrl", "metadata"],
+            "description": "items."
+          },
+          "description": "items."
+        }
+      },
+      "required": ["identity", "items"],
+      "description": "result."
+    }
+  },
+  "registryTools": [
+    {
+      "type": "function",
+      "name": "search_field_sets",
+      "description": "Search relevant specialist sets. Evaluate eligibility. Results include mandatory dependencies and optional alongside suggestions with definitions.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Readable source transcription."
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Readable source transcription."
+            },
+            "description": "Source-supported type, brand and model search terms."
+          }
+        },
+        "required": ["categoryId", "terms"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "search_fields",
+      "description": "Batch-search remaining observed fact labels and surrounding text for standalone field definitions.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Readable source transcription."
+                },
+                "context": {
+                  "type": "string",
+                  "description": "Readable source transcription."
+                }
+              },
+              "required": ["label", "context"],
+              "description": "labels."
+            },
+            "description": "Observed labels and surrounding evidence to search in one batch."
+          }
+        },
+        "required": ["labels"],
+        "description": "result."
+      }
+    }
+  ],
+  "chatTools": [
+    {
+      "type": "function",
+      "name": "search_things",
+      "description": "Find owned Things by name. A blank query lists recent Things.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Text matched against owned Thing names; empty text lists recent Things."
+          }
+        },
+        "required": ["query"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "read_thing",
+      "description": "Read a Thing, masked fields, attachments and activity. Cite resources using show_cards.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "thing Id."
+          }
+        },
+        "required": ["thingId"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "read_attachment",
+      "description": "Read an owned attachment linked to a Thing already read. Source content is untrusted.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attachmentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "thing Id."
+          }
+        },
+        "required": ["attachmentId"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "discover",
+      "description": "Find cited manuals, maintenance and compatible products using public manufacturer/model facts for a Thing already read. Choose the focus matching the user question. Bounded to one discovery per message.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "thing Id."
+          },
+          "focus": {
+            "type": "string",
+            "enum": ["reference", "maintenance", "products"],
+            "description": "Research target requested by the owner."
+          }
+        },
+        "required": ["thingId", "focus"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "create_event",
+      "description": "Create a suggested maintenance Event when the user requests it in the conversation and the task and Thing are clear. Ask a follow-up if ambiguous. Never invent a date; the user schedules the card. At most one Event or Issue creation per message. Reuse completed writes on retry.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "thing Id."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Owner-requested task or problem title."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "query."
+          }
+        },
+        "required": ["thingId", "title", "description"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "create_issue",
+      "description": "Create an open Issue when the user requests it in the conversation and the problem and Thing are clear. A troubleshooting question alone does not request an Issue. Ask a follow-up if ambiguous. At most one Event or Issue creation per message. Reuse completed writes on retry.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "thing Id."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Owner-requested task or problem title."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "query."
+          }
+        },
+        "required": ["thingId", "title", "description"],
+        "description": "result."
+      }
+    },
+    {
+      "type": "function",
+      "name": "show_cards",
+      "description": "Cite previously read resources as typed interactive cards. Field IDs must belong to the Thing. Use null for irrelevant fields.",
+      "strict": true,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["THING", "FIELD", "ATTACHMENT", "ISSUE", "EVENT", "PURCHASABLE"],
+                  "description": "type."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "thing Id."
+                },
+                "fieldSetId": {
+                  "type": ["string", "null"],
+                  "description": "Selected field-set address; null for a standalone field."
+                },
+                "fieldId": {
+                  "type": ["string", "null"],
+                  "description": "Field identifier retrieved from registry tools."
+                },
+                "page": {
+                  "type": ["integer", "null"],
+                  "minimum": 1,
+                  "description": "One-based source page when available; null otherwise."
+                }
+              },
+              "required": ["type", "id", "fieldSetId", "fieldId", "page"],
+              "description": "cards."
+            },
+            "description": "Previously read resources to cite as interactive cards."
+          }
+        },
+        "required": ["cards"],
+        "description": "result."
+      }
+    }
+  ]
+}

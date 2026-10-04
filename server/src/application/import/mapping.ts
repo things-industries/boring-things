@@ -4,7 +4,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import type { Candidate, Extraction, MappingStage, Fact } from './types.js';
+import type { ExtractedThing, Extraction, MappingStage, Fact, ResearchContext } from './types.js';
 import type { Registry } from '../registry/registry.js';
 import type { ThingData, StoredValue } from '../../../../shared/model.js';
 import { ensure } from '../errors.js';
@@ -17,16 +17,16 @@ export function validateExtraction(input: Extraction, categories: string[]): Ext
     input &&
       typeof input.text === 'string' &&
       input.text.length <= 200000 &&
-      Array.isArray(input.candidates) &&
-      input.candidates.length > 0 &&
-      input.candidates.length <= 10,
+      Array.isArray(input.extractedThings) &&
+      input.extractedThings.length > 0 &&
+      input.extractedThings.length <= 10,
     'Invalid extraction',
   );
 
   return {
     text: input.text,
     ...(input.metadata ? { metadata: validateAttachmentMetadata(input.metadata) } : {}),
-    candidates: input.candidates.map((c, i) => {
+    extractedThings: input.extractedThings.map((c, i) => {
       ensure(
         typeof c.name === 'string' &&
           c.name.trim().length > 0 &&
@@ -88,7 +88,7 @@ export function localFactId(jobId: string, candidateId: string, factId: string) 
 export function applyImportStage(
   original: ThingData,
   stage: MappingStage,
-  candidate: Candidate,
+  candidate: ExtractedThing,
   category: string,
   registry: Registry,
   allowedSets: Set<string>,
@@ -189,7 +189,7 @@ export function applyImportStage(
 
 export function retainFacts(
   original: ThingData,
-  candidate: Candidate,
+  candidate: ExtractedThing,
   jobId: string,
   attachmentId: string,
   registry?: Registry,
@@ -219,7 +219,10 @@ export function retainFacts(
   return data;
 }
 
-export function publicDiscoveryCandidate(candidate: Candidate, data: ThingData): Candidate | null {
+export function buildResearchContext(
+  candidate: ExtractedThing,
+  data: ThingData,
+): ResearchContext | null {
   // Only public product identifiers leave this boundary for web discovery; extracted text and private facts are excluded.
   const permitted = ['common.brand', 'common.manufacturer', 'common.model', 'appliances.eNumber'];
   const values = [
@@ -231,7 +234,5 @@ export function publicDiscoveryCandidate(candidate: Candidate, data: ThingData):
     id: candidate.id,
     categoryId: candidate.categoryId,
     name: [...new Set(values.map(([, v]) => String(v.value)))].join(' '),
-    terms: [],
-    facts: [],
   };
 }

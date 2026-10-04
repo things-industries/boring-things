@@ -5,8 +5,8 @@ import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
-import { createPool, transaction } from '../server/src/db/connection.js';
-import { seedRegistry } from '../server/src/db/seeds/registry.js';
+import * as database from '../server/src/db/connection.js';
+import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
@@ -17,9 +17,9 @@ const url = new URL(
 );
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname), 'Smoke test requires local Postgres');
 const name = 'bt_smoke_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
+const admin = database.createPool(url.toString());
 url.pathname = '/' + name;
-const pool = createPool(url.toString());
+const pool = database.createPool(url.toString());
 const directory = await mkdtemp(tmpdir() + '/bt-smoke-');
 const ai = new OpenAiImports(
   config.openaiApiKey,
@@ -34,7 +34,7 @@ const recorded: ImportAi = {
     trace.push({ stage: 'extraction', result });
     return result;
   },
-  async *map(candidate, tools, context) {
+  async selectFieldSets(candidate, tools, context) {
     const tracedTools = {
       async searchFieldSets(category: string, terms: string[]) {
         const result = await tools.searchFieldSets(category, terms);
@@ -47,10 +47,24 @@ const recorded: ImportAi = {
         return result;
       },
     };
-    for await (const result of ai.map(candidate, tracedTools, context)) {
-      trace.push({ stage: 'mapping', candidate: candidate.id, result });
-      yield result;
-    }
+    const mapping = await ai.selectFieldSets(candidate, tracedTools, context);
+    trace.push({
+      stage: 'mapping',
+      candidate: candidate.id,
+      result: { kind: 'sets', setIds: mapping.setIds },
+    });
+    return {
+      setIds: mapping.setIds,
+      mapFactBatch: async (facts) => {
+        const result = await mapping.mapFactBatch(facts);
+        trace.push({
+          stage: 'mapping',
+          candidate: candidate.id,
+          result: { kind: 'values', ...result },
+        });
+        return result;
+      },
+    };
   },
   async discover(candidate, context, focus) {
     const result = await ai.discover(candidate, context, focus);
@@ -64,7 +78,7 @@ try {
   const migrations = new URL('../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
     config: { ...config, blobDirectory: directory },

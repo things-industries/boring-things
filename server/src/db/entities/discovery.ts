@@ -1,6 +1,6 @@
-import { execute } from '../connection.js';
-import { rows, type Database } from '../connection.js';
-import { ownedThing, bumpThing } from './things.js';
+import * as database from '../connection.js';
+import type { Database } from '../connection.js';
+import * as thingsDb from './things.js';
 import type { DiscoveryItem } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
 import type { Schema } from '../../../../shared/model.js';
@@ -10,13 +10,13 @@ interface DownloadedDocument {
   byteSize: number;
   pageCount?: number | null;
 }
-export async function discoveryAttachment(
+export async function findDiscoveryAttachment(
   db: Database,
   owner: string,
   key: string,
 ): Promise<{ id: string } | undefined> {
   return (
-    await rows<{ id: string }>(
+    await database.rows<{ id: string }>(
       db,
       'select id from bt.attachments where import_key=$1 and owner_id=$2',
       [key, owner],
@@ -31,7 +31,7 @@ export async function saveDiscoveryItem(
   item: DiscoveryItem,
   document?: DownloadedDocument,
 ): Promise<boolean> {
-  await ownedThing(db, owner, thingId, true);
+  await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
   let used = false;
   const refs = JSON.stringify([{ url: item.sourceUrl }]);
   if (item.kind === 'reference') {
@@ -47,7 +47,7 @@ export async function saveDiscoveryItem(
         .trim()
         .slice(0, 150) || 'Document') + '.pdf';
     const inserted = document
-      ? await rows<{ id: string }>(
+      ? await database.rows<{ id: string }>(
           db,
           "insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key,title,document_type,publisher,document_date,page_count,metadata_sources) values($1,$2,'application/pdf',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict(import_key) do nothing returning id",
           [
@@ -67,26 +67,26 @@ export async function saveDiscoveryItem(
         )
       : [];
     used = inserted.length > 0;
-    const file = inserted[0] ?? (await discoveryAttachment(db, owner, key));
+    const file = inserted[0] ?? (await findDiscoveryAttachment(db, owner, key));
     ensure(file, 'Discovery attachment unavailable');
-    await execute(
+    await database.execute(
       db,
       'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
       [thingId, file.id, owner],
     );
   } else if (item.kind === 'maintenance') {
-    await execute(
+    await database.execute(
       db,
       "insert into bt.events(owner_id,thing_id,title,description,status,source_refs,import_key) values($1,$2,$3,$4,'SUGGESTED',$5,$6) on conflict(import_key) do nothing",
       [owner, thingId, item.title, item.description, refs, key],
     );
   } else {
-    await execute(
+    await database.execute(
       db,
       'insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,import_key) values($1,$2,$3,$4,$5,$6,$7,now(),$8) on conflict(import_key) do nothing',
       [owner, thingId, item.kind.toUpperCase(), item.title, item.description, item.url, refs, key],
     );
   }
-  await bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, owner, thingId);
   return used;
 }

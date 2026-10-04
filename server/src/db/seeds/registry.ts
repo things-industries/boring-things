@@ -1,4 +1,5 @@
-import { execute } from '../connection.js';
+import * as database from '../connection.js';
+
 /**
  * Defines and upserts authored categories, fields and sets. Registry seeds update metadata;
  * existing Thing values require separate migrations.
@@ -4482,14 +4483,14 @@ export async function seedRegistry(db: Database) {
   new Registry(fields, sets);
 
   for (const c of categories)
-    await execute(
+    await database.execute(
       db,
       'insert into bt.categories(id,name,description,icon,default_image,sort_order) values($1,$2,$3,$4,$5,$6) on conflict(id) do update set name=excluded.name,description=excluded.description,icon=excluded.icon,default_image=excluded.default_image,sort_order=excluded.sort_order',
       [c.id, c.name, c.description, c.icon, c.defaultImage, c.sortOrder],
     );
 
   for (const f of fields)
-    await execute(
+    await database.execute(
       db,
       'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive,icon) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive,icon=excluded.icon',
       [
@@ -4505,7 +4506,7 @@ export async function seedRegistry(db: Database) {
     );
 
   for (const s of sets)
-    await execute(
+    await database.execute(
       db,
       'insert into bt.field_sets(id,category_id,name,eligibility,keywords,includes,consider_alongside,field_ids) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(id) do update set category_id=excluded.category_id,name=excluded.name,eligibility=excluded.eligibility,keywords=excluded.keywords,includes=excluded.includes,consider_alongside=excluded.consider_alongside,field_ids=excluded.field_ids',
       [

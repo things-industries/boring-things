@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { route } from '../../contracts/routes.js';
 import { ensure } from '../../application/errors.js';
 import type { ApplicationEvents } from '../../application/events.js';
-import { profile } from '../../db/entities/users.js';
+import * as usersDb from '../../db/entities/users.js';
+
 /**
  * Reads owner profiles and creates labelled demonstration Things and activity once per owner when
  * sample creation is enabled.
@@ -13,13 +14,13 @@ import type { Schema, ThingPatch, Value } from '../../../../shared/model.js';
 import { emptyData } from '../../../../shared/model.js';
 import { patchData } from '../../application/thing-data.js';
 import type { Registry } from '../../application/registry/registry.js';
-import { rows, transaction } from '../../db/connection.js';
+import * as database from '../../db/connection.js';
 
 // Temporary developer/debugging routes may keep their workflow and SQL together in one scaffold.
 async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
-  return transaction(pool, async (db) => {
+  return database.transaction(pool, async (db) => {
     // Lock the owner row so repeated or concurrent requests cannot create multiple sample collections.
-    const [user] = await rows<Schema['Profile']>(
+    const [user] = await database.rows<Schema['Profile']>(
       db,
       'select id,display_name,samples_added from bt.users where id=$1 for update',
       [owner],
@@ -34,7 +35,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     ) => {
       const patch: ThingPatch = { addFieldSetIds, values };
       const data = patchData(emptyData(), patch, categoryId, registry);
-      const [item] = await rows<{ id: string }>(
+      const [item] = await database.rows<{ id: string }>(
         db,
         'insert into bt.things(owner_id,category_id,name,description,data,is_sample) values($1,$2,$3,$4,$5,true) returning id',
         [owner, categoryId, name, 'Sample data for exploring the interface.', JSON.stringify(data)],
@@ -93,7 +94,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         v('memberships.access', 'membership.accessPin', '0000'),
       ],
     );
-    const [tag] = await rows<{ id: string }>(
+    const [tag] = await database.rows<{ id: string }>(
       db,
       "insert into bt.tags(owner_id,name) values($1,'Home') on conflict(owner_id,name) do update set name=excluded.name returning id",
       [owner],
@@ -137,7 +138,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       );
 
     await db.query('update bt.users set samples_added=true where id=$1', [owner]);
-    return profile(db, owner);
+    return usersDb.getOwnerProfile(db, owner);
   });
 }
 

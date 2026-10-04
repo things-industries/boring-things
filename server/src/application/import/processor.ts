@@ -1,5 +1,6 @@
-import { attachment } from '../../db/entities/attachments.js';
-import { categoryIds } from '../../db/entities/registry.js';
+import * as attachmentsDb from '../../db/entities/attachments.js';
+import * as registryDb from '../../db/entities/registry.js';
+
 /**
  * Runs persisted import and assistant jobs in one process, coordinating bounded AI work,
  * incremental commits, retries and notifications.
@@ -10,33 +11,27 @@ import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { ApplicationEvents } from '../events.js';
-import type { AiContext, Candidate, ImportAi, RegistryTools, Usage } from './types.js';
+import type {
+  AiContext,
+  ExtractedThing,
+  ImportAi,
+  RegistryTools,
+  Usage,
+  MappingStage,
+} from './types.js';
 import { blankUsage } from './types.js';
 import {
   applyImportStage,
-  publicDiscoveryCandidate,
+  buildResearchContext,
   retainFacts,
   validateExtraction,
 } from './mapping.js';
 import { searchFieldSets, searchFields } from '../registry/search.js';
 import { ensure } from '../errors.js';
-import { transaction } from '../../db/connection.js';
-import {
-  allocateTargets,
-  ownedImport,
-  setImportStatus,
-  targets,
-  recoverImports,
-  nextImport,
-  recordImportUsage,
-  beginImport,
-  saveExtraction,
-  saveTargetDiscovery,
-  markTarget,
-  type ImportRow,
-  type Target,
-} from '../../db/entities/imports.js';
-import { ownedThing, bumpThing, saveThingData } from '../../db/entities/things.js';
+import * as database from '../../db/connection.js';
+import * as importsDb from '../../db/entities/imports.js';
+import type { ImportRow, Target } from '../../db/entities/imports.js';
+import * as thingsDb from '../../db/entities/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { persistDiscovery } from '../discovery/discovery.js';
 import { updateAttachmentMetadata } from '../attachments.js';
@@ -53,19 +48,19 @@ export class ImportProcessor {
   ) {}
 
   async recover() {
-    await recoverImports(this.pool);
+    await importsDb.recoverImports(this.pool);
   }
 
   async next(signal: AbortSignal): Promise<boolean> {
     if (!this.ai) return false;
-    const job = await nextImport(this.pool);
+    const job = await importsDb.getNextQueuedImport(this.pool);
     if (!job) return false;
     await this.run(job, signal);
     return true;
   }
 
   private async status(job: ImportRow, status: ImportRow['status'], error: string | null = null) {
-    await setImportStatus(this.pool, job.ownerId, job.id, status, error);
+    await importsDb.setImportStatus(this.pool, job.ownerId, job.id, status, error);
     this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
   }
 
@@ -82,7 +77,7 @@ export class ImportProcessor {
       usage.cachedTokens += delta.cachedTokens ?? 0;
       usage.toolCalls.push(...(delta.toolCalls ?? []));
       usage.elapsedMs = previousElapsed + Date.now() - started;
-      await recordImportUsage(this.pool, job, usage);
+      await importsDb.recordImportUsage(this.pool, job, usage);
     };
 
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
@@ -96,11 +91,15 @@ export class ImportProcessor {
     };
 
     try {
-      await beginImport(this.pool, job);
+      await importsDb.markImportStarted(this.pool, job);
 
       if (!job.extraction) {
         await this.status(job, 'EXTRACTING');
-        const file = await attachment(this.pool, job.ownerId, job.attachmentId);
+        const file = await attachmentsDb.getOwnedAttachmentOrThrow(
+          this.pool,
+          job.ownerId,
+          job.attachmentId,
+        );
         const chunks: Buffer[] = [];
 
         for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
@@ -108,7 +107,7 @@ export class ImportProcessor {
           chunks.push(Buffer.from(chunk));
         }
 
-        const categories = await categoryIds(this.pool);
+        const categories = await registryDb.listCategoryIds(this.pool);
         const extraction = validateExtraction(
           await awaitWithSignal(
             this.ai!.extract({ ...file, content: Buffer.concat(chunks) }, categories, context),
@@ -123,8 +122,8 @@ export class ImportProcessor {
         const pageCount =
           file.pageCount ?? (await pdfPageCount(Buffer.concat(chunks), file.mediaType, signal));
         signal.throwIfAborted();
-        await transaction(this.pool, async (db) => {
-          await saveExtraction(db, job, extraction);
+        await database.transaction(this.pool, async (db) => {
+          await importsDb.saveExtraction(db, job, extraction);
           if (extraction.metadata || pageCount !== null)
             await updateAttachmentMetadata(
               db,
@@ -139,32 +138,34 @@ export class ImportProcessor {
             );
         });
         this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-        job = await ownedImport(this.pool, job.ownerId, job.id);
+        job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
       }
 
       if (!job.selection) {
-        if (job.extraction!.candidates.length > 1) {
+        if (job.extraction!.extractedThings.length > 1) {
           await this.status(job, 'AWAITING_SELECTION');
           return;
         }
 
-        await transaction(this.pool, async (db) => {
-          const current = await ownedImport(db, job.ownerId, job.id, true);
-          await allocateTargets(db, current, [
+        await database.transaction(this.pool, async (db) => {
+          const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
+            lock: true,
+          });
+          await importsDb.allocateTargets(db, current, [
             {
-              candidateId: current.extraction!.candidates[0].id,
+              candidateId: current.extraction!.extractedThings[0].id,
               targetThingId: current.skeletonId ? null : current.targetThingId,
             },
           ]);
         });
-        job = await ownedImport(this.pool, job.ownerId, job.id);
+        job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
       }
 
-      const selected = await targets(this.pool, job);
+      const selected = await importsDb.listImportTargets(this.pool, job);
       ensure(selected.length === job.selection!.length, 'Import target no longer exists');
 
       for (const target of selected) {
-        const candidate = job.extraction!.candidates.find((c) => c.id === target.candidateId)!;
+        const candidate = job.extraction!.extractedThings.find((c) => c.id === target.candidateId)!;
 
         if (!target.mapped) {
           await this.status(job, 'MAPPING');
@@ -175,17 +176,17 @@ export class ImportProcessor {
       // Discovery has its own budget, after all extracted data is usable.
       let discoveryFailed = false;
 
-      for (const target of await targets(this.pool, job)) {
+      for (const target of await importsDb.listImportTargets(this.pool, job)) {
         if (target.discovered) continue;
         await this.status(job, 'DISCOVERING');
-        const thing = await ownedThing(this.pool, job.ownerId, target.thingId);
-        const publicCandidate = publicDiscoveryCandidate(
-          job.extraction!.candidates.find((c) => c.id === target.candidateId)!,
+        const thing = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, target.thingId);
+        const researchContext = buildResearchContext(
+          job.extraction!.extractedThings.find((c) => c.id === target.candidateId)!,
           thing.data,
         );
 
         try {
-          if (publicCandidate || target.discovery) {
+          if (researchContext || target.discovery) {
             const discoverySignal = AbortSignal.any([
               shutdown,
               AbortSignal.timeout(this.config.discoveryTimeoutMs),
@@ -202,13 +203,13 @@ export class ImportProcessor {
             const found =
               target.discovery ??
               (await awaitWithSignal(
-                this.ai!.discover(publicCandidate!, discoveryContext),
+                this.ai!.discover(researchContext!, discoveryContext),
                 discoveryContext.signal,
               ));
             discoveryContext.signal.throwIfAborted();
 
             if (!target.discovery)
-              await saveTargetDiscovery(this.pool, job, target.candidateId, found);
+              await importsDb.saveTargetDiscovery(this.pool, job, target.candidateId, found);
 
             await persistDiscovery(this.pool, this.blobs, job, target, found, {
               maxBytes: this.config.maxUploadBytes,
@@ -216,7 +217,7 @@ export class ImportProcessor {
             });
           }
 
-          await markTarget(this.pool, job, target.candidateId, 'discovered');
+          await importsDb.markTargetStage(this.pool, job, target.candidateId, 'discovered');
           this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
         } catch {
           discoveryFailed = true;
@@ -230,7 +231,8 @@ export class ImportProcessor {
       );
     } catch (error) {
       const hasResults =
-        (await ownedImport(this.pool, job.ownerId, job.id)).resultThingIds.length > 0;
+        (await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id)).resultThingIds
+          .length > 0;
       const code = shutdown.aborted
         ? 'interrupted'
         : signal.aborted
@@ -245,11 +247,10 @@ export class ImportProcessor {
     }
   }
 
-  private async map(job: ImportRow, target: Target, candidate: Candidate, context: AiContext) {
+  private async map(job: ImportRow, target: Target, candidate: ExtractedThing, context: AiContext) {
     const allowedSets = new Set<string>(),
       allowedFields = new Set<string>();
-    let calls = 0,
-      selected = false;
+    let calls = 0;
 
     const checkBudget = () => {
       context.signal.throwIfAborted();
@@ -295,25 +296,21 @@ export class ImportProcessor {
       },
     };
     // Retain every extracted fact before mapping, so unmapped facts survive a failed or partial provider response.
-    await transaction(this.pool, async (db) => {
-      const thing = await ownedThing(db, job.ownerId, target.thingId, true);
+    await database.transaction(this.pool, async (db) => {
+      const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
+        lock: true,
+      });
       const data = retainFacts(thing.data, candidate, job.id, job.attachmentId, this.registry);
-      await saveThingData(db, job.ownerId, thing.id, data);
+      await thingsDb.saveThingData(db, job.ownerId, thing.id, data);
     });
     this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-    const stages = this.ai!.map(candidate, tools, context)[Symbol.asyncIterator]();
-
-    while (true) {
-      const next = await awaitWithSignal(stages.next(), context.signal);
-      if (next.done) break;
-      const stage = next.value;
+    const commitBatch = async (stage: MappingStage) => {
       context.signal.throwIfAborted();
-      ensure(stage.kind === 'sets' || selected, 'Sets must precede values');
-      ensure(stage.kind !== 'sets' || !selected, 'Sets already selected');
-      // Commit each complete mapping stage under a fresh Thing lock; retries retain earlier stages and owner edits.
-      await transaction(this.pool, async (db) => {
+      await database.transaction(this.pool, async (db) => {
         context.signal.throwIfAborted();
-        const thing = await ownedThing(db, job.ownerId, target.thingId, true);
+        const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
+          lock: true,
+        });
         const data = applyImportStage(
           thing.data,
           stage,
@@ -326,19 +323,30 @@ export class ImportProcessor {
           job.attachmentId,
         );
         context.signal.throwIfAborted();
-        await saveThingData(db, job.ownerId, thing.id, data);
-
-        if (stage.kind === 'sets') await markTarget(db, job, target.candidateId, 'selected');
+        await thingsDb.saveThingData(db, job.ownerId, thing.id, data);
+        if (stage.kind === 'sets')
+          await importsDb.markTargetStage(db, job, target.candidateId, 'selected');
       });
-      selected = true;
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+    };
+
+    const mapping = await awaitWithSignal(
+      this.ai!.selectFieldSets(candidate, tools, context),
+      context.signal,
+    );
+    await commitBatch({ kind: 'sets', setIds: mapping.setIds });
+    for (let offset = 0; offset < candidate.facts.length; offset += 20) {
+      const batch = await awaitWithSignal(
+        mapping.mapFactBatch(candidate.facts.slice(offset, offset + 20)),
+        context.signal,
+      );
+      await commitBatch({ kind: 'values', values: batch.values });
     }
 
-    ensure(selected, 'Mapping produced no selection');
-    await transaction(this.pool, async (db) => {
+    await database.transaction(this.pool, async (db) => {
       context.signal.throwIfAborted();
-      await markTarget(db, job, target.candidateId, 'mapped');
-      await bumpThing(db, job.ownerId, target.thingId);
+      await importsDb.markTargetStage(db, job, target.candidateId, 'mapped');
+      await thingsDb.bumpThing(db, job.ownerId, target.thingId);
     });
   }
 }

@@ -2,6 +2,168 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
+import { extractedThings, extractionBaseline } from './fixtures/imports.js';
+
+const context = () => ({ signal: new AbortController().signal, record: async () => {} });
+const jsonResponse = (data: unknown) =>
+  new Response(JSON.stringify(data), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+const output = (data: unknown) => ({
+  status: 'completed',
+  output: [
+    {
+      type: 'message',
+      content: [{ type: 'output_text', text: JSON.stringify(data) }],
+    },
+  ],
+});
+
+test('SDK extraction replays the labelled hob, van and combined-policy baseline without tools', async (t) => {
+  const subjects = Object.values(extractedThings);
+  let request = 0;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.store, false);
+    assert.equal(body.tools, undefined);
+    assert.equal(body.text.format.type, 'json_schema');
+    return jsonResponse(
+      output({ text: 'Synthetic source', metadata: null, candidates: [subjects[request++]] }),
+    );
+  });
+  const ai = new OpenAiImports('test-key', 'fixture');
+  for (const { source, expected: subject } of extractionBaseline) {
+    const result = await ai.extract(
+      { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from(source) },
+      [subject.categoryId],
+      context(),
+    );
+    assert.deepEqual(result.extractedThings, [subject]);
+  }
+  assert.equal(request, 3);
+});
+
+test('SDK mapping keeps registry results and reasoning in its conversation across fact batches', async (t) => {
+  let request = 0;
+  const reasoning = { type: 'reasoning', id: 'reason-1', summary: [], encrypted_content: 'opaque' };
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.store, false);
+    assert.equal(body.parallel_tool_calls, false);
+    request++;
+    if (request === 1)
+      return jsonResponse({
+        status: 'completed',
+        output: [
+          reasoning,
+          {
+            type: 'function_call',
+            name: 'search_field_sets',
+            call_id: 'call-1',
+            arguments: '{"categoryId":"appliances","terms":["Neff"]}',
+          },
+        ],
+      });
+    assert.ok(
+      body.input.some(
+        (entry: { encrypted_content?: string }) => entry.encrypted_content === 'opaque',
+      ),
+    );
+    assert.ok(
+      body.input.some(
+        (entry: { call_id?: string; output?: string }) =>
+          entry.call_id === 'call-1' && entry.output === '{"sets":[]}',
+      ),
+    );
+    if (request === 2) return jsonResponse(output({ setIds: [] }));
+    assert.ok(
+      body.input.some(
+        (entry: { content?: { text?: string }[] }) =>
+          Array.isArray(entry.content) && entry.content.some((c) => c.text?.includes('setIds')),
+      ),
+    );
+    return jsonResponse(output({ values: [] }));
+  });
+  const session = await new OpenAiImports('test-key', 'fixture').selectFieldSets(
+    extractedThings.neff,
+    {
+      searchFieldSets: async () => ({ sets: [] }),
+      searchFields: async () => assert.fail('unexpected tool'),
+    },
+    context(),
+  );
+  assert.deepEqual(session.setIds, []);
+  for (const fact of extractedThings.neff.facts)
+    assert.deepEqual(await session.mapFactBatch([fact]), { values: [] });
+  assert.equal(request, 4);
+});
+
+test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP errors without transport retries', async (t) => {
+  const source = {
+    filename: 'source.txt',
+    mediaType: 'text/plain',
+    content: Buffer.from('synthetic'),
+  };
+  const fetch = t.mock.method(globalThis, 'fetch', async () =>
+    jsonResponse({ status: 'incomplete', output: [] }),
+  );
+  const ai = new OpenAiImports('test-key', 'fixture');
+  await assert.rejects(ai.extract(source, ['other'], context()), /incomplete/);
+  fetch.mock.mockImplementation(async () =>
+    jsonResponse({
+      status: 'completed',
+      output: [
+        {
+          type: 'function_call',
+          name: 'search_field_sets',
+          call_id: 'call-1',
+          arguments: '{"categoryId":"appliances"}',
+        },
+      ],
+    }),
+  );
+  await assert.rejects(
+    ai.selectFieldSets(
+      extractedThings.neff,
+      {
+        searchFieldSets: async () => assert.fail('invalid arguments executed'),
+        searchFields: async () => ({}),
+      },
+      context(),
+    ),
+    /Invalid registry tool arguments/,
+  );
+  fetch.mock.mockImplementation(
+    async () =>
+      new Response('{"error":{"message":"private source text"}}', {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+  );
+  await assert.rejects(ai.extract(source, ['other'], context()), { message: 'ai_http_429' });
+  assert.equal(fetch.mock.callCount(), 3);
+});
+
+test('SDK import cancellation reaches the request signal', async (t) => {
+  const controller = new AbortController();
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url: unknown, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal!.addEventListener('abort', () => reject(init.signal!.reason), { once: true });
+        controller.abort(new Error('cancelled'));
+      }),
+  );
+  await assert.rejects(
+    new OpenAiImports('test-key', 'fixture').extract(
+      { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from('synthetic') },
+      ['other'],
+      { ...context(), signal: controller.signal },
+    ),
+    /cancelled/,
+  );
+});
 
 test('discovery retains opened PDF URLs and structures a cited product identity', async (t) => {
   const source = 'https://manufacturer.example/oven';
@@ -57,6 +219,7 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
                 },
               ],
       }),
+      { headers: { 'Content-Type': 'application/json' } },
     );
   });
   const ai = new OpenAiImports('test-key', 'test-model');
@@ -65,8 +228,6 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       id: 'candidate-1',
       name: 'Bosch SYNTHETIC/01',
       categoryId: 'appliances',
-      terms: [],
-      facts: [],
     },
     {
       signal: new AbortController().signal,

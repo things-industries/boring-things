@@ -1,8 +1,8 @@
-import { execute } from '../connection.js';
+import * as database from '../connection.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import { page, pageResult } from '../../application/pagination.js';
 import type { Schema, ThingData } from '../../../../shared/model.js';
-import { rows, type Database } from '../connection.js';
+import type { Database } from '../connection.js';
 import { ensure } from '../../application/errors.js';
 
 export type ThingRow = Omit<Schema['ThingSummary'], 'tagIds'> & {
@@ -10,15 +10,15 @@ export type ThingRow = Omit<Schema['ThingSummary'], 'tagIds'> & {
   data: ThingData;
 };
 
-export async function ownedThing(
+export async function getOwnedThingOrThrow(
   db: Database,
   owner: string,
   id: string,
-  lock = false,
+  options: { lock?: boolean } = {},
 ): Promise<ThingRow> {
-  const [thing] = await rows<ThingRow>(
+  const [thing] = await database.rows<ThingRow>(
     db,
-    `select id,owner_id,category_id,name,description,data,image_attachment_id,is_sample,created_at,updated_at,access_count,last_viewed_at,revision::integer from bt.things where id=$1 and owner_id=$2 ${lock ? 'for update' : ''}`,
+    `select id,owner_id,category_id,name,description,data,image_attachment_id,is_sample,created_at,updated_at,access_count,last_viewed_at,revision::integer from bt.things where id=$1 and owner_id=$2 ${options.lock ? 'for update' : ''}`,
     [id, owner],
   );
   ensure(thing, 'Thing not found', 'NOT_FOUND');
@@ -26,13 +26,14 @@ export async function ownedThing(
 }
 
 export async function bumpThing(db: Database, owner: string, id: string) {
-  await execute(db, 'update bt.things set revision=revision+1 where id=$1 and owner_id=$2', [
-    id,
-    owner,
-  ]);
+  await database.execute(
+    db,
+    'update bt.things set revision=revision+1 where id=$1 and owner_id=$2',
+    [id, owner],
+  );
 }
 
-export async function relatedIds(db: Database, owner: string, id: string) {
+export async function getThingRelatedIds(db: Database, owner: string, id: string) {
   const result: Record<string, string[]> = {};
 
   for (const [key, table, column] of [
@@ -44,7 +45,7 @@ export async function relatedIds(db: Database, owner: string, id: string) {
     ['conversationIds', 'conversations', 'id'],
   ]) {
     result[key] = (
-      await rows<{ id: string }>(
+      await database.rows<{ id: string }>(
         db,
         `select ${column} as id from bt.${table} where thing_id=$1 and owner_id=$2 order by ${column}`,
         [id, owner],
@@ -70,7 +71,7 @@ export async function listThings(
     RECENTLY_VIEWED: 'last_viewed_at desc nulls last,id',
     MOST_VIEWED: 'access_count desc,last_viewed_at desc nulls last,id',
   }[query.sort ?? 'UPDATED'];
-  const result = await rows<Schema['ThingSummary']>(
+  const result = await database.rows<Schema['ThingSummary']>(
     db,
     `select t.*,revision::integer, coalesce((select jsonb_agg(tag_id order by tag_id) from bt.thing_tags where thing_id=t.id),'[]') as tag_ids from bt.things t where owner_id=$1 and ($2::text is null or category_id=$2) and ($3::uuid is null or exists(select 1 from bt.thing_tags where thing_id=t.id and tag_id=$3)) and ($4='' or strpos(lower(name || ' ' || description),lower($4))>0) order by ${order} limit $5 offset $6`,
     [owner, query.categoryId ?? null, query.tagId ?? null, query.q ?? '', limit + 1, offset],
@@ -107,12 +108,12 @@ export async function insertThing(
   owner: string,
   input: ThingWrite & Pick<Schema['ThingCreate'], 'id'>,
 ): Promise<ThingRow> {
-  const [created] = await rows<{ id: string }>(
+  const [created] = await database.rows<{ id: string }>(
     db,
     'insert into bt.things(owner_id,category_id,name,description,data,id) values($1,$2,$3,$4,$5,coalesce($6::uuid,gen_random_uuid())) returning id',
     [owner, input.categoryId, input.name, input.description, JSON.stringify(input.data), input.id],
   );
-  return ownedThing(db, owner, created.id);
+  return getOwnedThingOrThrow(db, owner, created.id);
 }
 export async function updateThing(
   db: Database,
@@ -120,7 +121,7 @@ export async function updateThing(
   id: string,
   input: ThingWrite,
 ): Promise<void> {
-  await execute(
+  await database.execute(
     db,
     'update bt.things set name=$1,description=$2,category_id=$3,data=$4,image_attachment_id=$5,revision=revision+1 where id=$6 and owner_id=$7',
     [
@@ -135,7 +136,7 @@ export async function updateThing(
   );
 }
 export async function deleteThing(db: Database, owner: string, id: string): Promise<void> {
-  await execute(db, 'delete from bt.things where id=$1 and owner_id=$2', [id, owner]);
+  await database.execute(db, 'delete from bt.things where id=$1 and owner_id=$2', [id, owner]);
 }
 export async function saveThingData(
   db: Database,
@@ -143,7 +144,7 @@ export async function saveThingData(
   id: string,
   data: ThingData,
 ): Promise<void> {
-  await execute(
+  await database.execute(
     db,
     'update bt.things set data=$1,revision=revision+1 where id=$2 and owner_id=$3',
     [JSON.stringify(data), id, owner],
@@ -155,7 +156,7 @@ export async function renameThing(
   id: string,
   name: string,
 ): Promise<void> {
-  await execute(
+  await database.execute(
     db,
     'update bt.things set name=$1,revision=revision+1 where id=$2 and owner_id=$3',
     [name, id, owner],
@@ -167,7 +168,7 @@ export async function recordThingView(
   owner: string,
   id: string,
 ): Promise<Schema['ThingAccess']> {
-  const [access] = await rows<Schema['ThingAccess']>(
+  const [access] = await database.rows<Schema['ThingAccess']>(
     db,
     'update bt.things set access_count=access_count+1,last_viewed_at=clock_timestamp() where id=$1 and owner_id=$2 returning access_count,last_viewed_at',
     [id, owner],

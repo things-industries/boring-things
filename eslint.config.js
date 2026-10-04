@@ -3,7 +3,14 @@ import ts from 'typescript-eslint';
 
 export default ts.config(
   {
-    ignores: ['node_modules/**', 'dist/**', '.angular/**', 'shared/api.ts', 'supabase/**'],
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      '.angular/**',
+      'shared/api.ts',
+      'server/src/providers/ai/schema-types.ts',
+      'supabase/**',
+    ],
   },
   js.configs.recommended,
   ...ts.configs.recommended,

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { emptyData, type ThingData, type StoredValue } from '../../../shared/model.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { fields, sets, seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { Registry } from '../../src/application/registry/registry.js';
 import { patchData, projectData, revealValue } from '../../src/application/thing-data.js';
 
@@ -20,12 +20,12 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-  const database = 'bt_test_' + randomUUID().replaceAll('-', '');
-  const admin = createPool(url.toString());
-  url.pathname = '/' + database;
-  const pool = createPool(url.toString());
+  const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
+  const admin = database.createPool(url.toString());
+  url.pathname = '/' + databaseName;
+  const pool = database.createPool(url.toString());
   try {
-    await admin.query(`create database ${database}`);
+    await admin.query(`create database ${databaseName}`);
     const directory = new URL('../../../supabase/migrations/', import.meta.url);
     for (const file of (await readdir(directory))
       .filter((f) => f.endsWith('.sql') && f < migration)
@@ -159,7 +159,7 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     await add('untouched', 'other', {});
     const sql = await readFile(new URL(migration, directory), 'utf8');
     await pool.query(sql);
-    const registry = new Registry(fields, sets);
+    const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
     async function get(name: string) {
       const row = (
         await pool.query<{ data: ThingData; revision: string }>(
@@ -289,7 +289,7 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     const migrated = await snapshot();
     assert.equal(migrated.fields.length, 413);
     assert.equal(migrated.sets.length, 165);
-    await transaction(pool, seedRegistry);
+    await database.transaction(pool, registrySeedDb.seedRegistry);
     assert.deepEqual(
       await snapshot(),
       migrated,
@@ -303,7 +303,7 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     );
   } finally {
     await pool.end();
-    await admin.query(`drop database if exists ${database} with (force)`);
+    await admin.query(`drop database if exists ${databaseName} with (force)`);
     await admin.end();
   }
 });
