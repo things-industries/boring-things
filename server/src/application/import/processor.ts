@@ -277,7 +277,20 @@ export class ImportProcessor {
           ],
         });
 
-        return result;
+        return {
+          results: result.results.map(({ label, fields, truncated }) => ({
+            label,
+            fields: fields.map(({ id, name, description, schema, sensitive }) => ({
+              id,
+              name,
+              description,
+              schema,
+              sensitive,
+            })),
+            truncated,
+          })),
+          truncated: result.truncated,
+        };
       },
     };
     // Retain every extracted fact before mapping, so unmapped facts survive a failed or partial provider response.
@@ -315,15 +328,24 @@ export class ImportProcessor {
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     };
 
-    const mapping = await awaitWithSignal(
+    const selection = await awaitWithSignal(
       this.ai!.selectFieldSets(candidate, tools, context),
       context.signal,
     );
-    await commitBatch({ kind: 'sets', setIds: mapping.setIds });
+    await commitBatch({ kind: 'sets', setIds: selection.setIds });
+    const selectedSets = this.registry
+      .expand(selection.setIds, candidate.categoryId)
+      .map((id) => this.registry.sets.get(id)!);
     for (let offset = 0; offset < candidate.facts.length; offset += 20) {
+      calls = 0;
+      const facts = candidate.facts.slice(offset, offset + 20);
       const batch = await awaitWithSignal(
-        mapping.mapFactBatch(candidate.facts.slice(offset, offset + 20)),
+        this.ai!.mapFacts(candidate, facts, selectedSets, tools, context),
         context.signal,
+      );
+      ensure(
+        batch.values.every((entry) => facts.some((fact) => fact.id === entry.factId)),
+        'Mapped fact outside batch',
       );
       await commitBatch({ kind: 'values', values: batch.values });
     }

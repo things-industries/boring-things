@@ -2,12 +2,13 @@ import type {
   ExtractedThing,
   Extraction,
   ImportAi,
-  MappingSession,
+  Fact,
   MappingValue,
   Source,
   RegistryTools,
   AiContext,
 } from '../../src/application/import/types.js';
+import type { FieldSet } from '../../../shared/model.js';
 // Synthetic replay fixtures. Live provider observations are recorded separately by the smoke script.
 const fact = (
   id: string,
@@ -82,63 +83,64 @@ export class FixtureAi implements ImportAi {
       ...(this.metadata ? { metadata: this.metadata } : {}),
     });
   }
-  async selectFieldSets(
-    candidate: ExtractedThing,
+  async selectFieldSets(candidate: ExtractedThing, tools: RegistryTools) {
+    await tools.searchFieldSets(candidate.categoryId, candidate.terms);
+    return { setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId] };
+  }
+  async mapFacts(
+    thing: ExtractedThing,
+    facts: Fact[],
+    _selectedSets: FieldSet[],
     tools: RegistryTools,
     context: AiContext,
-  ): Promise<MappingSession> {
-    await tools.searchFieldSets(candidate.categoryId, candidate.terms);
-    return {
-      setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId],
-      mapFactBatch: async () => {
-        if (this.pause) await this.pause;
-        if (this.exhaustTools)
-          for (let i = 0; i < 5; i++)
-            await tools.searchFields([{ label: 'Installer reference', context: '' }]);
-        if (this.failOnce) {
-          this.failOnce = false;
-          throw new Error('synthetic interrupted mapping');
-        }
-        const values: MappingValue[] =
-          candidate.categoryId === 'appliances'
-            ? [
-                {
-                  factId: 'fact-1',
-                  fieldSetId: 'appliances.neff',
-                  fieldId: 'appliances.zNumber',
-                  value: '0015',
-                  pin: true,
-                },
-              ]
-            : candidate.categoryId === 'vehicles'
-              ? [
-                  {
-                    factId: 'fact-1',
-                    fieldSetId: 'vehicles.van',
-                    fieldId: 'vehicles.payloadKg',
-                    value: 1200,
-                    pin: true,
-                  },
-                ]
-              : ['buildings', 'contents'].map((part, i) => ({
-                  factId: `fact-${i + 1}`,
-                  fieldSetId: `insurance.${part}`,
-                  fieldId: 'insurance.sumInsured',
-                  value: candidate.facts[i].value,
-                  pin: false,
-                }));
-        await context.record({
-          inputTokens: 100,
-          outputTokens: 30,
-          cachedTokens: 20,
-          model: 'fixture',
-        });
+  ): Promise<{ values: MappingValue[] }> {
+    const categoryId = thing.categoryId;
+    if (this.pause) await this.pause;
+    if (this.exhaustTools)
+      for (let i = 0; i < 5; i++)
+        await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    if (this.failOnce) {
+      this.failOnce = false;
+      throw new Error('synthetic interrupted mapping');
+    }
+    const values: MappingValue[] =
+      categoryId === 'appliances'
+        ? [
+            {
+              factId: 'fact-1',
+              fieldSetId: 'appliances.neff',
+              fieldId: 'appliances.zNumber',
+              value: '0015',
+              pin: true,
+            },
+          ]
+        : categoryId === 'vehicles'
+          ? [
+              {
+                factId: 'fact-1',
+                fieldSetId: 'vehicles.van',
+                fieldId: 'vehicles.payloadKg',
+                value: 1200,
+                pin: true,
+              },
+            ]
+          : ['buildings', 'contents'].map((part, i) => ({
+              factId: `fact-${i + 1}`,
+              fieldSetId: `insurance.${part}`,
+              fieldId: 'insurance.sumInsured',
+              value: facts[i].value,
+              pin: false,
+            }));
+    await context.record({
+      inputTokens: 100,
+      outputTokens: 30,
+      cachedTokens: 20,
+      model: 'fixture',
+    });
 
-        if (candidate.categoryId === 'appliances')
-          await tools.searchFields([{ label: 'Installer reference', context: '' }]);
-        return { values };
-      },
-    };
+    if (categoryId === 'appliances')
+      await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    return { values };
   }
   async extractDocument() {
     return { applicable: false, applicability: null, values: [] };

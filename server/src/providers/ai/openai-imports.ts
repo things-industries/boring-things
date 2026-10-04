@@ -17,7 +17,8 @@ import type {
   Discovery,
   Extraction,
   ImportAi,
-  MappingSession,
+  Fact,
+  MappingValue,
   RegistryTools,
   Source,
   ReferenceDocument,
@@ -25,6 +26,7 @@ import type {
   DocumentExtraction,
 } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
+import type { FieldSet } from '../../../../shared/model.js';
 
 const ajv = new Ajv({ strict: false });
 const functions = schemas.registryTools as Tool[];
@@ -144,18 +146,24 @@ export class OpenAiImports implements ImportAi {
   }
 
   private async runRegistryConversation<T>(
-    conversation: ResponseInput,
+    input: Readonly<ResponseInput>,
     schema: object,
     tools: RegistryTools,
     context: AiContext,
   ): Promise<T> {
+    const conversation: ResponseInput = [...input];
     for (let round = 0; round < 32; round++) {
       const result = await this.requestResponse(
         conversation,
         context,
         {
           text: this.outputFormat(schema),
-          tools: functions,
+          tools:
+            schema === schemas.$defs.mapping
+              ? functions.filter(
+                  (tool) => tool.type === 'function' && tool.name === 'search_fields',
+                )
+              : functions,
           parallel_tool_calls: false,
           include: ['reasoning.encrypted_content'],
         },
@@ -221,28 +229,27 @@ export class OpenAiImports implements ImportAi {
     extractedThing: ExtractedThing,
     tools: RegistryTools,
     context: AiContext,
-  ): Promise<MappingSession> {
-    const conversation: ResponseInput = [
-      { role: 'user', content: prompts.selectFieldSetsPrompt(extractedThing) },
-    ];
-    const selected = await this.runRegistryConversation<Outputs['Selection']>(
-      conversation,
+  ): Promise<{ setIds: string[] }> {
+    return this.runRegistryConversation<Outputs['Selection']>(
+      [{ role: 'user', content: prompts.selectFieldSetsPrompt(extractedThing) }],
       schemas.$defs.selection,
       tools,
       context,
     );
-    return {
-      setIds: selected.setIds,
-      mapFactBatch: async (facts) => {
-        conversation.push({ role: 'user', content: prompts.mapFactBatchPrompt(selected, facts) });
-        return this.runRegistryConversation<Outputs['Mapping']>(
-          conversation,
-          schemas.$defs.mapping,
-          tools,
-          context,
-        );
-      },
-    };
+  }
+  async mapFacts(
+    thing: ExtractedThing,
+    facts: Fact[],
+    selectedSets: FieldSet[],
+    tools: RegistryTools,
+    context: AiContext,
+  ): Promise<{ values: MappingValue[] }> {
+    return this.runRegistryConversation<Outputs['Mapping']>(
+      [{ role: 'user', content: prompts.mapFactsPrompt(thing, facts, selectedSets) }],
+      schemas.$defs.mapping,
+      tools,
+      context,
+    );
   }
   async discover(
     candidate: ResearchContext,

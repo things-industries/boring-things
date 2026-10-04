@@ -48,24 +48,30 @@ const recorded: ImportAi = {
         return result;
       },
     };
-    const mapping = await ai.selectFieldSets(candidate, tracedTools, context);
+    const selection = await ai.selectFieldSets(candidate, tracedTools, context);
     trace.push({
       stage: 'mapping',
       candidate: candidate.id,
-      result: { kind: 'sets', setIds: mapping.setIds },
+      result: { kind: 'sets', ...selection },
     });
-    return {
-      setIds: mapping.setIds,
-      mapFactBatch: async (facts) => {
-        const result = await mapping.mapFactBatch(facts);
-        trace.push({
-          stage: 'mapping',
-          candidate: candidate.id,
-          result: { kind: 'values', ...result },
-        });
+    return selection;
+  },
+  async mapFacts(thing, facts, selectedSets, tools, context) {
+    const tracedTools = {
+      searchFieldSets: tools.searchFieldSets,
+      async searchFields(labels: { label: string; context: string }[]) {
+        const result = await tools.searchFields(labels);
+        trace.push({ tool: 'search_fields', labels, result });
         return result;
       },
     };
+    const result = await ai.mapFacts(thing, facts, selectedSets, tracedTools, context);
+    trace.push({
+      stage: 'mapping',
+      factIds: facts.map((fact) => fact.id),
+      result: { kind: 'values', ...result },
+    });
+    return result;
   },
   async discover(candidate, context, focus, searchCalls) {
     const result = await ai.discover(candidate, context, focus, searchCalls);

@@ -5,17 +5,20 @@
   "$defs": {
     "extraction": {
       "type": "object",
+      "description": "Transcription, document metadata and source-supported Things extracted from the uploaded material.",
       "additionalProperties": false,
       "properties": {
         "metadata": {
+          "description": "Information about the uploaded source document as a whole.",
           "anyOf": [
             {
               "type": "object",
+              "description": "Information about the uploaded source document as a whole.",
               "additionalProperties": false,
               "properties": {
                 "title": {
                   "type": ["string", "null"],
-                  "description": "Display title; null displays the original filename.",
+                  "description": "Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars).",
                   "minLength": 1,
                   "maxLength": 200
                 },
@@ -30,284 +33,293 @@
                     "OTHER",
                     null
                   ],
-                  "description": "document Type."
+                  "description": "Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown."
                 },
                 "publisher": {
                   "type": ["string", "null"],
-                  "description": "Manufacturer, retailer or organisation that issued the document.",
+                  "description": "Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars).",
                   "minLength": 1,
                   "maxLength": 200
                 },
                 "documentDate": {
                   "type": ["string", "null"],
-                  "description": "Original document date as YYYY-MM-DD when supported, otherwise null."
+                  "format": "date",
+                  "description": "Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date."
                 }
               },
-              "required": ["title", "documentType", "publisher", "documentDate"],
-              "description": "Document metadata supported by source evidence; null when unavailable."
+              "required": ["title", "documentType", "publisher", "documentDate"]
             },
             {
-              "type": "null",
-              "description": "Document metadata supported by source evidence; null when unavailable."
+              "type": "null"
             }
           ]
         },
         "text": {
           "type": "string",
-          "description": "Readable source transcription."
+          "description": "Transcription of all readable content from the source document, preserving labels, identifiers and surrounding context."
         },
         "candidates": {
           "type": "array",
+          "description": "Up to four distinct Things that can be identified in the source, with facts grouped by the thing they describe.  Identifying one thing in the source is typical.",
           "items": {
             "type": "object",
+            "description": "One Thing and the facts belonging to it.",
             "additionalProperties": false,
             "properties": {
               "id": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "Generated identifier unique within this extraction."
               },
               "name": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "Short everyday name, incorporating elements like brand/manufacturer/provider, product or type, and purpose or context, as appropriate.  Good examples are 'Bosch Oven' or 'Apple iPhone 8'.  Specificity of names should be guided by how likely it is for a person to own more than one (be more specific about iPhones than ovens).  A water utility contract could be '<company name> for <address>', since the address is important context for a contract tied to a property.  Avoid secrets, model codes and serial numbers."
               },
               "categoryId": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "One category ID copied from the category list, chosen for this Thing with its spelling preserved."
               },
               "terms": {
                 "type": "array",
+                "description": "Key words from the source material that relate to the Thing, with at most 20 terms of at most 200 characters each.  Type, brand, provider, product or model identifiers are typical terms.  Avoid secrets and individual identifiers.",
+                "maxItems": 20,
                 "items": {
                   "type": "string",
-                  "description": "Readable source transcription."
-                },
-                "description": "terms."
+                  "maxLength": 200,
+                  "description": "One  term, such as a brand, product type or model identifier."
+                }
               },
               "facts": {
                 "type": "array",
                 "items": {
                   "type": "object",
+                  "description": "One observed attribute of this Thing",
                   "additionalProperties": false,
                   "properties": {
                     "id": {
                       "type": "string",
-                      "description": "Readable source transcription."
+                      "description": "Local generated identifier unique within this thing candidate, such as \"fact-1\"."
                     },
                     "label": {
                       "type": "string",
-                      "description": "Readable source transcription."
+                      "description": "Short attribute label as defined in the source, or a descriptive label when none is printed, such as \"Model number\" or \"Renewal date\", preserving distinctions between model, production and serial identifiers.",
+                      "maxLength": 50
                     },
                     "value": {
+                      "description": "Value of this fact, as defined in the source, represented as text, number, boolean or money, with explicit false, zero and empty text preserved.",
                       "anyOf": [
                         {
                           "type": "string",
-                          "description": "Readable source transcription."
+                          "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings."
                         },
                         {
                           "type": "number",
-                          "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                          "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
                         },
                         {
                           "type": "boolean",
-                          "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                          "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
                         },
                         {
+                          "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
                           "type": "object",
                           "additionalProperties": false,
                           "properties": {
                             "amountMinor": {
                               "type": "integer",
                               "minimum": 0,
-                              "description": "amount Minor."
+                              "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
                             },
                             "currency": {
                               "type": "string",
                               "enum": ["GBP", "EUR", "USD"],
-                              "description": "currency."
+                              "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
                             }
                           },
-                          "required": ["amountMinor", "currency"],
-                          "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                          "required": ["amountMinor", "currency"]
                         }
                       ]
                     },
                     "quote": {
                       "type": "string",
-                      "description": "Readable source transcription."
+                      "description": "Verbatim source excerpt supporting this label and value, including surrounding text needed to interpret it, at most 2000 characters.",
+                      "maxLength": 2000
                     },
                     "page": {
                       "type": ["integer", "null"],
-                      "description": "One-based source page when available; null otherwise."
+                      "description": "One-based source page containing the supporting quote, supported by source page information; null when unavailable.",
+                      "minimum": 1
                     },
                     "sensitive": {
                       "type": "boolean",
-                      "description": "Whether the fact contains a secret requiring masking."
+                      "description": "Sensitivity flag: true for passwords, access codes and other secrets that require masking; false for facts that do not contain a secret."
                     }
                   },
-                  "required": ["id", "label", "value", "quote", "page", "sensitive"],
-                  "description": "facts."
+                  "required": ["id", "label", "value", "quote", "page", "sensitive"]
                 },
-                "description": "facts."
+                "description": "Up to 100 source-supported facts belonging to this Thing, each with its own label, typed value and supporting quote, with manufacturer, model, production code and serial number represented as separate facts."
               }
             },
-            "required": ["id", "name", "categoryId", "terms", "facts"],
-            "description": "Identified source subjects, preserving the provider wire representation."
-          },
-          "description": "Identified source subjects, preserving the provider wire representation."
+            "required": ["id", "name", "categoryId", "terms", "facts"]
+          }
         }
       },
-      "required": ["metadata", "text", "candidates"],
-      "description": "result."
+      "required": ["metadata", "text", "candidates"]
     },
     "selection": {
+      "description": "Data fieldsets that are applicable to the thing",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "setIds": {
           "type": "array",
+          "description": "Eligible field-set IDs returned by search_field_sets, including mandatory included sets and applicable considerAlongside suggestions; an empty array when no set applies.",
           "items": {
             "type": "string",
-            "description": "Readable source transcription."
-          },
-          "description": "terms."
+            "description": "Field-set ID copied from registry results, with its spelling preserved."
+          }
         }
       },
-      "required": ["setIds"],
-      "description": "result."
+      "required": ["setIds"]
     },
     "mapping": {
+      "description": "Facts derived from a source document, mapped to fields in known and selected fieldsets or known fields from the field registry.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "values": {
           "type": "array",
+          "description": "Mappings for this set of facts, supported by clearly observed relationships between the fact and the definition of the target field.",
           "items": {
+            "description": "One fact mapped to a registry field at its selected set or standalone address.",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "factId": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "ID copied from the supplied fact batch for the fact supporting this value."
               },
               "fieldSetId": {
                 "type": ["string", "null"],
-                "description": "Selected field-set address; null for a standalone field."
+                "description": "ID of the field set containing this field; null for a standalone field definition returned by search_fields."
               },
               "fieldId": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "Field definition ID copied from the selected set definitions or search_fields results. The field must belong to the specified set when fieldSetId is present."
               },
               "value": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "description": "Readable source transcription."
+                    "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings. Dates are formatted YYYY-MM-DD only when the full date is supported, following the target field format when supplied."
                   },
                   {
                     "type": "number",
-                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                    "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
                   },
                   {
                     "type": "boolean",
-                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                    "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
                   },
                   {
+                    "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
                       "amountMinor": {
                         "type": "integer",
                         "minimum": 0,
-                        "description": "amount Minor."
+                        "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
                       },
                       "currency": {
                         "type": "string",
                         "enum": ["GBP", "EUR", "USD"],
-                        "description": "currency."
+                        "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
                       }
                     },
-                    "required": ["amountMinor", "currency"],
-                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                    "required": ["amountMinor", "currency"]
                   }
-                ]
+                ],
+                "description": "Value of the referenced fact, satisfying the target field schema, format and units, with its meaning and identifiers preserved and money or unit conversions supported by the source."
               },
               "pin": {
                 "type": "boolean",
-                "description": "Whether to suggest a non-sensitive pinned field."
+                "description": "Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   At most three suggestions."
               }
             },
-            "required": ["factId", "fieldSetId", "fieldId", "value", "pin"],
-            "description": "values."
-          },
-          "description": "values."
+            "required": ["factId", "fieldSetId", "fieldId", "value", "pin"]
+          }
         }
       },
-      "required": ["values"],
-      "description": "result."
+      "required": ["values"]
     },
     "discovery": {
+      "description": "Cited identity and recommendations supported by the research report and supplied retrieved URLs.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "identity": {
           "anyOf": [
             {
+              "description": "Everyday name established by a retrieved source for the researched subject.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "name": {
                   "type": "string",
-                  "description": "Readable source transcription."
+                  "description": "Short brand or provider plus everyday Thing type, such as \"Bosch Oven\", excluding model codes, marketing features, serial numbers and secrets."
                 },
                 "sourceUrl": {
                   "type": "string",
-                  "description": "Readable source transcription."
+                  "description": "URL copied from the supplied retrieved URL list whose content establishes the subject identity and type."
                 }
               },
-              "required": ["name", "sourceUrl"],
-              "description": "identity."
+              "required": ["name", "sourceUrl"]
             },
             {
               "type": "null",
-              "description": "identity."
+              "description": "Null when the cited research cannot establish an everyday Thing name."
             }
-          ]
+          ],
+          "description": "Source-supported everyday Thing name with evidence identifying the subject; null when the research does not establish the identity."
         },
         "items": {
           "type": "array",
           "items": {
+            "description": "One cited resource, maintenance suggestion or compatible product for the researched Thing.",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "kind": {
                 "type": "string",
                 "enum": ["reference", "maintenance", "consumable", "accessory", "upgrade"],
-                "description": "kind."
+                "description": "Resource kind: reference for an applicable downloadable PDF, maintenance for a supported care or servicing task, consumable for a replacement supply, accessory for an add-on, or upgrade for a supported improvement product."
               },
               "title": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "Short display title for the document, maintenance task or product, using source-supported wording, at most 200 characters."
               },
               "description": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "Summary of the resource or suggested action and why it applies to this Thing, including supported compatibility or maintenance details, excluding prices and unsupported claims, at most 4000 characters."
               },
               "url": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "URL copied from the supplied retrieved URL list: the direct downloadable PDF URL for reference, supporting instructions for maintenance, or a merchant product page for products."
               },
               "sourceUrl": {
                 "type": "string",
-                "description": "Readable source transcription."
+                "description": "URL copied from the supplied retrieved URL list whose content supports applicability, the maintenance task or product compatibility. It may equal url when that resource provides the evidence."
               },
               "metadata": {
                 "anyOf": [
                   {
+                    "description": "Source-supported metadata describing the cited reference document.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
                       "title": {
                         "type": ["string", "null"],
-                        "description": "Display title; null displays the original filename.",
+                        "description": "Short descriptive document title, such as \"Oven user manual\", excluding account numbers, serial numbers and secrets; null when unsupported (min 1 char, max 200 chars).",
                         "minLength": 1,
                         "maxLength": 200
                       },
@@ -322,133 +334,135 @@
                           "OTHER",
                           null
                         ],
-                        "description": "document Type."
+                        "description": "Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown."
                       },
                       "publisher": {
                         "type": ["string", "null"],
-                        "description": "Manufacturer, retailer or organisation that issued the document.",
+                        "description": "Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars).",
                         "minLength": 1,
                         "maxLength": 200
                       },
                       "documentDate": {
                         "type": ["string", "null"],
-                        "description": "Original document date as YYYY-MM-DD when supported, otherwise null."
+                        "description": "Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date."
                       }
                     },
-                    "required": ["title", "documentType", "publisher", "documentDate"],
-                    "description": "Document metadata supported by source evidence; null when unavailable."
+                    "required": ["title", "documentType", "publisher", "documentDate"]
                   },
                   {
                     "type": "null",
-                    "description": "Document metadata supported by source evidence; null when unavailable."
+                    "description": "Null for non-reference items or when the cited source supports no document metadata."
                   }
-                ]
+                ],
+                "description": "Metadata supported by the cited reference document; null for other item kinds or when no metadata is supported, with null for each unknown property."
               }
             },
-            "required": ["kind", "title", "description", "url", "sourceUrl", "metadata"],
-            "description": "items."
+            "required": ["kind", "title", "description", "url", "sourceUrl", "metadata"]
           },
-          "description": "items."
+          "description": "Up to eight cited reference documents, maintenance tasks or compatible products, supported by retrieved evidence, with retrieved merchant pages for products."
         }
       },
-      "required": ["identity", "items"],
-      "description": "result."
+      "required": ["identity", "items"]
     },
     "documentExtraction": {
+      "description": "Applicability evidence and supported requested field values from one supplied reference document.",
       "type": "object",
-      "description": "Applicability and supported values from one reference document for the requested Thing and field addresses.",
       "additionalProperties": false,
       "properties": {
         "applicable": {
           "type": "boolean",
-          "description": "True only when document evidence establishes matching subject, variant, region, language and version where relevant."
+          "description": "Document applicability flag: true only when document evidence establishes the matching subject, variant, region, language and version where relevant; false with null applicability and an empty values array when evidence is insufficient or conflicting."
         },
         "applicability": {
           "anyOf": [
             {
+              "description": "Source evidence establishing applicability to the requested Thing.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "page": {
                   "type": "integer",
                   "minimum": 1,
-                  "description": "One-based page in this document."
+                  "description": "One-based page in the supplied document containing the applicability quote, numbered from the first document page."
                 },
                 "quote": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 2000,
-                  "description": "Verbatim evidence from the cited page."
+                  "description": "Verbatim excerpt from the cited page establishing the subject or variant and relevant applicability conditions (min 1 char, max 2000 chars)."
                 }
               },
               "required": ["page", "quote"]
             },
             {
-              "type": "null"
+              "type": "null",
+              "description": "Null when document applicability is unproven or contradicted."
             }
           ],
-          "description": "Evidence establishing applicability; null when the document does not apply."
+          "description": "Page and verbatim quote establishing that this document covers the requested Thing; required when applicable is true, null when applicable is false."
         },
         "values": {
           "type": "array",
           "maxItems": 20,
-          "description": "Supported requested fields; unsupported values remain absent.",
+          "description": "Supported values for the requested field addresses, at most one per address, excluding unsupported values and individual identifiers inferred from public terms; an empty array when the document is inapplicable.",
           "items": {
+            "description": "One requested field value established by a quote from the applicable document.",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "fieldSetId": {
                 "type": ["string", "null"],
-                "description": "Requested set address; null for standalone fields."
+                "description": "Field-set ID copied from the requested target address; null when that target is standalone."
               },
               "fieldId": {
                 "type": "string",
-                "description": "Requested field definition ID."
+                "description": "Field definition ID copied from the requested targets, forming a requested address."
               },
               "value": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "description": "Readable source transcription."
+                    "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings. Dates are formatted YYYY-MM-DD only when the full date is supported, following the target field format when supplied."
                   },
                   {
                     "type": "number",
-                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                    "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
                   },
                   {
                     "type": "boolean",
-                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                    "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
                   },
                   {
+                    "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
                       "amountMinor": {
                         "type": "integer",
                         "minimum": 0,
-                        "description": "amount Minor."
+                        "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
                       },
                       "currency": {
                         "type": "string",
                         "enum": ["GBP", "EUR", "USD"],
-                        "description": "currency."
+                        "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
                       }
                     },
-                    "required": ["amountMinor", "currency"],
-                    "description": "Supported text, number, boolean or money in integer minor units. Identifiers remain strings."
+                    "required": ["amountMinor", "currency"]
                   }
-                ]
+                ],
+                "description": "Value established for this subject and variant by the cited document, satisfying the requested field schema, format, units and measurement basis."
               },
               "page": {
                 "type": "integer",
                 "minimum": 1,
-                "description": "One-based page in this document."
+                "description": "One-based page in the supplied document containing the value quote, numbered from the first document page."
               },
               "quote": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2000,
-                "description": "Verbatim evidence from the cited page."
+                "description": "Verbatim excerpt from the cited page supporting this value, its units and relevant conditions (min 1 char, max 2000 chars)."
               }
             },
             "required": ["fieldSetId", "fieldId", "value", "page", "quote"]
@@ -462,61 +476,61 @@
     {
       "type": "function",
       "name": "search_field_sets",
-      "description": "Search relevant specialist sets. Evaluate eligibility. Results include mandatory dependencies and optional alongside suggestions with definitions.",
+      "description": "Search for relevant specialist sets and their eligibility, returning mandatory dependencies and optional alongside suggestions with definitions.",
       "strict": true,
       "parameters": {
+        "description": "Category and source-supported terms used to find eligible field sets.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "categoryId": {
             "type": "string",
-            "description": "Readable source transcription."
+            "description": "Candidate category ID copied from the task context, defining the search scope."
           },
           "terms": {
             "type": "array",
             "items": {
               "type": "string",
-              "description": "Readable source transcription."
+              "description": "One source-supported registry search term, such as a product type, brand or model."
             },
-            "description": "Source-supported type, brand and model search terms."
+            "description": "Source-supported type, brand, provider, product and model terms relevant to field-set eligibility, excluding secrets and individual identifiers."
           }
         },
-        "required": ["categoryId", "terms"],
-        "description": "result."
+        "required": ["categoryId", "terms"]
       }
     },
     {
       "type": "function",
       "name": "search_fields",
-      "description": "Batch-search remaining observed fact labels and surrounding text for standalone field definitions.",
+      "description": "Batch search of remaining observed fact labels and surrounding text for standalone field definitions.",
       "strict": true,
       "parameters": {
+        "description": "Batch of unmatched fact labels and source context used to find standalone field definitions.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "labels": {
             "type": "array",
             "items": {
+              "description": "One unmatched attribute and the evidence needed to interpret its label.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "label": {
                   "type": "string",
-                  "description": "Readable source transcription."
+                  "description": "Attribute label copied from the observed fact, such as \"Serial number\" or \"Renewal date\"."
                 },
                 "context": {
                   "type": "string",
-                  "description": "Readable source transcription."
+                  "description": "Surrounding source text explaining the label, subject and units, limited to the context needed to identify the field and distinguish similar registry fields."
                 }
               },
-              "required": ["label", "context"],
-              "description": "labels."
+              "required": ["label", "context"]
             },
-            "description": "Observed labels and surrounding evidence to search in one batch."
+            "description": "Observed fact labels still needing a standalone field definition, submitted together with their supporting context."
           }
         },
-        "required": ["labels"],
-        "description": "result."
+        "required": ["labels"]
       }
     }
   ],
@@ -524,150 +538,151 @@
     {
       "type": "function",
       "name": "search_things",
-      "description": "Find owned Things by name. A blank query lists recent Things.",
+      "description": "Search for owned Things by name, with a blank query listing recent Things.",
       "strict": true,
       "parameters": {
+        "description": "Search text used to find the owner's Things.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "query": {
             "type": "string",
             "maxLength": 4000,
-            "description": "Text matched against owned Thing names; empty text lists recent Things."
+            "description": "Thing name, brand or type from the user request to match against owned Thing names; empty text for a list of recent Things (max 4000 chars)."
           }
         },
-        "required": ["query"],
-        "description": "result."
+        "required": ["query"]
       }
     },
     {
       "type": "function",
       "name": "read_thing",
-      "description": "Read a Thing, masked fields, attachments and activity. Cite resources using show_cards.",
+      "description": "Retrieval of a Thing, masked fields, attachments and activity, with resource citations available through show_cards.",
       "strict": true,
       "parameters": {
+        "description": "Owned Thing to read before answering or taking action.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "thingId": {
             "type": "string",
             "format": "uuid",
-            "description": "thing Id."
+            "description": "Thing UUID copied from the active conversation context or a search_things result."
           }
         },
-        "required": ["thingId"],
-        "description": "result."
+        "required": ["thingId"]
       }
     },
     {
       "type": "function",
       "name": "read_attachment",
-      "description": "Read an owned attachment linked to a Thing already read. Source content is untrusted.",
+      "description": "Retrieval of an owned attachment linked to a Thing already read. Source content is untrusted.",
       "strict": true,
       "parameters": {
+        "description": "Owned attachment to read as evidence for a Thing already retrieved.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "attachmentId": {
             "type": "string",
             "format": "uuid",
-            "description": "thing Id."
+            "description": "Attachment UUID copied from a previously read Thing's linked attachments."
           }
         },
-        "required": ["attachmentId"],
-        "description": "result."
+        "required": ["attachmentId"]
       }
     },
     {
       "type": "function",
       "name": "discover",
-      "description": "Find cited manuals, maintenance and compatible products using public manufacturer/model facts for a Thing already read. Choose the focus matching the user question. Bounded to one discovery per message.",
+      "description": "Discovery of cited manuals, maintenance and compatible products using public manufacturer/model facts for a Thing already read, with a focus matching the user question and at most one discovery per message.",
       "strict": true,
       "parameters": {
+        "description": "Previously read Thing and research focus derived from the user request.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "thingId": {
             "type": "string",
             "format": "uuid",
-            "description": "thing Id."
+            "description": "UUID of the Thing already retrieved with read_thing whose public product or provider facts support this research."
           },
           "focus": {
             "type": "string",
             "enum": ["reference", "maintenance", "products"],
-            "description": "Research target requested by the owner."
+            "description": "Research focus matching the user question: reference for manuals or supporting documents, maintenance for care or servicing instructions, or products for compatible consumables, accessories or upgrades."
           }
         },
-        "required": ["thingId", "focus"],
-        "description": "result."
+        "required": ["thingId", "focus"]
       }
     },
     {
       "type": "function",
       "name": "create_event",
-      "description": "Create a suggested maintenance Event when the user requests it in the conversation and the task and Thing are clear. Ask a follow-up if ambiguous. Never invent a date; the user schedules the card. At most one Event or Issue creation per message. Reuse completed writes on retry.",
+      "description": "Creation of a suggested maintenance Event requested by the user in the conversation for an identified task and Thing. Ambiguous requests require a follow-up. Scheduling is left to the user, with no invented date. At most one Event or Issue creation per message, with completed writes reused on retry.",
       "strict": true,
       "parameters": {
+        "description": "Suggested maintenance Event requested by the user for a Thing already read.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "thingId": {
             "type": "string",
             "format": "uuid",
-            "description": "thing Id."
+            "description": "UUID of the previously read Thing for which the user requested this task."
           },
           "title": {
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "Owner-requested task or problem title."
+            "description": "Short action title describing the user-requested maintenance or servicing task (min 1 char, max 200 chars)."
           },
           "description": {
             "type": "string",
             "maxLength": 4000,
-            "description": "query."
+            "description": "Task details and relevant instructions supported by the conversation and retrieved evidence; empty text when no further details are supported. The owner schedules the suggested Event (max 4000 chars)."
           }
         },
-        "required": ["thingId", "title", "description"],
-        "description": "result."
+        "required": ["thingId", "title", "description"]
       }
     },
     {
       "type": "function",
       "name": "create_issue",
-      "description": "Create an open Issue when the user requests it in the conversation and the problem and Thing are clear. A troubleshooting question alone does not request an Issue. Ask a follow-up if ambiguous. At most one Event or Issue creation per message. Reuse completed writes on retry.",
+      "description": "Creation of an open Issue requested by the user in the conversation for an identified problem and Thing. A troubleshooting question alone does not request an Issue. Ambiguous requests require a follow-up. At most one Event or Issue creation per message, with completed writes reused on retry.",
       "strict": true,
       "parameters": {
+        "description": "Open Issue requested by the user for a Thing already read.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "thingId": {
             "type": "string",
             "format": "uuid",
-            "description": "thing Id."
+            "description": "UUID of the previously read Thing for which the user requested this Issue."
           },
           "title": {
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "Owner-requested task or problem title."
+            "description": "Short title describing the user-reported problem to track (min 1 char, max 200 chars)."
           },
           "description": {
             "type": "string",
             "maxLength": 4000,
-            "description": "query."
+            "description": "Problem details supported by the conversation, such as symptoms, context and troubleshooting already tried, excluding unverified diagnoses; empty text when no further details are supported (max 4000 chars)."
           }
         },
-        "required": ["thingId", "title", "description"],
-        "description": "result."
+        "required": ["thingId", "title", "description"]
       }
     },
     {
       "type": "function",
       "name": "show_cards",
-      "description": "Cite previously read resources as typed interactive cards. Field IDs must belong to the Thing. Use null for irrelevant fields.",
+      "description": "Citations of previously read resources as typed interactive cards, with field IDs belonging to the Thing and null for irrelevant properties.",
       "strict": true,
       "parameters": {
+        "description": "Previously retrieved resources to cite in the assistant response.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -675,41 +690,40 @@
             "type": "array",
             "maxItems": 12,
             "items": {
+              "description": "One interactive citation to a retrieved record, field or attachment.",
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "type": {
                   "type": "string",
                   "enum": ["THING", "FIELD", "ATTACHMENT", "ISSUE", "EVENT", "PURCHASABLE"],
-                  "description": "type."
+                  "description": "Resource kind corresponding to the retrieved resource being cited: THING, FIELD, ATTACHMENT, ISSUE, EVENT or PURCHASABLE."
                 },
                 "id": {
                   "type": "string",
                   "format": "uuid",
-                  "description": "thing Id."
+                  "description": "UUID copied from tool results: the containing Thing's UUID for FIELD, or the cited resource's UUID for every other type."
                 },
                 "fieldSetId": {
                   "type": ["string", "null"],
-                  "description": "Selected field-set address; null for a standalone field."
+                  "description": "Field's set ID copied from the read Thing for FIELD; null for a standalone field or any other card type."
                 },
                 "fieldId": {
                   "type": ["string", "null"],
-                  "description": "Field identifier retrieved from registry tools."
+                  "description": "Field ID copied from the read Thing at the specified fieldSetId address for FIELD; null for all other card types."
                 },
                 "page": {
                   "type": ["integer", "null"],
                   "minimum": 1,
-                  "description": "One-based source page when available; null otherwise."
+                  "description": "One-based page supporting the answer for ATTACHMENT when known; null when the page is unknown or for another card type."
                 }
               },
-              "required": ["type", "id", "fieldSetId", "fieldId", "page"],
-              "description": "cards."
+              "required": ["type", "id", "fieldSetId", "fieldId", "page"]
             },
-            "description": "Previously read resources to cite as interactive cards."
+            "description": "Up to 12 cards citing resources retrieved in this conversation or returned by a completed write, with resource IDs copied from tool results and only properties relevant to each card type populated."
           }
         },
-        "required": ["cards"],
-        "description": "result."
+        "required": ["cards"]
       }
     }
   ]

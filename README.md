@@ -198,7 +198,7 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `OPENAI_MODEL`              | Configurable model; required for imports and chat           |
 | `DOCUMENT_EXTRACTION_MODEL` | Reference extraction model; defaults to `OPENAI_MODEL`      |
 | `IMPORT_TIMEOUT_MS`         | Extraction/mapping attempt deadline; default 180000         |
-| `IMPORT_TOOL_ROUNDS`        | Registry tool-call budget per candidate; default 4          |
+| `IMPORT_TOOL_ROUNDS`        | Registry tool-call budget per selection or batch; default 4 |
 | `DISCOVERY_TIMEOUT_MS`      | Discovery deadline per candidate; default 90000             |
 | `DISCOVERY_SEARCH_CALLS`    | Web tool-call budget per discovery; default 3               |
 | `CHAT_TIMEOUT_MS`           | Assistant attempt deadline; default 180000                  |

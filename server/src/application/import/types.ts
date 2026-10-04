@@ -4,7 +4,7 @@ import type { FieldSearchLabel } from '../registry/registry.js';
  * and active job states.
  */
 
-import type { FieldDefinition, Schema, Value } from '../../../../shared/model.js';
+import type { FieldDefinition, FieldSet, Schema, Value } from '../../../../shared/model.js';
 
 export interface Fact {
   id: string;
@@ -119,18 +119,20 @@ export interface DocumentExtraction {
   }[];
 }
 
-export interface MappingSession {
-  setIds: string[];
-  mapFactBatch(facts: Fact[]): Promise<{ values: MappingValue[] }>;
-}
-
 export interface ImportAi {
   extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
   selectFieldSets(
     extractedThing: ExtractedThing,
     tools: RegistryTools,
     context: AiContext,
-  ): Promise<MappingSession>;
+  ): Promise<{ setIds: string[] }>;
+  mapFacts(
+    thing: ExtractedThing,
+    facts: Fact[],
+    selectedSets: FieldSet[],
+    tools: RegistryTools,
+    context: AiContext,
+  ): Promise<{ values: MappingValue[] }>;
   discover(
     research: ResearchContext,
     context: AiContext,

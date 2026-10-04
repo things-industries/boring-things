@@ -68,8 +68,13 @@ Use namespace imports for database modules throughout the repository, including 
 
 ## AI imports and assistant work
 
+- Import selection and fact mapping use separate provider methods. The processor supplies selected field definitions and batches facts; each mapping batch owns its tool conversation.
+- Limit each AI task's input to the context, evidence, definitions and tools needed to complete that task. Pass `ExtractedThing` through mapping callers and select the required subject properties in the prompt.
+
+- Helpers that advance conversation history return the updated history; callers assign it explicitly. Do not mutate supplied history arrays.
 - Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history is available through `GET /api/conversations`, with optional `thingId` and `minMessageCount` filters; details and streams load by conversation ID. Frontend history integration remains pending.
 - Author task prompts in `src/providers/ai/prompts.ts` and response/tool schemas in `src/providers/ai/schemas.json`; generate schema types with `pnpm ai:generate` and check drift with `pnpm ai:check`. Keep SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
+- Schema descriptions describe content or behaviour without imperative instructions. Include any `minLength` and `maxLength` limits in the description. Place `description` first in schema objects containing `properties`.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
 - Public research uses registry or custom-field `instanceSpecific: false` metadata independently of sensitivity. Category prompts supply reference priorities. The contained document task fills empty eligible fields with cited `DISCOVERY` values, checking owner edits at each commit. Keep backend research changes compatible with the existing submission lifecycle when frontend work is out of scope. Limits and model evaluation are in [the import guide](../docs/setup/imports.md).

@@ -320,12 +320,19 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   assert.equal(new Set(thing.undefinedFields.map((f) => f.id)).size, thing.undefinedFields.length);
   assert.equal((await request('POST', `/imports/${failed.id}:retry`)).statusCode, 409);
 });
-test('application fact batches commit before interruption and retry saved extraction', async (t) => {
+test('application fact batches have separate tool budgets, reject out-of-batch values and retry saved extraction', async (t) => {
   const originalExtract = ai.extract.bind(ai);
   const originalSelect = ai.selectFieldSets.bind(ai);
+  const originalMap = ai.mapFacts.bind(ai);
   let extractions = 0;
   const batches: number[] = [];
-  let interrupt = true;
+  let invalidBatch = true;
+  t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
+    const [subject, tools] = args;
+    for (let call = 0; call < 2; call++)
+      await tools.searchFieldSets(subject.categoryId, subject.terms);
+    return originalSelect(...args);
+  });
   t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
     extractions++;
     const extraction = await originalExtract(...args);
@@ -339,22 +346,40 @@ test('application fact batches commit before interruption and retry saved extrac
     );
     return extraction;
   });
-  t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
-    const session = await originalSelect(...args);
-    return {
-      setIds: session.setIds,
-      mapFactBatch: async (facts: (typeof args)[0]['facts']) => {
-        batches.push(facts.length);
-        if (facts.length === 1 && interrupt) {
-          interrupt = false;
-          throw new Error('synthetic interrupted batch');
-        }
-        return facts.length === 1 ? { values: [] } : session.mapFactBatch(facts);
-      },
-    };
+  t.mock.method(ai, 'mapFacts', async (...args: Parameters<typeof ai.mapFacts>) => {
+    const [subject, facts, selectedSets, tools] = args;
+    assert.equal(subject.name, 'Neff hob');
+    assert.equal(subject.facts.length, 21);
+    assert.deepEqual(
+      selectedSets.map((set) => set.id),
+      ['appliances.appliance', 'appliances.neff'],
+    );
+    assert.ok(
+      selectedSets.some((set) => set.fields.some((field) => field.id === 'appliances.zNumber')),
+    );
+    batches.push(facts.length);
+    if (facts.length === 1)
+      await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    if (facts.length === 1 && invalidBatch) {
+      invalidBatch = false;
+      return {
+        values: [
+          {
+            factId: 'fact-1',
+            fieldSetId: 'appliances.neff',
+            fieldId: 'appliances.zNumber',
+            value: '0015',
+            pin: false,
+          },
+        ],
+      };
+    }
+    return facts.length === 1 ? { values: [] } : originalMap(...args);
   });
   const accepted = await start('neff');
-  assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
+  const failed = await wait(accepted.importId);
+  assert.equal(failed.status, 'INCOMPLETE');
+  assert.equal(failed.error, 'import_failed');
   const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(
     thing.fieldSets
@@ -382,7 +407,8 @@ test('arbitrary model IDs never enter storage and tool exhaustion preserves part
   const bounded = await start('neff'),
     job = await wait(bounded.importId);
   assert.equal(job.error, 'tool_limit');
-  assert.equal(job.usage.toolCalls.length, 4);
+  assert.equal(job.usage.toolCalls.filter((call) => call.name === 'search_field_sets').length, 1);
+  assert.equal(job.usage.toolCalls.filter((call) => call.name === 'search_fields').length, 4);
   thing = (await request('GET', `/things/${bounded.thingId}`)).json();
   assert.ok(thing.fieldSets.length);
   assert.equal(thing.undefinedFields.length, 2);
