@@ -1,9 +1,15 @@
+import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures.js';
+
+const prompt = 'Ask about a detail, a manual, maintenance or compatible products.';
+
+/** The visible, typed copy of the empty chat prompt. */
+const introPrompt = (page: Page) => page.locator('bt-typewriter > [aria-hidden="true"]');
 
 test('global chat starts empty with the composer', async ({ page }) => {
   await page.goto('/chat');
   await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
   await expect(page.getByLabel('Message', { exact: true })).toHaveAttribute(
     'placeholder',
     'Ask across all your Things',
@@ -27,8 +33,38 @@ test('chat shows a loader while it starts', async ({ page }) => {
 
   await expect(page.getByRole('status').filter({ hasText: 'Starting chat…' })).toBeVisible();
   release();
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
   await expect(page.getByText('Starting chat…')).toHaveCount(0);
+});
+
+test('chat intro types the prompt, then fades in the data notice', async ({ page }) => {
+  await page.goto('/chat', { waitUntil: 'commit' });
+
+  // Mid-typing, untyped characters stay in place and the notice is hidden.
+  await page.waitForFunction(
+    () => {
+      const rest = document.querySelector('.typewriter-rest')?.textContent;
+      const notice = document.querySelector('.chat-data-notice');
+
+      return !!rest && !!notice && getComputedStyle(notice).opacity === '0';
+    },
+    undefined,
+    { polling: 'raf' },
+  );
+  await expect(page.locator('bt-typewriter .visually-hidden')).toHaveText(prompt);
+  await expect(introPrompt(page)).toHaveText(prompt);
+
+  await expect(page.locator('.typewriter-rest')).toHaveText('');
+  await expect(page.locator('.chat-data-notice')).toHaveCSS('opacity', '1');
+});
+
+test('chat intro shows at once with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/chat');
+
+  await expect(introPrompt(page)).toBeVisible();
+  await expect(page.locator('.typewriter-rest')).toHaveText('');
+  await expect(page.locator('.chat-data-notice')).toHaveCSS('opacity', '1');
 });
 
 test('chat fits the visible area while the composer has focus', async ({ page }) => {
@@ -37,7 +73,7 @@ test('chat fits the visible area while the composer has focus', async ({ page })
   const chat = page.locator('bt-chat');
   const message = page.getByLabel('Message', { exact: true });
 
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
   await message.focus();
   await expect(chat).toHaveClass(/keyboard/);
   // An on-screen keyboard shrinks the visual viewport.
@@ -59,7 +95,7 @@ test('Thing chat shows its Thing and streams an answer with cards', async ({ pag
     'Ask about this Thing',
   );
 
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
 
   const message = page.getByLabel('Message', { exact: true });
 

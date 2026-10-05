@@ -108,11 +108,23 @@
             </bt-chat-bubble>
           }
         } @empty {
-          <div class="chat-empty">
+          @let phase = introPhase();
+          <div
+            class="chat-empty"
+            [class.intro-typing]="phase === 'typing'"
+            [class.intro-reveal]="phase === 'reveal'"
+          >
             <p class="text-primary-muted">
-              Ask about a detail, a manual, maintenance or compatible products.
+              <bt-typewriter
+                text="Ask about a detail, a manual, maintenance or compatible products."
+                [animate]="phase === 'typing'"
+                (typed)="introStep('typing', 'reveal')"
+              />
             </p>
-            <p class="chat-data-notice">
+            <p
+              class="chat-data-notice chat-intro-block"
+              (animationend)="introStep('reveal', 'shown')"
+            >
               Questions and relevant records or documents are sent to OpenAI. Review answers and
               sources.
             </p>
