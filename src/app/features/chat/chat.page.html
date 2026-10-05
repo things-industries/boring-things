@@ -92,7 +92,7 @@
               }
               @if (message.status === 'FAILED') {
                 <bt-notice tone="warning" icon="responseFailed">
-                  The response was interrupted. Saved actions remain available.
+                  The response was interrupted.
                 </bt-notice>
                 @if ($last) {
                   <button
@@ -148,9 +148,10 @@
         }
       </span>
     } @else {
-      <div class="chat-skeleton" role="status">
-        <span class="visually-hidden">Starting chat…</span>
-      </div>
+      <p class="chat-pending" role="status">
+        <ng-icon class="chat-spinner" name="loading" aria-hidden="true" />
+        Starting chat…
+      </p>
     }
   }
 </bt-scroll-container>
