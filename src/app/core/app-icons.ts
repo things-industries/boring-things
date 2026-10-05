@@ -14,6 +14,7 @@ import {
   remixCalendarLine,
   remixChat3Fill,
   remixChat3Line,
+  remixChatNewLine,
   remixCheckLine,
   remixCloseLine,
   remixDeleteBinLine,
@@ -26,6 +27,7 @@ import {
   remixFileTextLine,
   remixHome5Fill,
   remixHome5Line,
+  remixHistoryLine,
   remixImageEditLine,
   remixLinkUnlink,
   remixLoader4Line,
@@ -200,6 +202,8 @@ export const sendMessage = remixSendPlane2Line;
 export const savedDocument = remixBookmarkLine;
 export const chatUnavailable = remixInformationLine;
 export const responseFailed = remixErrorWarningLine;
+export const newChat = remixChatNewLine;
+export const chatHistory = remixHistoryLine;
 
 // Categories, keyed by the registry's `Category.icon`. Read through `categoryIcon()`.
 export const categoryIcons = {

@@ -17,6 +17,8 @@
   margin-inline: auto;
   // The bottom tenth of the image sits behind the sheet, whatever the image's size.
   --thumbnail-overhang: 0.1;
+}
+:host(.arrive) .hero-image {
   animation: hero-image-in 0.5s ease-out;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
