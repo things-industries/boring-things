@@ -96,3 +96,5 @@ Test changed business invariants and regressions, particularly cross-owner acces
 - Add line comments to code that merits additional explanation, using concise but readable prose.
 - Avoid jargon in comments
 - Avoid async iterators, prefer explicitly calling functions in a loop.
+- When a change adds code, look for opportunities to remove code too - find anything that is now redundant or repeated.
+- If a task requires changes in many files, consider whether abstractions are right, and propose a change if it seems like there's an opportunity to better encapsulate and separate concerns.

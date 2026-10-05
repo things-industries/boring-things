@@ -74,6 +74,7 @@ pnpm db:stop             # Stop local Supabase, preserving data
 - Prefix Angular CLI commands and wrappers with `CI=true` on the first attempt inside Codex's macOS sandbox. If CI mode changes the behaviour under test, request approval for an unsandboxed run.
 - Run `pnpm format` after editing, then `CI=true pnpm check` before handing off code changes. Formatting follows `.prettierrc.json` and `.prettierignore`; preserve unrelated working-tree changes. Add relevant integration/browser checks for persistence, authentication or user-journey changes. Documentation-only changes need formatting, path, command and diff checks.
 - Integration tests create and remove isolated temporary databases. They do not replace a live Logto redirect/login/logout check.
+- Tests or checks that can call metered OpenAI endpoints require explicit owner approval for each invocation and rerun. See [metered AI validation](docs/agents/agent-behaviour.md#metered-ai-validation) for the paid scripts and approval scope.
 - Database reset deletes local data. Use it only when deletion is authorised. Ordinary startup and migration do not require a reset.
 - Registry seeds update definitions; incompatible changes need a migration for existing values. Sample Things are a separate, opt-in, owner-scoped action.
 

@@ -210,6 +210,8 @@ One tenant can supply identities to both local and production environments. Data
 
 ## Validation
 
+Default CI and test commands use mocked or fixture AI responses and make no metered OpenAI requests. Paid smoke tests and evaluations require explicit owner approval for each invocation and rerun; see [metered AI validation](docs/agents/agent-behaviour.md#metered-ai-validation) for the affected scripts.
+
 ```sh
 pnpm api:generate                # after editing openapi.json
 pnpm format                      # apply Prettier formatting

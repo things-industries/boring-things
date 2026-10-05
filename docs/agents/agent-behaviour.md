@@ -11,6 +11,19 @@ Standard all agent work in this repo must comply with, referenced from root [`AG
 - Report what changed, validation performed and anything unverified. Distinguish implemented behaviour, accepted plans and proposals.
 - Do not create issues, send messages or publish changes unless authorised by the task.
 
+## Metered AI validation
+
+Obtain explicit owner approval before each invocation of a test, smoke check, evaluation, replay or browser interaction that can send requests to metered OpenAI endpoints. Describe the command, models, input data and expected request count or cost when known. Approval covers only the specified invocation; obtain fresh approval for every rerun. General permission to implement changes or run tests does not authorise metered calls.
+
+Paid checks must remain opt-in and outside default CI/test commands. The current paid scripts are:
+
+- `scripts/smoke-import.ts`, including `--assistant`.
+- `scripts/smoke-assistant-products.ts`.
+- `scripts/smoke-chat-actions.ts`.
+- `scripts/evaluate-document-extraction.ts`.
+
+Default CI runs `pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Provider unit tests mock HTTP requests; exercised integration and browser AI paths use fixture providers. Integration tests load `.env`, so preserve mocks or fixture injection when extending AI coverage.
+
 ## Keep docs current
 
 - When a decision fundamentally changes the product, flow or domain model, update `docs/requirements/product/PRODUCT.md` in the same piece of work.
