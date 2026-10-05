@@ -87,7 +87,7 @@ export interface components {
                      */
                     currency: "GBP" | "EUR" | "USD";
                 };
-                /** @description Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   At most three suggestions. */
+                /** @description Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   Top candidates for pins are, for physical objects: the model number, serial number; for insurance: a regular payment amount, expiry or renewal date, key entitlement and excess amounts; for memberships/subscriptions: a membership tier or benefit level, expiry/renewal date, cancellation policy.  At most three suggestions. */
                 pin: boolean;
             }[];
             /** @description IDs of unmatched facts with identifiable value in operating, maintaining, identifying or administering the Thing. */
