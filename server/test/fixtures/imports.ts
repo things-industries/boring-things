@@ -150,7 +150,7 @@ export class FixtureAi implements ImportAi {
     };
   }
   async extractDocument() {
-    return { applicable: false, applicability: null, values: [] };
+    return { metadata: null, applicable: false, applicability: null, values: [] };
   }
   async findResources() {
     return { items: [], sources: [] };

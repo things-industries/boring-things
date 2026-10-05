@@ -1,3 +1,4 @@
+// Manages private attachment uploads, metadata, links and deletion.
 import type pg from 'pg';
 import type { BlobStorage } from '../providers/blobs/index.js';
 import * as database from '../db/connection.js';
@@ -51,6 +52,7 @@ export function validateAttachmentMetadata(input: unknown): Schema['AttachmentPa
   return metadata;
 }
 
+// Merges metadata while preserving owner edits and explicit clears during automated updates.
 export async function updateAttachmentMetadata(
   db: Database,
   owner: string,
@@ -58,6 +60,7 @@ export async function updateAttachmentMetadata(
   patch: Schema['AttachmentPatch'],
   source: Schema['AttachmentMetadataSource'],
   pageCount?: number | null,
+  options: { replaceAutomated?: boolean } = {},
 ): Promise<Schema['Attachment']> {
   const values = validateAttachmentMetadata(patch);
   const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
@@ -66,7 +69,9 @@ export async function updateAttachmentMetadata(
     if (value === undefined) continue;
     if (
       source.origin !== 'USER' &&
-      (value === null || file[key] !== null || file.metadataSources[key]?.origin === 'USER')
+      (value === null ||
+        (!options.replaceAutomated && file[key] !== null) ||
+        file.metadataSources[key]?.origin === 'USER')
     )
       continue;
     Object.assign(file, { [key]: value });
