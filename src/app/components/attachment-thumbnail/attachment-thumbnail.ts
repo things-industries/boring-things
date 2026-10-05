@@ -1,12 +1,13 @@
-import { Component, computed, effect, inject, input, linkedSignal, resource } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, resource } from '@angular/core';
 import type { Schema } from '../../../../shared/model';
-import { AttachmentsService } from '../../core/data/attachments.service';
+import { ImageCache } from '../../core/services/image-cache.service';
 import { attachmentBadge } from '../../utils/attachment.util';
 import { IconBadge } from '../icon-badge/icon-badge';
 /**
- * Image attachment cropped to an icon badge square, loaded through an authenticated blob URL.
- * Shows the badge background while it loads and the attachment's icon badge if it fails.
- * Decorative: the row beside it names the file. The host registers the badge icons.
+ * Image attachment cropped to an icon badge square, loaded through `ImageCache`, so images loaded
+ * earlier in the session show at once. Shows the badge background while it loads and the
+ * attachment's icon badge if it fails. Decorative: the row beside it names the file. The host
+ * registers the badge icons.
  */
 @Component({
   selector: 'bt-attachment-thumbnail',
@@ -19,13 +20,13 @@ import { IconBadge } from '../icon-badge/icon-badge';
   },
 })
 export class AttachmentThumbnail {
-  private attachments = inject(AttachmentsService);
+  private images = inject(ImageCache);
   readonly attachment = input.required<Schema['Attachment']>();
   readonly badge = computed(() => attachmentBadge(this.attachment()));
 
   private readonly image = resource({
     params: () => this.attachment().id,
-    loader: ({ params }) => this.attachments.blob(params),
+    loader: ({ params }) => this.images.load(params),
   });
 
   private readonly broken = linkedSignal({
@@ -35,20 +36,10 @@ export class AttachmentThumbnail {
 
   readonly failed = computed(() => this.broken() || !!this.image.error());
 
-  readonly imageUrl = computed(() =>
-    this.image.hasValue() ? URL.createObjectURL(this.image.value()) : '',
+  readonly imageUrl = computed(
+    () =>
+      this.images.peek(this.attachment().id) ?? (this.image.hasValue() ? this.image.value() : ''),
   );
-
-  constructor() {
-    // Revokes each object URL once it is replaced or the thumbnail is destroyed.
-    effect((onCleanup) => {
-      const url = this.imageUrl();
-
-      onCleanup(() => {
-        if (url) URL.revokeObjectURL(url);
-      });
-    });
-  }
 
   markBroken() {
     this.broken.set(true);
