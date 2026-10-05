@@ -13,4 +13,5 @@ export const APP_CONFIG = {
   copiedMs: 2000,
   chatStickPx: 48,
   typewriterCharMs: 5,
+  imageCacheLimit: 100,
 } as const;
