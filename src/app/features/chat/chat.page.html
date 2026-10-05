@@ -136,9 +136,10 @@
         }
       </span>
     } @else {
-      <div class="chat-skeleton" role="status">
-        <span class="visually-hidden">Starting chat…</span>
-      </div>
+      <p class="chat-pending" role="status">
+        <ng-icon class="chat-spinner" name="loading" aria-hidden="true" />
+        Starting chat…
+      </p>
     }
   }
 </bt-scroll-container>

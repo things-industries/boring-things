@@ -92,10 +92,6 @@ bt-scroll-container {
   align-items: flex-start;
   gap: tokens.space(3);
 }
-.chat-skeleton {
-  @include mixins.skeleton;
-  min-height: tokens.size(hero);
-}
 .chat-status {
   flex-shrink: 0;
   padding-bottom: tokens.space(2);

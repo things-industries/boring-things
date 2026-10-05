@@ -15,6 +15,22 @@ test('global chat starts empty with the composer', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 });
 
+test('chat shows a loader while it starts', async ({ page }) => {
+  let release = () => {};
+  const started = new Promise<void>((resolve) => (release = resolve));
+
+  await page.route(/\/api\/conversations$/, async (route) => {
+    await started;
+    await route.continue();
+  });
+  await page.goto('/chat');
+
+  await expect(page.getByRole('status').filter({ hasText: 'Starting chat…' })).toBeVisible();
+  release();
+  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(page.getByText('Starting chat…')).toHaveCount(0);
+});
+
 test('chat fits the visible area while the composer has focus', async ({ page }) => {
   await page.goto('/chat');
 
