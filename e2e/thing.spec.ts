@@ -19,6 +19,8 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
   await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
   await expect(page.locator('bt-thing-skeleton')).toHaveCount(0);
+  // An existing Thing shows its hero image in place.
+  await expect(page.locator('bt-hero .hero-image')).toHaveCSS('animation-name', 'none');
 
   for (const name of [
     'Needs attention',
@@ -257,12 +259,14 @@ test('import steps show while discovering, then the sheet slides up once', async
     'Step 1 of 3: Reading your source',
   );
   await expect(page.locator('bt-sheet')).toHaveClass(/\barrive\b/);
+  await expect(page.locator('bt-hero')).toHaveClass(/\barrive\b/);
   await expect(page.locator('bt-import-progress')).toContainText('Step 2 of 3: Adding details');
 
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
   await expect(page.locator('bt-sheet')).not.toHaveClass(/\barrive\b/);
+  await expect(page.locator('bt-hero')).not.toHaveClass(/\barrive\b/);
 });
 
 test.describe('with a failing save', () => {
