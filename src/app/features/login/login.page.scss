@@ -10,8 +10,15 @@
 }
 .login-wordmark {
   @include typography.role(section);
+  display: flex;
+  align-items: center;
+  gap: tokens.space(2);
   margin: 0;
   color: tokens.color(primary);
+}
+.login-logo {
+  width: 1.5em;
+  height: 1.5em;
 }
 .login-content {
   display: flex;

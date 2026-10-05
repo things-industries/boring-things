@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="150 150 724 724" role="img" aria-labelledby="title desc">
+  <title id="title">Boring Things bored face icon</title>
+  <desc id="desc">A dark rounded square containing two sleepy green eyes and a flat green mouth.</desc>
+
+  <!-- Background tile -->
+  <rect x="170" y="170" width="684" height="684" rx="145" fill="#9CFC97" stroke="#3D5A6C" stroke-width="10"/>
+
+  <!-- Left sleepy eye -->
+  <path d="
+    M 265 454
+    Q 265 438 281 438
+    H 475
+    Q 489 438 484 451
+    L 468 492
+    Q 451 536 404 536
+    Q 357 536 341 492
+    L 332 468
+    H 281
+    Q 265 468 265 454
+    Z
+  " fill="#3D5A6C"/>
+
+  <!-- Right sleepy eye -->
+  <path d="
+    M 539 454
+    Q 539 438 555 438
+    H 749
+    Q 763 438 758 451
+    L 742 492
+    Q 725 536 678 536
+    Q 631 536 615 492
+    L 606 468
+    H 555
+    Q 539 468 539 454
+    Z
+  " fill="#3D5A6C"/>
+
+  <!-- Flat mouth -->
+  <rect x="408" y="594" width="208" height="46" rx="23" fill="#3D5A6C"/>
+</svg>
