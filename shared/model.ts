@@ -23,13 +23,13 @@ export interface ThingData {
   setIds: string[];
   values: Record<string, Record<string, StoredValue>>;
   standalone: Record<string, StoredValue>;
-  undefinedFields: LocalField[];
+  customFields: LocalField[];
   pins: Pin[];
 }
 export const emptyData = (): ThingData => ({
   setIds: [],
   values: {},
   standalone: {},
-  undefinedFields: [],
+  customFields: [],
   pins: [],
 });

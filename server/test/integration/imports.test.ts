@@ -231,8 +231,8 @@ test('immediate skeleton, progressive empty sets, source retention, string IDs a
       .fields.find((f) => f.id === 'appliances.zNumber')!.value,
     '0015',
   );
-  assert.equal(thing.undefinedFields.length, 1);
-  assert.equal(thing.undefinedFields[0].value, 'ABC-12');
+  assert.equal(thing.customFields.length, 1);
+  assert.equal(thing.customFields[0].value, 'ABC-12');
   assert.equal(
     (await pool.query('select extraction from bt.imports where id=$1', [job.id])).rows[0].extraction
       .text,
@@ -327,7 +327,7 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
       .fields.find((f) => f.id === 'appliances.zNumber')!.value,
     '0099',
   );
-  assert.equal(new Set(thing.undefinedFields.map((f) => f.id)).size, thing.undefinedFields.length);
+  assert.equal(new Set(thing.customFields.map((f) => f.id)).size, thing.customFields.length);
   assert.equal((await request('POST', `/imports/${failed.id}:retry`)).statusCode, 409);
 });
 test('application fact batches have separate tool budgets, reject out-of-batch values and retry saved extraction', async (t) => {
@@ -400,7 +400,7 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
     '0015',
   );
   assert.deepEqual(batches, [20, 1]);
-  assert.equal(thing.undefinedFields.length, 19);
+  assert.equal(thing.customFields.length, 19);
   assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
   const completed = await wait(accepted.importId);
   assert.equal(completed.status, 'COMPLETE', JSON.stringify(completed));
@@ -440,7 +440,7 @@ test('fact decisions and Thing values roll back together, then retry preserves s
   try {
     assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
     const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
-    assert.equal(thing.undefinedFields.length, 0);
+    assert.equal(thing.customFields.length, 0);
     assert.equal(
       thing.fieldSets
         .find((set) => set.id === 'appliances.neff')!
@@ -457,7 +457,7 @@ test('fact decisions and Thing values roll back together, then retry preserves s
   assert.equal('extraction' in done, false);
   const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.deepEqual(
-    thing.undefinedFields.map((field) => field.value),
+    thing.customFields.map((field) => field.value),
     ['ABC-12'],
   );
   assert.ok(thing.attachmentIds.includes(done.attachmentId));
@@ -473,7 +473,7 @@ test('arbitrary model IDs never enter storage and tool exhaustion preserves part
   assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
   let thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(thing.fieldSets.length, 0);
-  assert.equal(thing.undefinedFields.length, 0);
+  assert.equal(thing.customFields.length, 0);
   ai.arbitraryId = false;
   ai.exhaustTools = true;
   const bounded = await start('neff'),
@@ -483,7 +483,7 @@ test('arbitrary model IDs never enter storage and tool exhaustion preserves part
   assert.equal(job.usage.toolCalls.filter((call) => call.name === 'search_fields').length, 4);
   thing = (await request('GET', `/things/${bounded.thingId}`)).json();
   assert.ok(thing.fieldSets.length);
-  assert.equal(thing.undefinedFields.length, 0);
+  assert.equal(thing.customFields.length, 0);
   ai.exhaustTools = false;
 });
 test('all-existing confirmation removes untouched skeleton and redirects to selected target', async () => {
@@ -845,7 +845,7 @@ test('category document enrichment validates variants, commits cited values prog
     values: [
       { fieldSetId: 'appliances.neff', fieldId: 'appliances.eNumber', value: 'SYNTHETIC/01' },
     ],
-    undefinedFields: [
+    customFields: [
       { label: 'Public variant', value: 'UK', sensitive: true, instanceSpecific: false },
       { label: 'Policy number', value: 'private-policy', sensitive: false },
     ],
@@ -871,7 +871,7 @@ test('category document enrichment validates variants, commits cited values prog
   const findResources: ImportAi['findResources'] = async (research, _context, calls) => {
     searches++;
     budget.push(calls!);
-    assert.ok(research.knownFields.some((field) => field.undefinedFieldId && field.value === 'UK'));
+    assert.ok(research.knownFields.some((field) => field.customFieldId && field.value === 'UK'));
     assert.ok(!JSON.stringify(research).includes('private-policy'));
     const urls = [
       'https://example.com/wrong.pdf',

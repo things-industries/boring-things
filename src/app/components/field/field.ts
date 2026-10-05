@@ -71,7 +71,7 @@ export class FieldEditor implements OnChanges {
     const value = await this.things.reveal(
       this.thingId,
       this.localId
-        ? { undefinedFieldId: this.localId }
+        ? { customFieldId: this.localId }
         : { fieldSetId: this.setId, fieldId: this.field.id },
     );
     this.busy.set(false);

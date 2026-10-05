@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+import OpenAI from 'openai';
+import { searchWeb } from '../src/providers/ai/responses.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
+import { chatFunctions } from '../src/contracts/chat-tools.js';
 import type { Usage } from '../src/application/import/types.js';
 const task = {
   thingId: null,
@@ -12,23 +16,32 @@ const task = {
 test('assistant research answers the supplied question in one bounded request with observed citations and usage', async (t) => {
   const source = 'https://manufacturer.example/filter';
   const opened = 'https://manufacturer.example/instructions';
+  const cited = [source, ...[1, 2, 3].map((id) => `https://manufacturer.example/source-${id}`)];
+  const candidates = Array.from({ length: 100 }, (_, id) => ({
+    url: `https://candidate.example/${id}`,
+  }));
   const entries: Partial<Usage>[] = [];
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
     assert.equal(body.max_tool_calls, 2);
     assert.deepEqual(body.tools, [{ type: 'web_search' }]);
-    assert.deepEqual(body.include, ['web_search_call.action.sources']);
+    assert.deepEqual(
+      body.include,
+      fetch.mock.callCount() === 0 ? undefined : ['web_search_call.action.sources'],
+    );
     assert.equal(body.text, undefined);
-    assert.match(body.input, /How should the filter be cleaned\?/);
-    assert.match(body.input, /Synthetic model/);
+    if (!body.include) {
+      assert.match(body.input, /How should the filter be cleaned\?/);
+      assert.match(body.input, /Synthetic model/);
+    }
     assert.ok(!body.input.includes('fieldSetId'));
     return Response.json({
       status: 'completed',
       output: [
         {
           type: 'web_search_call',
-          action: { sources: [{ url: source }, { url: 'http://localhost/private' }] },
+          action: { sources: candidates },
         },
         { type: 'web_search_call', action: { url: opened } },
         {
@@ -37,7 +50,10 @@ test('assistant research answers the supplied question in one bounded request wi
             {
               type: 'output_text',
               text: 'Supported cleaning instructions.',
-              annotations: [{ type: 'url_citation', url: source }],
+              annotations: [...cited, source, 'http://localhost/private'].map((url) => ({
+                type: 'url_citation',
+                url,
+              })),
             },
           ],
         },
@@ -65,11 +81,27 @@ test('assistant research answers the supplied question in one bounded request wi
     ],
     context,
   );
-  assert.deepEqual(result, { text: 'Supported cleaning instructions.', sources: [source, opened] });
+  assert.deepEqual(result, {
+    text: 'Supported cleaning instructions.',
+    sources: cited.slice(0, 3),
+  });
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(entries[0].entries?.[0].task, 'research');
   assert.equal(entries[0].cachedTokens, 4);
-  assert.equal(entries.flatMap((entry) => entry.toolCalls ?? []).length, 2);
+  assert.deepEqual(
+    entries.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.resultCount),
+    [100, 1],
+  );
+  const discovery = await searchWeb(
+    new OpenAI({ apiKey: 'synthetic-key' }),
+    'fixture',
+    1000,
+    'Find manuals',
+    2,
+    context,
+  );
+  assert.ok(discovery.sources.includes(opened));
+  assert.ok(discovery.sources.includes(candidates[99].url));
 
   fetch.mock.mockImplementation(async () => Response.json({ status: 'incomplete', output: [] }));
   await assert.rejects(ai.research('Question', [], context), /incomplete/);
@@ -90,6 +122,12 @@ test('assistant research answers the supplied question in one bounded request wi
     message: 'ai_http_429',
   });
 });
+function completed(output: unknown[] = [], usage?: object) {
+  return {
+    type: 'response.completed',
+    response: { status: 'completed', output, ...(usage ? { usage } : {}) },
+  };
+}
 function stream(events: unknown[]) {
   const encoded = new TextEncoder().encode(
     events.map((e) => 'data: ' + JSON.stringify(e) + '\n\n').join(''),
@@ -119,21 +157,17 @@ test('Responses streaming collects split frames, passes function results and rec
     requests++;
     if (requests === 1)
       return stream([
-        {
-          type: 'response.completed',
-          response: {
-            status: 'completed',
-            output: [
-              {
-                type: 'function_call',
-                name: 'search_things',
-                arguments: '{"query":"hob"}',
-                call_id: 'call-1',
-              },
-            ],
-            usage: { input_tokens: 4, output_tokens: 2 },
-          },
-        },
+        completed(
+          [
+            {
+              type: 'function_call',
+              name: 'search_things',
+              arguments: '{"query":"hob"}',
+              call_id: 'call-1',
+            },
+          ],
+          { input_tokens: 4, output_tokens: 2 },
+        ),
       ]);
     assert.ok(
       body.input.some(
@@ -144,14 +178,7 @@ test('Responses streaming collects split frames, passes function results and rec
     return stream([
       { type: 'response.output_text.delta', delta: 'Saved ' },
       { type: 'response.output_text.delta', delta: 'details.' },
-      {
-        type: 'response.completed',
-        response: {
-          status: 'completed',
-          output: [],
-          usage: { input_tokens: 6, output_tokens: 3 },
-        },
-      },
+      completed([], { input_tokens: 6, output_tokens: 3 }),
     ]);
   });
   let tokens = 0;
@@ -164,10 +191,13 @@ test('Responses streaming collects split frames, passes function results and rec
   };
   const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
     task,
-    async (name, args) => {
-      assert.equal(name, 'search_things');
-      assert.deepEqual(args, { query: 'hob' });
-      return { output: { items: [] } };
+    {
+      definitions: chatFunctions,
+      execute: async (name, args) => {
+        assert.equal(name, 'search_things');
+        assert.deepEqual(args, { query: 'hob' });
+        return { output: { items: [] } };
+      },
     },
     context,
   );
@@ -183,7 +213,7 @@ test('an interrupted provider stream cannot complete an assistant response', asy
   await assert.rejects(
     new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
       task,
-      async () => ({ output: {} }),
+      { definitions: chatFunctions, execute: async () => ({ output: {} }) },
       {
         signal: new AbortController().signal,
         delta: () => {},
@@ -192,6 +222,112 @@ test('an interrupted provider stream cannot complete an assistant response', asy
     ),
     /incomplete/,
   );
+});
+
+test('one AI turn handles multiple tool calls and returns rejected calls for correction', async (t) => {
+  let requests = 0;
+  const calls: string[] = [];
+  const definitions = chatFunctions.filter((tool) => tool.name === 'show_cards');
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.deepEqual(body.tools, definitions);
+    assert.equal(body.parallel_tool_calls, true);
+    requests++;
+    if (requests === 1)
+      return stream([
+        completed(
+          ['rejected', 'valid'].map((id) => ({
+            type: 'function_call',
+            name: 'show_cards',
+            arguments: JSON.stringify({ id }),
+            call_id: id,
+          })),
+        ),
+      ]);
+    assert.deepEqual(
+      body.input
+        .filter((item: { type: string }) => item.type === 'function_call_output')
+        .map((item: { output: string }) => JSON.parse(item.output)),
+      [{ error: 'Unknown field' }, { shown: 1 }],
+    );
+    return stream([
+      { type: 'response.output_text.delta', delta: 'The recorded purchase date is 1 October.' },
+      completed([]),
+    ]);
+  });
+  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
+    task,
+    {
+      definitions,
+      execute: async (_name, args) => {
+        const { id } = args as { id: string };
+        calls.push(id);
+        return { output: id === 'rejected' ? { error: 'Unknown field' } : { shown: 1 } };
+      },
+    },
+    { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+  );
+  assert.equal(answer, 'The recorded purchase date is 1 October.');
+  assert.deepEqual(calls, ['rejected', 'valid']);
+  assert.equal(requests, 2);
+});
+
+test('PDF attachment input preserves text pages and original files for diagrams', async (t) => {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  pdf.addPage();
+  pdf.addPage().drawText('The two compartments share one temperature setting.', { font });
+  const content = Buffer.from(await pdf.save());
+  for (const includeImages of [false, true]) {
+    let requests = 0;
+    t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      if (++requests === 1)
+        return stream([
+          completed([
+            {
+              type: 'function_call',
+              name: 'read_attachment',
+              arguments: '{}',
+              call_id: 'manual',
+            },
+          ]),
+        ]);
+      const evidence = body.input.at(-1).content;
+      if (includeImages) {
+        assert.equal(evidence[1].type, 'input_file');
+        assert.equal(
+          evidence[1].file_data,
+          'data:application/pdf;base64,' + content.toString('base64'),
+        );
+      } else {
+        assert.equal(evidence[1].type, 'input_text');
+        assert.match(evidence[1].text, /\[PDF page 2\]/);
+        assert.match(evidence[1].text, /share one temperature setting/);
+        assert.ok(!JSON.stringify(body.input).includes('file_data'));
+      }
+      return stream([
+        {
+          type: 'response.output_text.delta',
+          delta: 'No. Both compartments share one temperature setting.',
+        },
+        completed([]),
+      ]);
+    });
+    const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 2).respond(
+      task,
+      {
+        definitions: chatFunctions,
+        execute: async () => ({
+          output: { attachmentId: 'manual' },
+          source: { filename: 'manual.pdf', mediaType: 'application/pdf', content, includeImages },
+        }),
+      },
+      { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+    );
+    assert.equal(answer, 'No. Both compartments share one temperature setting.');
+    assert.equal(requests, 2);
+  }
 });
 
 test('SDK streaming cancellation closes the response and prevents tool execution', async (t) => {
@@ -219,7 +355,10 @@ test('SDK streaming cancellation closes the response and prevents tool execution
   await assert.rejects(
     new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
       task,
-      async () => assert.fail('tool executed after cancellation'),
+      {
+        definitions: chatFunctions,
+        execute: async () => assert.fail('tool executed after cancellation'),
+      },
       {
         signal: controller.signal,
         delta: () => controller.abort(new Error('cancelled')),
@@ -239,7 +378,10 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
     await assert.rejects(
       new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
         task,
-        async () => assert.fail('failed response executed a tool'),
+        {
+          definitions: chatFunctions,
+          execute: async () => assert.fail('failed response executed a tool'),
+        },
         {
           signal: new AbortController().signal,
           delta: () => {},
@@ -249,4 +391,26 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
       { message: 'chat_provider_failed' },
     );
   }
+});
+
+test('SDK HTTP failures retain status without provider error text', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(
+      {
+        error: { message: 'Private provider details', code: 'insufficient_quota' },
+      },
+      { status: 429 },
+    ),
+  );
+  await assert.rejects(
+    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+      task,
+      {
+        definitions: chatFunctions,
+        execute: async () => assert.fail('HTTP failure executed a tool'),
+      },
+      { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+    ),
+    { message: 'ai_http_429' },
+  );
 });
