@@ -3,6 +3,7 @@
     [imageId]="thing()?.imageAttachmentId ?? null"
     [category]="category()?.icon ?? null"
     [discovering]="discovering()"
+    [arrive]="sheetArrives()"
   >
     @if (discovering() && job(); as job) {
       <div class="thing-discovering" role="status">
