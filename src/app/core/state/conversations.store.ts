@@ -10,6 +10,8 @@ import {
 import type { Schema } from '../../../../shared/model';
 import { ConversationsService } from '../data/conversations.service';
 import type { ConversationStreamEvent } from '../../interfaces/conversation.interface';
+import type { MutationResult } from '../../interfaces/state.interface';
+import { errorCode } from '../../utils/error.util';
 import { updating } from './optimistic';
 import { Streams } from './streams';
 import { withSession } from './with-load';
@@ -53,13 +55,32 @@ export const ConversationsStore = signalStore(
 
     const loadOne = (id: string) => store.refresh(id, () => store._service.get(id));
 
+    const create = (thingId: string | null) =>
+      store.create('startChat', { id: crypto.randomUUID(), thingId, messages: [] }, () =>
+        store._service.create(thingId ? { thingId } : {}),
+      );
+
     return {
       loadOne,
 
-      create(thingId: string | null) {
-        return store.create('startChat', { id: crypto.randomUUID(), thingId, messages: [] }, () =>
-          store._service.create(thingId ? { thingId } : {}),
-        );
+      create,
+
+      /**
+       * Loads the conversation about a Thing with the most recent message, or starts one when the
+       * Thing has none.
+       */
+      async resume(thingId: string): Promise<MutationResult<{ id: string }>> {
+        try {
+          const latest = await store._service.latest(thingId);
+
+          if (!latest) return create(thingId);
+
+          const code = await loadOne(latest.id);
+
+          return code ? { ok: false, code } : { ok: true, value: { id: latest.id } };
+        } catch (e) {
+          return { ok: false, code: errorCode(e) };
+        }
       },
 
       /** Appends the user message as pending; the assistant reply arrives on the stream. */

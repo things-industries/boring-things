@@ -15,7 +15,13 @@ import { DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import type { Schema } from '../../../../shared/model';
-import { chatUnavailable, loading, moreActions, responseFailed } from '../../core/app-icons';
+import {
+  chatHistory,
+  chatUnavailable,
+  loading,
+  newChat,
+  responseFailed,
+} from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
 import { AttachmentsService } from '../../core/data/attachments.service';
 import { CONFIG } from '../../core/runtime-config';
@@ -25,7 +31,8 @@ import { CategoriesStore } from '../../core/state/categories.store';
 import { ConversationsStore } from '../../core/state/conversations.store';
 import { ThingsStore } from '../../core/state/things.store';
 import { ErrorMessage } from '../../components/error-message/error-message';
-import { IconButton } from '../../components/icon-button/icon-button';
+import { Menu } from '../../components/menu/menu';
+import { MenuItem } from '../../components/menu/menu-item';
 import { Notice } from '../../components/notice/notice';
 import { RichText } from '../../components/rich-text/rich-text';
 import { ScheduleDialog } from '../../components/schedule-dialog/schedule-dialog';
@@ -33,6 +40,7 @@ import { ScrollContainer } from '../../components/scroll-container/scroll-contai
 import { ThingCard } from '../../components/thing-card/thing-card';
 import { TopBar } from '../../components/top-bar/top-bar';
 import type { UiErrorCode } from '../../interfaces/error.interface';
+import type { MutationResult } from '../../interfaces/state.interface';
 import { TermPipe } from '../../pipes/term.pipe';
 import { errorCode } from '../../utils/error.util';
 import { ChatBubble } from './chat-bubble/chat-bubble';
@@ -40,7 +48,10 @@ import { ChatComposer } from './chat-composer/chat-composer';
 import { assistantState, messageCards } from './chat.view';
 import { ResourceCard } from './resource-card/resource-card';
 
-/** A new conversation, global or about the Thing in the route, kept current by its stream. */
+/**
+ * Chat kept current by its stream: a new global conversation, or the latest conversation about the
+ * Thing in the route.
+ */
 @Component({
   selector: 'bt-chat',
   imports: [
@@ -48,7 +59,8 @@ import { ResourceCard } from './resource-card/resource-card';
     ChatBubble,
     ChatComposer,
     ErrorMessage,
-    IconButton,
+    Menu,
+    MenuItem,
     NgIcon,
     Notice,
     ResourceCard,
@@ -59,7 +71,7 @@ import { ResourceCard } from './resource-card/resource-card';
     ThingCard,
     TopBar,
   ],
-  viewProviders: [provideIcons({ chatUnavailable, loading, moreActions, responseFailed })],
+  viewProviders: [provideIcons({ chatHistory, chatUnavailable, loading, newChat, responseFailed })],
   templateUrl: './chat.page.html',
   styleUrl: './chat.page.scss',
   host: {
@@ -136,10 +148,13 @@ export class ChatPage {
 
   private stopTracking: (() => void) | null = null;
 
+  private stopWatching: (() => void) | null = null;
+
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.destroyed = true;
       this.stopTracking?.();
+      this.stopWatching?.();
     });
 
     if (this.thingId) {
@@ -158,15 +173,33 @@ export class ChatPage {
       });
     });
 
-    void this.start();
+    this.start();
   }
 
-  async start() {
+  /** Resumes the Thing's latest conversation, or starts a new one for global chat. */
+  start() {
+    void this.open(() =>
+      this.thingId ? this.conversations.resume(this.thingId) : this.conversations.create(null),
+    );
+  }
+
+  /** Replaces the current conversation with a new one. */
+  newChat() {
+    if (this.sending() || this.inFlight()) return;
+    void this.open(() => this.conversations.create(this.thingId));
+  }
+
+  private async open(request: () => Promise<MutationResult<{ id: string }>>) {
     if (!this.config.chatEnabled || this.starting()) return;
+    this.stopWatching?.();
+    this.stopWatching = null;
+    this.id.set(null);
+    this.pending = null;
+    this.following = true;
     this.error.set(null);
     this.starting.set(true);
 
-    const result = await this.conversations.create(this.thingId);
+    const result = await request();
 
     this.starting.set(false);
     if (this.destroyed) return;
@@ -177,7 +210,7 @@ export class ChatPage {
 
     const id = result.value.id;
 
-    this.destroyRef.onDestroy(this.conversations.watch(id));
+    this.stopWatching = this.conversations.watch(id);
     this.id.set(id);
   }
 

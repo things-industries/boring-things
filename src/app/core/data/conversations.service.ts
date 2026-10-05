@@ -8,6 +8,15 @@ import type { ConversationStreamEvent } from '../../interfaces/conversation.inte
 @Injectable({ providedIn: 'root' })
 export class ConversationsService {
   private client = inject(Api).client;
+
+  /** The conversation about a Thing with the most recent message, or null when it has none. */
+  latest(thingId: string) {
+    return this.client
+      .GET('/api/conversations', { params: { query: { thingId, minMessageCount: 1, limit: 1 } } })
+      .then(apiData)
+      .then((page) => page.items[0] ?? null);
+  }
+
   get(id: string) {
     return this.client.GET('/api/conversations/{id}', { params: { path: { id } } }).then(apiData);
   }

@@ -3,14 +3,18 @@
   [back]="thingId ? ['/things', thingId] : '/'"
   [backLabel]="thingId ? 'Back to thing' : 'Home'"
 >
-  <button
-    type="button"
-    btIconButton
-    variant="plain"
-    icon="moreActions"
-    label="Conversation actions (coming soon)"
-    disabled
-  ></button>
+  <bt-menu label="Conversation actions" variant="plain">
+    <button
+      type="button"
+      btMenuItem
+      icon="newChat"
+      [disabled]="!config.chatEnabled || starting() || sending() || inFlight()"
+      (click)="newChat()"
+    >
+      New chat
+    </button>
+    <button type="button" btMenuItem icon="chatHistory" disabled>Chat history</button>
+  </bt-menu>
 </bt-top-bar>
 
 <bt-scroll-container (scroll)="scrolled($event)">
