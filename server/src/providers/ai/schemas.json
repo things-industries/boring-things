@@ -407,6 +407,107 @@
         }
       },
       "required": ["title", "documentType", "publisher", "documentDate"]
+    },
+    "taskSuggestions": {
+      "description": "Supported management tasks for one Thing, ready to become unscheduled suggested Events.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "Up to eight distinct supported tasks; empty when none are established.",
+          "items": {
+            "description": "One task supported by a retrieved public source applicable to the Thing.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Short action title naming the task (min 1 char, max 200 chars).",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "description": {
+                "type": "string",
+                "description": "Supported instructions, intervals and conditions, with no inferred next date (min 1 char, max 4000 chars).",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "sourceUrl": {
+                "type": "string",
+                "description": "Supporting URL observed through web search (min 1 char, max 2000 chars).",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "quote": {
+                "type": "string",
+                "description": "Supporting excerpt from the public source establishing task applicability (min 1 char, max 2000 chars).",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "required": ["title", "description", "sourceUrl", "quote"]
+          }
+        }
+      },
+      "required": ["items"]
+    },
+    "purchasableSuggestions": {
+      "description": "Supported consumables and accessories with purchase pages and compatibility evidence.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "Up to eight distinct compatible products; empty when purchase links or compatibility are unproven.",
+          "items": {
+            "description": "One compatible product with observed purchase and evidence URLs.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["CONSUMABLE", "ACCESSORY"],
+                "description": "Consumable used or replaced during operation, or an accessory compatible with the Thing."
+              },
+              "name": {
+                "type": "string",
+                "description": "Source-supported product name, retaining any manufacturer part number (min 1 char, max 200 chars).",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "description": {
+                "type": "string",
+                "description": "Purpose and compatibility explanation supported by retrieved evidence (min 1 char, max 4000 chars).",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "merchantUrl": {
+                "type": "string",
+                "description": "Direct purchase page URL observed through web search (min 1 char, max 2000 chars).",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "sourceUrl": {
+                "type": "string",
+                "description": "URL observed through web search establishing compatibility (min 1 char, max 2000 chars).",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "quote": {
+                "type": "string",
+                "description": "Supporting excerpt establishing model, variant, part number or technical compatibility (min 1 char, max 2000 chars).",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "required": ["kind", "name", "description", "merchantUrl", "sourceUrl", "quote"]
+          }
+        }
+      },
+      "required": ["items"]
     }
   },
   "registryTools": [
@@ -494,7 +595,7 @@
     {
       "type": "function",
       "name": "read_thing",
-      "description": "Retrieval of another owned Thing, populated masked fields, attachments and activity. The active Thing context is already retrieved; empty omitted fields are unrecorded.",
+      "description": "Retrieval of another owned Thing, populated masked fields, attachments, activities and purchasables. The active Thing context is already retrieved; empty omitted fields are unrecorded.",
       "strict": true,
       "parameters": {
         "description": "Owned Thing to read before answering or taking action.",

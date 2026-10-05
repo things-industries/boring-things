@@ -63,6 +63,32 @@ export interface Discovery {
   rejectedDocumentUrls?: string[];
 }
 
+export interface TaskResearch extends Pick<ResearchThing, 'categoryId' | 'knownFields'> {
+  referenceUrls: string[];
+  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
+}
+
+export interface PurchasableResearch extends Pick<ResearchThing, 'categoryId' | 'knownFields'> {
+  referenceUrls: string[];
+  existingPurchasables: Pick<Schema['Purchasable'], 'name' | 'kind'>[];
+}
+
+export interface TaskSuggestions {
+  items: Pick<Schema['Event'], 'title' | 'description' | 'sourceRefs'>[];
+}
+
+export interface PurchasableSuggestions {
+  items: Pick<
+    Schema['Purchasable'],
+    'kind' | 'name' | 'description' | 'merchantUrl' | 'sourceRefs'
+  >[];
+}
+
+export interface ImportResearchCheckpoint {
+  complete: boolean;
+  warnings: DiscoveryWarning[];
+}
+
 export type Usage = Schema['ImportUsage'];
 
 export type DiscoveryWarning = Omit<Schema['ImportWarning'], 'thingId'>;
@@ -142,6 +168,16 @@ export interface ImportAi {
     targets: EmptyResearchField[],
     context: AiContext,
   ): Promise<DocumentExtraction>;
+  suggestTasks(
+    research: TaskResearch,
+    context: AiContext,
+    searchCalls?: number,
+  ): Promise<TaskSuggestions>;
+  findPurchasables(
+    research: PurchasableResearch,
+    context: AiContext,
+    searchCalls?: number,
+  ): Promise<PurchasableSuggestions>;
 }
 
 // Awaiting selection still locks the Thing until the owner confirms which candidates to import.

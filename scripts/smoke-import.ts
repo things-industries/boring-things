@@ -29,6 +29,8 @@ const ai = new OpenAiImports(
 );
 const trace: unknown[] = [];
 const recorded: ImportAi = {
+  suggestTasks: (...args) => ai.suggestTasks(...args),
+  findPurchasables: (...args) => ai.findPurchasables(...args),
   extractDocument: (...args) => ai.extractDocument(...args),
   async extract(source, categories, context) {
     const result = await ai.extract(source, categories, context);

@@ -99,6 +99,8 @@ Boring Things does not need to replace every adjacent product to be useful. In m
 
 ## Features
 
+Activities are ongoing or scheduled work the owner manages, including suggested tasks, Events and Issues. Purchasables are opportunities to buy something that maintains or improves a Thing, such as consumables, accessories or upgrades. They retain purchase links and supporting evidence independently of activity scheduling.
+
 ### Thing fields
 
 - Fields capture durable attributes and contractual terms. Upcoming event dates belong to a separate event primitive. Transient observations, account balances and physical-item locations are outside the field registry.
@@ -115,6 +117,8 @@ Answers lead with text addressing the question. Supporting entity and field card
 The importer retrieves official model photographs for physical objects and selects a main image when the owner has left it unset. Owner image choices and removals survive retries. The importer currently commits validated field-set selection and fact batches progressively, then retrieves category-directed reference documents and enriches empty non-instance-specific fields with cited `DISCOVERY` values. Documents up to 100 MB are accepted. Optional enrichment that exceeds processing limits completes with API warnings, preserving imported details and saved documents; eligible warnings permit research retries through the API. Completed-import warning display and research retry controls remain pending frontend work. Owner edits, explicit clears, sensitivity and per-set values remain preserved. The [import improvement plan](../../plans/import-improvements.md) defines the planned single-Thing lifecycle. That lifecycle identifies one Thing before creating or populating its record. Sources identifying multiple independent Things finish with an error and remain available as attachments. An explicit target supplies context for an existing Thing; an automatic match requires evidence identifying the owned instance.
 
 Populate matching fields in selected field sets first, then other registry fields, then useful custom fields. Discard incidental extracted data while preserving the source. Use populated non-instance-specific fields for public research and fill missing non-instance-specific fields from cited evidence. Sensitivity independently governs masking. Category prompts specify the supporting documents to find. Preserve owner edits and explicit clears as results arrive progressively.
+
+Imports also suggest management tasks and purchasables from applicable sources. Category prompts guide manufacturer maintenance and consumables for appliances, care and accessories for devices, and documented administration actions for services. Tasks retain citations, instructions, intervals and conditions as unscheduled suggestions for the owner. Purchasables require observed purchase links and compatibility evidence; memberships, subscriptions and insurance usually yield none. Optional suggestion failures preserve imported details and permit retries. Existing tasks, purchasables and owner edits survive retries and subsequent imports. Persisted recurrence remains future work.
 
 ### User stories
 

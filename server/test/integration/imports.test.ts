@@ -1422,3 +1422,172 @@ test('research images preserve provenance, owner choices and removals; image fai
   assert.equal(result.status, 'COMPLETE');
   assert.ok(result.warnings?.some((warning) => warning.sourceUrl === imageUrl));
 });
+
+test('task and purchasable operations checkpoint independently and preserve owner tasks and purchasables across retry and reimport', async (t) => {
+  const taskSource = 'https://manufacturer.example/maintenance';
+  const taskResearch = t.mock.method(
+    ai,
+    'suggestTasks',
+    async (...[research, _context, calls]: Parameters<ImportAi['suggestTasks']>) => {
+      assert.equal(calls, 3);
+      assert.ok(JSON.stringify(research).includes('SYNTHETIC/01'));
+      assert.ok(!JSON.stringify(research).includes('private-serial'));
+      assert.ok(!('facts' in research));
+      assert.ok(!('attachmentId' in research));
+      return {
+        items: [
+          {
+            title: 'Clean the filter',
+            description: 'Clean every six months.',
+            sourceRefs: [{ url: taskSource, quote: 'Clean every six months.' }],
+          },
+        ],
+      };
+    },
+  );
+  let fail = true;
+  const merchantUrl = 'https://manufacturer.example/filter-0015';
+  const products = t.mock.method(
+    ai,
+    'findPurchasables',
+    async (...[research, _context, calls]: Parameters<ImportAi['findPurchasables']>) => {
+      assert.equal(calls, 3);
+      assert.ok(JSON.stringify(research).includes('SYNTHETIC/01'));
+      assert.ok(!JSON.stringify(research).includes('private-serial'));
+      assert.ok(!('facts' in research));
+      if (fail) throw new Error('Synthetic product research failure');
+      return {
+        items: [
+          {
+            kind: 'CONSUMABLE' as const,
+            name: 'Filter 0015',
+            description: 'Fits this model.',
+            merchantUrl,
+            sourceRefs: [{ url: merchantUrl, quote: '0015 fits this model.' }],
+          },
+        ],
+      };
+    },
+  );
+  const existing = await create({
+    categoryId: 'appliances',
+    values: [
+      { fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' },
+      { fieldSetId: null, fieldId: 'common.serialNumber', value: 'private-serial' },
+    ],
+  });
+  const accepted = await start('Neff hob. Clean every six months.', existing.id);
+  const completed = await wait(accepted.importId);
+  assert.equal(completed.status, 'COMPLETE');
+  assert.equal(completed.warnings?.[0].code, 'RESEARCH_FAILED');
+  const events = (await request('GET', `/events?thingId=${accepted.thingId}`)).json<
+    Schema['EventList']
+  >().items;
+  assert.equal(events.length, 1);
+  const task = events[0];
+  assert.equal(task.status, 'SUGGESTED');
+  assert.equal(task.startsAt, null);
+  assert.equal(task.startsOn, null);
+  assert.equal(task.isSample, false);
+  assert.deepEqual(task.sourceRefs, [{ url: taskSource, quote: 'Clean every six months.' }]);
+  assert.equal((await request('GET', `/events/${task.id}`, undefined, 'bob')).statusCode, 404);
+  await request('PATCH', `/events/${task.id}`, {
+    title: 'Owner task',
+    description: 'Owner instructions',
+    status: 'DISMISSED',
+  });
+  fail = false;
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const retried = await wait(accepted.importId);
+  assert.equal(retried.status, 'COMPLETE');
+  assert.deepEqual(retried.warnings, []);
+  assert.equal(taskResearch.mock.callCount(), 1);
+  assert.equal(products.mock.callCount(), 2);
+  const items = (await request('GET', `/purchasables?thingId=${accepted.thingId}`)).json<
+    Schema['PurchasableList']
+  >().items;
+  assert.equal(items.length, 1);
+  assert.equal(items[0].price, null);
+  assert.equal(items[0].imageUrl, null);
+  assert.ok(items[0].checkedAt);
+  assert.equal(items[0].isSample, false);
+  assert.equal(
+    (await request('GET', `/purchasables/${items[0].id}`, undefined, 'bob')).statusCode,
+    404,
+  );
+  await pool.query(
+    "update bt.purchasables set name='Owner product',description='Owner product notes' where id=$1",
+    [items[0].id],
+  );
+  const repeated = await start('Neff hob. Clean every six months.', accepted.thingId);
+  assert.equal((await wait(repeated.importId)).status, 'COMPLETE');
+  const preservedTask = (await request('GET', `/events/${task.id}`)).json<Schema['Event']>();
+  assert.equal(preservedTask.title, 'Owner task');
+  assert.equal(preservedTask.description, 'Owner instructions');
+  assert.equal(preservedTask.status, 'DISMISSED');
+  const savedProducts = (await request('GET', `/purchasables?thingId=${accepted.thingId}`)).json<
+    Schema['PurchasableList']
+  >().items;
+  assert.equal(savedProducts.length, 1);
+  assert.equal(savedProducts[0].name, 'Owner product');
+  assert.equal(savedProducts[0].description, 'Owner product notes');
+  const detail = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.deepEqual(detail.eventIds, [task.id]);
+  assert.deepEqual(detail.purchasableIds, [items[0].id]);
+});
+
+test('task research failure preserves completed purchasables and retries only tasks', async (t) => {
+  const tasks = t.mock.method(ai, 'suggestTasks', async () => {
+    throw new Error('Synthetic task failure');
+  });
+  const products = t.mock.method(ai, 'findPurchasables', async () => ({ items: [] }));
+  const accepted = await start('neff');
+  assert.equal((await wait(accepted.importId)).status, 'COMPLETE');
+  tasks.mock.mockImplementation(async () => ({ items: [] }));
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const retried = await wait(accepted.importId);
+  assert.equal(retried.status, 'COMPLETE');
+  assert.deepEqual(retried.warnings, []);
+  assert.equal(tasks.mock.callCount(), 2);
+  assert.equal(products.mock.callCount(), 1);
+});
+
+test('task writes and completion checkpoint roll back together on persistence failure', async (t) => {
+  t.mock.method(ai, 'suggestTasks', async () => ({
+    items: [
+      {
+        title: 'Rollback suggestion',
+        description: 'Inspect the filter.',
+        sourceRefs: [{ url: 'https://manufacturer.example/manual' }],
+      },
+    ],
+  }));
+  await pool.query(
+    "alter table bt.events add constraint suggestion_rollback_test check (title <> 'Rollback suggestion')",
+  );
+  let accepted: Schema['ImportAccepted'];
+  try {
+    accepted = await start('neff');
+    const failed = await wait(accepted.importId);
+    assert.equal(failed.status, 'INCOMPLETE');
+    assert.deepEqual(failed.warnings, []);
+    const owner = (await request('GET', '/profile')).json().id;
+    const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+    const [target] = await importsDb.listImportTargets(pool, job);
+    assert.equal(target.taskSuggestions, null);
+    assert.equal(
+      (await request('GET', `/events?thingId=${accepted.thingId}`)).json<Schema['EventList']>()
+        .items.length,
+      0,
+    );
+  } finally {
+    await pool.query('alter table bt.events drop constraint suggestion_rollback_test');
+  }
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  assert.equal((await wait(accepted.importId)).status, 'COMPLETE');
+  assert.equal(
+    (await request('GET', `/events?thingId=${accepted.thingId}`)).json<Schema['EventList']>().items
+      .length,
+    1,
+  );
+});
