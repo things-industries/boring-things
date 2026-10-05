@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import type { Schema } from '../../../../shared/model';
+import type { Schema } from '../../../../../shared/model';
 
 /** A user message bubble or an assistant message; `[bubbleMeta]` content follows the content. */
 @Component({

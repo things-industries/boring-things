@@ -35,10 +35,10 @@ import { TopBar } from '../../components/top-bar/top-bar';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { TermPipe } from '../../pipes/term.pipe';
 import { errorCode } from '../../utils/error.util';
-import { ChatBubble } from './chat-bubble';
-import { ChatComposer } from './chat-composer';
+import { ChatBubble } from './chat-bubble/chat-bubble';
+import { ChatComposer } from './chat-composer/chat-composer';
 import { assistantState, messageCards } from './chat.view';
-import { ResourceCard } from './resource-card';
+import { ResourceCard } from './resource-card/resource-card';
 
 /** A new conversation, global or about the Thing in the route, kept current by its stream. */
 @Component({
@@ -60,8 +60,8 @@ import { ResourceCard } from './resource-card';
     TopBar,
   ],
   viewProviders: [provideIcons({ chatUnavailable, loading, moreActions, responseFailed })],
-  templateUrl: './chat.html',
-  styleUrl: './chat.scss',
+  templateUrl: './chat.page.html',
+  styleUrl: './chat.page.scss',
   host: {
     '[class.keyboard]': '!!visible()',
     '[style.top.px]': 'visible()?.top',

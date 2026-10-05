@@ -1,10 +1,10 @@
 import { Component, inject, input, signal } from '@angular/core';
 import { provideIcons } from '@ng-icons/core';
-import type { Schema } from '../../../../shared/model';
-import { setupNotice } from '../../core/app-icons';
-import { ThingsStore } from '../../core/state/things.store';
-import { Notice } from '../../components/notice/notice';
-import { ImportSteps } from './import-steps';
+import type { Schema } from '../../../../../shared/model';
+import { setupNotice } from '../../../core/app-icons';
+import { ThingsStore } from '../../../core/state/things.store';
+import { Notice } from '../../../components/notice/notice';
+import { ImportSteps } from '../import-steps/import-steps';
 
 /** A Thing's import progress and retry. */
 @Component({

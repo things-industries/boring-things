@@ -412,7 +412,7 @@ Validation: `CI=true pnpm check`; e2e Thing detail spec (ready layout sections f
 
 ### 6. View all details
 
-One page, `/things/:id/details` (`thing-details.*` in `features/things/`), without the bottom nav. It lists every detail of a Thing in grouped cards. Editing is a backlog feature (#51): the page offers pin, unpin, delete and reveal, and its edit controls render disabled.
+One page, `/things/:id/details` (`features/things/thing-details/thing-details.page.*`), without the bottom nav. It lists every detail of a Thing in grouped cards. Editing is a backlog feature (#51): the page offers pin, unpin, delete and reveal, and its edit controls render disabled.
 
 Data: `routeThing()` as on the Thing page. A failed first load shows `bt-error-message` with Retry; a missing Thing shows "This thing is unavailable." with a link home; loading shows key/value skeleton rows.
 
@@ -449,7 +449,7 @@ Validation: `CI=true pnpm check`; e2e: pinning a detail from its row menu shows 
 
 ### 7. Chat
 
-One page (`features/chat/chat.*`) at `/chat` (global chat) and `/things/:id/chat` (Thing chat), without the bottom nav. Each visit starts a new conversation; history and resumption are #22.
+One page (`features/chat/chat.page.*`) at `/chat` (global chat) and `/things/:id/chat` (Thing chat), without the bottom nav. Each visit starts a new conversation; history and resumption are #22.
 
 Data: the page reads its conversation from `ConversationsStore`: `create(thingId)` on entry, then `watch(id)` until the page is destroyed; `send` posts messages. The Thing chat reads its Thing from `ThingsStore` (`loadOne` when missing) and its category from `CategoriesStore`. A failed start shows `bt-error-message` with Retry. With chat unconfigured (`chatEnabled` false) the page shows an info `bt-notice` "The assistant is not configured." and no composer.
 
@@ -467,7 +467,7 @@ Layout, top to bottom (white page):
 - Disconnected stream: warning `bt-notice` (busy) "Connection interrupted. Reconnecting to saved messages…" above the composer, in a `role="status"` region.
 - `bt-chat-composer` pinned below the scrolling messages.
 
-Resource cards (`features/chat/resource-card.*`), each read from its store and loaded with `loadOne` when missing; a card marked `available: false`, or whose record returns `404`, shows "This {record} is no longer available." in `caption`, `primary-muted`. Rows sit on `secondary-subtle`, radius `tile`:
+Resource cards (`features/chat/resource-card/`), each read from its store and loaded with `loadOne` when missing; a card marked `available: false`, or whose record returns `404`, shows "This {record} is no longer available." in `caption`, `primary-muted`. Rows sit on `secondary-subtle`, radius `tile`:
 
 - **Thing**: `bt-thing-card` linking to the Thing. Thing chat leaves out cards for its own Thing. A field card whose Thing has no Thing card in the message, and is not the Thing chat's Thing, gets one.
 - **Field**: `bt-key-value-row` with the field icon, name and value formatted as in Key details (masked as dots, missing as "Not recorded", `false` as No, dates as "d MMM y"); copyable when a value shows.
@@ -485,8 +485,8 @@ Sending:
 Components:
 
 - `bt-thing-card` (`components/thing-card/`): link card with `bt-thing-thumbnail` (`md`), Thing name in `section` and category in `caption`, semibold, `primary-muted`. `secondary-subtle` fill, `secondary` outline, radius `card`, `space(3)` padding. Inputs `thing` (`ThingSummary`) and `category`.
-- `bt-chat-bubble` (`features/chat/`): input `role` (`USER` or `ASSISTANT`); projected content, and `[bubbleMeta]` content below it.
-- `bt-chat-composer` (`features/chat/`): field on `secondary-subtle` (radius `card`, min height `control-md`) holding an auto-growing textarea labelled "Message" (`body`, up to `composer-max` high), with placeholder "Ask about this Thing" or "Ask across all your Things", and a disabled attach icon button ("Attach a file (coming soon)", #21); then a `primary` **Send** icon button. White bar with a `secondary` top border, `space(3)` `space(4)` padding plus the bottom safe-area inset. Inputs `placeholder` and `disabled`; two-way `text`; output `send`.
+- `bt-chat-bubble` (`features/chat/chat-bubble/`): input `role` (`USER` or `ASSISTANT`); projected content, and `[bubbleMeta]` content below it.
+- `bt-chat-composer` (`features/chat/chat-composer/`): field on `secondary-subtle` (radius `card`, min height `control-md`) holding an auto-growing textarea labelled "Message" (`body`, up to `composer-max` high), with placeholder "Ask about this Thing" or "Ask across all your Things", and a disabled attach icon button ("Attach a file (coming soon)", #21); then a `primary` **Send** icon button. White bar with a `secondary` top border, `space(3)` `space(4)` padding plus the bottom safe-area inset. Inputs `placeholder` and `disabled`; two-way `text`; output `send`.
 - `bt-schedule-dialog` (`components/schedule-dialog/`): `bt-dialog` with a date and an optional time; **Schedule** calls `EventsStore.schedule`. Open while its `event` input is set.
 - `bt-rich-text` (`components/rich-text/`): renders Markdown with `marked` (GitHub-flavoured, line breaks kept) sanitised with DOMPurify; links open in a new tab with `rel="noopener noreferrer"`. Headings render in `body`, bold; paragraphs and list items `space(1)` apart; lists keep their markers; code in a `secondary-subtle` inline block.
 

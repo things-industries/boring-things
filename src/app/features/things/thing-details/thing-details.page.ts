@@ -11,7 +11,7 @@ import {
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import type { Value } from '../../../../shared/model';
+import type { Value } from '../../../../../shared/model';
 import {
   deleteItem,
   editDetails,
@@ -20,25 +20,25 @@ import {
   pinField,
   revealValue,
   unpinField,
-} from '../../core/app-icons';
-import { CategoriesStore } from '../../core/state/categories.store';
-import { ThingsStore } from '../../core/state/things.store';
-import { CardGroup } from '../../components/card-group/card-group';
-import { Dialog } from '../../components/dialog/dialog';
-import { ErrorMessage } from '../../components/error-message/error-message';
-import { IconButton } from '../../components/icon-button/icon-button';
-import { KeyValueRow } from '../../components/key-value-row/key-value-row';
-import { Menu } from '../../components/menu/menu';
-import { MenuItem } from '../../components/menu/menu-item';
-import { ScrollContainer } from '../../components/scroll-container/scroll-container';
-import { SectionHeader } from '../../components/section-header/section-header';
-import { TopBar } from '../../components/top-bar/top-bar';
-import { formatFieldValue } from '../../utils/field.util';
-import { samePin } from '../../utils/sections.util';
-import { activeImport } from './thing.view';
+} from '../../../core/app-icons';
+import { CategoriesStore } from '../../../core/state/categories.store';
+import { ThingsStore } from '../../../core/state/things.store';
+import { CardGroup } from '../../../components/card-group/card-group';
+import { Dialog } from '../../../components/dialog/dialog';
+import { ErrorMessage } from '../../../components/error-message/error-message';
+import { IconButton } from '../../../components/icon-button/icon-button';
+import { KeyValueRow } from '../../../components/key-value-row/key-value-row';
+import { Menu } from '../../../components/menu/menu';
+import { MenuItem } from '../../../components/menu/menu-item';
+import { ScrollContainer } from '../../../components/scroll-container/scroll-container';
+import { SectionHeader } from '../../../components/section-header/section-header';
+import { TopBar } from '../../../components/top-bar/top-bar';
+import { formatFieldValue } from '../../../utils/field.util';
+import { samePin } from '../../../utils/sections.util';
+import { activeImport } from '../thing.view';
 import { type DetailRow, detailGroups } from './thing-details.view';
-import { routeThing } from './thing-loader';
-import { RowSkeleton } from './row-skeleton';
+import { routeThing } from '../thing-loader';
+import { RowSkeleton } from '../row-skeleton/row-skeleton';
 
 /** Every detail of a Thing in grouped cards, with pin, reveal and delete actions per row. */
 @Component({
@@ -71,8 +71,8 @@ import { RowSkeleton } from './row-skeleton';
       unpinField,
     }),
   ],
-  templateUrl: './thing-details.html',
-  styleUrl: './thing-details.scss',
+  templateUrl: './thing-details.page.html',
+  styleUrl: './thing-details.page.scss',
 })
 export class ThingDetailsPage {
   private things = inject(ThingsStore);

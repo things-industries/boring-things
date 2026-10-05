@@ -1,6 +1,6 @@
 import { Component, computed, input } from '@angular/core';
-import type { Schema } from '../../../../shared/model';
-import { IMPORT_STEP_COUNT, importStep } from './thing.view';
+import type { Schema } from '../../../../../shared/model';
+import { IMPORT_STEP_COUNT, importStep } from '../thing.view';
 
 /** The current import stage in words, over a track of the stages done, current and to come. */
 @Component({

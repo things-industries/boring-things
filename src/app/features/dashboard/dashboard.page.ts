@@ -1,5 +1,5 @@
 import { isNewThing } from '../../utils/date.util';
-import { DashboardSkeleton } from './dashboard-skeleton';
+import { DashboardSkeleton } from './dashboard-skeleton/dashboard-skeleton';
 import { TermPipe } from '../../pipes/term.pipe';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { addThing, categoryIcons, open, openProfile, searchThings } from '../../core/app-icons';
@@ -35,10 +35,10 @@ import type { ActivityAction } from '../../interfaces/activity.interface';
     TermPipe,
     IconButton,
   ],
-  templateUrl: './dashboard.html',
-  styleUrl: './dashboard.scss',
+  templateUrl: './dashboard.page.html',
+  styleUrl: './dashboard.page.scss',
 })
-export class Dashboard {
+export class DashboardPage {
   private profileStore = inject(ProfileStore);
   private thingsStore = inject(ThingsStore);
   private tagsStore = inject(TagsStore);
