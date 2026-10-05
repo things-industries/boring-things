@@ -1,22 +1,22 @@
-import OpenAI from 'openai';
-import type { Response, ResponseInput, Tool } from 'openai/resources/responses/responses';
-import * as prompts from './prompts.js';
 /**
  * Adapts streamed OpenAI Responses calls to assistant text deltas and sequential application tools,
  * including requested attachment content.
  */
 
+import OpenAI from 'openai';
+import type { Response, ResponseInput, Tool } from 'openai/resources/responses/responses';
+import * as prompts from './prompts.js';
 import type {
   ChatAi,
   ChatInput,
   ChatContext,
-  ChatToolResult,
+  ChatTools,
 } from '../../application/conversations/types.js';
-import { chatFunctions } from '../../contracts/chat-tools.js';
 import { ensure } from '../../application/errors.js';
 import type { PublicField } from '../../application/public-fields.js';
 import type { AiContext } from '../../application/import/types.js';
 import { searchWeb } from './responses.js';
+import { pdfText } from '../../lib/pdf.js';
 
 export class OpenAiChat implements ChatAi {
   private client: OpenAI;
@@ -38,14 +38,11 @@ export class OpenAiChat implements ChatAi {
       prompts.chatResearchPrompt(question, fields, this.searchCalls),
       this.searchCalls,
       context,
+      'cited',
     );
   }
 
-  async respond(
-    task: ChatInput,
-    execute: (name: string, args: unknown) => Promise<ChatToolResult>,
-    context: ChatContext,
-  ) {
+  async respond(task: ChatInput, tools: ChatTools, context: ChatContext) {
     const conversation: ResponseInput = task.messages.map((message) => ({
       ...message,
       role: message.role === 'USER' ? ('user' as const) : ('assistant' as const),
@@ -68,8 +65,8 @@ export class OpenAiChat implements ChatAi {
             max_output_tokens: this.maxOutputTokens,
             instructions: prompts.chatInstructions,
             input: conversation,
-            tools: chatFunctions as Tool[],
-            parallel_tool_calls: false,
+            tools: tools.definitions as Tool[],
+            parallel_tool_calls: true,
             include: ['reasoning.encrypted_content'],
             ...(round === this.rounds ? { tool_choice: 'none' as const } : {}),
           },
@@ -90,9 +87,13 @@ export class OpenAiChat implements ChatAi {
         } finally {
           stream.controller.abort();
         }
-      } catch {
+      } catch (error) {
         context.signal.throwIfAborted();
-        throw new Error('chat_provider_failed');
+        throw new Error(
+          error instanceof OpenAI.APIError && error.status
+            ? `ai_http_${error.status}`
+            : 'chat_provider_failed',
+        );
       }
 
       ensure(completed?.status === 'completed', 'Assistant response incomplete');
@@ -106,7 +107,7 @@ export class OpenAiChat implements ChatAi {
       conversation.push(...(completed.output as ResponseInput));
       const calls = completed.output.filter((o) => o.type === 'function_call');
       if (!calls.length) return answer;
-      ensure(calls.length === 1 && round < this.rounds, 'tool_limit');
+      ensure(round < this.rounds, 'tool_limit');
 
       for (const call of calls) {
         let args: unknown;
@@ -115,7 +116,7 @@ export class OpenAiChat implements ChatAi {
         } catch {
           throw new Error('chat_provider_failed');
         }
-        const result = await execute(call.name, args);
+        const result = await tools.execute(call.name, args);
         conversation.push({
           type: 'function_call_output',
           call_id: call.call_id,
@@ -124,7 +125,15 @@ export class OpenAiChat implements ChatAi {
 
         if (result.source) {
           const source = result.source;
-          const data = `data:${source.mediaType};base64,${source.content.toString('base64')}`;
+          const text =
+            source.mediaType === 'application/pdf' && !source.includeImages
+              ? (await pdfText(source.content, context.signal)).text
+              : source.mediaType === 'text/plain'
+                ? source.content.toString('utf8')
+                : undefined;
+          const data = text?.trim()
+            ? ''
+            : `data:${source.mediaType};base64,${source.content.toString('base64')}`;
           conversation.push({
             role: 'user',
             content: [
@@ -132,8 +141,8 @@ export class OpenAiChat implements ChatAi {
                 type: 'input_text',
                 text: prompts.attachmentEvidencePrompt,
               },
-              source.mediaType === 'text/plain'
-                ? { type: 'input_text', text: source.content.toString('utf8') }
+              text?.trim()
+                ? { type: 'input_text', text }
                 : source.mediaType.startsWith('image/')
                   ? { type: 'input_image', image_url: data, detail: 'auto' }
                   : {

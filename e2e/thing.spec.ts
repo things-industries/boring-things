@@ -233,7 +233,7 @@ test('import steps show while discovering, then the sheet slides up once', async
         ...thing,
         imageAttachmentId: null,
         standaloneFields: [],
-        undefinedFields: [],
+        customFields: [],
         import: job(thing.id, 'EXTRACTING'),
       },
     });

@@ -39,7 +39,7 @@ Inputs: [frontend guide](../../src/AGENTS.md), `openapi.json`, `src/app/core/api
 | `PurchasablesStore`  | `Purchasable`                  | Per Thing (`thingId`)                                   |
 | `ConversationsStore` | `Conversation` with `messages` | Conversation per ID; conversation stream; history (#35) |
 
-- `ThingsStore` keeps one record per Thing: the `ThingSummary` fields, plus a `detail` holding the detail-only fields (`fieldSets`, `standaloneFields`, `undefinedFields`, `pinnedFields` and `import`) once the Thing is loaded by ID. A list reload keeps loaded details.
+- `ThingsStore` keeps one record per Thing: the `ThingSummary` fields, plus a `detail` holding the detail-only fields (`fieldSets`, `standaloneFields`, `customFields`, `pinnedFields` and `import`) once the Thing is loaded by ID. A list reload keeps loaded details.
 - Each collection has a status (`idle`, `loading`, `loaded`, `error`) and an error code, from the `withLoad` feature. `load()` reuses a request already in flight, `ensureLoaded()` does nothing once loaded, and `reload()` always fetches.
 - Signing out clears every store and aborts their streams (`withSession`).
 - `withEntityCollection` bundles the collection stores' shared parts: optimistic entities, `withLoad`, `loadOne`, a default `reset` and `withSession`. Things, Issues, Events, Attachments, Tags and Categories use it.

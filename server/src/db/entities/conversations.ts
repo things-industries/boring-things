@@ -10,6 +10,7 @@ import * as database from '../connection.js';
 
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
+import { mergeResourceCards } from '../../../../shared/resource-cards.js';
 import type { Database } from '../connection.js';
 import * as thingsDb from './things.js';
 import { ensure } from '../../application/errors.js';
@@ -82,6 +83,16 @@ export async function getOwnedConversationSnapshot(
     "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'USER' then 0 else 1 end,id",
     [id],
   );
+
+  for (const message of messages) {
+    message.cards = mergeResourceCards([
+      ...message.cards,
+      ...message.sourceRefs.flatMap<Schema['ResourceCard']>(({ attachmentId, page }) =>
+        attachmentId ? [{ type: 'ATTACHMENT', attachmentId, ...(page ? { page } : {}) }] : [],
+      ),
+    ]);
+    message.sourceRefs = [];
+  }
 
   // Cards can outlive their targets; recheck owner access so clients can mark deleted resources unavailable.
   for (const message of messages)

@@ -74,7 +74,7 @@ test('research eligibility uses metadata independently of sensitivity and retain
   data.values.second = { public: stored('C') };
   data.standalone.maskedPublic = stored('D');
   data.userEdited = ['first:cleared'];
-  data.undefinedFields = [
+  data.customFields = [
     {
       id: 'local-default',
       label: 'Default',
@@ -99,9 +99,7 @@ test('research eligibility uses metadata independently of sensitivity and retain
   assert.ok(research.knownFields.some((f) => f.fieldSetId === null && f.value === 'D'));
   for (const value of [0, false, ''])
     assert.ok(research.knownFields.some((f) => f.value === value));
-  assert.ok(
-    research.knownFields.some((f) => f.undefinedFieldId === 'local-public' && f.value === 0),
-  );
+  assert.ok(research.knownFields.some((f) => f.customFieldId === 'local-public' && f.value === 0));
   assert.ok(research.emptyFields.some((f) => f.fieldId === 'target'));
   assert.ok(!research.emptyFields.some((f) => f.fieldSetId === 'first' && f.fieldId === 'cleared'));
   const prompt = resourceSearchPrompt(research, 3);
@@ -113,7 +111,7 @@ test('custom classification defaults to private, survives edits and set removal,
   const initial = patchData(
     emptyData(),
     {
-      undefinedFields: [
+      customFields: [
         { label: 'Custom', value: 'A', sensitive: true, instanceSpecific: false },
         { label: 'Default', value: 0, sensitive: false },
       ],
@@ -121,23 +119,20 @@ test('custom classification defaults to private, survives edits and set removal,
     'other',
     registry,
   );
-  const id = initial.undefinedFields[0].id;
+  const id = initial.customFields[0].id;
   const edited = patchData(
     initial,
-    { undefinedFields: [{ id, label: 'Custom', value: 'B', sensitive: true }] },
+    { customFields: [{ id, label: 'Custom', value: 'B', sensitive: true }] },
     'other',
     registry,
   );
-  assert.equal(edited.undefinedFields.find((f) => f.id === id)?.instanceSpecific, false);
-  assert.equal(edited.undefinedFields.find((f) => f.label === 'Default')?.instanceSpecific, true);
+  assert.equal(edited.customFields.find((f) => f.id === id)?.instanceSpecific, false);
+  assert.equal(edited.customFields.find((f) => f.label === 'Default')?.instanceSpecific, true);
   edited.setIds = ['first'];
   edited.values.first = { public: stored('Reference') };
   const removed = patchData(edited, { removeFieldSetIds: ['first'] }, 'other', registry);
-  assert.equal(
-    removed.undefinedFields.find((f) => f.value === 'Reference')?.instanceSpecific,
-    false,
-  );
-  const projected = projectData(removed, registry).undefinedFields.find((f) => f.id === id)!;
+  assert.equal(removed.customFields.find((f) => f.value === 'Reference')?.instanceSpecific, false);
+  const projected = projectData(removed, registry).customFields.find((f) => f.id === id)!;
   assert.equal(projected.instanceSpecific, false);
   assert.equal(projected.masked, true);
   assert.equal(projected.value, null);
