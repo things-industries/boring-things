@@ -1,6 +1,12 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures.js';
 
+/** A 1×1 PNG served in place of attachment content. */
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 /** Creates an appliance with a warranty section through the manual form and opens it. */
 async function createThing(page: Page, name: string) {
   await page.goto('/things/new/manual');
@@ -39,14 +45,60 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
   await expect(page.getByText('No documents yet.')).toBeVisible();
 });
 
+test('image attachments show thumbnails in the attachments list and library', async ({ page }) => {
+  await page.goto('/things');
+  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
+
+  const thingId = new URL(page.url()).pathname.split('/').pop()!;
+  const attachment = (id: string, filename: string, mediaType: string, thingIds: string[]) => ({
+    id,
+    filename,
+    mediaType,
+    byteSize: 68,
+    sourceUrl: null,
+    thingIds,
+    createdAt: new Date().toISOString(),
+    title: null,
+    documentType: null,
+    publisher: null,
+    documentDate: null,
+    pageCount: null,
+    metadataSources: {},
+  });
+  const files = [
+    attachment('00000000-0000-4000-8000-0000000000b1', 'hob.png', 'image/png', [thingId]),
+    attachment('00000000-0000-4000-8000-0000000000b2', 'broken.png', 'image/png', [thingId]),
+    attachment('00000000-0000-4000-8000-0000000000b3', 'manual.pdf', 'application/pdf', [thingId]),
+    attachment('00000000-0000-4000-8000-0000000000b4', 'spare.png', 'image/png', []),
+  ];
+
+  await page.route(/\/api\/attachments(\?|$)/, (route) =>
+    route.fulfill({ json: { items: files, nextCursor: null } }),
+  );
+  await page.route('**/api/attachments/*/content', (route) =>
+    route.request().url().includes('0000000000b2')
+      ? route.fulfill({ contentType: 'image/png', body: 'not an image' })
+      : route.fulfill({ contentType: 'image/png', body: png }),
+  );
+  await page.reload();
+
+  const row = (name: string) => page.locator('bt-list-row').filter({ hasText: name });
+
+  await expect(row('hob.png').locator('bt-attachment-thumbnail img')).toHaveAttribute('alt', '');
+  await expect(row('hob.png').locator('bt-icon-badge')).toHaveCount(0);
+  await expect(row('broken.png').locator('bt-attachment-thumbnail bt-icon-badge')).toBeVisible();
+  await expect(row('manual.pdf').locator('bt-attachment-thumbnail')).toHaveCount(0);
+  await expect(row('manual.pdf').locator('bt-icon-badge')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add an attachment' }).click();
+  await expect(row('spare.png').locator('bt-attachment-thumbnail img')).toBeVisible();
+});
+
 test('a Thing image shows no fallback while it loads and shows at once when reopened', async ({
   page,
 }) => {
   const imageId = '00000000-0000-4000-8000-0000000000a1';
-  const png = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-    'base64',
-  );
   let release = () => undefined as void;
   const released = new Promise<void>((resolve) => (release = resolve));
   let requests = 0;

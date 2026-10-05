@@ -67,6 +67,7 @@ import { IssuesStore } from '../../core/state/issues.store';
 import { PurchasablesStore } from '../../core/state/purchasables.store';
 import { TagsStore } from '../../core/state/tags.store';
 import { ThingsStore } from '../../core/state/things.store';
+import { AttachmentThumbnail } from '../../components/attachment-thumbnail/attachment-thumbnail';
 import { Dialog } from '../../components/dialog/dialog';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { EventCard } from '../../components/event-card/event-card';
@@ -115,6 +116,7 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
     ImportSources,
     KeyValueRow,
     ListRow,
+    AttachmentThumbnail,
     Menu,
     MenuItem,
     Notice,
