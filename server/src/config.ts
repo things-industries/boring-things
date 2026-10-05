@@ -10,6 +10,11 @@ export type EnvConfig = ReturnType<typeof readConfig>;
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   const blobStorage = env.BLOB_STORAGE ?? 'local';
   if (blobStorage !== 'local' && blobStorage !== 's3') throw new Error('Invalid BLOB_STORAGE');
+  const logFormat = env.LOG_FORMAT ?? (env.NODE_ENV === 'production' ? 'json' : 'pretty');
+  if (logFormat !== 'json' && logFormat !== 'pretty') throw new Error('Invalid LOG_FORMAT');
+  const logLevel = env.LOG_LEVEL ?? 'info';
+  if (!['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'].includes(logLevel))
+    throw new Error('Invalid LOG_LEVEL');
 
   if (env.NODE_ENV === 'production') {
     for (const name of ['DATABASE_URL', 'LOGTO_ENDPOINT', 'LOGTO_APP_ID', 'LOGTO_API_RESOURCE'])
@@ -35,6 +40,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     throw new Error('S3_ENDPOINT must use HTTPS');
 
   return {
+    logFormat,
+    logLevel,
     blobStorage: blobStorage as 'local' | 's3',
     s3,
     chatTimeoutMs: numberOrFallback(env, 'CHAT_TIMEOUT_MS', 180000),

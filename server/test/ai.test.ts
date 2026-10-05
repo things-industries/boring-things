@@ -1,3 +1,5 @@
+// Checks AI import adapters with mocked SDK responses and synthetic source documents.
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument } from 'pdf-lib';
@@ -5,6 +7,9 @@ import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
 import { extractedThings, extractionBaseline } from './fixtures/imports.js';
 import * as registrySeedDb from '../src/db/seeds/registry.js';
+import { createAi } from '../src/providers/ai/index.js';
+import { readConfig } from '../src/config.js';
+import type { AiTurnCompleted } from '../src/providers/ai/responses.js';
 
 const context = () => ({ signal: new AbortController().signal, record: async () => {} });
 const jsonResponse = (data: unknown) =>
@@ -150,6 +155,7 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
 
 test('SDK mapping supplies minimal Thing and field context and retains tool history within each batch', async (t) => {
   let request = 0;
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   const selectedSets = registrySeedDb.sets.filter((set) => set.id === 'appliances.neff');
   const fieldResults = { results: [] };
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
@@ -246,7 +252,11 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
     searchFieldSets: async () => ({ sets: selectedSets }),
     searchFields: async () => fieldResults,
   };
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = createAi(
+    readConfig({ OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'fixture' }),
+    {},
+    (entry) => turns.push(entry),
+  ).importAi!;
   const selection = await ai.selectFieldSets(extractedThings.neff, tools, context());
   assert.deepEqual(selection, { setIds: ['appliances.neff'] });
   for (const fact of extractedThings.neff.facts)
@@ -255,6 +265,10 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
       { values: [], customFactIds: [fact.id], discardedFactIds: [] },
     );
   assert.equal(request, 6);
+  assert.deepEqual(
+    turns.map((turn) => turn.toolCalls),
+    [['search_field_sets'], [], ['search_fields'], [], ['search_fields'], []],
+  );
 });
 
 test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP errors without transport retries', async (t) => {
@@ -409,6 +423,7 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
 
 test('SDK document extraction uses the configured model, contained schema and per-task usage without search or write tools', async (t) => {
   const usage: Partial<Usage>[] = [];
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.model, 'document-model');
@@ -421,7 +436,16 @@ test('SDK document extraction uses the configured model, contained schema and pe
       usage: { input_tokens: 25, output_tokens: 10, input_tokens_details: { cached_tokens: 5 } },
     });
   });
-  const ai = new OpenAiImports('test-key', 'import-model', 1000, 3, 'document-model');
+  const ai = createAi(
+    readConfig({
+      OPENAI_API_KEY: 'test-key',
+      OPENAI_MODEL: 'import-model',
+      AI_MAX_OUTPUT_TOKENS: '1000',
+      DOCUMENT_EXTRACTION_MODEL: 'document-model',
+    }),
+    {},
+    (entry) => turns.push(entry),
+  ).importAi!;
   const pdf = await PDFDocument.create();
   pdf.addPage();
   await ai.extractDocument(
@@ -446,4 +470,39 @@ test('SDK document extraction uses the configured model, contained schema and pe
   assert.equal(usage[0].entries?.[0].model, 'document-model');
   assert.equal(usage[0].entries?.[0].inputTokens, 25);
   assert.equal(usage[0].cachedTokens, 5);
+  assert.deepEqual(turns, [{ ...usage[0].entries![0], toolCalls: [] }]);
+  assert.equal(turns[0].outputTokens, 10);
+  assert.ok(turns[0].elapsedMs >= 0);
+});
+
+test('AI attachment metadata validates calendar dates without unknown-format warnings', async (t) => {
+  const warnings = t.mock.method(console, 'warn', () => {});
+  let documentDate: string | null = null;
+  t.mock.method(globalThis, 'fetch', async () =>
+    jsonResponse(
+      output({
+        text: '',
+        metadata: { title: null, documentType: null, publisher: null, documentDate },
+        candidates: [extractedThings.neff],
+      }),
+    ),
+  );
+  const ai = new OpenAiImports('test-key', 'fixture');
+  const source = {
+    filename: 'source.txt',
+    mediaType: 'text/plain',
+    content: Buffer.from('Source'),
+  };
+  for (const date of [null, '2026-10-05', '2024-02-29']) {
+    documentDate = date;
+    assert.equal(
+      (await ai.extract(source, ['appliances'], context())).metadata?.documentDate,
+      date,
+    );
+  }
+  for (const date of ['not-a-date', '2026-02-30', '2025-02-29']) {
+    documentDate = date;
+    await assert.rejects(ai.extract(source, ['appliances'], context()), /Invalid AI output/);
+  }
+  assert.equal(warnings.mock.callCount(), 0);
 });

@@ -1,12 +1,16 @@
+// Checks streamed assistant turns and web research using mocked HTTP responses.
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import OpenAI from 'openai';
-import { searchWeb } from '../src/providers/ai/responses.js';
+import { searchWeb, type AiTurnCompleted } from '../src/providers/ai/responses.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 import { chatFunctions } from '../src/contracts/chat-tools.js';
 import type { Usage } from '../src/application/import/types.js';
+import { createAi } from '../src/providers/ai/index.js';
+import { readConfig } from '../src/config.js';
 const task = {
   thingId: null,
   messages: [{ role: 'USER' as const, content: 'Read the Thing' }],
@@ -21,6 +25,7 @@ test('assistant research answers the supplied question in one bounded request wi
     url: `https://candidate.example/${id}`,
   }));
   const entries: Partial<Usage>[] = [];
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
@@ -61,7 +66,17 @@ test('assistant research answers the supplied question in one bounded request wi
       usage: { input_tokens: 20, output_tokens: 8, input_tokens_details: { cached_tokens: 4 } },
     });
   });
-  const ai = new OpenAiChat('synthetic-key', 'fixture', 1000, 3, 2);
+  const ai = createAi(
+    readConfig({
+      OPENAI_API_KEY: 'synthetic-key',
+      OPENAI_MODEL: 'fixture',
+      AI_MAX_OUTPUT_TOKENS: '1000',
+      CHAT_TOOL_CALLS: '3',
+      DISCOVERY_SEARCH_CALLS: '2',
+    }),
+    {},
+    (entry) => turns.push(entry),
+  ).chatAi!;
   const context = {
     signal: new AbortController().signal,
     record: async (entry: Partial<Usage>) => {
@@ -88,6 +103,7 @@ test('assistant research answers the supplied question in one bounded request wi
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(entries[0].entries?.[0].task, 'research');
   assert.equal(entries[0].cachedTokens, 4);
+  assert.deepEqual(turns, [{ ...entries[0].entries![0], toolCalls: ['web_search', 'web_search'] }]);
   assert.deepEqual(
     entries.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.resultCount),
     [100, 1],
@@ -105,6 +121,7 @@ test('assistant research answers the supplied question in one bounded request wi
 
   fetch.mock.mockImplementation(async () => Response.json({ status: 'incomplete', output: [] }));
   await assert.rejects(ai.research('Question', [], context), /incomplete/);
+  assert.equal(turns.length, 1);
   fetch.mock.mockImplementation(async () =>
     Response.json({
       status: 'completed',
@@ -144,6 +161,7 @@ function stream(events: unknown[]) {
 test('Responses streaming collects split frames, passes function results and records usage', async (t) => {
   let requests = 0;
   const text: string[] = [];
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
@@ -178,7 +196,11 @@ test('Responses streaming collects split frames, passes function results and rec
     return stream([
       { type: 'response.output_text.delta', delta: 'Saved ' },
       { type: 'response.output_text.delta', delta: 'details.' },
-      completed([], { input_tokens: 6, output_tokens: 3 }),
+      completed([], {
+        input_tokens: 6,
+        output_tokens: 3,
+        input_tokens_details: { cached_tokens: 2 },
+      }),
     ]);
   });
   let tokens = 0;
@@ -189,7 +211,9 @@ test('Responses streaming collects split frames, passes function results and rec
       tokens += usage.inputTokens ?? 0;
     },
   };
-  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
+  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3, 3, (entry) =>
+    turns.push(entry),
+  ).respond(
     task,
     {
       definitions: chatFunctions,
@@ -205,13 +229,39 @@ test('Responses streaming collects split frames, passes function results and rec
   assert.equal(text.join(''), answer);
   assert.equal(tokens, 10);
   assert.equal(requests, 2);
+  assert.deepEqual(
+    turns.map(({ elapsedMs, ...entry }) => {
+      assert.ok(elapsedMs >= 0);
+      return entry;
+    }),
+    [
+      {
+        task: 'assistant_response',
+        model: 'fixture',
+        inputTokens: 4,
+        outputTokens: 2,
+        cachedTokens: 0,
+        toolCalls: ['search_things'],
+      },
+      {
+        task: 'assistant_response',
+        model: 'fixture',
+        inputTokens: 6,
+        outputTokens: 3,
+        cachedTokens: 2,
+        toolCalls: [],
+      },
+    ],
+  );
 });
 test('an interrupted provider stream cannot complete an assistant response', async (t) => {
   t.mock.method(globalThis, 'fetch', async () =>
     stream([{ type: 'response.output_text.delta', delta: 'Partial' }]),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+    new OpenAiChat('synthetic-key', 'fixture', 1000, 1, 3, () =>
+      assert.fail('interrupted response logged as complete'),
+    ).respond(
       task,
       { definitions: chatFunctions, execute: async () => ({ output: {} }) },
       {

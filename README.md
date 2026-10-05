@@ -205,6 +205,14 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `CHAT_TOOL_CALLS`           | Function-call budget per assistant response; default 12     |
 | `AI_MAX_OUTPUT_TOKENS`      | Output token limit per provider response; default 12000     |
 | `HOST`, `PORT`              | API bind address; default `127.0.0.1:3000`                  |
+| `LOG_LEVEL`                 | Minimum severity; default `info`; use `trace` for requests  |
+| `LOG_FORMAT`                | `pretty` locally; `json` when `NODE_ENV=production`         |
+
+Local server logs use Fastify's [Pino transport support](https://fastify.dev/docs/latest/Reference/Logging/#environment-specific-configuration) with `pino-pretty`: local timestamps, severity, messages and structured context on one line, with process ID and hostname omitted. Production defaults to JSON.
+
+Routine incoming-request and request-completed messages use `trace`; application and Fastify error logs retain their severity. Set `LOG_LEVEL=trace` for request diagnostics or `LOG_FORMAT=json` for structured output. Supported levels are `trace`, `debug`, `info`, `warn`, `error`, `fatal` and `silent`.
+
+Premature stream closures use `trace`. Each completed AI response, including tool-call rounds, emits `AI turn completed` at `info` with task, model, input/output/cached/total tokens, elapsed milliseconds and a `toolCalls` array of tool names. Tool names follow response order, retaining repeated calls; responses without tool calls log an empty array. Logs contain usage metadata; prompts, source content and model output remain private.
 
 One tenant can supply identities to both local and production environments. Database records and files remain environment-specific. The API returns public auth configuration to the frontend at startup, so Logto settings do not require rebuilding Angular.
 

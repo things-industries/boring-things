@@ -1,4 +1,6 @@
-import { responseText, searchWeb, requestResponse } from './responses.js';
+// Adapts AI extraction, registry selection, mapping and research, validating model output before use.
+
+import { responseText, searchWeb, requestResponse, type AiTurnCompleted } from './responses.js';
 import { readResourcePage } from '../web/resources.js';
 import OpenAI from 'openai';
 import type {
@@ -9,6 +11,7 @@ import type {
   Tool,
 } from 'openai/resources/responses/responses';
 import { Ajv } from 'ajv';
+import addFormats from 'ajv-formats';
 import schemas from './schemas.js';
 import type { components } from './schema-types.js';
 import * as prompts from './prompts.js';
@@ -39,6 +42,7 @@ import {
 } from '../../lib/document-limits.js';
 
 const ajv = new Ajv({ strict: false });
+addFormats.default(ajv);
 const functions = schemas.registryTools as Tool[];
 type Outputs = components['schemas'];
 
@@ -51,6 +55,7 @@ export class OpenAiImports implements ImportAi {
     private searchCalls = 3,
     private documentModel = model,
     private readPage = readResourcePage,
+    private onTurnCompleted?: AiTurnCompleted,
   ) {
     this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
   }
@@ -69,6 +74,7 @@ export class OpenAiImports implements ImportAi {
       context,
       extra,
       task,
+      this.onTurnCompleted,
     );
   }
 
@@ -259,6 +265,8 @@ export class OpenAiImports implements ImportAi {
       prompts.resourceSearchPrompt(research, searchCalls),
       searchCalls,
       context,
+      'retrieved',
+      this.onTurnCompleted,
     );
     if (!sources.length) return { items: [], sources: [] };
     const pages = await Promise.all(

@@ -1,3 +1,5 @@
+// Executes non-streamed AI turns and records task usage for imports and web research.
+
 import OpenAI from 'openai';
 import type {
   Response,
@@ -8,6 +10,9 @@ import type { AiContext } from '../../application/import/types.js';
 import { importInstructions, webResearchInstructions } from './prompts.js';
 import { publicUrl } from '../web/resources.js';
 import { ensure } from '../../application/errors.js';
+import type { Schema } from '../../../../shared/model.js';
+
+export type AiTurnCompleted = (usage: Schema['AiUsageEntry'] & { toolCalls: string[] }) => void;
 
 export function responseText(result: Response) {
   return result.output
@@ -25,6 +30,7 @@ export async function searchWeb(
   searchCalls: number,
   context: AiContext,
   sourceMode: 'retrieved' | 'cited' = 'retrieved',
+  onTurnCompleted?: AiTurnCompleted,
 ) {
   const result = await requestResponse(
     client,
@@ -41,6 +47,7 @@ export async function searchWeb(
         : {}),
     },
     'research',
+    onTurnCompleted,
   );
   const sources = [
     ...new Set(
@@ -83,6 +90,7 @@ export async function requestResponse(
   context: AiContext,
   extra: Partial<ResponseCreateParamsNonStreaming> & { max_tool_calls?: number } = {},
   task = 'structured_output',
+  onTurnCompleted?: AiTurnCompleted,
 ): Promise<Response> {
   context.signal.throwIfAborted();
   const started = Date.now();
@@ -114,9 +122,21 @@ export async function requestResponse(
     outputTokens: result.usage?.output_tokens ?? 0,
     cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
   };
+  const entry = { ...usage, task, elapsedMs: Date.now() - started };
+  if (result.status === 'completed')
+    onTurnCompleted?.({
+      ...entry,
+      toolCalls: result.output.flatMap((item) =>
+        item.type === 'function_call'
+          ? [item.name]
+          : item.type === 'web_search_call'
+            ? ['web_search']
+            : [],
+      ),
+    });
   await context.record({
     ...usage,
-    entries: [{ ...usage, task, elapsedMs: Date.now() - started }],
+    entries: [entry],
   });
   ensure(result.status === 'completed' && Array.isArray(result.output), 'AI response incomplete');
   return result;
