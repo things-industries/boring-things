@@ -15,7 +15,7 @@ import type {
 import { ensure } from '../../application/errors.js';
 import type { PublicField } from '../../application/public-fields.js';
 import type { AiContext } from '../../application/import/types.js';
-import { searchWeb } from './responses.js';
+import { searchWeb, type AiTurnCompleted } from './responses.js';
 import { pdfText } from '../../lib/pdf.js';
 
 export class OpenAiChat implements ChatAi {
@@ -26,6 +26,7 @@ export class OpenAiChat implements ChatAi {
     private maxOutputTokens: number,
     private rounds: number,
     private searchCalls = 3,
+    private onTurnCompleted?: AiTurnCompleted,
   ) {
     this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
   }
@@ -39,6 +40,7 @@ export class OpenAiChat implements ChatAi {
       this.searchCalls,
       context,
       'cited',
+      this.onTurnCompleted,
     );
   }
 
@@ -55,6 +57,7 @@ export class OpenAiChat implements ChatAi {
 
     for (let round = 0; round <= this.rounds; round++) {
       context.signal.throwIfAborted();
+      const started = Date.now();
       let completed: Response | undefined;
       try {
         const stream = await this.client.responses.create(
@@ -97,15 +100,22 @@ export class OpenAiChat implements ChatAi {
       }
 
       ensure(completed?.status === 'completed', 'Assistant response incomplete');
-      await context.record({
+      const calls = completed.output.filter((o) => o.type === 'function_call');
+      const usage = {
         model: this.model,
         inputTokens: completed.usage?.input_tokens ?? 0,
         outputTokens: completed.usage?.output_tokens ?? 0,
         cachedTokens: completed.usage?.input_tokens_details?.cached_tokens ?? 0,
+      };
+      this.onTurnCompleted?.({
+        ...usage,
+        task: 'assistant_response',
+        elapsedMs: Date.now() - started,
+        toolCalls: calls.map((call) => call.name),
       });
+      await context.record(usage);
       // Replay output and tool results for the next turn because remote response storage is disabled.
       conversation.push(...(completed.output as ResponseInput));
-      const calls = completed.output.filter((o) => o.type === 'function_call');
       if (!calls.length) return answer;
       ensure(round < this.rounds, 'tool_limit');
 

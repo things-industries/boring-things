@@ -6,6 +6,7 @@
 import * as routes from './routes/index.js';
 import { installErrorHandler } from './routes/errors.js';
 import { ServerSentEvents } from './http/sse.js';
+import { loggerOptions, RequestLogController } from './http/logging.js';
 import web from './plugins/web.js';
 import { ImportProcessor } from './application/import/processor.js';
 import Fastify from 'fastify';
@@ -46,9 +47,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   const dbPool = options.dbPool ?? database.createPool(config.databaseUrl);
   const app = Fastify({
-    logger: options.logger
-      ? { redact: ['req.headers.authorization', 'req.headers.cookie'] }
-      : false,
+    logger: options.logger ? loggerOptions(config) : false,
+    logController: new RequestLogController(),
     bodyLimit: 1048576,
   });
 
@@ -76,7 +76,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
       return { status: 'ok' };
     });
 
-    const { importAi, chatAi } = createAi(config, options);
+    const { importAi, chatAi } = createAi(config, options, (usage) =>
+      app.log.info(
+        { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
+        'AI turn completed',
+      ),
+    );
     await app.register(routes.configRoutes, {
       config: {
         logtoEndpoint: config.logtoEndpoint,

@@ -1,3 +1,5 @@
+// Checks environment defaults, overrides and startup validation.
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readConfig, type EnvConfig } from '../src/config.js';
@@ -18,6 +20,16 @@ const production = {
   LOGTO_APP_ID: 'synthetic',
   LOGTO_API_RESOURCE: 'https://api.example',
 };
+
+test('logging defaults and overrides are validated before startup', () => {
+  assert.equal(readConfig({}).logFormat, 'pretty');
+  assert.equal(readConfig({}).logLevel, 'info');
+  assert.equal(readConfig(production).logFormat, 'json');
+  assert.equal(readConfig({ LOG_FORMAT: 'json', LOG_LEVEL: 'trace' }).logLevel, 'trace');
+  assert.equal(readConfig({ LOG_FORMAT: 'json' }).logFormat, 'json');
+  assert.throws(() => readConfig({ LOG_FORMAT: 'other' }), /Invalid LOG_FORMAT/);
+  assert.throws(() => readConfig({ LOG_LEVEL: 'other' }), /Invalid LOG_LEVEL/);
+});
 
 test('configuration defaults and parsed values are isolated from their environment source', () => {
   const defaults = readConfig({});
