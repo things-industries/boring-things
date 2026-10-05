@@ -39,6 +39,57 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
   await expect(page.getByText('No documents yet.')).toBeVisible();
 });
 
+test('a Thing image shows no fallback while it loads and shows at once when reopened', async ({
+  page,
+}) => {
+  const imageId = '00000000-0000-4000-8000-0000000000a1';
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  let release = () => undefined as void;
+  const released = new Promise<void>((resolve) => (release = resolve));
+  let requests = 0;
+
+  // Kitchen hob gets an image, and the snapshot stream stays open without changing it.
+  await page.route(/\/api\/things(\/[0-9a-f-]+)?(\?|$)/, async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+
+    const response = await route.fetch();
+    const body = (await response.json()) as { name?: string; items?: { name: string }[] };
+    const withImage = <T extends { name?: string }>(thing: T) =>
+      thing.name === 'Kitchen hob' ? { ...thing, imageAttachmentId: imageId } : thing;
+
+    await route.fulfill({
+      response,
+      json: body.items ? { ...body, items: body.items.map(withImage) } : withImage(body),
+    });
+  });
+  await page.route('**/api/things/*/stream', () => new Promise(() => undefined));
+  await page.route(`**/api/attachments/${imageId}/content`, async (route) => {
+    requests++;
+    await released;
+    await route.fulfill({ contentType: 'image/png', body: png });
+  });
+
+  await page.goto('/things');
+  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
+
+  const hero = page.locator('bt-hero bt-thing-thumbnail');
+
+  await expect(hero).toBeAttached();
+  await expect(hero.locator('ng-icon, img')).toHaveCount(0);
+  release();
+  await expect(hero.locator('img')).toBeVisible();
+  await expect(page.locator('bt-hero')).not.toHaveClass(/\barrive\b/);
+
+  await page.goBack();
+  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await expect(hero.locator('img')).toBeVisible();
+  expect(requests).toBe(1);
+});
+
 test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   const url = await createThing(page, `Warranty oven ${Date.now()}`);
 

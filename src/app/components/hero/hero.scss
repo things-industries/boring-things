@@ -19,6 +19,10 @@
   --thumbnail-overhang: 0.1;
 }
 :host(.arrive) .hero-image {
+  opacity: 0;
+}
+:host(.arrive.ready) .hero-image {
+  opacity: 1;
   animation: hero-image-in 0.5s ease-out;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
