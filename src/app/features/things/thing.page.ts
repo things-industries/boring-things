@@ -61,6 +61,7 @@ import { errorCode } from '../../utils/error.util';
 import { Toasts } from '../../core/services/toasts.service';
 import { AttachmentsStore } from '../../core/state/attachments.store';
 import { CategoriesStore } from '../../core/state/categories.store';
+import { ConversationsStore } from '../../core/state/conversations.store';
 import { EventsStore } from '../../core/state/events.store';
 import { IssuesStore } from '../../core/state/issues.store';
 import { PurchasablesStore } from '../../core/state/purchasables.store';
@@ -177,6 +178,7 @@ export class ThingPage {
   private events = inject(EventsStore);
   private attachments = inject(AttachmentsStore);
   private purchasablesStore = inject(PurchasablesStore);
+  private conversations = inject(ConversationsStore);
   private files = inject(AttachmentsService);
   private toasts = inject(Toasts);
   private router = inject(Router);
@@ -287,6 +289,13 @@ export class ThingPage {
       const id = this.id();
 
       untracked(() => void this.purchasablesStore.loadForThing(id));
+    });
+
+    // Loads the Thing's latest chat so opening it shows saved messages without waiting.
+    effect(() => {
+      const id = this.id();
+
+      if (this.config.chatEnabled) untracked(() => this.conversations.preload(id));
     });
 
     // Records one view per visit once the Thing has loaded.

@@ -10,20 +10,33 @@ import {
 import type { Schema } from '../../../../shared/model';
 import { ConversationsService } from '../data/conversations.service';
 import type { ConversationStreamEvent } from '../../interfaces/conversation.interface';
+import type { UiErrorCode } from '../../interfaces/error.interface';
+import type { MutationResult } from '../../interfaces/state.interface';
+import { errorCode } from '../../utils/error.util';
 import { updating } from './optimistic';
 import { Streams } from './streams';
 import { withSession } from './with-load';
 import { withOptimisticEntities } from './with-optimistic-entities';
 
-/** Conversations with their messages, loaded per ID and kept current by their stream. */
+/**
+ * Conversations with their messages, loaded per ID and kept current by their stream. `byThing` holds
+ * each Thing's current conversation: its latest one with messages, or the one this session started.
+ */
 export const ConversationsStore = signalStore(
   { providedIn: 'root' },
 
   withOptimisticEntities<Schema['Conversation']>(),
 
-  withState<{ disconnected: Record<string, boolean> }>({ disconnected: {} }),
+  withState<{ disconnected: Record<string, boolean>; byThing: Record<string, string | null> }>({
+    disconnected: {},
+    byThing: {},
+  }),
 
-  withProps(() => ({ _service: inject(ConversationsService), _streams: new Streams() })),
+  withProps(() => ({
+    _service: inject(ConversationsService),
+    _streams: new Streams(),
+    _latestInFlight: new Map<string, Promise<UiErrorCode | null>>(),
+  })),
 
   withMethods((store) => {
     const setDisconnected = (id: string, value: boolean) =>
@@ -51,15 +64,85 @@ export const ConversationsStore = signalStore(
       }
     }
 
+    const setCurrent = (thingId: string, id: string | null) =>
+      patchState(store, { byThing: { ...store.byThing(), [thingId]: id } });
+
     const loadOne = (id: string) => store.refresh(id, () => store._service.get(id));
+
+    /** The Thing's current conversation when it is already loaded. */
+    function current(thingId: string) {
+      const id = store.byThing()[thingId];
+
+      return id && store.entityMap()[id] ? id : null;
+    }
+
+    /** Loads the Thing's latest conversation with messages, recording null when it has none. */
+    function fetchLatest(thingId: string) {
+      const request = store._service
+        .latest(thingId)
+        .then(
+          async (latest) => {
+            if (!latest) {
+              setCurrent(thingId, null);
+              return null;
+            }
+
+            const code = await loadOne(latest.id);
+
+            if (!code) setCurrent(thingId, latest.id);
+            return code;
+          },
+          (e: unknown) => errorCode(e),
+        )
+        .finally(() => store._latestInFlight.delete(thingId));
+
+      store._latestInFlight.set(thingId, request);
+      return request;
+    }
+
+    async function create(thingId: string | null) {
+      const result = await store.create(
+        'startChat',
+        { id: crypto.randomUUID(), thingId, messages: [] },
+        () => store._service.create(thingId ? { thingId } : {}),
+      );
+
+      if (result.ok && thingId) setCurrent(thingId, result.value.id);
+      return result;
+    }
 
     return {
       loadOne,
 
-      create(thingId: string | null) {
-        return store.create('startChat', { id: crypto.randomUUID(), thingId, messages: [] }, () =>
-          store._service.create(thingId ? { thingId } : {}),
-        );
+      create,
+
+      current,
+
+      /**
+       * Loads the Thing's latest conversation once per session so its chat opens without waiting.
+       * A Thing without messages starts no conversation.
+       */
+      preload(thingId: string) {
+        if (thingId in store.byThing()) return;
+        void (store._latestInFlight.get(thingId) ?? fetchLatest(thingId));
+      },
+
+      /**
+       * Opens the Thing's current conversation, loading its latest one when needed, or starts one
+       * when the Thing has none.
+       */
+      async resume(thingId: string): Promise<MutationResult<{ id: string }>> {
+        const loaded = current(thingId);
+
+        if (loaded) return { ok: true, value: { id: loaded } };
+
+        const code = await (store._latestInFlight.get(thingId) ?? fetchLatest(thingId));
+
+        if (code) return { ok: false, code };
+
+        const id = current(thingId);
+
+        return id ? { ok: true, value: { id } } : create(thingId);
       },
 
       /** Appends the user message as pending; the assistant reply arrives on the stream. */
@@ -109,8 +192,9 @@ export const ConversationsStore = signalStore(
 
       reset() {
         store._streams.stopAll();
+        store._latestInFlight.clear();
         store._clearEntities();
-        patchState(store, { disconnected: {} });
+        patchState(store, { disconnected: {}, byThing: {} });
       },
     };
   }),

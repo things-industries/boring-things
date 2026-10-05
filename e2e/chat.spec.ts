@@ -15,9 +15,9 @@ test('global chat starts empty with the composer', async ({ page }) => {
     'Ask across all your Things',
   );
   await expect(page.getByRole('button', { name: 'Attach a file (coming soon)' })).toBeDisabled();
-  await expect(
-    page.getByRole('button', { name: 'Conversation actions (coming soon)' }),
-  ).toBeDisabled();
+  await page.getByRole('button', { name: 'Conversation actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'New chat' })).toBeEnabled();
+  await expect(page.getByRole('menuitem', { name: 'Chat history' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 });
 
@@ -85,6 +85,10 @@ test('chat fits the visible area while the composer has focus', async ({ page })
 });
 
 test('Thing chat shows its Thing and streams an answer with cards', async ({ page }) => {
+  // Starts a new conversation even when another test has chatted about the shared sample Thing.
+  await page.route(/\/api\/conversations\?/, (route) =>
+    route.fulfill({ json: { items: [], nextCursor: null } }),
+  );
   await page.goto('/things');
   await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
   await page.getByRole('link', { name: 'Ask about this thing' }).click();
@@ -110,6 +114,80 @@ test('Thing chat shows its Thing and streams an answer with cards', async ({ pag
   await expect(answer.locator('bt-key-value-row')).toContainText('Manufacturer');
   // The chat's own Thing shows once, in the context card.
   await expect(page.locator('bt-thing-card')).toHaveCount(1);
+});
+
+test('Thing chat resumes its latest conversation until New chat', async ({ page }) => {
+  const name = `Chat hob ${Date.now()}`;
+
+  await page.goto('/things/new/manual');
+  await page.getByRole('textbox', { name: 'Name' }).fill(name);
+  await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
+  await page.getByRole('button', { name: 'Create thing' }).click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'Ask about this thing' }).click();
+  await expect(introPrompt(page)).toBeVisible();
+
+  const message = page.getByLabel('Message', { exact: true });
+  const answer = page.locator('bt-chat-bubble:not(.user) bt-rich-text');
+
+  await message.fill('Who makes it?');
+  await message.press('Enter');
+  await expect(answer).toHaveText('The saved details are ready.');
+
+  await page.reload();
+  await expect(page.locator('bt-chat-bubble.user')).toContainText('Who makes it?');
+  await expect(answer).toHaveText('The saved details are ready.');
+
+  await page.getByRole('button', { name: 'Conversation actions' }).click();
+  await page.getByRole('menuitem', { name: 'New chat' }).click();
+  await expect(introPrompt(page)).toBeVisible();
+  await expect(page.locator('bt-chat-bubble')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator('bt-chat-bubble.user')).toContainText('Who makes it?');
+});
+
+test('Thing chat opens its preloaded conversation without reloading', async ({ page }) => {
+  const name = `Preload hob ${Date.now()}`;
+  const creates: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && /\/api\/conversations$/.test(request.url()))
+      creates.push(request.url());
+  });
+  await page.goto('/things/new/manual');
+  await page.getByRole('textbox', { name: 'Name' }).fill(name);
+  await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
+  await page.getByRole('button', { name: 'Create thing' }).click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+  await expect(page.getByRole('link', { name: 'Ask about this thing' })).toBeVisible();
+  // A Thing without messages starts no conversation until its chat opens.
+  expect(creates).toHaveLength(0);
+
+  await page.getByRole('link', { name: 'Ask about this thing' }).click();
+  await expect(introPrompt(page)).toBeVisible();
+
+  const message = page.getByLabel('Message', { exact: true });
+  const answer = page.locator('bt-chat-bubble:not(.user) bt-rich-text');
+
+  await message.fill('Who makes it?');
+  await message.press('Enter');
+  await expect(answer).toHaveText('The saved details are ready.');
+
+  const loads: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && /\/api\/conversations(\?|\/[^/]+$)/.test(request.url()))
+      loads.push(request.url());
+  });
+  await page.getByRole('link', { name: 'Back to thing' }).click();
+  await page.getByRole('link', { name: 'Ask about this thing' }).click();
+
+  await expect(page.locator('bt-chat-bubble.user')).toContainText('Who makes it?');
+  await expect(answer).toHaveText('The saved details are ready.');
+  await expect(page.getByText('Starting chat…')).toHaveCount(0);
+  expect(loads).toHaveLength(0);
+  expect(creates).toHaveLength(1);
 });
 
 test('assistant Markdown renders as sanitised formatted text', async ({ page }) => {
