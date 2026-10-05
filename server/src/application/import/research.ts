@@ -1,6 +1,7 @@
+// Validates and persists applicable research documents, metadata and cited field enrichment.
 import { downloadImage } from '../../providers/web/image.js';
 import type pg from 'pg';
-import type { ThingData } from '../../../../shared/model.js';
+import type { Schema, ThingData } from '../../../../shared/model.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { ApplicationEvents } from '../events.js';
@@ -33,7 +34,7 @@ import {
 } from '../../lib/document-limits.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { ensure } from '../errors.js';
-import { validateAttachmentMetadata } from '../attachments.js';
+import { updateAttachmentMetadata, validateAttachmentMetadata } from '../attachments.js';
 import { buildResearchThing } from './mapping.js';
 import {
   resourceKey,
@@ -158,6 +159,7 @@ class ResearchSession {
       items: saved?.items ?? [],
       sources: saved?.sources ?? [],
       identity: saved?.identity,
+      rejectedDocumentUrls: saved?.rejectedDocumentUrls ?? [],
       warnings: (saved?.warnings ?? []).filter((warning) => warning.code !== 'PAGE_BUDGET'),
       // Page-range checkpoints do not establish completion for the full document.
       documentBatches: (saved?.documentBatches ?? []).filter((batch) => !('firstPage' in batch)),
@@ -180,15 +182,30 @@ class ResearchSession {
     try {
       const research = await this.readThing();
       if (research && (await this.search(research))) {
-        for (const item of [
+        const references = [
           ...new Map(
             this.found.items
               .filter((item) => item.kind === 'reference')
               .map((item) => [item.url, item]),
           ).values(),
-        ].slice(0, 3)) {
+        ];
+        const savedUrls = new Set<string>();
+        for (const item of references) {
+          if (
+            await discoveryDb.findDiscoveryAttachment(
+              this.pool,
+              this.job.ownerId,
+              resourceKey(this.job.id, this.destination.candidateId, item),
+            )
+          )
+            savedUrls.add(item.url);
+        }
+        let accepted = savedUrls.size;
+        for (const item of references) {
           if (this.context.signal.aborted) break;
-          await this.enrichDocument(item);
+          if (this.found.rejectedDocumentUrls?.includes(item.url)) continue;
+          if (!savedUrls.has(item.url) && accepted >= 3) continue;
+          if ((await this.enrichDocument(item)) && !savedUrls.has(item.url)) accepted++;
         }
         if (!this.context.signal.aborted) await this.attachImage();
       }
@@ -264,6 +281,7 @@ class ResearchSession {
                     maxTextCharacters: maxDocumentTextLength,
                   },
                   rejectedDocuments: saved.warnings,
+                  rejectedDocumentUrls: saved.rejectedDocumentUrls,
                 },
                 this.context,
                 this.options.searchCalls,
@@ -293,6 +311,7 @@ class ResearchSession {
       identity: fresh.identity,
       warnings: [],
       documentBatches: saved.documentBatches,
+      rejectedDocumentUrls: saved.rejectedDocumentUrls,
       items: [
         ...fresh.items,
         ...saved.items.filter(
@@ -327,22 +346,25 @@ class ResearchSession {
     if (rejection) {
       this.found.warnings.push(rejection);
       await this.save();
-      return;
+      return false;
     }
     try {
       validateResource(item, this.found.sources);
       item = {
         ...item,
-        metadata: validateAttachmentMetadata({ title: item.title, ...item.metadata }),
+        metadata: validateAttachmentMetadata({
+          ...item.metadata,
+          title: item.metadata?.title ?? item.title,
+        }),
       };
     } catch (error) {
       await this.warn('UNAVAILABLE', item.url, error);
-      return;
+      return false;
     }
     const key = resourceKey(job.id, destination.candidateId, item);
     let file = await discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key);
     const research = await this.readThing();
-    if (!research) return;
+    if (!research) return false;
     const fields = research.emptyFields.filter(
       (field) =>
         !this.found.documentBatches.some(
@@ -350,7 +372,7 @@ class ResearchSession {
             batch.attachmentId === file?.id && batch.targetKeys.includes(researchTargetKey(field)),
         ),
     );
-    if (file && !fields.length) return;
+    if (file && !fields.length) return true;
     const attachment = file
       ? await attachmentsDb.getOwnedAttachmentOrThrow(pool, job.ownerId, file.id)
       : null;
@@ -385,7 +407,7 @@ class ResearchSession {
         item.url,
         error,
       );
-      return;
+      return false;
     }
     let document: ReferenceDocument | undefined;
     for (let offset = 0; offset < Math.max(1, Math.min(fields.length, 100)); offset += 20) {
@@ -406,15 +428,33 @@ class ResearchSession {
           context.signal,
         );
         validateDocumentExtraction(result, document, emptyFields, registry);
+        if (result.metadata) result.metadata = validateAttachmentMetadata(result.metadata);
       } catch (error) {
         await this.warn(
           error instanceof DocumentSizeError ? 'MODEL_INPUT_LIMIT' : 'EXTRACTION_FAILED',
           item.url,
           error,
         );
-        return;
+        return !!file;
       }
-      if (!result.applicable) return;
+      if (!result.applicable) {
+        this.found.rejectedDocumentUrls = [
+          ...new Set([...(this.found.rejectedDocumentUrls ?? []), item.url]),
+        ];
+        await this.save();
+        return false;
+      }
+      const metadata = { ...item.metadata };
+      const metadataSources: Schema['AttachmentMetadataSources'] = {};
+      for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const) {
+        const contentValue = result.metadata?.[key];
+        if (contentValue != null) Object.assign(metadata, { [key]: contentValue });
+        if (metadata[key] != null)
+          metadataSources[key] = {
+            origin: 'DISCOVERY',
+            sourceRefs: [{ url: contentValue != null ? item.url : item.sourceUrl }],
+          };
+      }
       if (!file) {
         file = await saveResourceAttachment(
           pool,
@@ -422,8 +462,8 @@ class ResearchSession {
           job.ownerId,
           destination.thingId,
           key,
-          item,
-          { content, mediaType: 'application/pdf', pageCount: document.pageCount },
+          { ...item, title: metadata.title ?? item.title, metadata },
+          { content, mediaType: 'application/pdf', pageCount: document.pageCount, metadataSources },
           context.signal,
         );
         ensure(file, 'Reference document unavailable');
@@ -438,6 +478,16 @@ class ResearchSession {
       };
       await database.transaction(pool, async (db) => {
         context.signal.throwIfAborted();
+        if (result.metadata)
+          await updateAttachmentMetadata(
+            db,
+            job.ownerId,
+            file!.id,
+            result.metadata,
+            { origin: 'DISCOVERY', sourceRefs: [{ url: item.url }] },
+            undefined,
+            { replaceAutomated: true },
+          );
         const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, destination.thingId, {
           lock: true,
         });
@@ -458,6 +508,7 @@ class ResearchSession {
       this.found = completed;
       this.publish();
     }
+    return true;
   }
 
   private async attachImage() {

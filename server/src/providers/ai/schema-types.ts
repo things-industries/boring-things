@@ -8,9 +8,9 @@ export interface components {
     schemas: {
         /** @description Transcription, document metadata and source-supported Things extracted from the uploaded material. */
         Extraction: {
-            /** @description Information about the uploaded source document as a whole. */
+            /** @description Display metadata for the uploaded source, including a descriptive title for photographs and notes. */
             metadata: {
-                /** @description Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
+                /** @description Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
                 title: string | null;
                 /**
                  * @description Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown.
@@ -121,7 +121,7 @@ export interface components {
                 sourceUrl: string;
                 /** @description Metadata supported by the cited reference document; null for other item kinds or when no metadata is supported, with null for each unknown property. */
                 metadata: {
-                    /** @description Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
+                    /** @description Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
                     title: string | null;
                     /**
                      * @description Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown.
@@ -170,6 +170,23 @@ export interface components {
                 /** @description Verbatim excerpt from the cited page supporting this value, its units and relevant conditions (min 1 char, max 2000 chars). */
                 quote: string;
             }[];
+            /** @description Document metadata established by the content, with null for each unsupported property. */
+            metadata: {
+                /** @description Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
+                title: string | null;
+                /**
+                 * @description Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown.
+                 * @enum {string|null}
+                 */
+                documentType: "MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER" | null;
+                /** @description Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars). */
+                publisher: string | null;
+                /**
+                 * Format: date
+                 * @description Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date.
+                 */
+                documentDate: string | null;
+            } | null;
         };
         /** @description Category and source-supported terms used to find eligible field sets. */
         search_field_sets: {

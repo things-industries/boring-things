@@ -194,6 +194,47 @@ test('PDF uploads derive page counts and extraction preserves metadata edits and
     ai.failOnce = false;
   }
 });
+test('camera imports retain the uploaded filename and persist a descriptive display title', async () => {
+  const { createCanvas } = await import('@napi-rs/canvas');
+  const bytes = await createCanvas(10, 10).encode('png');
+  const boundary = 'camera-boundary';
+  const uploaded = await app.inject({
+    method: 'POST',
+    url: '/api/attachments',
+    headers: {
+      authorization: 'Bearer alice',
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="IMG_1234.png"\r\nContent-Type: image/png\r\n\r\n`,
+      ),
+      bytes,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(uploaded.statusCode, 201, uploaded.body);
+  const file = uploaded.json<Schema['Attachment']>();
+  try {
+    ai.metadata = {
+      title: 'Data plate photo',
+      documentType: null,
+      publisher: null,
+      documentDate: null,
+    };
+    const accepted = (await request('POST', '/things:import', { attachmentId: file.id })).json<
+      Schema['ImportAccepted']
+    >();
+    assert.equal((await wait(accepted.importId)).status, 'COMPLETE');
+    const saved = (await request('GET', `/attachments/${file.id}`)).json<Schema['Attachment']>();
+    assert.equal(saved.filename, 'IMG_1234.png');
+    assert.equal(saved.title, 'Data plate photo');
+    assert.equal(saved.metadataSources.title?.origin, 'IMPORT');
+  } finally {
+    ai.metadata = undefined;
+  }
+});
+
 test('immediate skeleton, progressive empty sets, source retention, string IDs and unknown fields', async () => {
   let release!: () => void;
   ai.pause = new Promise((resolve) => {
@@ -611,6 +652,7 @@ async function researchRunner(
   researchAi.extractDocument =
     input.extractDocument ??
     (async () => ({
+      metadata: null,
       applicable: true,
       applicability: { page: 1, quote: 'Synthetic manual' },
       values: [],
@@ -636,15 +678,16 @@ test('imported documents preserve metadata, ownership and edits across retries',
   const accepted = await start('neff');
   await wait(accepted.importId);
   const url = 'https://example.com/manual.pdf';
+  const sourceUrl = 'https://example.com/support';
   const discovery = {
-    sources: [url],
+    sources: [url, sourceUrl],
     items: [
       {
         kind: 'reference' as const,
         title: 'Manual reference',
         description: 'Synthetic model source',
         url,
-        sourceUrl: url,
+        sourceUrl,
         metadata: {
           title: 'Oven manual',
           documentType: 'MANUAL' as const,
@@ -674,6 +717,12 @@ test('imported documents preserve metadata, ownership and edits across retries',
       extractDocument: async () => {
         extractions++;
         return {
+          metadata: {
+            title: 'Content oven manual',
+            documentType: 'MANUAL',
+            publisher: 'Content maker',
+            documentDate: null,
+          },
           applicable: true,
           applicability: { page: 1, quote: 'Synthetic manual' },
           values: [],
@@ -693,14 +742,22 @@ test('imported documents preserve metadata, ownership and edits across retries',
     Schema['AttachmentList']
   >().items;
   const manual = files.find((file) => file.mediaType === 'application/pdf')!;
-  assert.equal(manual.filename, 'Manual reference.pdf');
-  assert.equal(manual.title, 'Oven manual');
+  assert.equal(manual.filename, 'Content oven manual.pdf');
+  assert.equal(manual.title, 'Content oven manual');
   assert.equal(manual.documentType, 'MANUAL');
-  assert.equal(manual.publisher, 'Example maker');
+  assert.equal(manual.publisher, 'Content maker');
   assert.equal(manual.documentDate, '2022-03-12');
   assert.equal(manual.pageCount, 1);
+  assert.deepEqual(manual.metadataSources.documentDate, {
+    origin: 'DISCOVERY',
+    sourceRefs: [{ url: sourceUrl }],
+  });
   assert.deepEqual(manual.metadataSources.title, { origin: 'DISCOVERY', sourceRefs: [{ url }] });
   await request('PATCH', `/attachments/${manual.id}`, { title: 'My oven manual', publisher: null });
+  await pool.query(
+    "update bt.import_targets set discovery=discovery - 'documentBatches' where import_id=$1",
+    [accepted.importId],
+  );
   await run();
   const edited = (await request('GET', `/attachments/${manual.id}`)).json<Schema['Attachment']>();
   assert.equal(edited.title, 'My oven manual');
@@ -720,6 +777,69 @@ test('imported documents preserve metadata, ownership and edits across retries',
   assert.throws(() =>
     validateResource({ ...discovery.items[0], url: 'https://invented.example/source' }, [url]),
   );
+});
+
+test('rejected documents leave no blobs or warnings and allow three applicable references', async () => {
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const urls = ['wrong', 'first', 'second', 'third', 'fourth'].map(
+    (name) => `https://example.com/${name}.pdf`,
+  );
+  const pdf = await PDFDocument.create();
+  pdf.addPage().drawText('Synthetic manual');
+  const bytes = Buffer.from(await pdf.save());
+  const downloaded: string[] = [];
+  const run = await researchRunner(
+    accepted,
+    {
+      sources: urls,
+      items: urls.map((url) => ({
+        kind: 'reference',
+        title: 'Search title',
+        description: 'Synthetic source',
+        url,
+        sourceUrl: url,
+      })),
+    },
+    {
+      maxBytes: 4096,
+      searchCalls: 3,
+      download: async (url) => {
+        downloaded.push(url);
+        return bytes;
+      },
+    },
+    {
+      extractDocument: async (document) => ({
+        metadata: {
+          title: 'Content manual',
+          documentType: 'MANUAL',
+          publisher: null,
+          documentDate: null,
+        },
+        applicable: document.url !== urls[0],
+        applicability: document.url === urls[0] ? null : { page: 1, quote: 'Synthetic manual' },
+        values: [],
+      }),
+    },
+  );
+  const blobsBefore = (await readdir(directory)).length;
+  const result = await run();
+  assert.deepEqual(downloaded, urls.slice(0, 4));
+  assert.equal(result.status, 'COMPLETE');
+  assert.deepEqual(result.warnings, []);
+  const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
+    Schema['AttachmentList']
+  >().items;
+  assert.equal(files.filter((file) => file.mediaType === 'application/pdf').length, 3);
+  assert.ok(!files.some((file) => file.sourceUrl === urls[0]));
+  assert.equal((await readdir(directory)).length, blobsBefore + 3);
+  await pool.query(
+    "update bt.import_targets set discovery=jsonb_set(discovery, '{items}', (select jsonb_agg(item order by item->>'url' desc) from jsonb_array_elements(discovery->'items') item)) where import_id=$1",
+    [accepted.importId],
+  );
+  await run();
+  assert.deepEqual(downloaded, urls.slice(0, 4));
 });
 
 test('discovered names use only owner collisions and preserve existing or edited names', async () => {
@@ -883,7 +1003,7 @@ test('category document enrichment validates variants, commits cited values prog
   const extractDocument: ImportAi['extractDocument'] = async (document, _research, targets) => {
     extractions++;
     if (document.url.endsWith('/wrong.pdf'))
-      return { applicable: false, applicability: null, values: [] };
+      return { metadata: null, applicable: false, applicability: null, values: [] };
     assert.ok(targets.some((field) => field.fieldId === 'appliances.outputPower'));
     const cleared = await request('PATCH', `/things/${accepted.thingId}`, {
       values: [
@@ -892,6 +1012,7 @@ test('category document enrichment validates variants, commits cited values prog
     });
     assert.equal(cleared.statusCode, 200, cleared.body);
     return {
+      metadata: null,
       applicable: true,
       applicability: { page: 1, quote: 'SYNTHETIC/01 UK' },
       values: [
@@ -959,8 +1080,8 @@ test('category document enrichment validates variants, commits cited values prog
   const before = { downloads, extractions };
   fail = false;
   await run();
-  assert.equal(extractions, before.extractions + 1); // Only the rejected variant is reconsidered.
-  assert.equal(downloads, before.downloads + 2); // Saved manual bytes are reused.
+  assert.equal(extractions, before.extractions); // Rejected variants are saved.
+  assert.equal(downloads, before.downloads + 1); // Saved and rejected documents are skipped.
   assert.deepEqual(budget, [3, 3]);
   assert.equal(searches, 2);
   unsubscribe();
@@ -1027,6 +1148,7 @@ test('research values and checkpoints roll back together on persistence failure'
     { maxBytes: 4096, searchCalls: 1, download: async () => content },
     {
       extractDocument: async () => ({
+        metadata: null,
         applicable: true,
         applicability: { page: 1, quote: 'Synthetic manual' },
         values: [
@@ -1161,6 +1283,7 @@ test('research retry searches once for alternatives and extracts text beyond pag
     assert.equal(document.pageCount, 101);
     assert.equal(document.text, '[PDF page 1]\nSYNTHETIC/01\n\n[PDF page 101]\nOutput power 900 W');
     return {
+      metadata: null,
       applicable: true,
       applicability: { page: 1, quote: 'SYNTHETIC/01' },
       values: [
