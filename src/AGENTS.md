@@ -15,7 +15,7 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/app-icons.ts`: use-case-named icon catalogue.
 - `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`; toast action leads (`ACTION_TERMS`) and shared error-code copy (`ERROR_TERMS`).
 - `app/core/mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
-- `app/core/services/`: application-wide authentication, route guards (`authenticated`, `addFirstThing`, `importsEnabled`), API client and `Toasts` services.
+- `app/core/services/`: application-wide authentication, route guards (`authenticated`, `addFirstThing`, `importsEnabled`), API client, `Toasts` and `ImageCache` (session object URLs for attachment images) services.
 - `app/core/data/`: stateless domain services, one per API domain (`<domain>.service.ts`). They shape requests, follow pagination, wrap streams and return contract types.
 - `app/core/state/`: NgRx Signal Store stores (`<domain>.store.ts`), the `withEntityCollection` feature (optimistic entities, `withLoad`, `loadOne` and `withSession` in one), the lower-level `withOptimisticEntities`, `withLoad` and `withSession` features, the pure optimistic bookkeeping in `optimistic.ts`, `loadCollections()` for pages that load several stores, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
 - `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
@@ -71,7 +71,7 @@ Keep feature-only components and data services beside their feature. Move code i
 - Render every selected field, including empty editable prompts. Preserve field-set identity when grouping sections or editing pins.
 - Keep `false`, `0`, empty text, missing values and masked values distinguishable. Use the generated money shape and supported currencies.
 - Sensitive fields start masked. Reveal uses the owner-scoped API; Hide, cancellation and record changes discard revealed state. Never persist revealed values in browser storage.
-- Use authenticated blob requests for attachments and images; revoke object URLs when no longer used. Never turn private files into public asset paths.
+- Use authenticated blob requests for attachments and images; revoke object URLs when no longer used. `ImageCache` keeps image URLs for the session and revokes them on sign-out. Never turn private files into public asset paths.
 - Keep sample labels visible and sample merchant actions disabled.
 
 ## User-facing copy

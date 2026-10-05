@@ -1,5 +1,5 @@
 @if (imageUrl()) {
-  <img [src]="imageUrl()" alt="" />
-} @else {
+  <img [src]="imageUrl()" alt="" (load)="ready.emit()" (error)="broken.set(true)" />
+} @else if (showIcon()) {
   <ng-icon [name]="categoryIcon(category())" aria-hidden="true" />
 }
