@@ -170,7 +170,7 @@ export interface components {
                 /** @description Verbatim excerpt from the cited page supporting this value, its units and relevant conditions (min 1 char, max 2000 chars). */
                 quote: string;
             }[];
-            /** @description Document metadata established by the PDF content, with null for each unsupported property. */
+            /** @description Document metadata established by the content, with null for each unsupported property. */
             metadata: {
                 /** @description Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
                 title: string | null;
