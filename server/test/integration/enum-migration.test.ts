@@ -40,7 +40,7 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
     const custom = {
       id: randomUUID(),
       label: 'status',
-      value: { origin: 'user', status: 'open' },
+      value: { origin: 'user', status: 'open', undefinedFieldId: 'preserve nested value' },
       origin: 'import',
       sensitive: true,
       sourceRefs: [],
@@ -50,7 +50,7 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
       values: { set: { field: entry } },
       standalone: { test: entry },
       undefinedFields: [custom],
-      pins: [],
+      pins: [{ undefinedFieldId: custom.id }],
       userEdited: ['name'],
     };
     await pool.query(
@@ -74,7 +74,13 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
       owner,
       thing,
     ]);
-    const card = { type: 'thing', thingId: thing };
+    const card = {
+      type: 'field',
+      thingId: thing,
+      fieldSetId: null,
+      fieldId: null,
+      undefinedFieldId: custom.id,
+    };
     const receipt = {
       key: 'create_event',
       card,
@@ -107,8 +113,8 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
       status: 'PROCESSING',
       intent: 'CREATE_EVENT',
       text: 'user',
-      cards: [{ ...card, type: 'THING' }],
-      tool_results: [{ ...receipt, card: { ...card, type: 'THING' } }],
+      cards: [{ ...card, type: 'FIELD' }],
+      tool_results: [{ ...receipt, card: { ...card, type: 'FIELD' } }],
     });
     const field = (
       await pool.query("select ui_hint,schema from bt.field_definitions where id='test'")
@@ -144,8 +150,24 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
     assert.equal(messages.length, 1);
     const current = messages[0];
     assert.equal(Object.hasOwn(current, 'intent'), false);
-    for (const key of ['role', 'status', 'text', 'cards', 'tool_results'] as const)
+    for (const key of ['role', 'status', 'text'] as const)
       assert.deepEqual(current[key], message[key]);
+    const { undefinedFieldId, ...address } = card;
+    const renamed = { ...address, type: 'FIELD', customFieldId: undefinedFieldId };
+    assert.deepEqual(current.cards, [renamed]);
+    assert.deepEqual(current.tool_results, [{ ...receipt, card: renamed }]);
+    const latest = (await pool.query('select data,revision from bt.things where id=$1', [thing]))
+      .rows[0];
+    assert.deepEqual(latest.data.customFields, [{ ...custom, origin: 'IMPORT' }]);
+    assert.equal(Object.hasOwn(latest.data, 'undefinedFields'), false);
+    assert.deepEqual(latest.data.pins, [{ customFieldId: custom.id }]);
+    await pool.query(
+      await readFile(new URL('20261005120254_custom_field_names.sql', directory), 'utf8'),
+    );
+    assert.deepEqual(
+      (await pool.query('select data,revision from bt.things where id=$1', [thing])).rows[0],
+      latest,
+    );
     await pool.query(
       "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER','Add a task','COMPLETE')",
       [conversation, randomUUID()],

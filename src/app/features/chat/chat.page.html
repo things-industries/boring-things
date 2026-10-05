@@ -63,19 +63,6 @@
               @for (card of entry.others; track $index) {
                 <bt-resource-card [card]="card" (schedule)="scheduling.set($event)" />
               }
-              @if (entry.sources.length) {
-                <ul class="chat-sources" aria-label="Sources">
-                  @for (source of entry.sources; track $index) {
-                    @if (source.url) {
-                      <li>
-                        <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{
-                          source.url
-                        }}</a>
-                      </li>
-                    }
-                  }
-                </ul>
-              }
               @if (message.status === 'FAILED') {
                 <bt-notice tone="warning" icon="responseFailed">
                   @switch (message.error) {

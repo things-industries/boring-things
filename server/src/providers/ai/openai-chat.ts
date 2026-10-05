@@ -38,6 +38,7 @@ export class OpenAiChat implements ChatAi {
       prompts.chatResearchPrompt(question, fields, this.searchCalls),
       this.searchCalls,
       context,
+      'cited',
     );
   }
 

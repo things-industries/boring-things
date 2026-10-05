@@ -58,19 +58,6 @@ bt-scroll-container {
     transform: rotate(1turn);
   }
 }
-.chat-sources {
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  @include typography.role(caption);
-  overflow-wrap: anywhere;
-  a {
-    color: tokens.color(accent);
-  }
-}
 .chat-retry {
   align-self: flex-start;
 }

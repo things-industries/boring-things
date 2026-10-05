@@ -610,7 +610,7 @@
     {
       "type": "function",
       "name": "show_cards",
-      "description": "Optional supporting cards for retrieved records. FIELD uses the containing Thing ID and either a registry field address or undefinedFieldId. Repeated entities appear once with all cited pages. Answer text supplies the response to the user.",
+      "description": "Optional supporting cards for retrieved records. FIELD uses the containing Thing ID and either a registry field address or customFieldId. Repeated entities appear once with all cited pages. Answer text supplies the response to the user.",
       "strict": true,
       "parameters": {
         "description": "Previously retrieved resources to cite in the assistant response.",
@@ -648,13 +648,13 @@
                   "minimum": 1,
                   "description": "One-based page supporting the answer for ATTACHMENT when known; null when the page is unknown or for another card type."
                 },
-                "undefinedFieldId": {
+                "customFieldId": {
                   "type": ["string", "null"],
                   "format": "uuid",
                   "description": "Custom field UUID from the read Thing for a FIELD card; fieldId and fieldSetId are null for this address. Null for registry fields and other card types."
                 }
               },
-              "required": ["type", "id", "fieldSetId", "fieldId", "page", "undefinedFieldId"]
+              "required": ["type", "id", "fieldSetId", "fieldId", "page", "customFieldId"]
             },
             "description": "Up to 12 cards citing resources retrieved in this conversation or returned by a completed write, with resource IDs copied from tool results and only properties relevant to each card type populated."
           }

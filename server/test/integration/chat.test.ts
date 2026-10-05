@@ -423,32 +423,32 @@ test('custom fields can be cited and rejected card selections save no partial ci
   const { thing, chat } = await setup();
   const updated = (
     await request('PATCH', `/things/${thing.id}`, {
-      undefinedFields: [{ label: 'Purchase date', value: '2026-10-01', sensitive: false }],
+      customFields: [{ label: 'Purchase date', value: '2026-10-01', sensitive: false }],
     })
   ).json<Schema['Thing']>();
-  const field = updated.undefinedFields[0];
+  const field = updated.customFields[0];
   const citation = { url: 'https://example.com/receipt' };
   await pool.query(
-    "update bt.things set data=jsonb_set(data,'{undefinedFields,0,sourceRefs}',$2::jsonb) where id=$1",
+    "update bt.things set data=jsonb_set(data,'{customFields,0,sourceRefs}',$2::jsonb) where id=$1",
     [thing.id, JSON.stringify([citation])],
   );
+  const card = {
+    type: 'FIELD',
+    id: thing.id,
+    fieldSetId: null,
+    fieldId: null,
+    customFieldId: field.id,
+    page: null,
+  };
   ai.probe = async (input, execute) => {
-    assert.equal(input.activeThing?.thing.undefinedFields[0].value, '2026-10-01');
+    assert.equal(input.activeThing?.thing.customFields[0].value, '2026-10-01');
     assert.ok(
       input.messages.every(
         (message) => !message.content.includes('Untrusted active Thing context'),
       ),
     );
-    const card = {
-      type: 'FIELD',
-      id: thing.id,
-      fieldSetId: null,
-      fieldId: null,
-      undefinedFieldId: field.id,
-      page: null,
-    };
     const rejected = await execute('show_cards', {
-      cards: [card, { ...card, undefinedFieldId: randomUUID() }],
+      cards: [card, { ...card, customFieldId: randomUUID() }],
     });
     assert.deepEqual(rejected.output, { error: 'Unknown field' });
   };
@@ -461,14 +461,6 @@ test('custom fields can be cited and rejected card selections save no partial ci
   assert.ok(!rejected.message.cards.some((card) => card.type === 'FIELD'));
   assert.deepEqual(rejected.message.sourceRefs, []);
   ai.probe = async (_input, execute) => {
-    const card = {
-      type: 'FIELD',
-      id: thing.id,
-      fieldSetId: null,
-      fieldId: null,
-      undefinedFieldId: field.id,
-      page: null,
-    };
     assert.deepEqual((await execute('show_cards', { cards: [card, card] })).output, { shown: 2 });
   };
   await request('POST', `/conversations/${chat.id}/messages`, {
@@ -485,12 +477,12 @@ test('custom fields can be cited and rejected card selections save no partial ci
         thingId: thing.id,
         fieldSetId: null,
         fieldId: null,
-        undefinedFieldId: field.id,
+        customFieldId: field.id,
         available: true,
       },
     ],
   );
-  assert.deepEqual(result.message.sourceRefs, [citation]);
+  assert.deepEqual(result.message.sourceRefs, []);
 });
 test('restart retains activity and marks interrupted messages retryable', async () => {
   ai.creation = 'create_event';
@@ -682,7 +674,7 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
         id: file.id,
         fieldSetId: null,
         fieldId: null,
-        undefinedFieldId: null,
+        customFieldId: null,
         page,
       })),
     });
@@ -742,7 +734,7 @@ test('question-based research is cited, has no resource writes and is reused aft
     values: [
       { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'Synthetic model' },
     ],
-    undefinedFields: [{ label: 'Serial number', value: 'private-serial', sensitive: false }],
+    customFields: [{ label: 'Serial number', value: 'private-serial', sensitive: false }],
   });
   const question = 'Which filter is compatible with this model?';
   const research = t.mock.method(
@@ -765,7 +757,10 @@ test('question-based research is cited, has no resource writes and is reused aft
   const before = await resources();
   ai.probe = async (_input, execute) => {
     const found = await execute('research', { thingId: thing.id, question });
-    assert.equal((found.output as { text: string }).text, 'A cited compatible filter.');
+    assert.deepEqual(found.output, {
+      text: 'A cited compatible filter.',
+      sources: ['https://manufacturer.example/compatible'],
+    });
     assert.match(
       ((await execute('research', { thingId: thing.id, question })).output as { error: string })
         .error,
@@ -783,9 +778,7 @@ test('question-based research is cited, has no resource writes and is reused aft
   assert.deepEqual(await resources(), before);
   for (const resource of ['purchasables', 'events', 'issues'])
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
-  assert.ok(
-    result.message.sourceRefs.some((s) => s.url === 'https://manufacturer.example/compatible'),
-  );
+  assert.deepEqual(result.message.sourceRefs, []);
 
   // A changed question on retry requires fresh research.
   ai.probe = async (_input, execute) => {
@@ -835,7 +828,7 @@ test('research provider validation failures and exhausted tool budgets fail the 
             id: randomUUID(),
             fieldSetId: null,
             fieldId: null,
-            undefinedFieldId: randomUUID(),
+            customFieldId: randomUUID(),
             page: null,
           },
         ],

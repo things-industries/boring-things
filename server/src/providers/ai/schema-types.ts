@@ -269,7 +269,7 @@ export interface components {
                  * Format: uuid
                  * @description Custom field UUID from the read Thing for a FIELD card; fieldId and fieldSetId are null for this address. Null for registry fields and other card types.
                  */
-                undefinedFieldId: string | null;
+                customFieldId: string | null;
             }[];
         };
     };

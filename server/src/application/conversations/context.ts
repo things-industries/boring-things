@@ -2,7 +2,7 @@
 import type { Schema } from '../../../../shared/model.js';
 import type * as conversationsDb from '../../db/entities/conversations.js';
 
-// Retain populated fields and their evidence while omitting editing and display metadata.
+// Keep populated values and addresses; the application retains provenance for citations.
 export function chatThingContext(
   thing: Schema['Thing'],
   resources: Awaited<ReturnType<typeof conversationsDb.getOwnedChatResources>>,
@@ -10,7 +10,7 @@ export function chatThingContext(
   const fields = (items: Schema['Field'][]) =>
     items
       .filter((field) => field.value !== null || field.masked)
-      .map(({ id, name, value, masked, sourceRefs }) => ({ id, name, value, masked, sourceRefs }));
+      .map(({ id, name, value, masked }) => ({ id, name, value, masked }));
   return {
     thing: {
       id: thing.id,
@@ -20,14 +20,13 @@ export function chatThingContext(
         .map(({ id, name, fields: items }) => ({ id, name, fields: fields(items) }))
         .filter((set) => set.fields.length),
       standaloneFields: fields(thing.standaloneFields),
-      undefinedFields: thing.undefinedFields
+      customFields: thing.customFields
         .filter((field) => field.value !== null || field.masked)
-        .map(({ id, label, value, masked, sourceRefs }) => ({
+        .map(({ id, label, value, masked }) => ({
           id,
           label,
           value,
           masked,
-          sourceRefs,
         })),
     },
     attachments: resources.attachments.map(

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import OpenAI from 'openai';
+import { searchWeb } from '../src/providers/ai/responses.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 import { chatFunctions } from '../src/contracts/chat-tools.js';
@@ -14,23 +16,32 @@ const task = {
 test('assistant research answers the supplied question in one bounded request with observed citations and usage', async (t) => {
   const source = 'https://manufacturer.example/filter';
   const opened = 'https://manufacturer.example/instructions';
+  const cited = [source, ...[1, 2, 3].map((id) => `https://manufacturer.example/source-${id}`)];
+  const candidates = Array.from({ length: 100 }, (_, id) => ({
+    url: `https://candidate.example/${id}`,
+  }));
   const entries: Partial<Usage>[] = [];
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
     assert.equal(body.max_tool_calls, 2);
     assert.deepEqual(body.tools, [{ type: 'web_search' }]);
-    assert.deepEqual(body.include, ['web_search_call.action.sources']);
+    assert.deepEqual(
+      body.include,
+      fetch.mock.callCount() === 0 ? undefined : ['web_search_call.action.sources'],
+    );
     assert.equal(body.text, undefined);
-    assert.match(body.input, /How should the filter be cleaned\?/);
-    assert.match(body.input, /Synthetic model/);
+    if (!body.include) {
+      assert.match(body.input, /How should the filter be cleaned\?/);
+      assert.match(body.input, /Synthetic model/);
+    }
     assert.ok(!body.input.includes('fieldSetId'));
     return Response.json({
       status: 'completed',
       output: [
         {
           type: 'web_search_call',
-          action: { sources: [{ url: source }, { url: 'http://localhost/private' }] },
+          action: { sources: candidates },
         },
         { type: 'web_search_call', action: { url: opened } },
         {
@@ -39,7 +50,10 @@ test('assistant research answers the supplied question in one bounded request wi
             {
               type: 'output_text',
               text: 'Supported cleaning instructions.',
-              annotations: [{ type: 'url_citation', url: source }],
+              annotations: [...cited, source, 'http://localhost/private'].map((url) => ({
+                type: 'url_citation',
+                url,
+              })),
             },
           ],
         },
@@ -67,11 +81,27 @@ test('assistant research answers the supplied question in one bounded request wi
     ],
     context,
   );
-  assert.deepEqual(result, { text: 'Supported cleaning instructions.', sources: [source, opened] });
+  assert.deepEqual(result, {
+    text: 'Supported cleaning instructions.',
+    sources: cited.slice(0, 3),
+  });
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(entries[0].entries?.[0].task, 'research');
   assert.equal(entries[0].cachedTokens, 4);
-  assert.equal(entries.flatMap((entry) => entry.toolCalls ?? []).length, 2);
+  assert.deepEqual(
+    entries.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.resultCount),
+    [100, 1],
+  );
+  const discovery = await searchWeb(
+    new OpenAI({ apiKey: 'synthetic-key' }),
+    'fixture',
+    1000,
+    'Find manuals',
+    2,
+    context,
+  );
+  assert.ok(discovery.sources.includes(opened));
+  assert.ok(discovery.sources.includes(candidates[99].url));
 
   fetch.mock.mockImplementation(async () => Response.json({ status: 'incomplete', output: [] }));
   await assert.rejects(ai.research('Question', [], context), /incomplete/);
@@ -92,6 +122,12 @@ test('assistant research answers the supplied question in one bounded request wi
     message: 'ai_http_429',
   });
 });
+function completed(output: unknown[] = [], usage?: object) {
+  return {
+    type: 'response.completed',
+    response: { status: 'completed', output, ...(usage ? { usage } : {}) },
+  };
+}
 function stream(events: unknown[]) {
   const encoded = new TextEncoder().encode(
     events.map((e) => 'data: ' + JSON.stringify(e) + '\n\n').join(''),
@@ -121,21 +157,17 @@ test('Responses streaming collects split frames, passes function results and rec
     requests++;
     if (requests === 1)
       return stream([
-        {
-          type: 'response.completed',
-          response: {
-            status: 'completed',
-            output: [
-              {
-                type: 'function_call',
-                name: 'search_things',
-                arguments: '{"query":"hob"}',
-                call_id: 'call-1',
-              },
-            ],
-            usage: { input_tokens: 4, output_tokens: 2 },
-          },
-        },
+        completed(
+          [
+            {
+              type: 'function_call',
+              name: 'search_things',
+              arguments: '{"query":"hob"}',
+              call_id: 'call-1',
+            },
+          ],
+          { input_tokens: 4, output_tokens: 2 },
+        ),
       ]);
     assert.ok(
       body.input.some(
@@ -146,14 +178,7 @@ test('Responses streaming collects split frames, passes function results and rec
     return stream([
       { type: 'response.output_text.delta', delta: 'Saved ' },
       { type: 'response.output_text.delta', delta: 'details.' },
-      {
-        type: 'response.completed',
-        response: {
-          status: 'completed',
-          output: [],
-          usage: { input_tokens: 6, output_tokens: 3 },
-        },
-      },
+      completed([], { input_tokens: 6, output_tokens: 3 }),
     ]);
   });
   let tokens = 0;
@@ -210,18 +235,14 @@ test('one AI turn handles multiple tool calls and returns rejected calls for cor
     requests++;
     if (requests === 1)
       return stream([
-        {
-          type: 'response.completed',
-          response: {
-            status: 'completed',
-            output: ['rejected', 'valid'].map((id) => ({
-              type: 'function_call',
-              name: 'show_cards',
-              arguments: JSON.stringify({ id }),
-              call_id: id,
-            })),
-          },
-        },
+        completed(
+          ['rejected', 'valid'].map((id) => ({
+            type: 'function_call',
+            name: 'show_cards',
+            arguments: JSON.stringify({ id }),
+            call_id: id,
+          })),
+        ),
       ]);
     assert.deepEqual(
       body.input
@@ -231,7 +252,7 @@ test('one AI turn handles multiple tool calls and returns rejected calls for cor
     );
     return stream([
       { type: 'response.output_text.delta', delta: 'The recorded purchase date is 1 October.' },
-      { type: 'response.completed', response: { status: 'completed', output: [] } },
+      completed([]),
     ]);
   });
   const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
@@ -263,20 +284,14 @@ test('PDF attachment input preserves text pages and original files for diagrams'
       const body = JSON.parse(init.body as string);
       if (++requests === 1)
         return stream([
-          {
-            type: 'response.completed',
-            response: {
-              status: 'completed',
-              output: [
-                {
-                  type: 'function_call',
-                  name: 'read_attachment',
-                  arguments: '{}',
-                  call_id: 'manual',
-                },
-              ],
+          completed([
+            {
+              type: 'function_call',
+              name: 'read_attachment',
+              arguments: '{}',
+              call_id: 'manual',
             },
-          },
+          ]),
         ]);
       const evidence = body.input.at(-1).content;
       if (includeImages) {
@@ -296,7 +311,7 @@ test('PDF attachment input preserves text pages and original files for diagrams'
           type: 'response.output_text.delta',
           delta: 'No. Both compartments share one temperature setting.',
         },
-        { type: 'response.completed', response: { status: 'completed', output: [] } },
+        completed([]),
       ]);
     });
     const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 2).respond(

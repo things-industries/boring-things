@@ -110,9 +110,9 @@ test('useful custom facts retain evidence while unexplained markings are discard
     page: 1,
   });
   const data = map(select(), { ...mapped, discardedFactIds: ['fact-3'] }, subject);
-  assert.equal(data.undefinedFields.length, 1);
-  assert.equal(data.undefinedFields[0].value, 'ABC-12');
-  assert.deepEqual(data.undefinedFields[0].sourceRefs, [
+  assert.equal(data.customFields.length, 1);
+  assert.equal(data.customFields[0].value, 'ABC-12');
+  assert.deepEqual(data.customFields[0].sourceRefs, [
     { attachmentId: attachment, quote: candidate.facts[1].quote },
   ]);
   assert.equal(data.values['appliances.neff']['appliances.zNumber'].value, '0015');
@@ -124,14 +124,14 @@ test('cleared user values and removed custom facts remain cleared on retry', () 
     map(),
     {
       values: [{ fieldSetId: 'appliances.neff', fieldId: 'appliances.zNumber', value: null }],
-      removeUndefinedFieldIds: [unknownId],
+      removeCustomFieldIds: [unknownId],
     },
     'appliances',
     registry,
   );
   const retried = map(data);
   assert.equal(retried.values['appliances.neff']['appliances.zNumber'], undefined);
-  assert.ok(!retried.undefinedFields.some((field) => field.id === unknownId));
+  assert.ok(!retried.customFields.some((field) => field.id === unknownId));
 });
 
 test('conflicting mapped evidence is retained without overwriting owner values', () => {
@@ -143,12 +143,12 @@ test('conflicting mapped evidence is retained without overwriting owner values',
   };
   const result = map(data);
   assert.equal(result.values['appliances.neff']['appliances.zNumber'].value, '0099');
-  assert.ok(result.undefinedFields.some((field) => field.value === '0015'));
+  assert.ok(result.customFields.some((field) => field.value === '0015'));
 });
 
 test('legacy custom facts are reconciled while authored and edited fields remain intact', () => {
   const data = emptyData();
-  data.undefinedFields = candidate.facts.map((fact) => ({
+  data.customFields = candidate.facts.map((fact) => ({
     id: localFactId(job, candidate.id, fact.id),
     label: fact.label,
     value: fact.value,
@@ -156,19 +156,19 @@ test('legacy custom facts are reconciled while authored and edited fields remain
     sensitive: false,
     sourceRefs: [{ attachmentId: attachment }],
   }));
-  data.undefinedFields.push({ ...data.undefinedFields[0], id: 'authored', origin: 'USER' });
+  data.customFields.push({ ...data.customFields[0], id: 'authored', origin: 'USER' });
   const discarded: FactMapping = {
     values: [],
     customFactIds: [],
     discardedFactIds: ['fact-1', 'fact-2'],
   };
   const edited = structuredClone(data);
-  edited.undefinedFields[0].origin = 'USER';
+  edited.customFields[0].origin = 'USER';
   assert.deepEqual(
-    map(data, discarded).undefinedFields.map((field) => field.id),
+    map(data, discarded).customFields.map((field) => field.id),
     ['authored'],
   );
-  assert.equal(map(edited, discarded).undefinedFields.length, 2);
+  assert.equal(map(edited, discarded).customFields.length, 2);
 });
 
 test('sensitive facts cannot map to an unmasked definition and research only receives eligible fields', () => {
@@ -263,7 +263,7 @@ test('historical extraction fixtures preserve identifiers and independent set va
   });
   const hob = results.find((result) => result.candidate.categoryId === 'appliances')!.data;
   assert.equal(hob.values['appliances.neff']['appliances.zNumber'].value, '0015');
-  assert.ok(hob.undefinedFields.some((field) => field.value === 'ABC-12'));
+  assert.ok(hob.customFields.some((field) => field.value === 'ABC-12'));
   const van = results.find((result) => result.candidate.categoryId === 'vehicles')!.data;
   assert.ok(van.setIds.includes('vehicles.van') && van.setIds.includes('vehicles.vehicle'));
   const policy = results.find((result) => result.candidate.categoryId === 'insurance')!.data;
@@ -287,5 +287,5 @@ test('custom PIN facts are masked even if extraction missed sensitivity', () => 
     { values: [], customFactIds: ['fact-1'], discardedFactIds: [] },
     source,
   );
-  assert.equal(data.undefinedFields[0].sensitive, true);
+  assert.equal(data.customFields[0].sensitive, true);
 });

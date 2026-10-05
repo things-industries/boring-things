@@ -11,7 +11,7 @@ test('chat groups document pages and renders a custom field after its answer', a
   const thing = await (await loaded).json();
   const fieldId = crypto.randomUUID();
   const attachmentId = crypto.randomUUID();
-  thing.undefinedFields = [
+  thing.customFields = [
     {
       id: fieldId,
       label: 'Purchase date',
@@ -51,7 +51,7 @@ test('chat groups document pages and renders a custom field after its answer', a
             requestId: crypto.randomUUID(),
             role: 'ASSISTANT',
             status: 'COMPLETE',
-            text: 'The purchase date is 1 October 2026.',
+            text: 'The purchase date is 1 October 2026. [Receipt](https://manufacturer.example/receipt)',
             createdAt: new Date().toISOString(),
             cards: [
               {
@@ -59,7 +59,7 @@ test('chat groups document pages and renders a custom field after its answer', a
                 thingId: thing.id,
                 fieldSetId: null,
                 fieldId: null,
-                undefinedFieldId: fieldId,
+                customFieldId: fieldId,
               },
               { type: 'ATTACHMENT', attachmentId },
               { type: 'ATTACHMENT', attachmentId, page: 29 },
@@ -68,6 +68,9 @@ test('chat groups document pages and renders a custom field after its answer', a
             sourceRefs: [
               { attachmentId, page: 29 },
               { attachmentId, page: 50 },
+              ...Array.from({ length: 100 }, (_, id) => ({
+                url: `https://candidate.example/${id}`,
+              })),
             ],
           },
         ],
@@ -76,7 +79,15 @@ test('chat groups document pages and renders a custom field after its answer', a
   });
   await page.goto('/chat');
   const answer = page.locator('bt-chat-bubble:not(.user)');
-  await expect(answer.locator('bt-rich-text')).toHaveText('The purchase date is 1 October 2026.');
+  await expect(answer.locator('bt-rich-text')).toHaveText(
+    'The purchase date is 1 October 2026. Receipt',
+  );
+  await expect(answer.getByRole('link', { name: 'Receipt' })).toHaveAttribute(
+    'href',
+    'https://manufacturer.example/receipt',
+  );
+  await expect(answer.locator('bt-rich-text').getByRole('link')).toHaveCount(1);
+  await expect(answer.locator('a[href^="https://candidate.example/"]')).toHaveCount(0);
   await expect(answer.locator('bt-key-value-row')).toContainText('Purchase date');
   await expect(answer.locator('bt-key-value-row')).toContainText('2026-10-01');
   await expect(answer.getByRole('button', { name: 'Download User Manual' })).toHaveCount(1);

@@ -109,7 +109,6 @@ export class ChatPage {
     (this.conversation()?.messages ?? []).map((message) => ({
       message,
       ...messageCards(message.cards, this.thingId, message.sourceRefs),
-      sources: message.sourceRefs.filter((source) => source.url),
     })),
   );
 

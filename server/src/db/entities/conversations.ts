@@ -83,6 +83,11 @@ export async function getOwnedConversationSnapshot(
     [id],
   );
 
+  for (const message of messages)
+    message.sourceRefs = message.sourceRefs.flatMap(({ attachmentId, page }) =>
+      attachmentId ? [{ attachmentId, ...(page ? { page } : {}) }] : [],
+    );
+
   // Cards can outlive their targets; recheck owner access so clients can mark deleted resources unavailable.
   for (const message of messages)
     for (const card of message.cards) {

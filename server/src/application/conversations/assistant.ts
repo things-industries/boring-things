@@ -15,7 +15,7 @@ import type { ChatAi, ChatToolResult, ResearchAnswer, ChatFailure } from './type
 import { chatThingContext } from './context.js';
 import { mergeResourceCards } from '../../../../shared/resource-cards.js';
 import { blankUsage } from '../import/types.js';
-import { chatFunctions } from '../../contracts/chat-tools.js';
+import { chatFunctions, type ChatToolInputs } from '../../contracts/chat-tools.js';
 import * as conversationsDb from '../../db/entities/conversations.js';
 import type { ChatJob } from '../../db/entities/conversations.js';
 import * as thingsDb from '../../db/entities/things.js';
@@ -36,18 +36,6 @@ interface LiveMessage {
   messageId: string;
   text: string;
 }
-interface ToolCard {
-  type: Schema['ResourceCard']['type'];
-  id: string;
-  fieldSetId: string | null;
-  fieldId: string | null;
-  undefinedFieldId: string | null;
-  page: number | null;
-}
-interface ShowCardsInput {
-  cards: ToolCard[];
-}
-
 export class Assistant {
   private live = new Map<string, LiveMessage>();
 
@@ -100,8 +88,7 @@ export class Assistant {
     // Retrieval grants this turn access to cards and tools; model-supplied IDs alone do not authorise resources.
     const allowedThings = new Map<string, Schema['Thing']>();
     const allowedResources = new Set<string>();
-    const retrievedThings = new Map<string, ReturnType<typeof chatThingContext>>();
-    const retrievedFiles = new Map<string, { attachmentId: string; filename: string }>();
+    const retrievedFiles = new Set<string>();
     let calls = 0,
       researched = false,
       files = 0;
@@ -117,15 +104,13 @@ export class Assistant {
       await conversationsDb.saveMessage(this.pool, job, { usage });
     };
 
-    const addCard = (card: Schema['ResourceCard']) => {
-      const merged = mergeResourceCards([...cards, card]);
+    const addCards = (...selected: Schema['ResourceCard'][]) => {
+      const merged = mergeResourceCards([...cards, ...selected]);
       ensure(merged.length <= 24, 'Assistant card limit');
       cards = merged;
     };
 
     const readThing = async (id: string) => {
-      const cached = retrievedThings.get(id);
-      if (cached) return cached;
       const thing = await detail(this.pool, job.ownerId, id, this.registry);
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
@@ -143,9 +128,7 @@ export class Assistant {
       ] as const)
         activity[table].forEach((i) => allowedResources.add(kind + ':' + i.id));
 
-      const context = chatThingContext(thing, { attachments, activity, truncated });
-      retrievedThings.set(id, context);
-      return context;
+      return chatThingContext(thing, { attachments, activity, truncated });
     };
 
     const execute = async (name: string, args: unknown): Promise<ChatToolResult> => {
@@ -160,17 +143,16 @@ export class Assistant {
         items.slice(0, 20).forEach((i) => allowedResources.add('thing:' + i.id));
         output = { items: items.slice(0, 20), truncated: items.length > 20 };
       } else if (name === 'read_thing')
-        output = retrievedThings.has(a['thingId'])
+        output = allowedThings.has(a['thingId'])
           ? { thingId: a['thingId'], alreadyRead: true }
           : await readThing(a['thingId']);
       else if (name === 'read_attachment') {
         ensure(allowedResources.has('attachment:' + a['attachmentId']), 'Read its Thing first');
         const includeImages = (args as { includeImages: boolean | null }).includeImages === true;
         const fileKey = JSON.stringify([a['attachmentId'], includeImages]);
-        const cached = retrievedFiles.get(fileKey);
-        if (cached) {
+        if (retrievedFiles.has(fileKey)) {
           await record({ toolCalls: [{ name, resultCount: 1, truncated: false }] });
-          return { output: { ...cached, alreadyRead: true } };
+          return { output: { attachmentId: a['attachmentId'], alreadyRead: true } };
         }
         ensure(files < 3, 'Attachment tool limit');
         const file = await conversationsDb.getOwnedChatAttachmentOrThrow(
@@ -190,10 +172,10 @@ export class Assistant {
           chunks.push(Buffer.from(chunk));
         }
 
-        addCard({ type: 'ATTACHMENT', attachmentId: file.id });
+        addCards({ type: 'ATTACHMENT', attachmentId: file.id });
         refs.push({ attachmentId: file.id });
         const output = { attachmentId: file.id, filename: file.filename };
-        retrievedFiles.set(fileKey, output);
+        retrievedFiles.add(fileKey);
         await record({
           toolCalls: [{ name, resultCount: 1, truncated: false }],
         });
@@ -245,8 +227,7 @@ export class Assistant {
           job.toolResults.push({ key: researchKey, result: found });
           await conversationsDb.saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
-        found.sources.forEach((url) => refs.push({ url }));
-        output = found;
+        output = { ...found, sources: found.sources.slice(0, 3) };
       } else if (name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');
@@ -267,13 +248,13 @@ export class Assistant {
           signal,
         );
         if (!job.toolResults.some((r) => r.key === name)) job.toolResults.push(saved);
-        if (saved.card) addCard(saved.card);
+        if (saved.card) addCards(saved.card);
         const item = saved.result as { id: string };
         allowedResources.add(kind + ':' + item.id);
         output = saved.result;
         this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       } else if (name === 'show_cards') {
-        const selected = (args as unknown as ShowCardsInput).cards;
+        const selected = (args as ChatToolInputs['show_cards']).cards;
         const selectedCards: Schema['ResourceCard'][] = [];
         const selectedRefs: Schema['SourceRef'][] = [];
 
@@ -288,26 +269,22 @@ export class Assistant {
           if (c.type === 'FIELD') {
             const thing = allowedThings.get(c.id);
             ensure(thing, 'Read the Thing first');
-            ensure(!!c.fieldId !== !!c.undefinedFieldId, 'Choose one field address');
-            ensure(!c.undefinedFieldId || !c.fieldSetId, 'Custom fields have no field set');
+            ensure(!!c.fieldId !== !!c.customFieldId, 'Choose one field address');
+            ensure(!c.customFieldId || !c.fieldSetId, 'Custom fields have no field set');
             const fields = c.fieldSetId
               ? thing.fieldSets.find((s) => s.id === c.fieldSetId)?.fields
               : thing.standaloneFields;
-            const field = c.undefinedFieldId
-              ? thing.undefinedFields.find((f) => f.id === c.undefinedFieldId)
+            const field = c.customFieldId
+              ? thing.customFields.find((f) => f.id === c.customFieldId)
               : fields?.find((f) => f.id === c.fieldId);
             ensure(field, 'Unknown field');
-            selectedCards.push(
-              c.undefinedFieldId
-                ? {
-                    type: 'FIELD',
-                    thingId: c.id,
-                    fieldSetId: null,
-                    fieldId: null,
-                    undefinedFieldId: field.id,
-                  }
-                : { type: 'FIELD', thingId: c.id, fieldSetId: c.fieldSetId, fieldId: field.id },
-            );
+            selectedCards.push({
+              type: 'FIELD',
+              thingId: c.id,
+              fieldSetId: c.customFieldId ? null : c.fieldSetId,
+              fieldId: c.customFieldId ? null : field.id,
+              ...(c.customFieldId ? { customFieldId: field.id } : {}),
+            });
             selectedRefs.push(...field.sourceRefs);
           } else if (c.type === 'THING') selectedCards.push({ type: 'THING', thingId: c.id });
           else if (c.type === 'ATTACHMENT') {
@@ -325,9 +302,7 @@ export class Assistant {
           else selectedCards.push({ type: 'PURCHASABLE', purchasableId: c.id });
         }
 
-        const merged = mergeResourceCards([...cards, ...selectedCards]);
-        ensure(merged.length <= 24, 'Assistant card limit');
-        cards = merged;
+        addCards(...selectedCards);
         refs.push(...selectedRefs);
         output = { shown: selected.length };
       }
@@ -367,7 +342,7 @@ export class Assistant {
 
       const activeThing = job.thingId ? await readThing(job.thingId) : undefined;
 
-      for (const receipt of job.toolResults) if (receipt.card) addCard(receipt.card);
+      for (const receipt of job.toolResults) if (receipt.card) addCards(receipt.card);
       const text = await awaitWithSignal(
         this.ai!.respond(
           {

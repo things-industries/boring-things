@@ -58,7 +58,13 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       ids.set(name, id);
       await pool.query(
         'insert into bt.things(id,owner_id,category_id,name,data) values($1,$2,$3,$4,$5)',
-        [id, owner, category, name, JSON.stringify({ ...emptyData(), ...data })],
+        [
+          id,
+          owner,
+          category,
+          name,
+          JSON.stringify({ ...emptyData(), ...data, customFields: undefined, undefinedFields: [] }),
+        ],
       );
     }
     await add('appliance', 'appliances', {
@@ -159,6 +165,11 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     await add('untouched', 'other', {});
     const sql = await readFile(new URL(migration, directory), 'utf8');
     await pool.query(sql);
+    const rename = await readFile(
+      new URL('20261005120254_custom_field_names.sql', directory),
+      'utf8',
+    );
+    await pool.query(rename);
     const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
     async function get(name: string) {
       const row = (
@@ -201,7 +212,7 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     assert.equal(appliance.values['appliances.warranty']['common.warrantyEnds'], undefined);
     assert.ok(appliance.userEdited!.includes('appliances.warranty:common.warrantyEnds'));
     assert.deepEqual(appliance.standalone['common.acquiredOn'], stored('2020-01-01'));
-    assert.equal(appliance.undefinedFields[0].value, '2030-01-01');
+    assert.equal(appliance.customFields[0].value, '2030-01-01');
     assert.deepEqual(appliance.pins, [
       { fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn' },
       { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds' },
@@ -246,14 +257,14 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       insurance.values['insurance.contents']['insurance.sumInsured'],
       stored({ amountMinor: 6000000, currency: 'GBP' }),
     );
-    assert.deepEqual(insurance.undefinedFields[0], {
+    assert.deepEqual(insurance.customFields[0], {
       ...stored('2027-04-01'),
-      id: insurance.undefinedFields[0].id,
+      id: insurance.customFields[0].id,
       label: 'Renewal date',
       sensitive: false,
     });
-    assert.deepEqual(insurance.pins, [{ undefinedFieldId: insurance.undefinedFields[0].id }]);
-    assert.ok(insurance.userEdited!.includes('local:' + insurance.undefinedFields[0].id));
+    assert.deepEqual(insurance.pins, [{ customFieldId: insurance.customFields[0].id }]);
+    assert.ok(insurance.userEdited!.includes('local:' + insurance.customFields[0].id));
     const conflict = (await get('conflict')).data;
     assert.deepEqual(
       conflict.values['appliances.ownership']['common.acquiredOn'],
@@ -262,25 +273,25 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
     assert.equal(conflict.values['appliances.ownership']['common.seller'], undefined);
     assert.equal(conflict.values['appliances.warranty']?.['common.warrantyEnds'], undefined);
     assert.deepEqual(conflict.standalone['common.acquiredOn'], stored('2018-01-01'));
-    assert.deepEqual(conflict.undefinedFields.map((f) => f.value).sort(), [
+    assert.deepEqual(conflict.customFields.map((f) => f.value).sort(), [
       '2019-01-01',
       '2020-01-01',
       '2028-01-01',
       'Original',
     ]);
-    assert.ok(conflict.pins[0].undefinedFieldId);
-    for (const f of conflict.undefinedFields) assert.deepEqual(f.sourceRefs, stored('').sourceRefs);
+    assert.ok(conflict.pins[0].customFieldId);
+    for (const f of conflict.customFields) assert.deepEqual(f.sourceRefs, stored('').sourceRefs);
     const removed = (await get('removed')).data;
     assert.ok(!removed.setIds.includes('memberships.access'));
-    assert.equal(removed.undefinedFields[0].sensitive, true);
-    assert.equal(removed.undefinedFields[0].value, '0987');
+    assert.equal(removed.customFields[0].sensitive, true);
+    assert.equal(removed.customFields[0].value, '0987');
     assert.ok(!JSON.stringify(projectData(removed, registry)).includes('0987'));
     const empty = (await get('empty')).data;
     assert.deepEqual(
       new Set(empty.setIds),
       new Set(['memberships.museum', 'memberships.membership', 'memberships.account']),
     );
-    assert.equal((await get('untouched')).revision, '1');
+    assert.equal((await get('untouched')).revision, '2');
     const snapshot = async () => ({
       fields: (await pool.query('select * from bt.field_definitions order by id')).rows,
       sets: (await pool.query('select * from bt.field_sets order by id')).rows,
@@ -299,6 +310,7 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       'Seed must match the SQL catalogue and preserve owned data',
     );
     await pool.query(sql);
+    await pool.query(rename);
     assert.deepEqual(
       await snapshot(),
       migrated,

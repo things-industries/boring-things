@@ -14,13 +14,13 @@ test('the field card contract accepts one registry or custom address', () => {
     fieldSetId: null,
     fieldId: 'model',
   };
-  const undefinedFieldId = '00000000-0000-4000-8000-000000000002';
+  const customFieldId = '00000000-0000-4000-8000-000000000002';
   assert.equal(validate(card), true);
-  assert.equal(validate({ ...card, fieldId: null, undefinedFieldId }), true);
-  assert.equal(validate({ ...card, undefinedFieldId }), false);
+  assert.equal(validate({ ...card, fieldId: null, customFieldId }), true);
+  assert.equal(validate({ ...card, customFieldId }), false);
   assert.equal(validate({ ...card, fieldId: null }), false);
   assert.equal(
-    validate({ ...card, fieldId: null, fieldSetId: 'appliances.appliance', undefinedFieldId }),
+    validate({ ...card, fieldId: null, fieldSetId: 'appliances.appliance', customFieldId }),
     false,
   );
 });
@@ -40,7 +40,7 @@ test('resource cards merge entities and document pages while keeping distinct fi
       thingId: 'thing',
       fieldSetId: null,
       fieldId: null,
-      undefinedFieldId: 'custom',
+      customFieldId: 'custom',
     },
   ];
   const original = structuredClone(cards);

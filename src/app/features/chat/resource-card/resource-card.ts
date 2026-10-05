@@ -145,8 +145,8 @@ export class ResourceCard {
     const detail = this.thing()?.detail;
 
     if (card.type !== 'FIELD' || !detail) return null;
-    if (card.undefinedFieldId) {
-      const field = detail.undefinedFields.find((field) => field.id === card.undefinedFieldId);
+    if (card.customFieldId) {
+      const field = detail.customFields.find((field) => field.id === card.customFieldId);
       return field
         ? { ...field, name: field.label, icon: '', schema: { format: undefined } }
         : null;

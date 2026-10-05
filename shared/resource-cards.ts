@@ -14,7 +14,7 @@ export function mergeResourceCards(
             card.thingId,
             card.fieldSetId,
             card.fieldId,
-            card.undefinedFieldId,
+            card.customFieldId,
           ])
         : JSON.stringify([
             card.type,

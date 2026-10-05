@@ -81,7 +81,7 @@ for (const scenario of cases) {
       categoryId: 'appliances',
       fieldSets: [],
       standaloneFields: [],
-      undefinedFields: [],
+      customFields: [],
     },
     attachments: [
       {

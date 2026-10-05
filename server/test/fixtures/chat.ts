@@ -53,7 +53,7 @@ export class FixtureChat implements ChatAi {
           id: thing.id,
           fieldSetId: null,
           fieldId: null,
-          undefinedFieldId: null,
+          customFieldId: null,
           page: null,
         },
         ...(thing.fieldSets.length
@@ -63,7 +63,7 @@ export class FixtureChat implements ChatAi {
                 id: thing.id,
                 fieldSetId: thing.fieldSets[0].id,
                 fieldId: thing.fieldSets[0].fields[0].id,
-                undefinedFieldId: null,
+                customFieldId: null,
                 page: null,
               },
             ]
@@ -75,7 +75,7 @@ export class FixtureChat implements ChatAi {
                 id: attachments[0].id,
                 fieldSetId: null,
                 fieldId: null,
-                undefinedFieldId: null,
+                customFieldId: null,
                 page: 1,
               },
             ]

@@ -3,7 +3,7 @@ import type { Schema } from '../../../shared/model';
 /** Detail-only Thing fields. Relation ID arrays are derived from the child stores instead. */
 export type ThingDetail = Pick<
   Schema['Thing'],
-  'fieldSets' | 'standaloneFields' | 'undefinedFields' | 'pinnedFields' | 'import'
+  'fieldSets' | 'standaloneFields' | 'customFields' | 'pinnedFields' | 'import'
 >;
 
 /** A Thing summary, with its detail once the Thing has been loaded by ID. */

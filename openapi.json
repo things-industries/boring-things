@@ -2434,7 +2434,7 @@
             "maxLength": 200,
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
           },
-          "undefinedFieldId": {
+          "customFieldId": {
             "type": "string",
             "format": "uuid"
           }
@@ -2719,7 +2719,7 @@
         },
         "additionalProperties": false
       },
-      "UndefinedField": {
+      "CustomField": {
         "type": "object",
         "description": "Custom field with its value, sensitivity and source information.",
         "required": [
@@ -2990,7 +2990,7 @@
           "isSample",
           "fieldSets",
           "standaloneFields",
-          "undefinedFields",
+          "customFields",
           "pinnedFields",
           "attachmentIds",
           "issueIds",
@@ -3055,10 +3055,10 @@
               "$ref": "#/components/schemas/Field"
             }
           },
-          "undefinedFields": {
+          "customFields": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UndefinedField"
+              "$ref": "#/components/schemas/CustomField"
             }
           },
           "pinnedFields": {
@@ -3194,7 +3194,7 @@
         },
         "additionalProperties": false
       },
-      "UndefinedPatch": {
+      "CustomFieldPatch": {
         "type": "object",
         "description": "Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific.",
         "required": ["label", "value", "sensitive"],
@@ -3273,13 +3273,13 @@
               "$ref": "#/components/schemas/ValuePatch"
             }
           },
-          "undefinedFields": {
+          "customFields": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UndefinedPatch"
+              "$ref": "#/components/schemas/CustomFieldPatch"
             }
           },
-          "removeUndefinedFieldIds": {
+          "removeCustomFieldIds": {
             "type": "array",
             "items": {
               "type": "string",
@@ -3347,13 +3347,13 @@
               "$ref": "#/components/schemas/ValuePatch"
             }
           },
-          "undefinedFields": {
+          "customFields": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UndefinedPatch"
+              "$ref": "#/components/schemas/CustomFieldPatch"
             }
           },
-          "removeUndefinedFieldIds": {
+          "removeCustomFieldIds": {
             "type": "array",
             "items": {
               "type": "string",
@@ -3834,6 +3834,7 @@
           },
           "sourceRefs": {
             "type": "array",
+            "description": "Attachment references for supporting document cards. Web citations appear as inline links in text.",
             "items": {
               "$ref": "#/components/schemas/SourceRef"
             }
@@ -4350,7 +4351,7 @@
                 "type": ["string", "null"],
                 "description": "Registry field ID; null for a custom field."
               },
-              "undefinedFieldId": {
+              "customFieldId": {
                 "type": "string",
                 "format": "uuid",
                 "description": "Custom field ID from the referenced Thing. Present only when fieldId and fieldSetId are null."
@@ -4367,7 +4368,7 @@
             },
             "then": {
               "type": "object",
-              "required": ["undefinedFieldId"],
+              "required": ["customFieldId"],
               "properties": {
                 "fieldSetId": {
                   "type": "null"
@@ -4377,7 +4378,7 @@
             "else": {
               "not": {
                 "type": "object",
-                "required": ["undefinedFieldId"]
+                "required": ["customFieldId"]
               }
             }
           },
