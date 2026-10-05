@@ -7,6 +7,6 @@ import { TermPipe } from '../../pipes/term.pipe';
   selector: 'bt-timeline',
   imports: [PlaceholderPage, TermPipe],
   viewProviders: [provideIcons({ navTimeline })],
-  templateUrl: './timeline.html',
+  templateUrl: './timeline.page.html',
 })
 export class TimelinePage {}

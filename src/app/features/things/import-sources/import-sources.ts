@@ -2,11 +2,17 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
-import { chooseFile, choosePhoto, pasteText, privacyNotice, takePhoto } from '../../core/app-icons';
-import { CONFIG } from '../../core/runtime-config';
-import { ThingsStore } from '../../core/state/things.store';
-import { Notice } from '../../components/notice/notice';
-import { OptionTile } from '../../components/option-tile/option-tile';
+import {
+  chooseFile,
+  choosePhoto,
+  pasteText,
+  privacyNotice,
+  takePhoto,
+} from '../../../core/app-icons';
+import { CONFIG } from '../../../core/runtime-config';
+import { ThingsStore } from '../../../core/state/things.store';
+import { Notice } from '../../../components/notice/notice';
+import { OptionTile } from '../../../components/option-tile/option-tile';
 
 /** Source choices that add details to a Thing. Emits `started` once an import has begun. */
 @Component({

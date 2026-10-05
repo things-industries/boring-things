@@ -22,8 +22,8 @@ Paths below are relative to `src/` unless stated otherwise.
 - `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it.
 - `app/features/home/`: Home: greeting, Ask promo, Needs attention, Upcoming, Frequent & recent, Categories and the empty-account sample-data action.
 - `app/features/dashboard/`: Things list at `/things`: search, category (`?categoryId=`) and tag filters, sample-data action and activity overview.
-- `app/features/add-thing/`: Add Thing (`/things/new`) with import tiles, the paste-text step (`/things/new/text`) and the manual form (`/things/new/manual`).
-- `app/features/things/`: the Thing page (`thing.*`: hero, sheet, Key details, tasks, products, attachments, overflow menu and dialogs) and All details (`thing-details.*`: grouped detail cards with pin, reveal and delete row menus; editing is #51), sharing `thing-loader.ts` (route Thing, load and stream) and `thing.view.ts` (view helpers). `import-sources.*` adds details from a source; `import-progress.*` and `import-steps.*` show import progress and retry through `ThingsStore`.
+- `app/features/add-thing/`: Add Thing (`/things/new`) with import tiles, and sub pages for the paste-text step (`paste-text/`, `/things/new/text`) and the manual form (`manual-thing/`, `/things/new/manual`).
+- `app/features/things/`: the Thing page (`thing.page.*`: hero, sheet, Key details, tasks, products, attachments, overflow menu and dialogs) and the All details sub page (`thing-details/`: grouped detail cards with pin, reveal and delete row menus; editing is #51), sharing `thing-loader.ts` (route Thing, load and stream) and `thing.view.ts` (view helpers). `import-sources/` adds details from a source; `import-progress/` and `import-steps/` show import progress and retry through `ThingsStore`.
 - `app/features/chat/`: global and Thing chat on `ConversationsStore`: Thing context card, message bubbles with Markdown answers (`bt-rich-text`), resource cards read from their stores, retry and the composer (`bt-chat-composer`). Each entry starts a new conversation; history and resumption are #22.
 - `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
 - `app/features/login/`: sign-in and setup-pending screen.
@@ -35,6 +35,13 @@ Paths below are relative to `src/` unless stated otherwise.
 - `styles.scss`: global Sass entry point; imports only.
 - `styles/`: design system, one file per style scope (`_buttons.scss`, `_forms.scss`, …) or one folder when a scope needs several files (`colors/`, `typography/`), plus `_core.scss`, `_mixins.scss` and `CHEATSHEET.md`.
 - Root `shared/api.ts`: generated OpenAPI types. Root `shared/model.ts`: derived aliases and shared shapes. Import or derive API types instead of duplicating them.
+
+Feature folder layout:
+
+- Each feature folder holds its page at the top level, named `<page>.page.ts` with `<page>.page.html` and `<page>.page.scss`. Page components are named `<Name>Page`.
+- Each sub component of the page lives in its own folder inside the feature folder (`chat/chat-composer/chat-composer.ts`). A sub component shared by several pages of the feature sits in the feature folder the same way.
+- A sub page lives in its own folder inside the feature folder (`add-thing/paste-text/paste-text.page.ts`), with its own sub component folders beneath it.
+- Non-component helpers for a page (`<page>.view.ts`, loaders) sit beside the page they serve.
 
 Keep feature-only components and data services beside their feature. Move code into `core/` when it is application-wide and singleton-like. Create shared directives, pipes or stores only when needed.
 

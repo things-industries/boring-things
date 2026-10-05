@@ -4,7 +4,7 @@ Local Angular/Fastify foundation for managing Things, their fields and documents
 
 ## Start locally
 
-Requires Node 22.12+ (the repository pins 22.14.0), pnpm 10.34.5 and Docker. With fnm installed:
+Requires Node 22.16+ (the repository pins 22.23.3), pnpm 10.34.5 and Docker. With fnm installed:
 
 ```sh
 fnm use

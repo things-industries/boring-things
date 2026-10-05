@@ -24,7 +24,7 @@ Imports turn a photo, PDF or text source into Thing fields, then find category d
 
 10. **Attach a photo.** An official model page supplies the matching product image and source evidence. [Image retrieval](../../server/src/providers/web/image.ts) shares the protected downloader and validates headers, dimensions and decoding. The private attachment retains source provenance. It becomes the main image while that choice remains unset and unedited. Owner choices, clears and unlinking survive retries. Image failures preserve documents and fields.
 
-11. **Finish.** The job becomes `COMPLETE`; optional research failures add warnings while preserving committed results. The UI shows “Imported; some research could not complete” and offers “Retry research” for eligible warnings. Database or blob-write failures propagate to the import failure path. Saved attachments and completed document batches remain available for retry.
+11. **Finish.** The job becomes `COMPLETE`; optional research failures add API warnings while preserving committed results. Completed-import warning display and research retry controls remain pending frontend work. Database or blob-write failures propagate to the import failure path. Saved attachments and completed document batches remain available for retry through the API.
 
 ## Limits
 

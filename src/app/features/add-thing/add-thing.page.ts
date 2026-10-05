@@ -36,8 +36,8 @@ import { TermPipe } from '../../pipes/term.pipe';
       takePhoto,
     }),
   ],
-  templateUrl: './add-thing.html',
-  styleUrl: './add-thing.scss',
+  templateUrl: './add-thing.page.html',
+  styleUrl: './add-thing.page.scss',
 })
 export class AddThingPage {
   private things = inject(ThingsStore);

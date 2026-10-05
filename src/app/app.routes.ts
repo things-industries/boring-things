@@ -3,18 +3,18 @@ import { authenticated } from './core/services/auth.guard';
 import { addFirstThing } from './core/services/first-thing.guard';
 import { importsEnabled } from './core/services/imports.guard';
 import { APP_TERMS } from './core/app-terms';
-const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.Dashboard);
-const chatPage = () => import('./features/chat/chat').then((m) => m.ChatPage);
+const dashboard = () => import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage);
+const chatPage = () => import('./features/chat/chat.page').then((m) => m.ChatPage);
 export const routes: Routes = [
   {
     path: 'login',
     title: APP_TERMS.login,
-    loadComponent: () => import('./features/login/login').then((m) => m.Login),
+    loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage),
   },
   {
     path: 'callback',
     title: APP_TERMS.login,
-    loadComponent: () => import('./features/login/login').then((m) => m.Login),
+    loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage),
   },
   {
     path: '',
@@ -22,7 +22,7 @@ export const routes: Routes = [
     title: APP_TERMS.home,
     canActivate: [authenticated, addFirstThing],
     data: { bottomNav: true },
-    loadComponent: () => import('./features/home/home').then((m) => m.HomePage),
+    loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage),
   },
   {
     path: 'things',
@@ -35,29 +35,32 @@ export const routes: Routes = [
     path: 'things/new',
     title: APP_TERMS.addThing,
     canActivate: [authenticated],
-    loadComponent: () => import('./features/add-thing/add-thing').then((m) => m.AddThingPage),
+    loadComponent: () => import('./features/add-thing/add-thing.page').then((m) => m.AddThingPage),
   },
   {
     path: 'things/new/text',
     title: APP_TERMS.addThing,
     canActivate: [authenticated, importsEnabled],
-    loadComponent: () => import('./features/add-thing/paste-text').then((m) => m.PasteTextPage),
+    loadComponent: () =>
+      import('./features/add-thing/paste-text/paste-text.page').then((m) => m.PasteTextPage),
   },
   {
     path: 'things/new/manual',
     title: APP_TERMS.addThing,
     canActivate: [authenticated],
-    loadComponent: () => import('./features/add-thing/manual-thing').then((m) => m.ManualThingPage),
+    loadComponent: () =>
+      import('./features/add-thing/manual-thing/manual-thing.page').then((m) => m.ManualThingPage),
   },
   {
     path: 'things/:id',
     canActivate: [authenticated],
-    loadComponent: () => import('./features/things/thing').then((m) => m.ThingPage),
+    loadComponent: () => import('./features/things/thing.page').then((m) => m.ThingPage),
   },
   {
     path: 'things/:id/details',
     canActivate: [authenticated],
-    loadComponent: () => import('./features/things/thing-details').then((m) => m.ThingDetailsPage),
+    loadComponent: () =>
+      import('./features/things/thing-details/thing-details.page').then((m) => m.ThingDetailsPage),
   },
   {
     path: 'things/:id/chat',
@@ -76,13 +79,13 @@ export const routes: Routes = [
     title: APP_TERMS.timeline,
     canActivate: [authenticated],
     data: { bottomNav: true },
-    loadComponent: () => import('./features/timeline/timeline').then((m) => m.TimelinePage),
+    loadComponent: () => import('./features/timeline/timeline.page').then((m) => m.TimelinePage),
   },
   {
     path: 'profile',
     title: APP_TERMS.profile,
     canActivate: [authenticated],
-    loadComponent: () => import('./features/profile/profile').then((m) => m.ProfilePage),
+    loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
   },
   { path: '**', redirectTo: '' },
 ];

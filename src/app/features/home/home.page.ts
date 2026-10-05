@@ -34,7 +34,7 @@ import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
 import { TermPipe } from '../../pipes/term.pipe';
 import { daysUntil } from '../../utils/date.util';
 import { issueBadges } from '../../utils/issue.util';
-import { HomeSkeleton } from './home-skeleton';
+import { HomeSkeleton } from './home-skeleton/home-skeleton';
 
 @Component({
   selector: 'bt-home',
@@ -57,8 +57,8 @@ import { HomeSkeleton } from './home-skeleton';
   viewProviders: [
     provideIcons({ askQuestion, issueFault, issueOther, issueRenewal, issueWarranty, openProfile }),
   ],
-  templateUrl: './home.html',
-  styleUrl: './home.scss',
+  templateUrl: './home.page.html',
+  styleUrl: './home.page.scss',
 })
 export class HomePage {
   private profileStore = inject(ProfileStore);
