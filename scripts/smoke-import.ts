@@ -50,9 +50,9 @@ const recorded: ImportAi = {
     };
     const selection = await ai.selectFieldSets(candidate, tracedTools, context);
     trace.push({
-      stage: 'mapping',
+      stage: 'field_selection',
       candidate: candidate.id,
-      result: { kind: 'sets', ...selection },
+      result: selection,
     });
     return selection;
   },
@@ -67,9 +67,10 @@ const recorded: ImportAi = {
     };
     const result = await ai.mapFacts(thing, facts, selectedSets, tracedTools, context);
     trace.push({
-      stage: 'mapping',
+      stage: 'fact_mapping',
+      candidate: thing.id,
       factIds: facts.map((fact) => fact.id),
-      result: { kind: 'values', ...result },
+      result,
     });
     return result;
   },

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { PDFDocument } from 'pdf-lib';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
 import { extractedThings, extractionBaseline } from './fixtures/imports.js';
@@ -18,6 +19,109 @@ const output = (data: unknown) => ({
       content: [{ type: 'output_text', text: JSON.stringify(data) }],
     },
   ],
+});
+
+test('PDF source text uses one request, retains original pages and skips model transcription', async (t) => {
+  const pdf = await PDFDocument.create();
+  for (let page = 1; page <= 26; page++) {
+    const sheet = pdf.addPage();
+    if (page === 26) sheet.drawText('Z-number 0015');
+  }
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    calls++;
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.input[0].content.length, 2);
+    assert.equal(body.input[0].content[1].type, 'input_text');
+    assert.equal(body.input[0].content[1].text, '[PDF page 26]\nZ-number 0015');
+    assert.match(body.input[0].content[0].text, /return an empty 'text' property/);
+    assert.match(body.input[0].content[0].text, /ignore translated repetitions/);
+    const subject = structuredClone(extractedThings.neff);
+    subject.facts = [{ ...subject.facts[0], page: 26 }];
+    return jsonResponse(output({ text: '', metadata: null, candidates: [subject] }));
+  });
+  const result = await new OpenAiImports('test-key', 'fixture').extract(
+    {
+      filename: 'source.pdf',
+      mediaType: 'application/pdf',
+      content: Buffer.from(await pdf.save()),
+    },
+    ['appliances'],
+    context(),
+  );
+  assert.equal(calls, 1);
+  assert.equal(result.text, '[PDF page 26]\nZ-number 0015');
+  assert.equal(result.extractedThings[0].facts[0].page, 26);
+});
+
+test('reference extraction consumes page-labelled PDF text with original citations', async (t) => {
+  const pdf = await PDFDocument.create();
+  for (let page = 1; page <= 101; page++) {
+    const sheet = pdf.addPage();
+    if (page === 1) sheet.drawText('Cover');
+    if (page === 101) sheet.drawText('Supported');
+  }
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.deepEqual(body.input[0].content[1], {
+      type: 'input_text',
+      text: '[PDF page 1]\nCover\n\n[PDF page 101]\nSupported',
+    });
+    return jsonResponse(
+      output({
+        applicable: true,
+        applicability: { page: 1, quote: 'Cover' },
+        values: [
+          {
+            fieldSetId: null,
+            fieldId: 'common.model',
+            value: 'Supported',
+            page: 101,
+            quote: 'Supported',
+          },
+        ],
+      }),
+    );
+  });
+  const result = await new OpenAiImports('test-key', 'fixture').extractDocument(
+    {
+      attachmentId: 'document',
+      url: 'https://example.com/manual.pdf',
+      filename: 'manual.pdf',
+      mediaType: 'application/pdf',
+      content: Buffer.from(await pdf.save()),
+      pageCount: 101,
+    },
+    { id: 'subject', name: 'Example', categoryId: 'devices', fields: [], targets: [] },
+    [],
+    context(),
+  );
+  assert.equal(result.values[0].page, 101);
+});
+
+test('PDFs without embedded text reject excessive pages before calling the model', async (t) => {
+  const { DocumentSizeError, maxModelDocumentPages } =
+    await import('../src/lib/document-limits.js');
+  const pdf = await PDFDocument.create();
+  for (let page = 0; page <= maxModelDocumentPages; page++) pdf.addPage();
+  let requests = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++;
+    return jsonResponse({});
+  });
+  await assert.rejects(
+    new OpenAiImports('test-key', 'fixture').extract(
+      {
+        filename: 'scan.pdf',
+        mediaType: 'application/pdf',
+        content: Buffer.from(await pdf.save()),
+      },
+      ['other'],
+      context(),
+    ),
+    (error: unknown) => error instanceof DocumentSizeError && error.limit === maxModelDocumentPages,
+  );
+  assert.equal(requests, 0);
 });
 
 test('SDK extraction replays the labelled hob, van and combined-policy baseline without tools', async (t) => {
@@ -66,7 +170,7 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
         const prompt = body.input[0].content;
         assert.match(prompt, /A "?Thing"? is an identifiable/);
         assert.match(prompt, /selection and mandatory dependencies are already resolved/);
-        assert.match(prompt, /Omit uncertain or unmatched facts from values/);
+        assert.match(prompt, /Account for every supplied fact/);
         const input = JSON.parse(prompt.split('\nInput: ')[1]);
         assert.deepEqual(input.thing, {
           name: 'Neff hob',
@@ -126,7 +230,17 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
           entry.output === JSON.stringify(round === 0 ? { sets: selectedSets } : fieldResults),
       ),
     );
-    return jsonResponse(output(round === 0 ? { setIds: ['appliances.neff'] } : { values: [] }));
+    return jsonResponse(
+      output(
+        round === 0
+          ? { setIds: ['appliances.neff'] }
+          : {
+              values: [],
+              customFactIds: [extractedThings.neff.facts[round - 1].id],
+              discardedFactIds: [],
+            },
+      ),
+    );
   });
   const tools = {
     searchFieldSets: async () => ({ sets: selectedSets }),
@@ -138,7 +252,7 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
   for (const fact of extractedThings.neff.facts)
     assert.deepEqual(
       await ai.mapFacts(extractedThings.neff, [fact], selectedSets, tools, context()),
-      { values: [] },
+      { values: [], customFactIds: [fact.id], discardedFactIds: [] },
     );
   assert.equal(request, 6);
 });
@@ -304,13 +418,15 @@ test('SDK document extraction uses the configured model, contained schema and pe
     });
   });
   const ai = new OpenAiImports('test-key', 'import-model', 1000, 3, 'document-model');
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
   await ai.extractDocument(
     {
       attachmentId: 'document',
       url: 'https://example.com/manual.pdf',
       filename: 'manual.pdf',
       mediaType: 'application/pdf',
-      content: Buffer.from('%PDF-synthetic'),
+      content: Buffer.from(await pdf.save()),
       pageCount: 1,
     },
     { id: 'subject', categoryId: 'devices', name: 'Example', fields: [], targets: [] },

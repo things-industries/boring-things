@@ -5,6 +5,7 @@ import type { FieldSearchLabel } from '../registry/registry.js';
  */
 
 import type { FieldDefinition, FieldSet, Schema, Value } from '../../../../shared/model.js';
+import type { components } from '../../providers/ai/schema-types.js';
 
 export interface Fact {
   id: string;
@@ -21,6 +22,7 @@ export interface ExtractedThing {
   categoryId: string;
   terms: string[];
   facts: Fact[];
+  mapping?: { setIds: string[]; batches: FactMapping[] };
 }
 
 export interface Extraction {
@@ -33,18 +35,11 @@ export interface Source {
   filename: string;
   mediaType: string;
   content: Buffer;
+  pageCount?: number | null;
+  text?: string;
 }
 
-export interface MappingValue {
-  factId: string;
-  fieldSetId: string | null;
-  fieldId: string;
-  value: Value;
-  pin: boolean;
-}
-
-export type MappingStage =
-  { kind: 'sets'; setIds: string[] } | { kind: 'values'; values: MappingValue[] };
+export type FactMapping = components['schemas']['Mapping'];
 
 export interface DiscoveryItem {
   kind: 'reference' | 'maintenance' | 'consumable' | 'accessory' | 'upgrade';
@@ -60,7 +55,13 @@ export interface Discovery {
   sources: string[];
   identity?: { name: string; sourceUrl: string } | null;
   researchRounds?: number;
-  documentBatches?: { attachmentId: string; targetKeys: string[] }[];
+  documentBatches?: {
+    attachmentId: string;
+    targetKeys: string[];
+    firstPage?: number;
+    lastPage?: number;
+  }[];
+  warnings?: DiscoveryWarning[];
   outcomes?: {
     fieldSetId: string | null;
     fieldId: string | null;
@@ -69,6 +70,8 @@ export interface Discovery {
 }
 
 export type Usage = Schema['ImportUsage'];
+
+export type DiscoveryWarning = Omit<Schema['ImportWarning'], 'thingId'>;
 
 export interface AiContext {
   signal: AbortSignal;
@@ -86,6 +89,8 @@ export interface ResearchContext {
   categoryId: string;
   fields: ResearchField[];
   targets: ResearchTarget[];
+  documentLimits?: { maxBytes: number; maxTextCharacters: number };
+  rejectedDocuments?: Pick<DiscoveryWarning, 'sourceUrl' | 'code' | 'actual' | 'limit'>[];
 }
 
 export interface ResearchTarget {
@@ -132,7 +137,7 @@ export interface ImportAi {
     selectedSets: FieldSet[],
     tools: RegistryTools,
     context: AiContext,
-  ): Promise<{ values: MappingValue[] }>;
+  ): Promise<FactMapping>;
   discover(
     research: ResearchContext,
     context: AiContext,

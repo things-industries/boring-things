@@ -7,20 +7,14 @@ import * as registryDb from '../../db/entities/registry.js';
  */
 
 import type pg from 'pg';
+import type { ThingData } from '../../../../shared/model.js';
 import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { ApplicationEvents } from '../events.js';
-import type {
-  AiContext,
-  ExtractedThing,
-  ImportAi,
-  RegistryTools,
-  Usage,
-  MappingStage,
-} from './types.js';
+import type { AiContext, ExtractedThing, ImportAi, RegistryTools, Usage } from './types.js';
 import { blankUsage } from './types.js';
-import { applyImportStage, retainFacts, validateExtraction } from './mapping.js';
+import { applyFactMapping, applySelectedSets, validateExtraction } from './mapping.js';
 import { searchFieldSets, searchFields } from '../registry/search.js';
 import { ensure } from '../errors.js';
 import * as database from '../../db/connection.js';
@@ -28,7 +22,7 @@ import * as importsDb from '../../db/entities/imports.js';
 import type { ImportRow, Target } from '../../db/entities/imports.js';
 import * as thingsDb from '../../db/entities/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { researchImportTarget } from './research.js';
+import { isResearchPersistenceError, persistResearch, researchImportTarget } from './research.js';
 import { updateAttachmentMetadata } from '../attachments.js';
 import { pdfPageCount } from '../../lib/pdf.js';
 
@@ -170,21 +164,19 @@ export class ImportProcessor {
       }
 
       // Discovery has its own budget, after all extracted data is usable.
-      let discoveryFailed = false;
-
       for (const target of await importsDb.listImportTargets(this.pool, job)) {
         if (target.discovered) continue;
         await this.status(job, 'DISCOVERING');
+        const discoverySignal = AbortSignal.any([
+          shutdown,
+          AbortSignal.timeout(this.config.discoveryTimeoutMs),
+        ]);
         try {
-          const discoverySignal = AbortSignal.any([
-            shutdown,
-            AbortSignal.timeout(this.config.discoveryTimeoutMs),
-          ]);
           const discoveryContext: AiContext = {
             signal: discoverySignal,
             record: async (delta) => {
               discoverySignal.throwIfAborted();
-              await record(delta);
+              await persistResearch(() => record(delta));
             },
           };
           await researchImportTarget(
@@ -204,16 +196,31 @@ export class ImportProcessor {
 
           await importsDb.markTargetStage(this.pool, job, target.candidateId, 'discovered');
           this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-        } catch {
-          discoveryFailed = true;
+        } catch (error) {
+          if (shutdown.aborted || isResearchPersistenceError(error)) throw error;
+          const current = (await importsDb.listImportTargets(this.pool, job)).find(
+            (entry) => entry.candidateId === target.candidateId,
+          )!;
+          const found = current.discovery ?? { items: [], sources: [] };
+          await importsDb.saveTargetDiscovery(this.pool, job, target.candidateId, {
+            ...found,
+            warnings: [
+              ...(found.warnings ?? []),
+              {
+                code: discoverySignal.aborted ? 'TIMEOUT' : 'RESEARCH_FAILED',
+                sourceUrl: null,
+                retryable: true,
+                actual: null,
+                limit: null,
+              },
+            ],
+          });
+          await importsDb.markTargetStage(this.pool, job, target.candidateId, 'discovered');
+          this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
         }
       }
 
-      await this.status(
-        job,
-        discoveryFailed ? 'INCOMPLETE' : 'COMPLETE',
-        discoveryFailed ? 'discovery_failed' : null,
-      );
+      await this.status(job, 'COMPLETE');
     } catch (error) {
       const hasResults =
         (await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id)).resultThingIds
@@ -249,7 +256,6 @@ export class ImportProcessor {
         const result = await searchFieldSets(this.pool, this.registry, category, terms);
         result.sets.forEach((s) => {
           allowedSets.add(s.id);
-          s.fields.forEach((f) => allowedFields.add(f.id));
         });
         await context.record({
           toolCalls: [
@@ -293,67 +299,77 @@ export class ImportProcessor {
         };
       },
     };
-    // Retain every extracted fact before mapping, so unmapped facts survive a failed or partial provider response.
-    await database.transaction(this.pool, async (db) => {
-      const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
-        lock: true,
-      });
-      const data = retainFacts(thing.data, candidate, job.id, job.attachmentId, this.registry);
-      await thingsDb.saveThingData(db, job.ownerId, thing.id, data);
-    });
-    this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-    const commitBatch = async (stage: MappingStage) => {
+    const commit = async (
+      update: (data: ThingData, category: string) => ThingData,
+      mapping: NonNullable<ExtractedThing['mapping']>,
+    ) => {
       context.signal.throwIfAborted();
+      const extraction = {
+        ...job.extraction!,
+        extractedThings: job.extraction!.extractedThings.map((subject) =>
+          subject.id === candidate.id ? { ...subject, mapping } : subject,
+        ),
+      };
       await database.transaction(this.pool, async (db) => {
-        context.signal.throwIfAborted();
         const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
           lock: true,
         });
-        const data = applyImportStage(
-          thing.data,
-          stage,
-          candidate,
-          thing.categoryId,
-          this.registry,
-          allowedSets,
-          allowedFields,
-          job.id,
-          job.attachmentId,
-        );
+        const data = update(thing.data, thing.categoryId);
         context.signal.throwIfAborted();
         await thingsDb.saveThingData(db, job.ownerId, thing.id, data);
-        if (stage.kind === 'sets')
-          await importsDb.markTargetStage(db, job, target.candidateId, 'selected');
+        await importsDb.saveExtraction(db, job, extraction);
       });
+      job.extraction = extraction;
+      candidate.mapping = mapping;
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     };
-
-    const selection = await awaitWithSignal(
-      this.ai!.selectFieldSets(candidate, tools, context),
-      context.signal,
-    );
-    await commitBatch({ kind: 'sets', setIds: selection.setIds });
+    if (!candidate.mapping) {
+      const selection = await awaitWithSignal(
+        this.ai!.selectFieldSets(candidate, tools, context),
+        context.signal,
+      );
+      await commit(
+        (data, category) =>
+          applySelectedSets(data, selection.setIds, category, this.registry, allowedSets),
+        { setIds: selection.setIds, batches: [] },
+      );
+    }
     const selectedSets = this.registry
-      .expand(selection.setIds, candidate.categoryId)
+      .expand(candidate.mapping!.setIds, candidate.categoryId)
       .map((id) => this.registry.sets.get(id)!);
-    for (let offset = 0; offset < candidate.facts.length; offset += 20) {
+    const completed = new Set(
+      candidate.mapping!.batches.flatMap((batch) => [
+        ...batch.values.map((value) => value.factId),
+        ...batch.customFactIds,
+        ...batch.discardedFactIds,
+      ]),
+    );
+    const pending = candidate.facts.filter((fact) => !completed.has(fact.id));
+    for (let offset = 0; offset < pending.length; offset += 20) {
       calls = 0;
-      const facts = candidate.facts.slice(offset, offset + 20);
+      allowedFields.clear();
+      selectedSets.forEach((set) => set.fields.forEach((field) => allowedFields.add(field.id)));
+      const facts = pending.slice(offset, offset + 20);
       const batch = await awaitWithSignal(
         this.ai!.mapFacts(candidate, facts, selectedSets, tools, context),
         context.signal,
       );
-      ensure(
-        batch.values.every((entry) => facts.some((fact) => fact.id === entry.factId)),
-        'Mapped fact outside batch',
+      await commit(
+        (data) =>
+          applyFactMapping(
+            data,
+            batch,
+            { id: candidate.id, facts },
+            this.registry,
+            allowedFields,
+            job.id,
+            job.attachmentId,
+          ),
+        { ...candidate.mapping!, batches: [...candidate.mapping!.batches, batch] },
       );
-      await commitBatch({ kind: 'values', values: batch.values });
     }
 
-    await database.transaction(this.pool, async (db) => {
-      context.signal.throwIfAborted();
-      await importsDb.markTargetStage(db, job, target.candidateId, 'mapped');
-      await thingsDb.bumpThing(db, job.ownerId, target.thingId);
-    });
+    context.signal.throwIfAborted();
+    await importsDb.markTargetStage(this.pool, job, target.candidateId, 'mapped');
   }
 }

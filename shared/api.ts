@@ -626,7 +626,7 @@ export interface paths {
         put?: never;
         /**
          * Retry import
-         * @description Queues another attempt for a failed or incomplete import, reusing its saved progress. Returns 409 if the import is in another state, a target was deleted or a target has another active import.
+         * @description Queues another attempt for a failed or incomplete import, or retries optional research on a completed import with warnings. Reuses saved progress and completed document batches. Returns 409 if there is no work to retry, a target was deleted or a target has another active import.
          */
         post: operations["retryImport"];
         delete?: never;
@@ -938,6 +938,17 @@ export interface components {
                 thingIds: string[];
                 error: string | null;
                 usage: components["schemas"]["ImportUsage"];
+                /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
+                warnings?: components["schemas"]["ImportWarning"][];
+                /** @description Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted. */
+                researchOutcomes?: {
+                    /** Format: uuid */
+                    thingId: string;
+                    fieldSetId: string | null;
+                    /** @description Null for a resource-level outcome. */
+                    fieldId: string | null;
+                    outcome: components["schemas"]["ResearchOutcomeEnum"];
+                }[];
             } | null;
             /** @description Number of explicit user views recorded for this Thing. */
             accessCount: number;
@@ -1309,6 +1320,8 @@ export interface components {
                 fieldId: string | null;
                 outcome: components["schemas"]["ResearchOutcomeEnum"];
             }[];
+            /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
+            warnings?: components["schemas"]["ImportWarning"][];
         };
         /** @description Attachment to process and an optional existing Thing to update. */
         ImportStart: {
@@ -1431,6 +1444,20 @@ export interface components {
             cachedTokens: number;
             elapsedMs: number;
         };
+        /** @description A research operation that could not complete, with a generic reason and optional public source URL. */
+        ImportWarning: {
+            /** Format: uuid */
+            thingId: string;
+            code: components["schemas"]["ImportWarningCodeEnum"];
+            /** @description Cited public document URL, or null for a search or overall processing warning. */
+            sourceUrl: string | null;
+            /** @description Whether another attempt may succeed without changing the document limits. */
+            retryable: boolean;
+            /** @description Observed byte size, text character count or page count, when known. */
+            actual: number | null;
+            /** @description Applicable byte, text character or page limit, when known. */
+            limit: number | null;
+        };
         /**
          * @description Whether an issue is open or resolved.
          * @enum {string}
@@ -1477,7 +1504,7 @@ export interface components {
          */
         ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY";
         /**
-         * @description Current stage or outcome of document processing.
+         * @description Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.
          * @enum {string}
          */
         ImportStatusEnum: "QUEUED" | "EXTRACTING" | "AWAITING_SELECTION" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED";
@@ -1511,6 +1538,11 @@ export interface components {
          * @enum {string}
          */
         ResearchOutcomeEnum: "FOUND" | "UNAVAILABLE" | "RETRIEVAL_FAILED" | "BUDGET_EXHAUSTED";
+        /**
+         * @description Reason an optional research operation could not complete.
+         * @enum {string}
+         */
+        ImportWarningCodeEnum: "SIZE_LIMIT" | "MODEL_INPUT_LIMIT" | "PAGE_BUDGET" | "TIMEOUT" | "UNAVAILABLE" | "EXTRACTION_FAILED" | "RESEARCH_FAILED";
     };
     responses: {
         /** @description A valid bearer token is required. */

@@ -222,7 +222,9 @@ export class ThingPage {
   readonly showImport = computed(() => {
     const job = this.job();
 
-    return !!job && (job.status !== 'COMPLETE' || job.thingIds.length > 1);
+    return (
+      !!job && (job.status !== 'COMPLETE' || job.thingIds.length > 1 || !!job.warnings?.length)
+    );
   });
 
   readonly model = computed(() => {

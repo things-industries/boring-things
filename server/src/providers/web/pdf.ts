@@ -9,6 +9,7 @@ import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP } from 'node:net';
 import { ensure } from '../../application/errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
+import { DocumentSizeError } from '../../lib/document-limits.js';
 
 const blocked = new BlockList();
 
@@ -138,10 +139,9 @@ export async function downloadPdf(
           response.headers['content-encoding'] === 'identity',
         'Unsupported document encoding',
       );
-      ensure(
-        Number(response.headers['content-length'] ?? 0) <= options.maxBytes,
-        'Document too large',
-      );
+      const declaredSize = Number(response.headers['content-length'] ?? 0);
+      if (declaredSize > options.maxBytes)
+        throw new DocumentSizeError(declaredSize, options.maxBytes);
       // Enforce the byte cap while streaming too; Content-Length may be absent or inaccurate.
       const chunks: Buffer[] = [];
       let size = 0;
@@ -150,7 +150,7 @@ export async function downloadPdf(
         signal.throwIfAborted();
         const bytes = Buffer.from(chunk);
         size += bytes.length;
-        ensure(size <= options.maxBytes, 'Document too large');
+        if (size > options.maxBytes) throw new DocumentSizeError(size, options.maxBytes);
         chunks.push(bytes);
       }
 

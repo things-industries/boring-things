@@ -48,6 +48,7 @@ export interface ImportRow {
   error: string | null;
   usage: Usage | null;
   researchOutcomes?: Schema['Import']['researchOutcomes'];
+  warnings?: Schema['Import']['warnings'];
 }
 
 type StoredImportRow = Omit<ImportRow, 'extraction'> & {
@@ -73,13 +74,13 @@ export interface Target {
   candidateId: string;
   thingId: string;
   isNew: boolean;
-  selected: boolean;
   mapped: boolean;
   discovered: boolean;
   discovery: Discovery | null;
 }
 
-const researchOutcomesProjection = `coalesce((select jsonb_agg(jsonb_build_object('thingId',t.thing_id,'fieldSetId',o->'fieldSetId','fieldId',o->'fieldId','outcome',upper(o->>'outcome'))) from bt.import_targets t cross join lateral jsonb_array_elements(coalesce(t.discovery->'outcomes','[]'::jsonb)) o where t.import_id=i.id),'[]'::jsonb) as research_outcomes`;
+const researchOutcomesProjection = `coalesce((select jsonb_agg(jsonb_build_object('thingId',t.thing_id,'fieldSetId',o->'fieldSetId','fieldId',o->'fieldId','outcome',upper(o->>'outcome'))) from bt.import_targets t cross join lateral jsonb_array_elements(coalesce(t.discovery->'outcomes','[]'::jsonb)) o where t.import_id=i.id),'[]'::jsonb) as research_outcomes,
+coalesce((select jsonb_agg(w || jsonb_build_object('thingId',t.thing_id)) from bt.import_targets t cross join lateral jsonb_array_elements(coalesce(t.discovery->'warnings','[]'::jsonb)) w where t.import_id=i.id),'[]'::jsonb) as warnings`;
 
 export async function getOwnedImportOrThrow(
   db: Database,
@@ -115,6 +116,7 @@ export function projectImport(job: ImportRow): Schema['Import'] {
     error: job.error,
     usage: job.usage ?? blankUsage(),
     researchOutcomes: job.researchOutcomes ?? [],
+    warnings: job.warnings ?? [],
   };
 }
 
@@ -413,7 +415,7 @@ export async function markTargetStage(
   db: Database,
   job: ImportRow,
   candidateId: string,
-  stage: 'selected' | 'mapped' | 'discovered',
+  stage: 'mapped' | 'discovered',
 ): Promise<void> {
   await database.execute(
     db,

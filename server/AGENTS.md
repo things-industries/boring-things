@@ -68,6 +68,7 @@ Use namespace imports for database modules throughout the repository, including 
 
 ## AI imports and assistant work
 
+- Fact batches account for every fact through registry mappings, useful custom fields or discard decisions. Commit decisions and Thing updates together; retries reuse selected sets and skip committed batches. Preserve source evidence and owner edits.
 - Import selection and fact mapping use separate provider methods. The processor supplies selected field definitions and batches facts; each mapping batch owns its tool conversation.
 - Limit each AI task's input to the context, evidence, definitions and tools needed to complete that task. Pass `ExtractedThing` through mapping callers and select the required subject properties in the prompt.
 
@@ -77,7 +78,7 @@ Use namespace imports for database modules throughout the repository, including 
 - Schema descriptions describe content or behaviour without imperative instructions. Include any `minLength` and `maxLength` limits in the description. Place `description` first in schema objects containing `properties`.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
-- Public research uses registry or custom-field `instanceSpecific: false` metadata independently of sensitivity. Category prompts supply reference priorities. The contained document task fills empty eligible fields with cited `DISCOVERY` values, checking owner edits at each commit. Keep backend research changes compatible with the existing submission lifecycle when frontend work is out of scope. Limits and model evaluation are in [the import guide](../docs/setup/imports.md).
+- Public research uses registry or custom-field `instanceSpecific: false` metadata independently of sensitivity. Category prompts supply reference priorities. The contained document task fills empty eligible fields with cited `DISCOVERY` values, checking owner edits at each commit. Keep backend research changes compatible with the existing submission lifecycle when frontend work is out of scope. Keep POC changes small and prefer existing libraries or hosted services. Documents default to a 100 MB limit; PDF.js supplies bounded page-labelled text, with multilingual repetition handled by the extraction prompt. Optional enrichment failures finish with warnings and reuse saved work on retry. Limits and model evaluation are in [the import guide](../docs/setup/imports.md).
 - The planned [single-Thing import flow](../docs/plans/import-improvements.md#3-import-identity-and-single-thing-lifecycle) ends imports identifying multiple independent Things with an error. Retries must reuse persisted work without duplicating Things or overwriting user edits.
 - Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. A dedicated PostgreSQL session lock permits one active runner per database; recovery happens after acquiring it. Release the lock only after work stops. Loss of the lock session exits the process. Deploy overlap uses persisted SSE snapshots; token-level deltas remain process-local.
 

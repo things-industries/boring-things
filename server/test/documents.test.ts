@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import type { IncomingMessage } from 'node:http';
 import { documentUrl, downloadPdf, publicAddress } from '../src/providers/web/pdf.js';
+import { DocumentSizeError, maxDocumentBytes } from '../src/lib/document-limits.js';
 
 const pdf = Buffer.from('%PDF-1.7\nsynthetic document\n%%EOF');
 const options = () => ({
@@ -90,6 +91,25 @@ test('downloads verify bytes and accept PDF endpoints without extensions', async
 });
 
 test('downloads enforce declared and streamed size limits and cancellation', async () => {
+  assert.deepEqual(
+    await downloadPdf(
+      'https://example.com/file',
+      { ...options(), maxBytes: maxDocumentBytes },
+      async () => response(pdf, { 'content-length': '100000000' }),
+    ),
+    pdf,
+  );
+  await assert.rejects(
+    downloadPdf(
+      'https://example.com/file',
+      { ...options(), maxBytes: maxDocumentBytes },
+      async () => response(pdf, { 'content-length': '100000001' }),
+    ),
+    (error: unknown) =>
+      error instanceof DocumentSizeError &&
+      error.actual === 100000001 &&
+      error.limit === maxDocumentBytes,
+  );
   for (const headers of [{ 'content-length': '5000' }, {}]) {
     await assert.rejects(
       downloadPdf('https://example.com/file', { ...options(), maxBytes: 10 }, async () =>

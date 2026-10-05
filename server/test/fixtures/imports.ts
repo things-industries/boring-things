@@ -3,7 +3,7 @@ import type {
   Extraction,
   ImportAi,
   Fact,
-  MappingValue,
+  FactMapping,
   Source,
   RegistryTools,
   AiContext,
@@ -93,7 +93,7 @@ export class FixtureAi implements ImportAi {
     _selectedSets: FieldSet[],
     tools: RegistryTools,
     context: AiContext,
-  ): Promise<{ values: MappingValue[] }> {
+  ): Promise<FactMapping> {
     const categoryId = thing.categoryId;
     if (this.pause) await this.pause;
     if (this.exhaustTools)
@@ -103,7 +103,7 @@ export class FixtureAi implements ImportAi {
       this.failOnce = false;
       throw new Error('synthetic interrupted mapping');
     }
-    const values: MappingValue[] =
+    const values: FactMapping['values'] =
       categoryId === 'appliances'
         ? [
             {
@@ -128,7 +128,7 @@ export class FixtureAi implements ImportAi {
               factId: `fact-${i + 1}`,
               fieldSetId: `insurance.${part}`,
               fieldId: 'insurance.sumInsured',
-              value: facts[i].value,
+              value: thing.facts[i].value,
               pin: false,
             }));
     await context.record({
@@ -140,7 +140,14 @@ export class FixtureAi implements ImportAi {
 
     if (categoryId === 'appliances')
       await tools.searchFields([{ label: 'Installer reference', context: '' }]);
-    return { values };
+    const mapped = values.filter((entry) => facts.some((fact) => fact.id === entry.factId));
+    return {
+      values: mapped,
+      customFactIds: facts
+        .filter((fact) => !mapped.some((entry) => entry.factId === fact.id))
+        .map((fact) => fact.id),
+      discardedFactIds: [],
+    };
   }
   async extractDocument() {
     return { applicable: false, applicability: null, values: [] };

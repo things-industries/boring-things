@@ -6,6 +6,7 @@ import type { ApplicationEvents } from '../events.js';
 import type {
   AiContext,
   Discovery,
+  DiscoveryWarning,
   DocumentExtraction,
   ImportAi,
   ReferenceDocument,
@@ -20,11 +21,37 @@ import * as attachmentsDb from '../../db/entities/attachments.js';
 import * as discoveryDb from '../../db/entities/discovery.js';
 import * as importsDb from '../../db/entities/imports.js';
 import { downloadPdf } from '../../providers/web/pdf.js';
-import { pdfPageCount } from '../../lib/pdf.js';
+import { pdfText } from '../../lib/pdf.js';
+import {
+  DocumentSizeError,
+  maxDocumentBytes,
+  maxModelDocumentBytes,
+  maxModelDocumentPages,
+  maxDocumentTextLength,
+} from '../../lib/document-limits.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { ensure } from '../errors.js';
+import { ApplicationError, ensure } from '../errors.js';
 import { buildResearchContext } from './mapping.js';
 import { discoveryItemKey, persistDiscovery, publicUrl } from '../discovery/discovery.js';
+
+export class ResearchPersistenceError extends Error {
+  constructor(cause: unknown) {
+    super('Research persistence failed', { cause });
+  }
+}
+
+export async function persistResearch<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (
+      (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)) ||
+      (error instanceof ApplicationError && error.kind === 'INVALID_INPUT')
+    )
+      throw error;
+    throw new ResearchPersistenceError(error);
+  }
+}
 
 export const researchTargetKey = (target: Pick<ResearchTarget, 'fieldSetId' | 'fieldId'>) =>
   `${target.fieldSetId ?? ''}:${target.fieldId}`;
@@ -120,36 +147,73 @@ export async function researchImportTarget(
   context: AiContext,
   options: ImportResearchOptions,
 ) {
+  const maxBytes = Math.min(options.maxBytes, maxDocumentBytes);
   const subject = {
     id: target.candidateId,
-    categoryId: (await thingsDb.getOwnedThingOrThrow(pool, job.ownerId, target.thingId)).categoryId,
+    categoryId: (
+      await persistResearch(() => thingsDb.getOwnedThingOrThrow(pool, job.ownerId, target.thingId))
+    ).categoryId,
   };
   const readContext = async () =>
     buildResearchContext(
       subject,
-      (await thingsDb.getOwnedThingOrThrow(pool, job.ownerId, target.thingId)).data,
+      (
+        await persistResearch(() =>
+          thingsDb.getOwnedThingOrThrow(pool, job.ownerId, target.thingId),
+        )
+      ).data,
       registry,
     );
   let research = await readContext();
   if (!research) return;
   const initialTargets = research.targets;
   const firstBudget = Math.ceil(options.searchCalls / 2);
+  const saved = target.discovery;
+  const reuse =
+    saved &&
+    !(
+      saved.items.length === 0 &&
+      saved.warnings?.some((warning) => warning.sourceUrl === null && warning.retryable)
+    );
   let found: Discovery =
-    target.discovery ??
+    (reuse ? saved : null) ??
     (await awaitWithSignal(
-      ai.discover(research, context, 'reference', firstBudget),
+      ai.discover(
+        { ...research, documentLimits: { maxBytes, maxTextCharacters: maxDocumentTextLength } },
+        context,
+        'reference',
+        firstBudget,
+      ),
       context.signal,
     ));
   ensure(
     Array.isArray(found.items) && found.items.length <= 8 && Array.isArray(found.sources),
     'Invalid discovery',
   );
-  found.researchRounds ??= 1;
-  found.documentBatches ??= [];
-  await importsDb.saveTargetDiscovery(pool, job, target.candidateId, found);
+  const previousWarnings = found.warnings ?? [];
+  found = {
+    ...found,
+    warnings: [],
+    documentBatches: found.documentBatches ?? [],
+    researchRounds: previousWarnings.length ? 1 : (found.researchRounds ?? 1),
+  };
   const publish = () => events.publish({ type: 'data.changed', ownerId: job.ownerId });
+  const save = async () => {
+    await persistResearch(() =>
+      importsDb.saveTargetDiscovery(pool, job, target.candidateId, found),
+    );
+    publish();
+  };
+  const warn = (warning: DiscoveryWarning) => {
+    if (
+      !found.warnings!.some(
+        (old) => old.code === warning.code && old.sourceUrl === warning.sourceUrl,
+      )
+    )
+      found.warnings!.push(warning);
+  };
+  await save();
   const visited = new Set<string>();
-  let retrievalFailed = false;
 
   for (let round = 0; round < 2; round++) {
     for (const item of found.items.filter((item) => item.kind === 'reference')) {
@@ -163,58 +227,82 @@ export async function researchImportTarget(
           found.sources.includes(item.sourceUrl),
         'Uncited reference document',
       );
+      const rejection = previousWarnings.find(
+        (warning) =>
+          warning.sourceUrl === item.url &&
+          ((warning.code === 'SIZE_LIMIT' && warning.limit === maxBytes) ||
+            (warning.code === 'MODEL_INPUT_LIMIT' &&
+              [maxModelDocumentBytes, maxModelDocumentPages, maxDocumentTextLength].includes(
+                warning.limit!,
+              ))),
+      );
+      if (rejection) {
+        warn(rejection);
+        await save();
+        continue;
+      }
+      let extracting = false;
       try {
         const key = discoveryItemKey(job.id, target.candidateId, item);
-        let file = await discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key);
+        let file = await persistResearch(() =>
+          discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key),
+        );
         let content: Buffer;
-        let pageCount: number | null;
         if (file) {
-          const attachment = await attachmentsDb.getOwnedAttachmentOrThrow(
-            pool,
-            job.ownerId,
-            file.id,
+          const attachment = await persistResearch(() =>
+            attachmentsDb.getOwnedAttachmentOrThrow(pool, job.ownerId, file!.id),
           );
+          if (attachment.byteSize > maxBytes)
+            throw new DocumentSizeError(attachment.byteSize, maxBytes);
           const chunks: Buffer[] = [];
           let size = 0;
           for await (const chunk of await blobs.read(attachment.storageKey, context.signal)) {
             context.signal.throwIfAborted();
             size += chunk.length;
-            ensure(
-              size <= Math.min(options.maxBytes, 20 * 1024 * 1024),
-              'Document size limit exceeded',
-            );
+            if (size > maxBytes) throw new DocumentSizeError(size, maxBytes);
             chunks.push(Buffer.from(chunk));
           }
           content = Buffer.concat(chunks);
-          pageCount =
-            attachment.pageCount ??
-            (await pdfPageCount(content, 'application/pdf', context.signal));
         } else {
           const downloaded = await (options.download ?? downloadPdf)(item.url, {
-            maxBytes: Math.min(options.maxBytes, 20 * 1024 * 1024),
+            maxBytes,
             signal: context.signal,
           });
-          if (!downloaded) continue;
+          if (!downloaded) {
+            warn({
+              code: 'UNAVAILABLE',
+              sourceUrl: item.url,
+              retryable: true,
+              actual: null,
+              limit: null,
+            });
+            await save();
+            continue;
+          }
+          if (downloaded.length > maxBytes)
+            throw new DocumentSizeError(downloaded.length, maxBytes);
           content = downloaded;
-          pageCount = await pdfPageCount(content, 'application/pdf', context.signal);
         }
-        ensure(pageCount !== null && pageCount <= 100, 'Document page limit exceeded');
+        extracting = true;
+        const { text, pageCount } = await pdfText(content, context.signal);
         const document: ReferenceDocument = {
           attachmentId: file?.id ?? '',
           url: item.url,
           filename: 'reference.pdf',
           mediaType: 'application/pdf',
           content,
+          text,
           pageCount,
         };
         research = await readContext();
-        if (!research) continue;
+        if (!research || (file && !research.targets.length)) continue;
         const pending = research.targets.filter(
           (field) =>
             !found.documentBatches!.some(
               (batch) =>
                 batch.attachmentId === file?.id &&
-                batch.targetKeys.includes(researchTargetKey(field)),
+                batch.targetKeys.includes(researchTargetKey(field)) &&
+                batch.firstPage === undefined,
             ),
         );
         const batches = pending.length
@@ -244,18 +332,22 @@ export async function researchImportTarget(
               if (attempt === 1 || !retryable) throw error;
             }
           }
-          if (!result!.applicable) break;
+          if (!result!.applicable) continue;
           if (!file) {
-            await persistDiscovery(
-              pool,
-              blobs,
-              job,
-              target,
-              { items: [item], sources: found.sources },
-              { maxBytes: options.maxBytes, signal: context.signal },
-              async () => content,
+            await persistResearch(() =>
+              persistDiscovery(
+                pool,
+                blobs,
+                job,
+                target,
+                { items: [item], sources: found.sources },
+                { maxBytes, signal: context.signal },
+                async () => content,
+              ),
             );
-            file = await discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key);
+            file = await persistResearch(() =>
+              discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key),
+            );
             ensure(file, 'Reference document unavailable');
             document.attachmentId = file.id;
             publish();
@@ -263,44 +355,80 @@ export async function researchImportTarget(
           const completed: Discovery = {
             ...found,
             documentBatches: [
-              ...(found.documentBatches ?? []),
-              { attachmentId: file.id, targetKeys: targets.map(researchTargetKey) },
+              ...found.documentBatches!,
+              {
+                attachmentId: file.id,
+                targetKeys: targets.map(researchTargetKey),
+              },
             ],
           };
-          await database.transaction(pool, async (db) => {
-            context.signal.throwIfAborted();
-            const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
-              lock: true,
-            });
-            const data = applyDocumentValues(
-              thing.data,
-              result!,
-              { ...research!, targets },
-              registry,
-              document,
-            );
-            await thingsDb.saveThingData(db, job.ownerId, target.thingId, data);
-            await importsDb.saveTargetDiscovery(db, job, target.candidateId, completed);
-          });
+          await persistResearch(() =>
+            database.transaction(pool, async (db) => {
+              context.signal.throwIfAborted();
+              const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
+                lock: true,
+              });
+              const data = applyDocumentValues(
+                thing.data,
+                result!,
+                { ...research!, targets },
+                registry,
+                document,
+              );
+              await thingsDb.saveThingData(db, job.ownerId, target.thingId, data);
+              await importsDb.saveTargetDiscovery(db, job, target.candidateId, completed);
+            }),
+          );
           found = completed;
           publish();
         }
       } catch (error) {
-        context.signal.throwIfAborted();
-        retrievalFailed = true;
-        if (error instanceof Error && error.message === 'tool_limit') throw error;
+        if (isResearchPersistenceError(error)) throw error;
+        warn(
+          error instanceof DocumentSizeError
+            ? {
+                code: extracting ? 'MODEL_INPUT_LIMIT' : 'SIZE_LIMIT',
+                sourceUrl: item.url,
+                retryable: false,
+                actual: error.actual,
+                limit: error.limit,
+              }
+            : {
+                code: context.signal.aborted
+                  ? 'TIMEOUT'
+                  : extracting
+                    ? 'EXTRACTION_FAILED'
+                    : 'UNAVAILABLE',
+                sourceUrl: item.url,
+                retryable: true,
+                actual: null,
+                limit: null,
+              },
+        );
+        await save();
+        if (context.signal.aborted) return;
       }
+      await save();
     }
     research = await readContext();
     if (
-      !research?.targets.length ||
-      (found.researchRounds ?? 1) >= 2 ||
+      (!research?.targets.length && !found.warnings!.length) ||
+      found.researchRounds! >= 2 ||
       options.searchCalls <= firstBudget ||
       visited.size >= 3
     )
       break;
     const additional = await awaitWithSignal(
-      ai.discover(research, context, 'reference', options.searchCalls - firstBudget),
+      ai.discover(
+        {
+          ...research!,
+          documentLimits: { maxBytes, maxTextCharacters: maxDocumentTextLength },
+          rejectedDocuments: found.warnings!,
+        },
+        context,
+        'reference',
+        options.searchCalls - firstBudget,
+      ),
       context.signal,
     );
     ensure(
@@ -321,19 +449,25 @@ export async function researchImportTarget(
       sources: [...new Set([...found.sources, ...additional.sources])],
       researchRounds: 2,
     };
-    await importsDb.saveTargetDiscovery(pool, job, target.candidateId, found);
+    await save();
   }
-  const otherItems = found.items.filter((item) => item.kind !== 'reference');
-  await persistDiscovery(
-    pool,
-    blobs,
-    job,
-    target,
-    { ...found, items: otherItems },
-    { maxBytes: options.maxBytes, signal: context.signal },
+  await persistResearch(() =>
+    persistDiscovery(
+      pool,
+      blobs,
+      job,
+      target,
+      { ...found, items: found.items.filter((item) => item.kind !== 'reference') },
+      { maxBytes, signal: context.signal },
+    ),
+  );
+  const retrievalFailed = found.warnings!.some(
+    (warning) => !['SIZE_LIMIT', 'MODEL_INPUT_LIMIT', 'PAGE_BUDGET'].includes(warning.code),
   );
   research = await readContext();
-  const currentData = (await thingsDb.getOwnedThingOrThrow(pool, job.ownerId, target.thingId)).data;
+  const currentData = (
+    await persistResearch(() => thingsDb.getOwnedThingOrThrow(pool, job.ownerId, target.thingId))
+  ).data;
   const previouslyFound =
     found.outcomes?.filter((outcome) => outcome.fieldId !== null && outcome.outcome === 'found') ??
     [];
@@ -360,11 +494,14 @@ export async function researchImportTarget(
   const resourceOutcome: NonNullable<Discovery['outcomes']>[number] = {
     fieldSetId: null,
     fieldId: null,
-    outcome: retrievalFailed
-      ? 'retrieval_failed'
-      : (found.documentBatches?.length ?? 0)
+    outcome:
+      (found.documentBatches?.length ?? 0)
         ? 'found'
-        : 'unavailable',
+        : retrievalFailed
+          ? 'retrieval_failed'
+          : found.warnings!.length
+            ? 'budget_exhausted'
+            : 'unavailable',
   };
   found.outcomes = [
     resourceOutcome,
@@ -383,7 +520,16 @@ export async function researchImportTarget(
           : 'unavailable',
     })) ?? []),
   ];
-  await importsDb.saveTargetDiscovery(pool, job, target.candidateId, found);
+  await persistResearch(() => importsDb.saveTargetDiscovery(pool, job, target.candidateId, found));
   publish();
-  ensure(!retrievalFailed, 'Document retrieval or extraction failed');
+}
+
+export function isResearchPersistenceError(error: unknown) {
+  const code = (error as { code?: string })?.code;
+  return (
+    error instanceof ResearchPersistenceError ||
+    (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) ||
+    (error instanceof ApplicationError && ['NOT_FOUND', 'CONFLICT'].includes(error.kind)) ||
+    (error instanceof Error && error.message === 'Invalid reference')
+  );
 }

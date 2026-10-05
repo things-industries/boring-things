@@ -2100,7 +2100,7 @@
       "post": {
         "operationId": "retryImport",
         "summary": "Retry import",
-        "description": "Queues another attempt for a failed or incomplete import, reusing its saved progress. Returns 409 if the import is in another state, a target was deleted or a target has another active import.",
+        "description": "Queues another attempt for a failed or incomplete import, or retries optional research on a completed import with warnings. Reuses saved progress and completed document batches. Returns 409 if there is no work to retry, a target was deleted or a target has another active import.",
         "tags": ["Imports"],
         "parameters": [
           {
@@ -3149,6 +3149,38 @@
               },
               "usage": {
                 "$ref": "#/components/schemas/ImportUsage"
+              },
+              "warnings": {
+                "type": "array",
+                "description": "Warnings for unfinished optional research. Imported fields and successful documents remain available.",
+                "items": {
+                  "$ref": "#/components/schemas/ImportWarning"
+                }
+              },
+              "researchOutcomes": {
+                "type": "array",
+                "description": "Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted.",
+                "items": {
+                  "type": "object",
+                  "required": ["thingId", "fieldSetId", "fieldId", "outcome"],
+                  "properties": {
+                    "thingId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fieldSetId": {
+                      "type": ["string", "null"]
+                    },
+                    "fieldId": {
+                      "type": ["string", "null"],
+                      "description": "Null for a resource-level outcome."
+                    },
+                    "outcome": {
+                      "$ref": "#/components/schemas/ResearchOutcomeEnum"
+                    }
+                  },
+                  "additionalProperties": false
+                }
               }
             },
             "additionalProperties": false
@@ -4252,6 +4284,13 @@
               },
               "additionalProperties": false
             }
+          },
+          "warnings": {
+            "type": "array",
+            "description": "Warnings for unfinished optional research. Imported fields and successful documents remain available.",
+            "items": {
+              "$ref": "#/components/schemas/ImportWarning"
+            }
           }
         },
         "additionalProperties": false
@@ -4598,6 +4637,37 @@
         },
         "additionalProperties": false
       },
+      "ImportWarning": {
+        "type": "object",
+        "description": "A research operation that could not complete, with a generic reason and optional public source URL.",
+        "required": ["thingId", "code", "sourceUrl", "retryable", "actual", "limit"],
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ImportWarningCodeEnum"
+          },
+          "sourceUrl": {
+            "type": ["string", "null"],
+            "description": "Cited public document URL, or null for a search or overall processing warning."
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "Whether another attempt may succeed without changing the document limits."
+          },
+          "actual": {
+            "type": ["integer", "null"],
+            "description": "Observed byte size, text character count or page count, when known."
+          },
+          "limit": {
+            "type": ["integer", "null"],
+            "description": "Applicable byte, text character or page limit, when known."
+          }
+        },
+        "additionalProperties": false
+      },
       "IssueStatusEnum": {
         "type": "string",
         "description": "Whether an issue is open or resolved.",
@@ -4655,7 +4725,7 @@
       },
       "ImportStatusEnum": {
         "type": "string",
-        "description": "Current stage or outcome of document processing.",
+        "description": "Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.",
         "enum": [
           "QUEUED",
           "EXTRACTING",
@@ -4696,6 +4766,19 @@
         "type": "string",
         "description": "Generic research result for a reference resource or missing field.",
         "enum": ["FOUND", "UNAVAILABLE", "RETRIEVAL_FAILED", "BUDGET_EXHAUSTED"]
+      },
+      "ImportWarningCodeEnum": {
+        "type": "string",
+        "description": "Reason an optional research operation could not complete.",
+        "enum": [
+          "SIZE_LIMIT",
+          "MODEL_INPUT_LIMIT",
+          "PAGE_BUDGET",
+          "TIMEOUT",
+          "UNAVAILABLE",
+          "EXTRACTION_FAILED",
+          "RESEARCH_FAILED"
+        ]
       }
     },
     "responses": {

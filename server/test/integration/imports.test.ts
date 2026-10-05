@@ -363,6 +363,8 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
     if (facts.length === 1 && invalidBatch) {
       invalidBatch = false;
       return {
+        customFactIds: [],
+        discardedFactIds: [],
         values: [
           {
             factId: 'fact-1',
@@ -374,7 +376,7 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
         ],
       };
     }
-    return facts.length === 1 ? { values: [] } : originalMap(...args);
+    return originalMap(...args);
   });
   const accepted = await start('neff');
   const failed = await wait(accepted.importId);
@@ -388,20 +390,80 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
     '0015',
   );
   assert.deepEqual(batches, [20, 1]);
+  assert.equal(thing.undefinedFields.length, 19);
   assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
   const completed = await wait(accepted.importId);
   assert.equal(completed.status, 'COMPLETE', JSON.stringify(completed));
   assert.deepEqual(completed.thingIds, [accepted.thingId]);
   assert.equal(extractions, 1);
-  assert.deepEqual(batches, [20, 1, 20, 1]);
+  assert.deepEqual(batches, [20, 1, 1]);
 });
+test('fact decisions and Thing values roll back together, then retry preserves selection and source', async (t) => {
+  const extract = ai.extract.bind(ai),
+    select = ai.selectFieldSets.bind(ai),
+    map = ai.mapFacts.bind(ai);
+  let selections = 0;
+  t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
+    const result = await extract(...args);
+    result.extractedThings[0].facts.push({
+      id: 'fact-3',
+      label: 'Additional label marking',
+      value: 'V/C',
+      quote: 'V/C',
+      page: null,
+      sensitive: false,
+    });
+    return result;
+  });
+  t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
+    selections++;
+    return select(...args);
+  });
+  t.mock.method(ai, 'mapFacts', async (...args: Parameters<typeof ai.mapFacts>) => {
+    const result = await map(...args);
+    return { ...result, customFactIds: ['fact-2'], discardedFactIds: ['fact-3'] };
+  });
+  await pool.query(
+    "alter table bt.imports add constraint test_checkpoint_rejection check (jsonb_array_length(coalesce(extraction->'candidates'->0->'mapping'->'batches', '[]'::jsonb))=0) not valid",
+  );
+  const accepted = await start('neff');
+  try {
+    assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
+    const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+    assert.equal(thing.undefinedFields.length, 0);
+    assert.equal(
+      thing.fieldSets
+        .find((set) => set.id === 'appliances.neff')!
+        .fields.find((field) => field.id === 'appliances.zNumber')!.value,
+      null,
+    );
+  } finally {
+    await pool.query('alter table bt.imports drop constraint test_checkpoint_rejection');
+  }
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const done = await wait(accepted.importId);
+  assert.equal(done.status, 'COMPLETE');
+  assert.equal(selections, 1);
+  assert.equal('extraction' in done, false);
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.deepEqual(
+    thing.undefinedFields.map((field) => field.value),
+    ['ABC-12'],
+  );
+  assert.ok(thing.attachmentIds.includes(done.attachmentId));
+  const [saved] = await database.rows<{
+    extraction: { candidates: { mapping: { batches: { discardedFactIds: string[] }[] } }[] };
+  }>(pool, 'select extraction from bt.imports where id=$1', [accepted.importId]);
+  assert.deepEqual(saved.extraction.candidates[0].mapping.batches[0].discardedFactIds, ['fact-3']);
+});
+
 test('arbitrary model IDs never enter storage and tool exhaustion preserves partial data', async () => {
   ai.arbitraryId = true;
   const accepted = await start('neff');
   assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
   let thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(thing.fieldSets.length, 0);
-  assert.equal(thing.undefinedFields.length, 2);
+  assert.equal(thing.undefinedFields.length, 0);
   ai.arbitraryId = false;
   ai.exhaustTools = true;
   const bounded = await start('neff'),
@@ -411,7 +473,7 @@ test('arbitrary model IDs never enter storage and tool exhaustion preserves part
   assert.equal(job.usage.toolCalls.filter((call) => call.name === 'search_fields').length, 4);
   thing = (await request('GET', `/things/${bounded.thingId}`)).json();
   assert.ok(thing.fieldSets.length);
-  assert.equal(thing.undefinedFields.length, 2);
+  assert.equal(thing.undefinedFields.length, 0);
   ai.exhaustTools = false;
 });
 test('all-existing confirmation removes untouched skeleton and redirects to selected target', async () => {
@@ -849,9 +911,21 @@ test('category document enrichment validates variants, commits cited values prog
     },
   };
   const context = { signal: new AbortController().signal, record: async () => {} };
-  await assert.rejects(
-    researchImportTarget(pool, registry, blobs, researchAi, events, job, target, context, options),
-    /retrieval or extraction failed/,
+  await researchImportTarget(
+    pool,
+    registry,
+    blobs,
+    researchAi,
+    events,
+    job,
+    target,
+    context,
+    options,
+  );
+  assert.ok(
+    (await request('GET', `/imports/${job.id}`))
+      .json<Schema['Import']>()
+      .warnings?.some((warning) => warning.code === 'UNAVAILABLE'),
   );
   const result = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   const power = result.fieldSets
@@ -899,4 +973,207 @@ test('category document enrichment validates variants, commits cited values prog
   assert.ok(budget.reduce((sum, count) => sum + count, 0) <= 3);
   assert.equal(searches, 1);
   unsubscribe();
+});
+
+test('optional research failures complete with warnings and retry without reimporting fields', async (t) => {
+  const failing = t.mock.method(ai, 'discover', async () => {
+    throw new Error('Synthetic research failure');
+  });
+  const existing = await create({
+    categoryId: 'appliances',
+    values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+  });
+  const accepted = await start('neff', existing.id);
+  const completed = await wait(accepted.importId);
+  assert.equal(completed.status, 'COMPLETE');
+  assert.equal(completed.error, null);
+  assert.equal(completed.warnings?.[0].code, 'RESEARCH_FAILED');
+  assert.equal(completed.warnings?.[0].retryable, true);
+  const before = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.ok(before.fieldSets.length);
+  assert.equal(before.import?.warnings?.[0].code, 'RESEARCH_FAILED');
+  failing.mock.restore();
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const retried = await wait(accepted.importId);
+  assert.equal(retried.status, 'COMPLETE');
+  assert.deepEqual(retried.warnings, []);
+  assert.deepEqual(retried.thingIds, completed.thingIds);
+  const after = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.deepEqual(after.fieldSets, before.fieldSets);
+});
+
+test('oversized research documents are cached, skipped on retry and reconsidered after a limit change', async () => {
+  const { researchImportTarget } = await import('../../src/application/import/research.js');
+  const { Registry } = await import('../../src/application/registry/registry.js');
+  const { ApplicationEvents } = await import('../../src/application/events.js');
+  const importsDb = await import('../../src/db/entities/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
+  const { DocumentSizeError } = await import('../../src/lib/document-limits.js');
+  const existing = await create({
+    categoryId: 'appliances',
+    values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+  });
+  const accepted = await start('neff', existing.id);
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
+  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
+  const url = 'https://example.com/large.pdf';
+  researchAi.discover = async () => ({
+    sources: [url],
+    items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
+  });
+  const [initialTarget] = await importsDb.listImportTargets(pool, job);
+  await importsDb.saveTargetDiscovery(pool, job, initialTarget.candidateId, {
+    sources: [url],
+    items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
+  });
+  let downloads = 0;
+  const options = {
+    maxBytes: 1000,
+    searchCalls: 1,
+    download: async (_url: string, input: { maxBytes: number }) => {
+      downloads++;
+      if (input.maxBytes < 2000) throw new DocumentSizeError(2000, input.maxBytes);
+      return null;
+    },
+  };
+  const run = async (maxBytes: number) => {
+    const [target] = await importsDb.listImportTargets(pool, job);
+    await researchImportTarget(
+      pool,
+      registry,
+      new LocalBlobs(directory),
+      researchAi,
+      new ApplicationEvents(),
+      job,
+      target,
+      { signal: new AbortController().signal, record: async () => {} },
+      { ...options, maxBytes },
+    );
+    return (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
+  };
+  const rejected = await run(1000);
+  assert.equal(rejected.warnings?.[0].code, 'SIZE_LIMIT');
+  assert.equal(rejected.warnings?.[0].actual, 2000);
+  assert.equal(rejected.warnings?.[0].limit, 1000);
+  await run(1000);
+  assert.equal(downloads, 1);
+  const reconsidered = await run(3000);
+  assert.equal(downloads, 2);
+  assert.ok(!reconsidered.warnings?.some((warning) => warning.code === 'SIZE_LIMIT'));
+});
+
+test('research finds alternatives within budget and extracts text beyond page 100', async () => {
+  const { researchImportTarget } = await import('../../src/application/import/research.js');
+  const { Registry } = await import('../../src/application/registry/registry.js');
+  const { ApplicationEvents } = await import('../../src/application/events.js');
+  const importsDb = await import('../../src/db/entities/imports.js');
+  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
+  const { DocumentSizeError } = await import('../../src/lib/document-limits.js');
+  const existing = await create({
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.cookingOutput'],
+    values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+  });
+  const accepted = await start('neff', existing.id);
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const [initialTarget] = await importsDb.listImportTargets(pool, job);
+  const large = 'https://example.com/large.pdf';
+  const alternative = 'https://example.com/english.pdf';
+  const reference = (url: string) => ({
+    kind: 'reference' as const,
+    title: 'Manual',
+    description: '',
+    url,
+    sourceUrl: url,
+  });
+  await importsDb.saveTargetDiscovery(pool, job, initialTarget.candidateId, {
+    sources: [large],
+    items: [reference(large)],
+  });
+  const pdf = await PDFDocument.create();
+  for (let page = 1; page <= 101; page++) {
+    const sheet = pdf.addPage();
+    if (page === 1) sheet.drawText('SYNTHETIC/01');
+    if (page === 101) sheet.drawText('Output power 900 W');
+  }
+  const content = Buffer.from(await pdf.save());
+  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
+  let searches = 0,
+    downloads = 0,
+    extractions = 0;
+  researchAi.discover = async (research, _context, _focus, calls) => {
+    searches++;
+    assert.equal(calls, 1);
+    assert.deepEqual(research.documentLimits, { maxBytes: 100000, maxTextCharacters: 1000000 });
+    assert.equal(research.rejectedDocuments?.[0].sourceUrl, large);
+    assert.equal(research.rejectedDocuments?.[0].code, 'SIZE_LIMIT');
+    return { sources: [alternative], items: [reference(alternative)] };
+  };
+  researchAi.extractDocument = async (document) => {
+    extractions++;
+    assert.equal(document.pageCount, 101);
+    assert.equal(document.text, '[PDF page 1]\nSYNTHETIC/01\n\n[PDF page 101]\nOutput power 900 W');
+    return {
+      applicable: true,
+      applicability: { page: 1, quote: 'SYNTHETIC/01' },
+      values: [
+        {
+          fieldSetId: 'appliances.cookingOutput',
+          fieldId: 'appliances.outputPower',
+          value: '900 W',
+          page: 101,
+          quote: 'Output power 900 W',
+        },
+      ],
+    };
+  };
+  const options = {
+    maxBytes: 100000,
+    searchCalls: 3,
+    download: async (url: string) => {
+      downloads++;
+      if (url === large) throw new DocumentSizeError(100001, 100000);
+      return content;
+    },
+  };
+  const run = async () => {
+    const [target] = await importsDb.listImportTargets(pool, job);
+    await researchImportTarget(
+      pool,
+      new Registry(registrySeedDb.fields, registrySeedDb.sets),
+      new LocalBlobs(directory),
+      researchAi,
+      new ApplicationEvents(),
+      job,
+      target,
+      { signal: new AbortController().signal, record: async () => {} },
+      options,
+    );
+  };
+  await run();
+  assert.equal(searches, 1);
+  assert.equal(downloads, 2);
+  assert.equal(extractions, 1);
+  const completed = (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
+  assert.ok(!completed.warnings?.some((warning) => warning.code === 'PAGE_BUDGET'));
+  assert.ok(completed.warnings?.some((warning) => warning.code === 'SIZE_LIMIT'));
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  const output = thing.fieldSets
+    .find((set) => set.id === 'appliances.cookingOutput')
+    ?.fields.find((field) => field.id === 'appliances.outputPower');
+  assert.equal(output?.value, '900 W');
+  assert.equal(output?.sourceRefs?.[0].page, 101);
+  const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
+    Schema['AttachmentList']
+  >().items;
+  assert.equal(files.filter((file) => file.mediaType === 'application/pdf').length, 1);
+  assert.equal(files.find((file) => file.mediaType === 'application/pdf')?.pageCount, 101);
+  await run();
+  assert.equal(downloads, 2);
+  assert.equal(extractions, 1);
 });

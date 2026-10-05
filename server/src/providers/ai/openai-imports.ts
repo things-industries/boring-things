@@ -18,7 +18,7 @@ import type {
   Extraction,
   ImportAi,
   Fact,
-  MappingValue,
+  FactMapping,
   RegistryTools,
   Source,
   ReferenceDocument,
@@ -27,6 +27,14 @@ import type {
 } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
 import type { FieldSet } from '../../../../shared/model.js';
+import { pdfText } from '../../lib/pdf.js';
+import {
+  DocumentSizeError,
+  maxDocumentBytes,
+  maxDocumentTextLength,
+  maxModelDocumentBytes,
+  maxModelDocumentPages,
+} from '../../lib/document-limits.js';
 
 const ajv = new Ajv({ strict: false });
 const functions = schemas.registryTools as Tool[];
@@ -199,19 +207,46 @@ export class OpenAiImports implements ImportAi {
     throw new Error('tool_limit');
   }
 
+  private async sourceInput(source: Source, signal: AbortSignal) {
+    if (source.content.length > maxDocumentBytes)
+      throw new DocumentSizeError(source.content.length, maxDocumentBytes);
+    let text = source.text;
+    let pageCount = source.pageCount;
+    if (source.mediaType === 'application/pdf' && text === undefined)
+      ({ text, pageCount } = await pdfText(source.content, signal));
+    if (source.mediaType === 'text/plain') text = source.content.toString('utf8');
+    let content: ResponseInputContent;
+    if (text?.trim() || source.mediaType === 'text/plain') {
+      if (text!.length > maxDocumentTextLength)
+        throw new DocumentSizeError(text!.length, maxDocumentTextLength);
+      content = { type: 'input_text', text: text! };
+    } else {
+      if (source.content.length > maxModelDocumentBytes)
+        throw new DocumentSizeError(source.content.length, maxModelDocumentBytes);
+      if (source.mediaType === 'application/pdf' && pageCount! > maxModelDocumentPages)
+        throw new DocumentSizeError(pageCount!, maxModelDocumentPages);
+      const data = `data:${source.mediaType};base64,${source.content.toString('base64')}`;
+      content = source.mediaType.startsWith('image/')
+        ? { type: 'input_image', image_url: data, detail: 'auto' }
+        : { type: 'input_file', filename: source.filename, file_data: data };
+      text = undefined;
+    }
+    return { content, text };
+  }
+
   async extract(source: Source, categories: string[], context: AiContext): Promise<Extraction> {
-    const data = `data:${source.mediaType};base64,${source.content.toString('base64')}`;
-    const content: ResponseInputContent =
-      source.mediaType === 'text/plain'
-        ? { type: 'input_text', text: source.content.toString('utf8') }
-        : source.mediaType.startsWith('image/')
-          ? { type: 'input_image', image_url: data, detail: 'auto' }
-          : { type: 'input_file', filename: source.filename, file_data: data };
+    const { content, text } = await this.sourceInput(source, context.signal);
     const extracted = await this.requestStructuredOutput<Outputs['Extraction']>(
       [
         {
           role: 'user',
-          content: [{ type: 'input_text', text: prompts.extractSourcePrompt(categories) }, content],
+          content: [
+            {
+              type: 'input_text',
+              text: prompts.extractSourcePrompt(categories, text !== undefined),
+            },
+            content,
+          ],
         },
       ],
       schemas.$defs.extraction,
@@ -219,7 +254,7 @@ export class OpenAiImports implements ImportAi {
       'source_extraction',
     );
     return {
-      text: extracted.text,
+      text: text ?? extracted.text,
       metadata: extracted.metadata,
       extractedThings: extracted.candidates,
     };
@@ -243,7 +278,7 @@ export class OpenAiImports implements ImportAi {
     selectedSets: FieldSet[],
     tools: RegistryTools,
     context: AiContext,
-  ): Promise<{ values: MappingValue[] }> {
+  ): Promise<FactMapping> {
     return this.runRegistryConversation<Outputs['Mapping']>(
       [{ role: 'user', content: prompts.mapFactsPrompt(thing, facts, selectedSets) }],
       schemas.$defs.mapping,
@@ -327,27 +362,9 @@ export class OpenAiImports implements ImportAi {
     targets: ResearchTarget[],
     context: AiContext,
   ): Promise<DocumentExtraction> {
-    ensure(
-      targets.length <= 20 &&
-        document.content.length <= 20 * 1024 * 1024 &&
-        document.pageCount <= 100,
-      'Document extraction limit exceeded',
-    );
-    const content: ResponseInputContent =
-      document.mediaType === 'text/plain'
-        ? { type: 'input_text', text: document.content.toString('utf8') }
-        : document.mediaType.startsWith('image/')
-          ? {
-              type: 'input_image',
-              image_url: `data:${document.mediaType};base64,${document.content.toString('base64')}`,
-              detail: 'auto',
-            }
-          : {
-              type: 'input_file',
-              filename: document.filename,
-              file_data: `data:${document.mediaType};base64,${document.content.toString('base64')}`,
-            };
-    return this.requestStructuredOutput<Outputs['DocumentExtraction']>(
+    ensure(targets.length <= 20, 'Document extraction limit exceeded');
+    const { content } = await this.sourceInput(document, context.signal);
+    const result = await this.requestStructuredOutput<Outputs['DocumentExtraction']>(
       [
         {
           role: 'user',
@@ -362,5 +379,6 @@ export class OpenAiImports implements ImportAi {
       'document_extraction',
       this.documentModel,
     );
+    return result;
   }
 }

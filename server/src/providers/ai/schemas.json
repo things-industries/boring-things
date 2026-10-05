@@ -56,7 +56,7 @@
         },
         "text": {
           "type": "string",
-          "description": "Transcription of all readable content from the source document, preserving labels, identifiers and surrounding context."
+          "description": "Source transcription preserving labels, identifiers and surrounding context; empty when supplied text is retained directly."
         },
         "candidates": {
           "type": "array",
@@ -248,9 +248,25 @@
             },
             "required": ["factId", "fieldSetId", "fieldId", "value", "pin"]
           }
+        },
+        "customFactIds": {
+          "type": "array",
+          "description": "IDs of unmatched facts with identifiable value in operating, maintaining, identifying or administering the Thing.",
+          "maxItems": 20,
+          "items": {
+            "type": "string"
+          }
+        },
+        "discardedFactIds": {
+          "type": "array",
+          "description": "IDs of facts without established practical meaning or relevance to the Thing.",
+          "maxItems": 20,
+          "items": {
+            "type": "string"
+          }
         }
       },
-      "required": ["values"]
+      "required": ["values", "customFactIds", "discardedFactIds"]
     },
     "discovery": {
       "description": "Cited identity and recommendations supported by the research report and supplied retrieved URLs.",

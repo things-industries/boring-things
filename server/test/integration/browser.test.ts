@@ -399,3 +399,84 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await env.close();
   }
 });
+
+test(
+  'browser shows research warnings and retries through the Thing stream',
+  { timeout: 30000 },
+  async () => {
+    const env = await startTestApp();
+    let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
+    try {
+      const headers = { authorization: 'Bearer ' + env.accessToken };
+      const thingResponse = await env.app.inject({
+        method: 'POST',
+        url: '/api/things',
+        headers,
+        payload: {
+          name: 'Research warning test',
+          categoryId: 'appliances',
+          values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+        },
+      });
+      assert.equal(thingResponse.statusCode, 201, thingResponse.body);
+      const thingId = thingResponse.json().id;
+      const upload = await env.app.inject({
+        method: 'POST',
+        url: '/api/attachments',
+        headers: {
+          ...headers,
+          'content-type': 'multipart/form-data; boundary=warning-test',
+        },
+        payload:
+          '--warning-test\r\nContent-Disposition: form-data; name="file"; filename="source.txt"\r\nContent-Type: text/plain\r\n\r\nneff\r\n--warning-test--\r\n',
+      });
+      assert.equal(upload.statusCode, 201, upload.body);
+      const discover = env.importAi.discover;
+      env.importAi.discover = async () => {
+        throw new Error('Synthetic research failure');
+      };
+      let release!: () => void;
+      env.importAi.pause = new Promise((resolve) => {
+        release = resolve;
+      });
+      const started = await env.app.inject({
+        method: 'POST',
+        url: '/api/things:import',
+        headers,
+        payload: {
+          attachmentId: upload.json().id,
+          thingId,
+        },
+      });
+      assert.equal(started.statusCode, 202, started.body);
+      browser = await launchBrowser();
+      const context = await browser.newContext({
+        storageState: env.storageState,
+        viewport: { width: 390, height: 844 },
+      });
+      const page = await context.newPage();
+      await page.goto(env.base + '/things/' + thingId);
+      const progress = page.locator('bt-import-progress');
+      await expect(progress).toContainText('Adding details');
+      release();
+      env.importAi.pause = undefined;
+      await expect(progress).toContainText('Imported; some research could not complete.');
+      await expect(progress.getByRole('button', { name: 'Retry research' })).toBeVisible();
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
+      await mkdir('test-results', { recursive: true });
+      await page.screenshot({ path: 'test-results/import-warning-mobile.png', fullPage: true });
+      env.importAi.discover = discover;
+      await progress.getByRole('button', { name: 'Retry research' }).click();
+      await expect(progress).toHaveCount(0);
+      const details = await env.app.inject({ url: '/api/things/' + thingId, headers });
+      assert.equal(details.json().import.status, 'COMPLETE');
+      assert.deepEqual(details.json().import.warnings, []);
+    } finally {
+      await browser?.close();
+      await env.close();
+    }
+  },
+);

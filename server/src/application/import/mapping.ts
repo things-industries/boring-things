@@ -4,19 +4,20 @@
  */
 
 import { createHash } from 'node:crypto';
-import type { ExtractedThing, Extraction, MappingStage, Fact, ResearchContext } from './types.js';
+import type { ExtractedThing, Extraction, FactMapping, Fact, ResearchContext } from './types.js';
 import type { Registry } from '../registry/registry.js';
 import type { ThingData, StoredValue } from '../../../../shared/model.js';
 import { ensure } from '../errors.js';
 import { schemaValidator } from '../../contracts/schemas.js';
 import { validateAttachmentMetadata } from '../attachments.js';
+import { maxDocumentTextLength } from '../../lib/document-limits.js';
 const valueValidator = schemaValidator('Value');
 
 export function validateExtraction(input: Extraction, categories: string[]): Extraction {
   ensure(
     input &&
       typeof input.text === 'string' &&
-      input.text.length <= 200000 &&
+      input.text.length <= maxDocumentTextLength &&
       Array.isArray(input.extractedThings) &&
       input.extractedThings.length > 0 &&
       input.extractedThings.length <= 10,
@@ -42,7 +43,9 @@ export function validateExtraction(input: Extraction, categories: string[]): Ext
       );
       ensure(Array.isArray(c.facts) && c.facts.length <= 100, 'Too many extracted facts');
       return {
-        ...c,
+        name: c.name,
+        categoryId: c.categoryId,
+        terms: c.terms,
         id: `candidate-${i + 1}`,
         facts: c.facts.map((f, n) => {
           ensure(
@@ -85,137 +88,112 @@ export function localFactId(jobId: string, candidateId: string, factId: string) 
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
 
-export function applyImportStage(
+export function applySelectedSets(
   original: ThingData,
-  stage: MappingStage,
-  candidate: ExtractedThing,
+  setIds: string[],
   category: string,
   registry: Registry,
   allowedSets: Set<string>,
+): ThingData {
+  ensure(setIds.length <= 30 && setIds.every((id) => allowedSets.has(id)), 'Unretrieved field set');
+  const selected = registry
+    .expand(setIds, category)
+    .filter((id) => !original.userEdited?.includes(`set:${id}`));
+  return { ...original, setIds: registry.expand([...original.setIds, ...selected], category) };
+}
+
+export function applyFactMapping(
+  original: ThingData,
+  batch: FactMapping,
+  candidate: Pick<ExtractedThing, 'id' | 'facts'>,
+  registry: Registry,
   allowedFields: Set<string>,
   jobId: string,
   attachmentId: string,
 ): ThingData {
+  const ids = [
+    ...new Set(batch.values.map((entry) => entry.factId)),
+    ...batch.customFactIds,
+    ...batch.discardedFactIds,
+  ];
+  ensure(
+    batch.values.length <= 100 &&
+      ids.length === candidate.facts.length &&
+      new Set(ids).size === ids.length &&
+      candidate.facts.every((fact) => ids.includes(fact.id)),
+    'Incomplete or conflicting fact dispositions',
+  );
   const data = structuredClone(original);
-
-  if (stage.kind === 'sets') {
-    ensure(
-      stage.setIds.length <= 30 && stage.setIds.every((id) => allowedSets.has(id)),
-      'Unretrieved field set',
-    );
-    const selected = registry
-      .expand(stage.setIds, category)
-      .filter((id) => !data.userEdited?.includes(`set:${id}`));
-    data.setIds = registry.expand([...data.setIds, ...selected], category);
-  } else {
-    ensure(stage.values.length <= 100, 'Too many mapped values');
-
-    for (const entry of stage.values) {
-      const fact = candidate.facts.find((f) => f.id === entry.factId);
-      ensure(fact && allowedFields.has(entry.fieldId), 'Unknown mapped fact or field');
-      const definition = registry.fields.get(entry.fieldId);
-      ensure(
-        definition && (!sensitiveFact(fact, registry) || definition.sensitive),
-        'Sensitive fact requires a sensitive field',
+  const addresses = new Set<string>();
+  for (const fact of candidate.facts) {
+    const id = localFactId(jobId, candidate.id, fact.id);
+    const localEdited =
+      data.userEdited?.includes(`local:${id}`) ||
+      data.undefinedFields.some((field) => field.id === id && field.origin === 'USER');
+    if (!localEdited)
+      data.undefinedFields = data.undefinedFields.filter(
+        (field) => field.id !== id || field.origin !== 'IMPORT',
       );
-
+    const stored: StoredValue = {
+      value: fact.value,
+      origin: 'IMPORT',
+      sourceRefs: [
+        {
+          attachmentId,
+          ...(fact.page ? { page: fact.page } : {}),
+          ...(fact.quote ? { quote: fact.quote } : {}),
+        },
+      ],
+    };
+    const sensitive = sensitiveFact(fact, registry);
+    let custom = batch.customFactIds.includes(fact.id);
+    for (const entry of batch.values.filter((value) => value.factId === fact.id)) {
+      const definition = registry.fields.get(entry.fieldId);
+      ensure(definition && allowedFields.has(entry.fieldId), 'Unknown mapped field');
+      ensure(!sensitive || definition.sensitive, 'Sensitive fact requires a sensitive field');
       if (entry.fieldSetId !== null)
         ensure(
           data.setIds.includes(entry.fieldSetId) &&
-            registry.sets.get(entry.fieldSetId)?.fields.some((f) => f.id === entry.fieldId),
+            registry.sets.get(entry.fieldSetId)?.fields.some((field) => field.id === entry.fieldId),
           'Invalid field membership',
         );
-
       registry.validate(entry.fieldId, entry.value);
-
-      // An identifier-like string cannot silently become a number.
-      if (typeof fact.value === 'string' && definition.schema.type === 'string')
-        ensure(
-          typeof entry.value === 'string' && entry.value === fact.value,
-          'Text and identifiers must preserve the extracted value',
-        );
-
       const key = `${entry.fieldSetId ?? ''}:${entry.fieldId}`;
+      const address = `${fact.id}:${key}`;
+      ensure(!addresses.has(address), 'Duplicate fact mapping');
+      addresses.add(address);
+      if (localEdited) continue;
       const target =
         entry.fieldSetId === null ? data.standalone : (data.values[entry.fieldSetId] ??= {});
-      const localId = localFactId(jobId, candidate.id, fact.id);
-
-      // A cleared or manually edited destination stays under owner control, including edits to its retained custom fact.
       if (
-        !data.userEdited?.includes(key) &&
-        !data.userEdited?.includes(`local:${localId}`) &&
-        target[entry.fieldId]?.origin !== 'USER'
+        data.userEdited?.includes(key) ||
+        target[entry.fieldId]?.origin === 'USER' ||
+        (target[entry.fieldId] &&
+          JSON.stringify(target[entry.fieldId].value) !== JSON.stringify(entry.value))
       ) {
-        const stored: StoredValue = {
-          value: entry.value,
-          origin: 'IMPORT',
-          sourceRefs: [
-            {
-              attachmentId,
-              ...(fact.page ? { page: fact.page } : {}),
-              ...(fact.quote ? { quote: fact.quote } : {}),
-            },
-          ],
-        };
-
-        // Repeated mapping to the same address must not collapse different facts.
-        if (
-          !target[entry.fieldId] ||
-          JSON.stringify(target[entry.fieldId].value) === JSON.stringify(entry.value)
-        ) {
-          target[entry.fieldId] = stored;
-          data.undefinedFields = data.undefinedFields.filter(
-            (f) => f.id !== localId || f.origin === 'USER',
-          );
-
-          if (
-            entry.pin &&
-            !definition.sensitive &&
-            data.pins.length < 3 &&
-            !data.userEdited?.includes('pins') &&
-            !data.pins.some((p) => p.fieldSetId === entry.fieldSetId && p.fieldId === entry.fieldId)
-          )
-            data.pins.push({
-              fieldSetId: entry.fieldSetId,
-              fieldId: entry.fieldId,
-            });
-        }
+        custom = true;
+        continue;
       }
+      target[entry.fieldId] = { ...stored, value: entry.value };
+      if (
+        entry.pin &&
+        !definition.sensitive &&
+        data.pins.length < 3 &&
+        !data.userEdited?.includes('pins') &&
+        !data.pins.some(
+          (pin) => pin.fieldSetId === entry.fieldSetId && pin.fieldId === entry.fieldId,
+        )
+      )
+        data.pins.push({ fieldSetId: entry.fieldSetId, fieldId: entry.fieldId });
     }
-  }
-
-  return data;
-}
-
-export function retainFacts(
-  original: ThingData,
-  candidate: ExtractedThing,
-  jobId: string,
-  attachmentId: string,
-  registry?: Registry,
-) {
-  const data = structuredClone(original);
-
-  for (const fact of candidate.facts) {
-    const id = localFactId(jobId, candidate.id, fact.id);
-
-    if (!data.undefinedFields.some((f) => f.id === id) && !data.userEdited?.includes(`local:${id}`))
+    if (custom && !localEdited && !data.undefinedFields.some((field) => field.id === id))
       data.undefinedFields.push({
+        ...stored,
         id,
         label: fact.label,
-        value: fact.value,
-        sensitive: sensitiveFact(fact, registry),
-        origin: 'IMPORT',
-        sourceRefs: [
-          {
-            attachmentId,
-            ...(fact.page ? { page: fact.page } : {}),
-            ...(fact.quote ? { quote: fact.quote } : {}),
-          },
-        ],
+        sensitive,
       });
   }
-
   return data;
 }
 

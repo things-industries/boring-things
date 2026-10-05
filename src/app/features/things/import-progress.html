@@ -13,7 +13,14 @@
         <span noticeDetail>Saved details are available to review.</span>
       </bt-notice>
     }
-    @case ('COMPLETE') {}
+    @case ('COMPLETE') {
+      @if (current.warnings?.length) {
+        <bt-notice tone="warning" icon="setupNotice">
+          Imported; some research could not complete.
+          <span noticeDetail>Imported details and saved documents are available.</span>
+        </bt-notice>
+      }
+    }
     @default {
       <bt-notice [busy]="true">
         <bt-import-steps class="import-steps" [status]="current.status" />
@@ -22,8 +29,8 @@
     }
   }
 </div>
-@if (current.status === 'FAILED' || current.status === 'INCOMPLETE') {
+@if (current.status === 'FAILED' || current.status === 'INCOMPLETE' || retryable()) {
   <button type="button" class="button-secondary button-sm" [disabled]="busy()" (click)="retry()">
-    Retry import
+    {{ current.status === 'COMPLETE' ? 'Retry research' : 'Retry import' }}
   </button>
 }

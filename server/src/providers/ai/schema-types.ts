@@ -25,7 +25,7 @@ export interface components {
                  */
                 documentDate: string | null;
             } | null;
-            /** @description Transcription of all readable content from the source document, preserving labels, identifiers and surrounding context. */
+            /** @description Source transcription preserving labels, identifiers and surrounding context; empty when supplied text is retained directly. */
             text: string;
             /** @description Up to four distinct Things that can be identified in the source, with facts grouped by the thing they describe.  Identifying one thing in the source is typical. */
             candidates: {
@@ -90,6 +90,10 @@ export interface components {
                 /** @description Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   At most three suggestions. */
                 pin: boolean;
             }[];
+            /** @description IDs of unmatched facts with identifiable value in operating, maintaining, identifying or administering the Thing. */
+            customFactIds: string[];
+            /** @description IDs of facts without established practical meaning or relevance to the Thing. */
+            discardedFactIds: string[];
         };
         /** @description Cited identity and recommendations supported by the research report and supplied retrieved URLs. */
         Discovery: {

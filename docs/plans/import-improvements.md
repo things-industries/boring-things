@@ -2,11 +2,11 @@
 
 <!-- Tracks staged import improvements, dependencies and acceptance criteria; marks implemented stages. -->
 
-Status: stages 1, 4 and 5 implemented. Stages 2 and 6–8 are pending; stage 3 is deferred.
+Status: stages 1, 2, 4 and 5 implemented. Stages 6–8 are pending; stage 3 is deferred.
 
 Imports should extract source information, identify one Thing, populate useful fields and enrich missing information from cited sources. Results become available progressively. Original sources, owner edits, explicit clears and provenance remain preserved.
 
-Each stage has its own acceptance criteria and can be delivered separately. Stages 2, 3 and 6–8 specify planned behaviour; [the import process guide](../setup/imports.md) describes the current implementation.
+Each stage has its own acceptance criteria and can be delivered separately. Stages 3 and 6–8 specify planned behaviour; [the import process guide](../setup/imports.md) describes the current implementation.
 
 ## Decisions
 
@@ -26,7 +26,7 @@ Each stage has its own acceptance criteria and can be delivered separately. Stag
 | Submission     | [Import routes](../../server/src/routes/imports.ts) call [import persistence](../../server/src/db/entities/imports.ts), creating a skeleton Thing and queued import.                                                                                                                                                                                 |
 | Processing     | [ImportProcessor](../../server/src/application/import/processor.ts) sequences extraction, target allocation, mapping and discovery. [JobRunner](../../server/src/application/jobs/runner.ts) also processes assistant work.                                                                                                                          |
 | AI             | [OpenAiImports](../../server/src/providers/ai/openai-imports.ts) uses the SDK for structured requests, registry conversations and research; prompts and schemas live in separate provider files. [OpenAiChat](../../server/src/providers/ai/openai-chat.ts) uses SDK streaming and task prompts.                                                     |
-| Fact retention | [Mapping](../../server/src/application/import/mapping.ts) copies all extracted facts into custom fields before mapping. It builds research context and targets from field metadata.                                                                                                                                                                  |
+| Fact retention | [Mapping](../../server/src/application/import/mapping.ts) applies explicit registry, useful custom-field and discard decisions, with atomic retry checkpoints. It builds research context and targets from field metadata.                                                                                                                           |
 | Research       | [Discovery](../../server/src/application/discovery/discovery.ts) persists cited names, PDFs, maintenance suggestions and products. [Reference enrichment](../../server/src/application/import/research.ts) fills eligible missing fields from applicable PDFs. Image retrieval is pending.                                                           |
 | HTTP boundary  | [The route helper](../../server/src/contracts/routes.ts) supplies contract types, validation and response schemas. [Thing routes](../../server/src/routes/things.ts) perform separate record lookups.                                                                                                                                                |
 | Client         | [ThingsStore](../../src/app/core/state/things.store.ts), [ImportsService](../../src/app/core/data/imports.service.ts) and [AddThing](../../src/app/features/add-thing/add-thing.ts) depend on an immediately returned Thing ID. [ImportProgress](../../src/app/features/things/import-progress.ts) offers retry; the client has no selection action. |
@@ -70,6 +70,8 @@ Acceptance:
 - Review readability at this checkpoint before starting larger changes.
 
 ## 2. Useful fact selection
+
+Implemented: complete per-batch dispositions, guarded registry/custom writes, legacy unedited-field reconciliation and private extraction checkpoints committed with Thing updates. Retries reuse selected sets and process unfinished facts. Existing completed Things retain their fields. Tests cover dispositions, rollback and retry. A live `gpt-5.6-sol` check mapped a synthetic Neff Z-number, retained its installer reference and discarded an unexplained marking; broader usefulness evaluation remains pending. See [the fact-selection evaluation](../setup/imports.md#fact-selection-evaluation).
 
 Replace unconditional custom-field retention with an explicit disposition for each processed fact:
 

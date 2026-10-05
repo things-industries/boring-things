@@ -134,6 +134,7 @@ export async function persistDiscovery(
 
     let blob: string | undefined;
     let used = false;
+    let downloading = false;
 
     try {
       options.signal.throwIfAborted();
@@ -145,7 +146,9 @@ export async function persistDiscovery(
         const existing = await discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key);
 
         if (!existing) {
+          downloading = true;
           content = await download(item.url, options);
+          downloading = false;
           // HTML support pages remain citations; they are never manufactured into text files.
           if (!content) continue;
           pageCount = await pdfPageCount(content, 'application/pdf', options.signal);
@@ -170,8 +173,10 @@ export async function persistDiscovery(
           blob ? { storageKey: blob, byteSize: content!.length, pageCount } : undefined,
         );
       });
-    } catch {
+    } catch (error) {
       if (blob) await blobs.remove(blob).catch(() => {});
+      options.signal.throwIfAborted();
+      if (!downloading) throw error;
       failed = true;
       continue;
     }
