@@ -5,7 +5,7 @@ export function thingRecord(thing: Schema['Thing']): ThingRecord {
   const {
     fieldSets,
     standaloneFields,
-    undefinedFields,
+    customFields,
     pinnedFields,
     import: importJob,
     attachmentIds: _attachmentIds,
@@ -18,7 +18,7 @@ export function thingRecord(thing: Schema['Thing']): ThingRecord {
 
   return {
     ...summary,
-    detail: { fieldSets, standaloneFields, undefinedFields, pinnedFields, import: importJob },
+    detail: { fieldSets, standaloneFields, customFields, pinnedFields, import: importJob },
   };
 }
 
@@ -87,13 +87,13 @@ function patchDetail(
       );
   }
 
-  const removedLocal = new Set(patch.removeUndefinedFieldIds ?? []);
-  let undefinedFields = detail.undefinedFields.filter((f) => !removedLocal.has(f.id));
+  const removedLocal = new Set(patch.removeCustomFieldIds ?? []);
+  let customFields = detail.customFields.filter((f) => !removedLocal.has(f.id));
 
-  for (const input of patch.undefinedFields ?? []) {
+  for (const input of patch.customFields ?? []) {
     if (!input.id) continue;
 
-    const field: Schema['UndefinedField'] = {
+    const field: Schema['CustomField'] = {
       id: input.id,
       label: input.label,
       sensitive: input.sensitive,
@@ -104,14 +104,14 @@ function patchDetail(
       valueType: valueType(input.value),
     };
 
-    undefinedFields = [...undefinedFields.filter((f) => f.id !== input.id), field];
+    customFields = [...customFields.filter((f) => f.id !== input.id), field];
   }
 
   return {
     ...detail,
     fieldSets,
     standaloneFields,
-    undefinedFields,
+    customFields,
     pinnedFields: patch.pinnedFields ?? detail.pinnedFields,
   };
 }

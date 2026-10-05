@@ -6,6 +6,25 @@
 import type { Schema } from '../../../../shared/model.js';
 import type { AiContext, Source } from '../import/types.js';
 import type { PublicField } from '../public-fields.js';
+import type { chatThingContext } from './context.js';
+
+export interface ChatTools {
+  definitions: readonly {
+    type: 'function';
+    name: string;
+    description: string;
+    parameters: object;
+    strict: boolean;
+  }[];
+  execute(name: string, args: unknown): Promise<ChatToolResult>;
+}
+
+export interface ChatFailure {
+  conversationId: string;
+  messageId: string;
+  kind: string;
+  message: string;
+}
 
 export interface ResearchAnswer {
   text: string;
@@ -14,7 +33,7 @@ export interface ResearchAnswer {
 
 export interface ChatToolResult {
   output: unknown;
-  source?: Source;
+  source?: Source & { includeImages?: boolean };
 }
 
 export interface ChatContext extends AiContext {
@@ -30,13 +49,10 @@ export interface ChatInput {
   messages: ChatMessage[];
   thingId: string | null;
   completedWrites: unknown[];
+  activeThing?: ReturnType<typeof chatThingContext>;
 }
 
 export interface ChatAi {
   research(question: string, fields: PublicField[], context: AiContext): Promise<ResearchAnswer>;
-  respond(
-    input: ChatInput,
-    execute: (name: string, args: unknown) => Promise<ChatToolResult>,
-    context: ChatContext,
-  ): Promise<string>;
+  respond(input: ChatInput, tools: ChatTools, context: ChatContext): Promise<string>;
 }

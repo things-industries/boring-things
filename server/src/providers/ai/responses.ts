@@ -24,6 +24,7 @@ export async function searchWeb(
   prompt: string,
   searchCalls: number,
   context: AiContext,
+  sourceMode: 'retrieved' | 'cited' = 'retrieved',
 ) {
   const result = await requestResponse(
     client,
@@ -35,14 +36,16 @@ export async function searchWeb(
       instructions: webResearchInstructions,
       tools: [{ type: 'web_search' }],
       max_tool_calls: searchCalls,
-      include: ['web_search_call.action.sources'],
+      ...(sourceMode === 'retrieved'
+        ? { include: ['web_search_call.action.sources' as const] }
+        : {}),
     },
     'research',
   );
   const sources = [
     ...new Set(
       result.output.flatMap((o) => {
-        if (o.type === 'web_search_call')
+        if (o.type === 'web_search_call' && sourceMode === 'retrieved')
           return [
             ...('url' in o.action && typeof o.action.url === 'string' ? [o.action.url] : []),
             ...('sources' in o.action ? (o.action.sources ?? []).map((s) => s.url) : []),
@@ -59,14 +62,17 @@ export async function searchWeb(
   ].filter(publicUrl);
   const calls = result.output.filter((o) => o.type === 'web_search_call');
   await context.record({
-    toolCalls: calls.map(() => ({
+    toolCalls: calls.map(({ action }) => ({
       name: 'web_search',
-      resultCount: sources.length,
+      resultCount: 'sources' in action ? (action.sources?.length ?? 0) : 'url' in action ? 1 : 0,
       truncated: false,
     })),
   });
   ensure(calls.length <= searchCalls, 'Research tool limit exceeded');
-  return { text: responseText(result), sources };
+  return {
+    text: responseText(result),
+    sources: sourceMode === 'cited' ? sources.slice(0, 3) : sources,
+  };
 }
 
 export async function requestResponse(

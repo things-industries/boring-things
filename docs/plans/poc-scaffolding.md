@@ -207,7 +207,7 @@ Owned-record IDs below are abbreviated. The response embeds definitions to avoid
     }
   ],
   "standaloneFields": [],
-  "undefinedFields": [{ "id": "local-1", "label": "Installer reference", "value": "ABC-12" }],
+  "customFields": [{ "id": "local-1", "label": "Installer reference", "value": "ABC-12" }],
   "pinnedFields": [
     {
       "fieldSetId": "appliances.neffIdentifiers",

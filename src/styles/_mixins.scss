@@ -1,3 +1,4 @@
+@use 'sass:map';
 @use 'tokens';
 @mixin skeleton {
   background: tokens.color(skeleton);
@@ -25,12 +26,16 @@
     transparent
   );
 }
-/** Inline padding that centres content in the page column while the element spans the viewport. */
+/** Page column width: `--page-max` when an ancestor sets it, otherwise `content-max`. */
+@function page-max() {
+  @return var(--page-max, #{tokens.size(content-max)});
+}
+/**
+ * Inline padding that centres content in the page column while the element spans the viewport. The
+ * column is `content-max` wide unless an ancestor sets `--page-max`.
+ */
 @mixin page-gutter {
-  padding-inline: max(
-    #{tokens.space(4)},
-    calc((100% - #{tokens.size(content-max)}) / 2 + #{tokens.space(4)})
-  );
+  padding-inline: max(#{tokens.space(4)}, calc((100% - #{page-max()}) / 2 + #{tokens.space(4)}));
 }
 /** Field text of at least 16px on touch screens, below which iOS Safari zooms in on focus. */
 @mixin touch-field-text {
@@ -48,14 +53,23 @@
   display: flex;
   flex-direction: column;
 }
-/** Absolute image area at the top of a `viewport-page`, behind its top bar and content. */
+/**
+ * Absolute image area at the top of a `viewport-page`, behind its top bar and content. It spans the
+ * viewport; wider than `content-max` it fills the page height so no edge shows beside the sheet.
+ */
 @mixin hero-backdrop {
   position: absolute;
   inset: 0 0 auto;
-  max-width: tokens.size(content-max);
   height: tokens.size(hero);
-  margin-inline: auto;
   background: tokens.color(secondary-muted);
+  @media (min-width: #{map.get(tokens.$sizes, content-max) + 1px}) {
+    bottom: 0;
+    height: auto;
+  }
+}
+/** Width of a `hero-sheet` in the page column, for content that lines up with it. */
+@function sheet-width() {
+  @return min(100%, #{page-max()} + 2 * #{tokens.space(4)});
 }
 /**
  * White sheet inside a `bt-scroll-container` with no top padding. It starts where the

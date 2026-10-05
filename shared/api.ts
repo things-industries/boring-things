@@ -747,7 +747,7 @@ export interface components {
             fieldSetId?: string | null;
             fieldId?: string;
             /** Format: uuid */
-            undefinedFieldId?: string;
+            customFieldId?: string;
         };
         /** @description Supported JSON Schema rules for validating a field value. */
         FieldSchema: {
@@ -820,7 +820,7 @@ export interface components {
             fields: components["schemas"]["Field"][];
         };
         /** @description Custom field with its value, sensitivity and source information. */
-        UndefinedField: {
+        CustomField: {
             /** Format: uuid */
             id: string;
             label: string;
@@ -919,7 +919,7 @@ export interface components {
             isSample: boolean;
             fieldSets: components["schemas"]["DetailFieldSet"][];
             standaloneFields: components["schemas"]["Field"][];
-            undefinedFields: components["schemas"]["UndefinedField"][];
+            customFields: components["schemas"]["CustomField"][];
             pinnedFields: components["schemas"]["Pin"][];
             attachmentIds: string[];
             issueIds: string[];
@@ -956,7 +956,7 @@ export interface components {
             value: components["schemas"]["NullableValue"];
         };
         /** @description Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific. */
-        UndefinedPatch: {
+        CustomFieldPatch: {
             /** Format: uuid */
             id?: string;
             label: string;
@@ -979,8 +979,8 @@ export interface components {
             addFieldSetIds?: string[];
             removeFieldSetIds?: string[];
             values?: components["schemas"]["ValuePatch"][];
-            undefinedFields?: components["schemas"]["UndefinedPatch"][];
-            removeUndefinedFieldIds?: string[];
+            customFields?: components["schemas"]["CustomFieldPatch"][];
+            removeCustomFieldIds?: string[];
             pinnedFields?: components["schemas"]["Pin"][];
             /** Format: uuid */
             imageAttachmentId?: string | null;
@@ -994,8 +994,8 @@ export interface components {
             addFieldSetIds?: string[];
             removeFieldSetIds?: string[];
             values?: components["schemas"]["ValuePatch"][];
-            undefinedFields?: components["schemas"]["UndefinedPatch"][];
-            removeUndefinedFieldIds?: string[];
+            customFields?: components["schemas"]["CustomFieldPatch"][];
+            removeCustomFieldIds?: string[];
             pinnedFields?: components["schemas"]["Pin"][];
             /** Format: uuid */
             imageAttachmentId?: string | null;
@@ -1175,6 +1175,7 @@ export interface components {
             role: components["schemas"]["MessageRoleEnum"];
             text: string;
             cards: components["schemas"]["ResourceCard"][];
+            /** @description Empty in conversation responses: attachment references are represented by document cards and web citations appear as inline links in text. */
             sourceRefs: components["schemas"]["SourceRef"][];
             status: components["schemas"]["MessageStatusEnum"];
             /** Format: date-time */
@@ -1342,7 +1343,13 @@ export interface components {
             thingId: string;
             available?: boolean;
             fieldSetId: string | null;
-            fieldId: string;
+            /** @description Registry field ID; null for a custom field. */
+            fieldId: string | null;
+            /**
+             * Format: uuid
+             * @description Custom field ID from the referenced Thing. Present only when fieldId and fieldSetId are null.
+             */
+            customFieldId?: string;
         } | {
             /** @constant */
             type: "ATTACHMENT";
@@ -1350,6 +1357,8 @@ export interface components {
             attachmentId: string;
             available?: boolean;
             page?: number;
+            /** @description Distinct one-based pages cited from this attachment, in ascending order. The page property retains the first cited page. */
+            pages?: number[];
         } | {
             /** @constant */
             type: "ISSUE";

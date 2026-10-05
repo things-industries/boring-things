@@ -85,7 +85,7 @@ bt-scroll-container {
 .chat-data-notice {
   padding: tokens.space(3) tokens.space(4);
   border-radius: tokens.radius(tile);
-  background: tokens.color(secondary-muted);
+  background: tokens.color(secondary-subtle);
   @include typography.role(caption);
   color: tokens.color(primary-muted);
 }
@@ -119,10 +119,6 @@ bt-scroll-container {
   flex-direction: column;
   align-items: flex-start;
   gap: tokens.space(3);
-}
-.chat-skeleton {
-  @include mixins.skeleton;
-  min-height: tokens.size(hero);
 }
 .chat-status {
   flex-shrink: 0;

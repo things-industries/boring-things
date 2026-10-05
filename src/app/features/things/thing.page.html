@@ -113,252 +113,257 @@
           }
         }
 
-        @if (openIssues().length) {
-          <section class="thing-section">
-            <bt-section-header title="Needs attention" />
-            <div>
-              @for (issue of openIssues(); track issue.id) {
-                <bt-list-row
-                  [title]="issue.title"
-                  [icon]="issueBadges[issue.kind].icon"
-                  [tone]="issueBadges[issue.kind].tone"
-                >
-                  <span rowSubtitle>
-                    @if (issue.statusText) {
-                      {{ issue.statusText }}
-                    }
-                    @if (issue.statusText && issue.dueDate) {
-                      ·
-                    }
-                    @if (issue.dueDate) {
-                      {{ issue.dueDate | date: 'd MMM y' }} ·
-                      @let days = daysUntil(issue.dueDate);
-                      @if (days === 0) {
-                        Due today
-                      } @else if (days === 1) {
-                        1 day
-                      } @else if (days > 1) {
-                        {{ days }} days
-                      } @else if (days === -1) {
-                        1 day overdue
-                      } @else {
-                        {{ -days }} days overdue
-                      }
-                    }
-                    @if (issue.isSample) {
-                      @if (issue.statusText || issue.dueDate) {
-                        ·
-                      }
-                      Sample
-                    }
-                  </span>
-                  <button
-                    rowTrailing
-                    type="button"
-                    class="button-secondary button-sm"
-                    [attr.aria-label]="'Resolve: ' + issue.title"
-                    (click)="resolve(issue.id)"
-                  >
-                    Resolve
-                  </button>
-                </bt-list-row>
-              }
-            </div>
-          </section>
-        }
-
-        <section class="thing-section">
-          <bt-section-header title="Key details">
-            @if (keyDetails().length) {
-              <button
-                sectionInline
-                type="button"
-                class="button-link thing-copy"
-                (click)="copyDetails()"
-              >
-                {{ copied() ? 'Copied' : 'Copy' }}
-              </button>
-            }
-            <a class="button-link" [routerLink]="['/things', id(), 'details']"
-              >See all<span class="visually-hidden"> details</span></a
-            >
-          </bt-section-header>
-          <span class="visually-hidden" role="status">{{
-            copied() ? 'Key details copied' : ''
-          }}</span>
-          <div>
-            @for (row of keyDetails(); track row.anchor) {
-              <bt-key-value-row
-                [icon]="row.icon"
-                [label]="row.label"
-                [loading]="processing() && row.value === null && !row.masked"
-                [class.thing-missing]="!processing() && row.value === null && !row.masked"
-                [copyable]="row.value !== null && !row.masked"
-              >
-                @if (row.masked) {
-                  ••••••••
-                } @else if (row.value === null) {
-                  Not recorded
-                } @else if (row.value === '') {
-                  Empty text
-                } @else if (row.value === false) {
-                  No
-                } @else if (row.value === true) {
-                  Yes
-                } @else if (row.format === 'date') {
-                  {{ $any(row.value) | date: 'd MMM y' }}
-                } @else if (row.format === 'date-time') {
-                  {{ $any(row.value) | date: 'd MMM y, HH:mm' }}
-                } @else {
-                  {{ formatValue(row.value) }}
-                }
-                @if (!processing() && row.value === null && !row.masked) {
-                  <ng-icon
-                    keyValueEnd
-                    class="thing-missing-edit"
-                    name="editDetails"
-                    aria-hidden="true"
-                  />
-                }
-              </bt-key-value-row>
-            } @empty {
-              @if (processing()) {
-                <bt-row-skeleton kind="key-value" [rows]="3" />
-              } @else {
-                <p class="thing-empty">Pin details to see them here.</p>
-              }
-            }
-          </div>
-        </section>
-
-        <section class="thing-section">
-          <bt-section-header title="Upcoming tasks">
-            <button type="button" class="button-link" disabled>
-              See all<span class="visually-hidden"> tasks (coming soon)</span>
-            </button>
-          </bt-section-header>
-          <div class="thing-events">
-            @for (event of scheduled(); track event.id) {
-              @let start = event.startsOn ?? event.startsAt ?? '';
-              <bt-event-card [title]="event.title" icon="upcomingEvent">
-                <span rowSubtitle
-                  >Due {{ start | date: 'd MMM y' }} · {{ start | relativeTime }}
-                  @if (event.isSample) {
-                    · Sample
-                  }
-                </span>
-                <button
-                  rowTrailing
-                  type="button"
-                  btIconButton
-                  variant="plain"
-                  icon="complete"
-                  [label]="'Mark complete: ' + event.title"
-                  (click)="complete(event.id)"
-                ></button>
-              </bt-event-card>
-            } @empty {
-              <p class="thing-empty">Nothing scheduled.</p>
-            }
-          </div>
-        </section>
-
-        @if (suggested().length || processing()) {
-          <section class="thing-section">
-            <bt-section-header title="Suggested tasks">
-              @if (suggested().length) {
-                <button type="button" class="button-link" disabled>
-                  See all<span class="visually-hidden"> suggested tasks (coming soon)</span>
-                </button>
-              }
-            </bt-section-header>
-            <div>
-              @for (task of suggested(); track task.id) {
-                <bt-list-row
-                  [title]="task.title"
-                  [icon]="taskBadges[task.kind].icon"
-                  [tone]="taskBadges[task.kind].tone"
-                >
-                  <span rowSubtitle>
-                    @if (task.recurrence; as recurrence) {
-                      @let unit = recurrence.unit.toLowerCase();
-                      @if (recurrence.interval === 1) {
-                        Once a {{ unit }}
-                      } @else {
-                        Once every {{ recurrence.interval }} {{ unit }}s
-                      }
-                    }
-                    @if (task.isSample) {
-                      @if (task.recurrence) {
-                        ·
-                      }
-                      Sample
-                    }
-                    @if (task.sourceRefs[0]?.url; as url) {
-                      · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
-                    }
-                  </span>
-                  <button
-                    rowTrailing
-                    type="button"
-                    btIconButton
-                    variant="accent"
-                    icon="scheduleTask"
-                    [label]="'Schedule: ' + task.title"
-                    (click)="open('schedule', task.id)"
-                  ></button>
-                </bt-list-row>
-              } @empty {
-                <bt-row-skeleton [rows]="2" />
-              }
-            </div>
-          </section>
-        }
-
-        @if (purchasables().length || processing()) {
-          <section class="thing-section">
-            <bt-section-header title="Compatible products">
-              @if (purchasables().length) {
-                <button type="button" class="button-link" disabled>
-                  See all<span class="visually-hidden"> products (coming soon)</span>
-                </button>
-              }
-            </bt-section-header>
-            <div>
-              @for (item of purchasables(); track item.id) {
-                <bt-list-row [title]="item.name" icon="compatibleProduct" tone="accent">
-                  <span rowSubtitle
-                    >{{ item.description }}
-                    @if (item.isSample) {
-                      · Sample
-                    }
-                    @if (item.sourceRefs[0]?.url; as url) {
-                      · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
-                    }
-                  </span>
-                  @if (item.isSample) {
-                    <button rowTrailing type="button" class="button-accent button-sm" disabled>
-                      Buy<span class="visually-hidden"> {{ item.name }} (sample)</span>
-                    </button>
-                  } @else {
-                    <a
-                      rowTrailing
-                      class="button-accent button-sm"
-                      [href]="item.merchantUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Buy<span class="visually-hidden">
-                        {{ item.name }} (opens in a new tab)</span
-                      ></a
+        <div class="thing-columns">
+          <div class="thing-column">
+            @if (openIssues().length) {
+              <section class="thing-section">
+                <bt-section-header title="Needs attention" />
+                <div>
+                  @for (issue of openIssues(); track issue.id) {
+                    <bt-list-row
+                      [title]="issue.title"
+                      [icon]="issueBadges[issue.kind].icon"
+                      [tone]="issueBadges[issue.kind].tone"
                     >
+                      <span rowSubtitle>
+                        @if (issue.statusText) {
+                          {{ issue.statusText }}
+                        }
+                        @if (issue.statusText && issue.dueDate) {
+                          ·
+                        }
+                        @if (issue.dueDate) {
+                          {{ issue.dueDate | date: 'd MMM y' }} ·
+                          @let days = daysUntil(issue.dueDate);
+                          @if (days === 0) {
+                            Due today
+                          } @else if (days === 1) {
+                            1 day
+                          } @else if (days > 1) {
+                            {{ days }} days
+                          } @else if (days === -1) {
+                            1 day overdue
+                          } @else {
+                            {{ -days }} days overdue
+                          }
+                        }
+                        @if (issue.isSample) {
+                          @if (issue.statusText || issue.dueDate) {
+                            ·
+                          }
+                          Sample
+                        }
+                      </span>
+                      <button
+                        rowTrailing
+                        type="button"
+                        class="button-secondary button-sm"
+                        [attr.aria-label]="'Resolve: ' + issue.title"
+                        (click)="resolve(issue.id)"
+                      >
+                        Resolve
+                      </button>
+                    </bt-list-row>
                   }
-                </bt-list-row>
-              } @empty {
-                <bt-row-skeleton [rows]="2" />
-              }
-            </div>
-          </section>
-        }
+                </div>
+              </section>
+            }
+
+            <section class="thing-section">
+              <bt-section-header title="Key details">
+                @if (keyDetails().length) {
+                  <button
+                    sectionInline
+                    type="button"
+                    class="button-link thing-copy"
+                    (click)="copyDetails()"
+                  >
+                    {{ copied() ? 'Copied' : 'Copy' }}
+                  </button>
+                }
+                <a class="button-link" [routerLink]="['/things', id(), 'details']"
+                  >See all<span class="visually-hidden"> details</span></a
+                >
+              </bt-section-header>
+              <span class="visually-hidden" role="status">{{
+                copied() ? 'Key details copied' : ''
+              }}</span>
+              <div>
+                @for (row of keyDetails(); track row.anchor) {
+                  <bt-key-value-row
+                    [icon]="row.icon"
+                    [label]="row.label"
+                    [loading]="processing() && row.value === null && !row.masked"
+                    [class.thing-missing]="!processing() && row.value === null && !row.masked"
+                    [copyable]="row.value !== null && !row.masked"
+                  >
+                    @if (row.masked) {
+                      ••••••••
+                    } @else if (row.value === null) {
+                      Not recorded
+                    } @else if (row.value === '') {
+                      Empty text
+                    } @else if (row.value === false) {
+                      No
+                    } @else if (row.value === true) {
+                      Yes
+                    } @else if (row.format === 'date') {
+                      {{ $any(row.value) | date: 'd MMM y' }}
+                    } @else if (row.format === 'date-time') {
+                      {{ $any(row.value) | date: 'd MMM y, HH:mm' }}
+                    } @else {
+                      {{ formatValue(row.value) }}
+                    }
+                    @if (!processing() && row.value === null && !row.masked) {
+                      <ng-icon
+                        keyValueEnd
+                        class="thing-missing-edit"
+                        name="editDetails"
+                        aria-hidden="true"
+                      />
+                    }
+                  </bt-key-value-row>
+                } @empty {
+                  @if (processing()) {
+                    <bt-row-skeleton kind="key-value" [rows]="3" />
+                  } @else {
+                    <p class="thing-empty">Pin details to see them here.</p>
+                  }
+                }
+              </div>
+            </section>
+          </div>
+          <div class="thing-column">
+            <section class="thing-section">
+              <bt-section-header title="Upcoming tasks">
+                <button type="button" class="button-link" disabled>
+                  See all<span class="visually-hidden"> tasks (coming soon)</span>
+                </button>
+              </bt-section-header>
+              <div class="thing-events">
+                @for (event of scheduled(); track event.id) {
+                  @let start = event.startsOn ?? event.startsAt ?? '';
+                  <bt-event-card [title]="event.title" icon="upcomingEvent">
+                    <span rowSubtitle
+                      >Due {{ start | date: 'd MMM y' }} · {{ start | relativeTime }}
+                      @if (event.isSample) {
+                        · Sample
+                      }
+                    </span>
+                    <button
+                      rowTrailing
+                      type="button"
+                      btIconButton
+                      variant="plain"
+                      icon="complete"
+                      [label]="'Mark complete: ' + event.title"
+                      (click)="complete(event.id)"
+                    ></button>
+                  </bt-event-card>
+                } @empty {
+                  <p class="thing-empty">Nothing scheduled.</p>
+                }
+              </div>
+            </section>
+
+            @if (suggested().length || processing()) {
+              <section class="thing-section">
+                <bt-section-header title="Suggested tasks">
+                  @if (suggested().length) {
+                    <button type="button" class="button-link" disabled>
+                      See all<span class="visually-hidden"> suggested tasks (coming soon)</span>
+                    </button>
+                  }
+                </bt-section-header>
+                <div>
+                  @for (task of suggested(); track task.id) {
+                    <bt-list-row
+                      [title]="task.title"
+                      [icon]="taskBadges[task.kind].icon"
+                      [tone]="taskBadges[task.kind].tone"
+                    >
+                      <span rowSubtitle>
+                        @if (task.recurrence; as recurrence) {
+                          @let unit = recurrence.unit.toLowerCase();
+                          @if (recurrence.interval === 1) {
+                            Once a {{ unit }}
+                          } @else {
+                            Once every {{ recurrence.interval }} {{ unit }}s
+                          }
+                        }
+                        @if (task.isSample) {
+                          @if (task.recurrence) {
+                            ·
+                          }
+                          Sample
+                        }
+                        @if (task.sourceRefs[0]?.url; as url) {
+                          · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
+                        }
+                      </span>
+                      <button
+                        rowTrailing
+                        type="button"
+                        btIconButton
+                        variant="accent"
+                        icon="scheduleTask"
+                        [label]="'Schedule: ' + task.title"
+                        (click)="open('schedule', task.id)"
+                      ></button>
+                    </bt-list-row>
+                  } @empty {
+                    <bt-row-skeleton [rows]="2" />
+                  }
+                </div>
+              </section>
+            }
+
+            @if (purchasables().length || processing()) {
+              <section class="thing-section">
+                <bt-section-header title="Compatible products">
+                  @if (purchasables().length) {
+                    <button type="button" class="button-link" disabled>
+                      See all<span class="visually-hidden"> products (coming soon)</span>
+                    </button>
+                  }
+                </bt-section-header>
+                <div>
+                  @for (item of purchasables(); track item.id) {
+                    <bt-list-row [title]="item.name" icon="compatibleProduct" tone="accent">
+                      <span rowSubtitle
+                        >{{ item.description }}
+                        @if (item.isSample) {
+                          · Sample
+                        }
+                        @if (item.sourceRefs[0]?.url; as url) {
+                          · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
+                        }
+                      </span>
+                      @if (item.isSample) {
+                        <button rowTrailing type="button" class="button-accent button-sm" disabled>
+                          Buy<span class="visually-hidden"> {{ item.name }} (sample)</span>
+                        </button>
+                      } @else {
+                        <a
+                          rowTrailing
+                          class="button-accent button-sm"
+                          [href]="item.merchantUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          >Buy<span class="visually-hidden">
+                            {{ item.name }} (opens in a new tab)</span
+                          ></a
+                        >
+                      }
+                    </bt-list-row>
+                  } @empty {
+                    <bt-row-skeleton [rows]="2" />
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        </div>
 
         <section class="thing-section">
           <bt-section-header title="Attachments">

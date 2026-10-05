@@ -12,5 +12,5 @@ export const APP_CONFIG = {
   toastLimit: 3,
   copiedMs: 2000,
   chatStickPx: 48,
-  typewriterCharMs: 20,
+  typewriterCharMs: 5,
 } as const;

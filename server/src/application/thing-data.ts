@@ -16,7 +16,7 @@ import { ensure } from './errors.js';
 import type { Registry } from './registry/registry.js';
 
 export const pinKey = (pin: Pin) =>
-  pin.undefinedFieldId ? `local:${pin.undefinedFieldId}` : `${pin.fieldSetId ?? ''}:${pin.fieldId}`;
+  pin.customFieldId ? `local:${pin.customFieldId}` : `${pin.fieldSetId ?? ''}:${pin.fieldId}`;
 
 export function patchData(
   original: ThingData,
@@ -30,8 +30,8 @@ export function patchData(
   for (const key of ['name', 'categoryId', 'description', 'imageAttachmentId'] as const)
     if (patch[key] !== undefined) edited.add(key);
   for (const v of patch.values ?? []) edited.add(`${v.fieldSetId ?? ''}:${v.fieldId}`);
-  for (const id of patch.removeUndefinedFieldIds ?? []) edited.add(`local:${id}`);
-  for (const f of patch.undefinedFields ?? []) if (f.id) edited.add(`local:${f.id}`);
+  for (const id of patch.removeCustomFieldIds ?? []) edited.add(`local:${id}`);
+  for (const f of patch.customFields ?? []) if (f.id) edited.add(`local:${f.id}`);
   for (const id of patch.removeFieldSetIds ?? []) edited.add(`set:${id}`);
   if (patch.pinnedFields) edited.add('pins');
   if (edited.size) data.userEdited = [...edited];
@@ -51,7 +51,7 @@ export function patchData(
     for (const [fieldId, stored] of Object.entries(data.values[oldId] ?? {})) {
       const definition = registry.fields.get(fieldId)!;
       const id = randomUUID();
-      data.undefinedFields.push({
+      data.customFields.push({
         ...stored,
         id,
         label: `${registry.sets.get(oldId)!.name}: ${definition.name}`,
@@ -59,7 +59,7 @@ export function patchData(
         instanceSpecific: definition.instanceSpecific ?? true,
       });
       data.pins = data.pins.map((pin) =>
-        pin.fieldSetId === oldId && pin.fieldId === fieldId ? { undefinedFieldId: id } : pin,
+        pin.fieldSetId === oldId && pin.fieldId === fieldId ? { customFieldId: id } : pin,
       );
     }
 
@@ -91,34 +91,34 @@ export function patchData(
     }
   }
 
-  const removeLocal = new Set(patch.removeUndefinedFieldIds ?? []);
+  const removeLocal = new Set(patch.removeCustomFieldIds ?? []);
   ensure(
-    [...removeLocal].every((id) => data.undefinedFields.some((f) => f.id === id)),
+    [...removeLocal].every((id) => data.customFields.some((f) => f.id === id)),
     'Unknown local field',
   );
-  data.undefinedFields = data.undefinedFields.filter((f) => !removeLocal.has(f.id));
+  data.customFields = data.customFields.filter((f) => !removeLocal.has(f.id));
 
-  for (const input of patch.undefinedFields ?? []) {
-    ensure(!input.id || data.undefinedFields.some((f) => f.id === input.id), 'Unknown local field');
+  for (const input of patch.customFields ?? []) {
+    ensure(!input.id || data.customFields.some((f) => f.id === input.id), 'Unknown local field');
     const field = {
       ...input,
       instanceSpecific:
         input.instanceSpecific ??
-        data.undefinedFields.find((f) => f.id === input.id)?.instanceSpecific ??
+        data.customFields.find((f) => f.id === input.id)?.instanceSpecific ??
         true,
       id: input.id ?? randomUUID(),
       origin: 'USER' as const,
       sourceRefs: [],
     };
-    data.undefinedFields = [...data.undefinedFields.filter((f) => f.id !== field.id), field];
+    data.customFields = [...data.customFields.filter((f) => f.id !== field.id), field];
   }
 
   const validPin = (p: Pin) => {
-    if (p.undefinedFieldId)
+    if (p.customFieldId)
       return (
         p.fieldId === undefined &&
         p.fieldSetId === undefined &&
-        data.undefinedFields.some((f) => f.id === p.undefinedFieldId)
+        data.customFields.some((f) => f.id === p.customFieldId)
       );
 
     if (!p.fieldId || p.fieldSetId === undefined) return false;
@@ -151,7 +151,7 @@ function projectField(definition: FieldDefinition, stored?: StoredValue): Schema
 export function projectData(
   data: ThingData,
   registry: Registry,
-): Pick<Schema['Thing'], 'fieldSets' | 'standaloneFields' | 'undefinedFields' | 'pinnedFields'> {
+): Pick<Schema['Thing'], 'fieldSets' | 'standaloneFields' | 'customFields' | 'pinnedFields'> {
   return {
     fieldSets: data.setIds.map((id) => {
       const set = registry.sets.get(id)!;
@@ -163,7 +163,7 @@ export function projectData(
     standaloneFields: Object.entries(data.standalone).map(([id, stored]) =>
       projectField(registry.fields.get(id)!, stored),
     ),
-    undefinedFields: data.undefinedFields.map((f) => ({
+    customFields: data.customFields.map((f) => ({
       ...f,
       instanceSpecific: f.instanceSpecific ?? true,
       valueType: (typeof f.value === 'object'
@@ -178,9 +178,9 @@ export function projectData(
 }
 
 export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
-  if (pin.undefinedFieldId) {
+  if (pin.customFieldId) {
     ensure(!pin.fieldId && pin.fieldSetId === undefined, 'Invalid field reference');
-    const field = data.undefinedFields.find((f) => f.id === pin.undefinedFieldId);
+    const field = data.customFields.find((f) => f.id === pin.customFieldId);
     ensure(field, 'Field not found', 'NOT_FOUND');
     return field.value;
   }

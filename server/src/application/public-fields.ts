@@ -6,7 +6,7 @@ export interface PublicField {
   fieldId: string;
   label: string;
   description: string;
-  undefinedFieldId?: string;
+  customFieldId?: string;
   value: Value;
 }
 
@@ -27,12 +27,12 @@ export function publicFields(data: ThingData, registry: Registry): PublicField[]
   for (const setId of data.setIds)
     for (const field of registry.sets.get(setId)?.fields ?? []) add(setId, field.id);
   for (const id of Object.keys(data.standalone)) add(null, id);
-  for (const field of data.undefinedFields)
+  for (const field of data.customFields)
     if (field.instanceSpecific === false && field.value != null)
       fields.push({
         fieldSetId: null,
         fieldId: field.id,
-        undefinedFieldId: field.id,
+        customFieldId: field.id,
         label: field.label,
         description: field.label,
         value: field.value,

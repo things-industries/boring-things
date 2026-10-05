@@ -3,6 +3,7 @@
 @use 'mixins';
 :host {
   @include mixins.viewport-page;
+  --page-max: #{tokens.size(content-wide)};
 }
 .over-hero {
   --top-bar-background: transparent;
@@ -12,6 +13,23 @@
 }
 .thing-content {
   padding-top: 0;
+}
+// Details on the left and tasks on the right on wider screens; one column on phones.
+.thing-columns {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
+  @media (min-width: 650px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: tokens.space(8);
+  }
+}
+.thing-column {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
 }
 .thing-message {
   display: flex;
