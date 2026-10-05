@@ -1,10 +1,12 @@
+import type { PublicField } from '../public-fields.js';
 import type { FieldSearchLabel } from '../registry/registry.js';
 /**
  * Defines import extraction, mapping, discovery and provider interfaces, plus shared usage tracking
  * and active job states.
  */
 
-import type { Schema, Value } from '../../../../shared/model.js';
+import type { FieldDefinition, FieldSet, Schema, Value } from '../../../../shared/model.js';
+import type { components } from '../../providers/ai/schema-types.js';
 
 export interface Fact {
   id: string;
@@ -15,17 +17,18 @@ export interface Fact {
   sensitive: boolean;
 }
 
-export interface Candidate {
+export interface ExtractedThing {
   id: string;
   name: string;
   categoryId: string;
   terms: string[];
   facts: Fact[];
+  mapping?: { setIds: string[]; batches: FactMapping[] };
 }
 
 export interface Extraction {
   text: string;
-  candidates: Candidate[];
+  extractedThings: ExtractedThing[];
   metadata?: Schema['AttachmentPatch'] | null;
 }
 
@@ -33,21 +36,14 @@ export interface Source {
   filename: string;
   mediaType: string;
   content: Buffer;
+  pageCount?: number | null;
+  text?: string;
 }
 
-export interface MappingValue {
-  factId: string;
-  fieldSetId: string | null;
-  fieldId: string;
-  value: Value;
-  pin: boolean;
-}
-
-export type MappingStage =
-  { kind: 'sets'; setIds: string[] } | { kind: 'values'; values: MappingValue[] };
+export type FactMapping = components['schemas']['Mapping'];
 
 export interface DiscoveryItem {
-  kind: 'reference' | 'maintenance' | 'consumable' | 'accessory' | 'upgrade';
+  kind: 'reference' | 'image';
   title: string;
   description: string;
   url: string;
@@ -59,9 +55,16 @@ export interface Discovery {
   items: DiscoveryItem[];
   sources: string[];
   identity?: { name: string; sourceUrl: string } | null;
+  documentBatches?: {
+    attachmentId: string;
+    targetKeys: string[];
+  }[];
+  warnings?: DiscoveryWarning[];
 }
 
 export type Usage = Schema['ImportUsage'];
+
+export type DiscoveryWarning = Omit<Schema['ImportWarning'], 'thingId'>;
 
 export interface AiContext {
   signal: AbortSignal;
@@ -73,14 +76,69 @@ export interface RegistryTools {
   searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
 }
 
+export interface ResearchThing {
+  id: string;
+  categoryId: string;
+  knownFields: KnownResearchField[];
+  emptyFields: EmptyResearchField[];
+  documentLimits?: { maxBytes: number; maxTextCharacters: number };
+  rejectedDocuments?: Pick<DiscoveryWarning, 'sourceUrl' | 'code' | 'actual' | 'limit'>[];
+}
+
+export interface EmptyResearchField {
+  fieldSetId: string | null;
+  fieldId: string;
+  label: string;
+  description: string;
+  schema: FieldDefinition['schema'];
+}
+
+export type KnownResearchField = PublicField;
+
+export interface ReferenceDocument extends Source {
+  sourceContext?: { url: string; description: string };
+  attachmentId: string;
+  url: string;
+  pageCount: number;
+}
+
+export interface DocumentExtraction {
+  applicable: boolean;
+  applicability: { page: number; quote: string } | null;
+  values: {
+    fieldSetId: string | null;
+    fieldId: string;
+    value: Value;
+    page: number;
+    quote: string;
+  }[];
+}
+
 export interface ImportAi {
   extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
-  map(candidate: Candidate, tools: RegistryTools, context: AiContext): AsyncIterable<MappingStage>;
-  discover(
-    candidate: Candidate,
+  selectFieldSets(
+    extractedThing: ExtractedThing,
+    tools: RegistryTools,
     context: AiContext,
-    focus?: 'reference' | 'maintenance' | 'products',
+  ): Promise<{ setIds: string[] }>;
+  mapFacts(
+    thing: ExtractedThing,
+    facts: Fact[],
+    selectedSets: FieldSet[],
+    tools: RegistryTools,
+    context: AiContext,
+  ): Promise<FactMapping>;
+  findResources(
+    research: ResearchThing,
+    context: AiContext,
+    searchCalls?: number,
   ): Promise<Discovery>;
+  extractDocument(
+    document: ReferenceDocument,
+    research: ResearchThing,
+    targets: EmptyResearchField[],
+    context: AiContext,
+  ): Promise<DocumentExtraction>;
 }
 
 // Awaiting selection still locks the Thing until the owner confirms which candidates to import.

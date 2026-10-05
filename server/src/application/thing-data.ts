@@ -27,7 +27,7 @@ export function patchData(
   const data = structuredClone(original);
   // Track explicit clears and removals too, so later import retries cannot restore values the owner discarded.
   const edited = new Set(data.userEdited ?? []);
-  for (const key of ['name', 'categoryId', 'description'] as const)
+  for (const key of ['name', 'categoryId', 'description', 'imageAttachmentId'] as const)
     if (patch[key] !== undefined) edited.add(key);
   for (const v of patch.values ?? []) edited.add(`${v.fieldSetId ?? ''}:${v.fieldId}`);
   for (const id of patch.removeUndefinedFieldIds ?? []) edited.add(`local:${id}`);
@@ -56,6 +56,7 @@ export function patchData(
         id,
         label: `${registry.sets.get(oldId)!.name}: ${definition.name}`,
         sensitive: definition.sensitive,
+        instanceSpecific: definition.instanceSpecific ?? true,
       });
       data.pins = data.pins.map((pin) =>
         pin.fieldSetId === oldId && pin.fieldId === fieldId ? { undefinedFieldId: id } : pin,
@@ -101,6 +102,10 @@ export function patchData(
     ensure(!input.id || data.undefinedFields.some((f) => f.id === input.id), 'Unknown local field');
     const field = {
       ...input,
+      instanceSpecific:
+        input.instanceSpecific ??
+        data.undefinedFields.find((f) => f.id === input.id)?.instanceSpecific ??
+        true,
       id: input.id ?? randomUUID(),
       origin: 'USER' as const,
       sourceRefs: [],
@@ -135,6 +140,7 @@ export function patchData(
 function projectField(definition: FieldDefinition, stored?: StoredValue): Schema['Field'] {
   return {
     ...definition,
+    instanceSpecific: definition.instanceSpecific ?? true,
     value: definition.sensitive ? null : (stored?.value ?? null),
     masked: definition.sensitive && !!stored,
     origin: stored?.origin ?? null,
@@ -159,6 +165,7 @@ export function projectData(
     ),
     undefinedFields: data.undefinedFields.map((f) => ({
       ...f,
+      instanceSpecific: f.instanceSpecific ?? true,
       valueType: (typeof f.value === 'object'
         ? 'MONEY'
         : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum'],

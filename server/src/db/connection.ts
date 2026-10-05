@@ -4,7 +4,7 @@
  */
 
 import pg from 'pg';
-import { databaseError } from './errors.js';
+import * as errorsDb from './errors.js';
 
 export type Database = Pick<pg.Pool, 'query'>;
 
@@ -43,7 +43,7 @@ export async function transaction<T>(
     return result;
   } catch (error) {
     await client.query('rollback').catch(() => {});
-    throw databaseError(error);
+    throw errorsDb.databaseError(error);
   } finally {
     client.release();
   }
@@ -70,6 +70,6 @@ export async function execute(
   try {
     return await db.query(sql, params);
   } catch (error) {
-    throw databaseError(error);
+    throw errorsDb.databaseError(error);
   }
 }

@@ -5,8 +5,8 @@ import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
-import { createPool, transaction } from '../server/src/db/connection.js';
-import { seedRegistry } from '../server/src/db/seeds/registry.js';
+import * as database from '../server/src/db/connection.js';
+import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
@@ -17,9 +17,9 @@ const url = new URL(
 );
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname), 'Smoke test requires local Postgres');
 const name = 'bt_smoke_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
+const admin = database.createPool(url.toString());
 url.pathname = '/' + name;
-const pool = createPool(url.toString());
+const pool = database.createPool(url.toString());
 const directory = await mkdtemp(tmpdir() + '/bt-smoke-');
 const ai = new OpenAiImports(
   config.openaiApiKey,
@@ -29,12 +29,13 @@ const ai = new OpenAiImports(
 );
 const trace: unknown[] = [];
 const recorded: ImportAi = {
+  extractDocument: (...args) => ai.extractDocument(...args),
   async extract(source, categories, context) {
     const result = await ai.extract(source, categories, context);
     trace.push({ stage: 'extraction', result });
     return result;
   },
-  async *map(candidate, tools, context) {
+  async selectFieldSets(candidate, tools, context) {
     const tracedTools = {
       async searchFieldSets(category: string, terms: string[]) {
         const result = await tools.searchFieldSets(category, terms);
@@ -47,13 +48,34 @@ const recorded: ImportAi = {
         return result;
       },
     };
-    for await (const result of ai.map(candidate, tracedTools, context)) {
-      trace.push({ stage: 'mapping', candidate: candidate.id, result });
-      yield result;
-    }
+    const selection = await ai.selectFieldSets(candidate, tracedTools, context);
+    trace.push({
+      stage: 'field_selection',
+      candidate: candidate.id,
+      result: selection,
+    });
+    return selection;
   },
-  async discover(candidate, context, focus) {
-    const result = await ai.discover(candidate, context, focus);
+  async mapFacts(thing, facts, selectedSets, tools, context) {
+    const tracedTools = {
+      searchFieldSets: tools.searchFieldSets,
+      async searchFields(labels: { label: string; context: string }[]) {
+        const result = await tools.searchFields(labels);
+        trace.push({ tool: 'search_fields', labels, result });
+        return result;
+      },
+    };
+    const result = await ai.mapFacts(thing, facts, selectedSets, tracedTools, context);
+    trace.push({
+      stage: 'fact_mapping',
+      candidate: thing.id,
+      factIds: facts.map((fact) => fact.id),
+      result,
+    });
+    return result;
+  },
+  async findResources(candidate, context, searchCalls) {
+    const result = await ai.findResources(candidate, context, searchCalls);
     trace.push({ stage: 'discovery', result });
     return result;
   },
@@ -64,7 +86,7 @@ try {
   const migrations = new URL('../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
     config: { ...config, blobDirectory: directory },
@@ -231,19 +253,6 @@ try {
       payload: { status: 'SCHEDULED', startsAt: '2026-10-01T09:00:00Z' },
     });
     assert.equal(scheduled.statusCode, 200, scheduled.body);
-    const purchases = (
-      await app.inject({
-        method: 'GET',
-        url: `/api/purchasables?thingId=${thing.id}`,
-        headers,
-      })
-    ).json<{ items: Schema['Purchasable'][] }>();
-    if (purchases.items.length) {
-      const products = await send(
-        'Show a saved compatible accessory, consumable or upgrade with its merchant link and supporting source. Do not invent products.',
-      );
-      assert.ok(products.cards.some((c) => c.type === 'PURCHASABLE'));
-    }
     await app.close();
     app = await buildApp({
       dbPool: pool,
@@ -271,7 +280,6 @@ try {
     console.log({
       assistantArtifact: 'test-results/assistant-smoke.json',
       restartVerified: true,
-      merchantLinks: purchases.items.length,
     });
   }
 } finally {

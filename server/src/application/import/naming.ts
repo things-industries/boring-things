@@ -1,6 +1,6 @@
-import type { Candidate } from './types.js';
+import type { ExtractedThing } from './types.js';
 
-export function candidateModel(candidate: Candidate) {
+export function extractedThingModel(candidate: ExtractedThing) {
   return candidate.facts.find(
     (fact) =>
       !fact.sensitive &&

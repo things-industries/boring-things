@@ -13,7 +13,7 @@ Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../
 - The initial field subset supports strings, numbers, integers, booleans, enums, dates, bounds and patterns. Money uses integer minor units and GBP/EUR/USD. `null` clears a value.
 - Step 1 includes manual creation, set selection, every empty field, tags and attachments. Sections remain one per set until the later grouping work.
 - A Thing can select a linked image attachment as its image. Category artwork is the fallback.
-- Uploads initially accept PDF, JPEG, PNG, WebP and UTF-8 plain text, up to a configurable 20 MiB.
+- Uploads initially accept PDF, JPEG, PNG, WebP and UTF-8 plain text, up to a configurable 100 MB (100,000,000 bytes).
 
 ## Boundaries and decisions
 

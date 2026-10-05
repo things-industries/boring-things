@@ -5,23 +5,21 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Schema } from '../../../shared/model.js';
-import { FixtureAi } from '../fixtures/imports.js';
-import type { ImportAi } from '../../src/application/import/types.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
+
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-const database = 'bt_chat_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
-url.pathname = '/' + database;
-const pool = createPool(url.toString());
+const databaseName = 'bt_chat_' + randomUUID().replaceAll('-', '');
+const admin = database.createPool(url.toString());
+url.pathname = '/' + databaseName;
+const pool = database.createPool(url.toString());
 const ai = new FixtureChat();
-const discoveryAi: ImportAi = new FixtureAi();
 let app: FastifyInstance;
 let directory: string;
 let base: string;
@@ -37,7 +35,6 @@ const boot = async () => {
     dbPool: pool,
     config: config(),
     chatAi: ai,
-    importAi: discoveryAi,
     verifyIdentity: async (token) => ({ subject: token }),
   });
   base = await app.listen({ host: '127.0.0.1', port: 0 });
@@ -56,11 +53,11 @@ const request = (
   });
 before(async () => {
   directory = await mkdtemp(tmpdir() + '/boring-chat-');
-  await admin.query(`create database ${database}`);
+  await admin.query(`create database ${databaseName}`);
   const migrations = new URL('../../../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   await boot();
 });
 beforeEach(() => {
@@ -73,7 +70,7 @@ beforeEach(() => {
 after(async () => {
   await app?.close();
   await pool.end();
-  await admin.query(`drop database if exists ${database} with (force)`);
+  await admin.query(`drop database if exists ${databaseName} with (force)`);
   await admin.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
@@ -621,59 +618,74 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
   }
   ai.probe = undefined;
 });
-test('product discovery is cited, bounded and reused after a response failure', async () => {
+test('question-based research is cited, has no resource writes and is reused after a response failure', async (t) => {
   const { thing, chat } = await setup();
   await request('PATCH', `/things/${thing.id}`, {
     values: [
-      {
-        fieldSetId: 'appliances.appliance',
-        fieldId: 'common.model',
-        value: 'Synthetic model',
-      },
+      { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'Synthetic model' },
     ],
+    undefinedFields: [{ label: 'Serial number', value: 'private-serial', sensitive: false }],
   });
-  let discoveries = 0;
-  discoveryAi.discover = async (candidate, _context, focus) => {
-    discoveries++;
-    assert.equal(candidate.name, 'Synthetic model');
-    assert.equal(focus, 'products');
-    return {
-      sources: ['https://manufacturer.example/compatible', 'https://merchant.example/filter'],
-      items: [
-        {
-          kind: 'consumable',
-          title: 'Cited filter',
-          description: 'Synthetic supported product',
-          url: 'https://merchant.example/filter',
-          sourceUrl: 'https://manufacturer.example/compatible',
-        },
-      ],
-    };
-  };
+  const question = 'Which filter is compatible with this model?';
+  const research = t.mock.method(
+    ai,
+    'research',
+    async (
+      ...args: Parameters<import('../../src/application/conversations/types.js').ChatAi['research']>
+    ) => {
+      assert.equal(args[0], question);
+      assert.equal(args[1][0].value, 'Synthetic model');
+      assert.ok(!JSON.stringify(args[1]).includes('private-serial'));
+      return {
+        text: 'A cited compatible filter.',
+        sources: ['https://manufacturer.example/compatible'],
+      };
+    },
+  );
+  const resources = async () =>
+    (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>().attachmentIds;
+  const before = await resources();
   ai.probe = async (_input, execute) => {
-    await execute('discover', { thingId: thing.id, focus: 'products' });
+    const found = await execute('research', { thingId: thing.id, question });
+    assert.equal((found.output as { text: string }).text, 'A cited compatible filter.');
+    await assert.rejects(execute('research', { thingId: thing.id, question }), /budget used/);
   };
   ai.failOnce = true;
-  const input = {
-    text: 'Find a filter',
-    requestId: randomUUID(),
-  };
+  const input = { text: 'Find a filter', requestId: randomUUID() };
   await request('POST', `/conversations/${chat.id}/messages`, input);
   assert.equal((await wait(chat.id)).message.status, 'FAILED');
   await request('POST', `/conversations/${chat.id}/messages`, input);
   const result = await wait(chat.id);
   assert.equal(result.message.status, 'COMPLETE');
-  assert.equal(discoveries, 1);
-  const products = (await request('GET', `/purchasables?thingId=${thing.id}`)).json<{
-    items: Schema['Purchasable'][];
-  }>();
-  assert.equal(products.items.length, 1);
-  assert.equal(products.items[0].price, null);
-  assert.deepEqual(products.items[0].sourceRefs, [
-    { url: 'https://manufacturer.example/compatible' },
-  ]);
+  assert.equal(research.mock.callCount(), 1);
+  assert.deepEqual(await resources(), before);
+  for (const resource of ['purchasables', 'events', 'issues'])
+    assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
   assert.ok(
     result.message.sourceRefs.some((s) => s.url === 'https://manufacturer.example/compatible'),
   );
+
+  // A changed question on retry requires fresh research.
+  ai.probe = async (_input, execute) => {
+    await execute('research', { thingId: thing.id, question });
+  };
+  ai.failOnce = true;
+  const another = { text: 'Research again', requestId: randomUUID() };
+  await request('POST', `/conversations/${chat.id}/messages`, another);
+  assert.equal((await wait(chat.id)).message.status, 'FAILED');
+  research.mock.mockImplementation(
+    async (
+      ...args: Parameters<import('../../src/application/conversations/types.js').ChatAi['research']>
+    ) => {
+      assert.equal(args[0], 'How should the filter be cleaned?');
+      return { text: 'Cleaning instructions.', sources: [] };
+    },
+  );
+  ai.probe = async (_input, execute) => {
+    await execute('research', { thingId: thing.id, question: 'How should the filter be cleaned?' });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, another);
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  assert.equal(research.mock.callCount(), 3);
   ai.probe = undefined;
 });

@@ -10,14 +10,16 @@ Paths are relative to `server/`.
 - `src/routes/`: typed Fastify route plugins and error translation. Temporary developer/debugging routes may be self-contained, others should use DB/provider/application module abstractions where appropriate.
 - `src/http/sse.ts`: bounded SSE transport and connection lifecycle. Routes send readable streams through Fastify. `application/events.ts` supplies the app-owned, typed event bus for data changes and conversation deltas.
 - `src/contracts/`: operation types, runtime schema validation, path/reference adaptation and contract checks. Root `openapi.json` generates root `shared/api.ts` for both client and server.
-- `src/application/`: workflow rules and transport-independent errors. Imports, conversations and registry have feature folders; discovery is shared. `jobs/runner.ts` schedules imports and chat in one process.
+- `src/application/`: workflow rules and transport-independent errors. Imports, conversations and registry have feature folders. Public field selection and bounded web search are shared. `jobs/runner.ts` schedules imports and chat in one process.
 - `src/db/`: connection, transaction, row-mapping and error infrastructure. `entities/` groups typed persistence by entity or semantic concept; `seeds/registry.ts` owns authored registry metadata.
 - `src/providers/`: modules for capabilities outside the application boundary, grouped by capability. Encapsulate runtime substitutes and fallback behaviour within each provider, selected through configuration/options. Fake modes require explicit configuration, normally environment settings; failure behaviour is provider-specific. Test-only injection remains available for failure and ownership checks.
 - `src/plugins/`: Fastify plugins with typed options, a default `FastifyPluginAsync` export and registration through `fastify.register(plugin, options)`. Choose encapsulation deliberately so hooks and decorators reach their intended routes. Name authenticated child scopes to make their access boundary visible.
 - `src/lib/`: purpose-neutral generic helpers.
 - `test/`: unit and contract checks; `test/integration/`: isolated database, migration and browser checks.
 
-Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish `data.changed` after successful mutations, using `ownerId` to scope delivery to that user, independently of HTTP response delivery. Subscribe before the initial snapshot and retain periodic refresh for cross-process changes. Keep transport lifecycle outside route modules. Use `dbPool` for the assembled database pool and retain provider names such as `importAi`. Make Fastify schema registration and validator installation explicit in `buildApp`. Add classes for state or lifecycle. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
+Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish `data.changed` after successful mutations, using `ownerId` to scope delivery to that user, independently of HTTP response delivery. Subscribe before the initial snapshot and retain periodic refresh for cross-process changes. Keep transport lifecycle outside route modules. Use `dbPool` for the assembled database pool and retain provider names such as `importAi`. Make Fastify schema registration and validator installation explicit in `buildApp`. Add classes for state or lifecycle. Import research uses `ResearchThing` with public `knownFields` and eligible `emptyFields`; `ImportDestination` names the persisted subject-to-Thing association. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
+
+Use namespace imports for database modules throughout the repository, including routes, application workflows, other DB modules, scripts and tests; call functions through names such as `thingsDb` and `importsDb`. Named type imports remain suitable. Prefer readable boundaries and development speed at the current traffic volume; retain transaction support for associated queries. The [import improvement plan](../docs/plans/import-improvements.md) defines the staged refactor and future route entity resolution.
 
 ## Authentication and privacy
 
@@ -66,11 +68,18 @@ Use typed functions accepting a database executor, owner ID and named input wher
 
 ## AI imports and assistant work
 
+- Fact batches account for every fact through registry mappings, useful custom fields or discard decisions. Commit decisions and Thing updates together; retries reuse selected sets and skip committed batches. Preserve source evidence and owner edits.
+- Import selection and fact mapping use separate provider methods. The processor supplies selected field definitions and batches facts; each mapping batch owns its tool conversation.
+- Limit each AI task's input to the context, evidence, definitions and tools needed to complete that task. Pass `ExtractedThing` through mapping callers and select the required subject properties in the prompt.
+
+- Helpers that advance conversation history return the updated history; callers assign it explicitly. Do not mutate supplied history arrays.
 - Chat requests contain text and a request ID. The model infers requested actions from user messages and conversation context and asks a follow-up when ambiguous. Enforce owner scope and one creation across Event/Issue tools per message. Commit created records and tool receipts together; retain receipts on retry and reject a changed creation type or Thing. Conversation history is available through `GET /api/conversations`, with optional `thingId` and `minMessageCount` filters; details and streams load by conversation ID. Frontend history integration remains pending.
-- Keep prompts, SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
+- Author task prompts in `src/providers/ai/prompts.ts` and response/tool schemas in `src/providers/ai/schemas.json`; generate schema types with `pnpm ai:generate` and check drift with `pnpm ai:check`. Keep SDK types and provider requests in adapters. Application code owns authorised candidates, validation, persistence and workflow decisions.
+- Schema descriptions describe content or behaviour without imperative instructions. Include any `minLength` and `maxLength` limits in the description. Place `description` first in schema objects containing `properties`.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
-- Several detected Things require user confirmation under the import plan. Retries must reuse persisted work without duplicating Things or overwriting user edits.
+- Import research saves applicable category documents, enriches empty eligible fields and selects an official product photo while preserving owner edits. Assistant research answers the user question independently. Share public-field selection and bounded web search. Use `instanceSpecific: false` for research eligibility independently of sensitivity. Category prompts supply document priorities. Keep optional retrieval/model failures recoverable and persistence failures fatal. Workflow, limits, configuration and evaluations are in [the import guide](../docs/setup/imports.md).
+- The planned [single-Thing import flow](../docs/plans/import-improvements.md#3-import-identity-and-single-thing-lifecycle) ends imports identifying multiple independent Things with an error. Retries must reuse persisted work without duplicating Things or overwriting user edits.
 - Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. A dedicated PostgreSQL session lock permits one active runner per database; recovery happens after acquiring it. Release the lock only after work stops. Loss of the lock session exits the process. Deploy overlap uses persisted SSE snapshots; token-level deltas remain process-local.
 
 ## Validation
@@ -78,3 +87,11 @@ Use typed functions accepting a database executor, owner ID and named input wher
 From the root, use `pnpm dev:server`, `pnpm test`, `CI=true pnpm check` and, where relevant, `pnpm test:integration`. Integration checks require local Supabase and a built frontend.
 
 Test changed business invariants and regressions, particularly cross-owner access, sensitive-field omission/reveal, shared attachment lifecycle, independent set values and preservation on category changes. Use the existing Node test harness; add coverage where behaviour warrants it.
+
+## Coding practice and style
+
+- Place a file level comment at the top of all files explaining what that file is for (max 300 chars)
+- Put line-comments preceding function declarations to explain the purpose or use case for that function, except when extremely obvious. Max 150 chars. Don't name or count callers or call sites.
+- Add line comments to code that merits additional explanation, using concise but readable prose.
+- Avoid jargon in comments
+- Avoid async iterators, prefer explicitly calling functions in a loop.

@@ -12,9 +12,9 @@ import type { JobRunner } from '../application/jobs/runner.js';
 import type { ApplicationEvents } from '../application/events.js';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
-import { transaction } from '../db/connection.js';
-import { ownedImport, projectImport, startImport } from '../db/entities/imports.js';
-import { ownedThing } from '../db/entities/things.js';
+import * as database from '../db/connection.js';
+import * as importsDb from '../db/entities/imports.js';
+import * as thingsDb from '../db/entities/things.js';
 import { detail } from '../application/things.js';
 
 interface Options {
@@ -32,7 +32,12 @@ const importRoutes: FastifyPluginAsync<Options> = async (
 ) => {
   route(app, 'POST', '/api/things:import', async (req, reply) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
-    const accepted = await startImport(pool, req.ownerId, req.body.attachmentId, req.body.thingId);
+    const accepted = await importsDb.startImport(
+      pool,
+      req.ownerId,
+      req.body.attachmentId,
+      req.body.thingId,
+    );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     reply.code(202);
     runner.wake();
@@ -40,7 +45,9 @@ const importRoutes: FastifyPluginAsync<Options> = async (
   });
 
   route(app, 'GET', '/api/imports/{id}', async (req) =>
-    projectImport(await ownedImport(pool, req.ownerId, req.params.id)),
+    importsDb.projectImport(
+      await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id),
+    ),
   );
 
   route(app, 'POST', '/api/imports/{id}:confirm', async (req) => {
@@ -58,7 +65,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
     return result;
   });
   route(app, 'GET', '/api/things/{thingId}/stream', async (req, reply) => {
-    await ownedThing(pool, req.ownerId, req.params.thingId);
+    await thingsDb.getOwnedThingOrThrow(pool, req.ownerId, req.params.thingId);
     return reply
       .headers(sseHeaders)
       .code(200)
@@ -66,7 +73,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
         sse.stream(events.subscribe({ ownerId: req.ownerId }), {
           event: 'thing.snapshot',
           snapshot: () =>
-            transaction(
+            database.transaction(
               pool,
               (db) => detail(db, req.ownerId, req.params.thingId, registry),
               'repeatable read',

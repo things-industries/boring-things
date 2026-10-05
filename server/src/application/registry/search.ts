@@ -5,7 +5,7 @@ import type { FieldSearchLabel } from './registry.js';
  */
 
 import type { Database } from '../../db/connection.js';
-import { searchRegistry } from '../../db/entities/registry.js';
+import * as registryDb from '../../db/entities/registry.js';
 import type { Registry } from './registry.js';
 import { ensure } from '../errors.js';
 
@@ -31,7 +31,7 @@ export async function searchFieldSets(
     ),
   ].slice(0, 60);
 
-  const found = await searchRegistry(db, 'field-sets', queryTerms, category, 13);
+  const found = await registryDb.searchRegistry(db, 'field-sets', queryTerms, category, 13);
   const roots = found.slice(0, 12).map((r) => r.id);
   const included = registry.expand(roots, category);
   const suggestions = [
@@ -64,7 +64,7 @@ export async function searchFields(db: Database, registry: Registry, labels: Fie
   const results = [];
 
   for (const { label, context } of labels) {
-    const found = await searchRegistry(
+    const found = await registryDb.searchRegistry(
       db,
       'fields',
       [

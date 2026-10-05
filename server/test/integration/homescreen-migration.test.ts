@@ -2,19 +2,19 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { createPool } from '../../src/db/connection.js';
+import * as database from '../../src/db/connection.js';
 
 test('homescreen migration preserves existing records and enforces schedule and usage constraints', async () => {
   const url = new URL(
     process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
   );
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-  const database = 'bt_test_' + randomUUID().replaceAll('-', '');
-  const admin = createPool(url.toString());
-  url.pathname = '/' + database;
-  const pool = createPool(url.toString());
+  const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
+  const admin = database.createPool(url.toString());
+  url.pathname = '/' + databaseName;
+  const pool = database.createPool(url.toString());
   try {
-    await admin.query(`create database ${database}`);
+    await admin.query(`create database ${databaseName}`);
     const directory = new URL('../../../supabase/migrations/', import.meta.url);
     const migration = '20260930010000_homescreen.sql';
     for (const file of (await readdir(directory))
@@ -84,7 +84,7 @@ test('homescreen migration preserves existing records and enforces schedule and 
     );
   } finally {
     await pool.end();
-    await admin.query(`drop database if exists ${database} with (force)`);
+    await admin.query(`drop database if exists ${databaseName} with (force)`);
     await admin.end();
   }
 });

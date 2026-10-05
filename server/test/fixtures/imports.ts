@@ -1,13 +1,14 @@
 import type {
-  Candidate,
+  ExtractedThing,
   Extraction,
   ImportAi,
-  MappingStage,
-  MappingValue,
+  Fact,
+  FactMapping,
   Source,
   RegistryTools,
   AiContext,
 } from '../../src/application/import/types.js';
+import type { FieldSet } from '../../../shared/model.js';
 // Synthetic replay fixtures. Live provider observations are recorded separately by the smoke script.
 const fact = (
   id: string,
@@ -21,7 +22,7 @@ const fact = (
   page: null,
   sensitive: false,
 });
-export const candidates: Record<string, Candidate> = {
+export const extractedThings: Record<string, ExtractedThing> = {
   neff: {
     id: 'candidate-1',
     name: 'Neff hob',
@@ -58,6 +59,11 @@ const sets: Record<string, string[]> = {
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
 };
+export const extractionBaseline = Object.entries(extractedThings).map(([id, expected]) => ({
+  id,
+  source: [expected.name, ...expected.facts.map((fact) => fact.quote)].join('\n'),
+  expected,
+}));
 export class FixtureAi implements ImportAi {
   metadata?: Extraction['metadata'];
   failOnce = false;
@@ -69,24 +75,26 @@ export class FixtureAi implements ImportAi {
     if (name === 'bad') throw new Error('synthetic extraction failure');
     const chosen =
       name === 'two'
-        ? [candidates.neff, { ...candidates.policy, id: 'candidate-2' }]
-        : [candidates[name] ?? candidates.neff];
+        ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
+        : [extractedThings[name] ?? extractedThings.neff];
     return structuredClone({
       text: name,
-      candidates: chosen,
+      extractedThings: chosen,
       ...(this.metadata ? { metadata: this.metadata } : {}),
     });
   }
-  async *map(
-    candidate: Candidate,
+  async selectFieldSets(candidate: ExtractedThing, tools: RegistryTools) {
+    await tools.searchFieldSets(candidate.categoryId, candidate.terms);
+    return { setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId] };
+  }
+  async mapFacts(
+    thing: ExtractedThing,
+    facts: Fact[],
+    _selectedSets: FieldSet[],
     tools: RegistryTools,
     context: AiContext,
-  ): AsyncIterable<MappingStage> {
-    await tools.searchFieldSets(candidate.categoryId, candidate.terms);
-    yield {
-      kind: 'sets',
-      setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId],
-    };
+  ): Promise<FactMapping> {
+    const categoryId = thing.categoryId;
     if (this.pause) await this.pause;
     if (this.exhaustTools)
       for (let i = 0; i < 5; i++)
@@ -95,8 +103,8 @@ export class FixtureAi implements ImportAi {
       this.failOnce = false;
       throw new Error('synthetic interrupted mapping');
     }
-    const values: MappingValue[] =
-      candidate.categoryId === 'appliances'
+    const values: FactMapping['values'] =
+      categoryId === 'appliances'
         ? [
             {
               factId: 'fact-1',
@@ -106,7 +114,7 @@ export class FixtureAi implements ImportAi {
               pin: true,
             },
           ]
-        : candidate.categoryId === 'vehicles'
+        : categoryId === 'vehicles'
           ? [
               {
                 factId: 'fact-1',
@@ -120,7 +128,7 @@ export class FixtureAi implements ImportAi {
               factId: `fact-${i + 1}`,
               fieldSetId: `insurance.${part}`,
               fieldId: 'insurance.sumInsured',
-              value: candidate.facts[i].value,
+              value: thing.facts[i].value,
               pin: false,
             }));
     await context.record({
@@ -129,11 +137,22 @@ export class FixtureAi implements ImportAi {
       cachedTokens: 20,
       model: 'fixture',
     });
-    yield { kind: 'values', values };
-    if (candidate.categoryId === 'appliances')
+
+    if (categoryId === 'appliances')
       await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    const mapped = values.filter((entry) => facts.some((fact) => fact.id === entry.factId));
+    return {
+      values: mapped,
+      customFactIds: facts
+        .filter((fact) => !mapped.some((entry) => entry.factId === fact.id))
+        .map((fact) => fact.id),
+      discardedFactIds: [],
+    };
   }
-  async discover() {
+  async extractDocument() {
+    return { applicable: false, applicability: null, values: [] };
+  }
+  async findResources() {
     return { items: [], sources: [] };
   }
 }

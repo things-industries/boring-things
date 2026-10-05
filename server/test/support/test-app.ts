@@ -16,8 +16,8 @@ import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
 
 const appId = 'browser-test';
 const subject = 'browser-alice';
@@ -40,7 +40,7 @@ export async function startTestApp(
   if (!existsSync('dist/web/browser/index.html'))
     throw new Error('Build the frontend first: CI=true pnpm build');
   const dbName = 'bt_browser_' + randomUUID().replaceAll('-', '');
-  const admin = createPool(url.toString());
+  const admin = database.createPool(url.toString());
   const cleanup: (() => Promise<unknown> | unknown)[] = [() => admin.end()];
   const close = async () => {
     for (const step of cleanup.reverse()) await step();
@@ -58,7 +58,7 @@ export async function startTestApp(
     await admin.query(`create database ${dbName}`);
     cleanup.push(() => admin.query(`drop database ${dbName} with (force)`));
     url.pathname = '/' + dbName;
-    const pool = createPool(url.toString());
+    const pool = database.createPool(url.toString());
     cleanup.push(() => pool.end());
     const directory = await mkdtemp(tmpdir() + '/boring-browser-');
     cleanup.push(() => rm(directory, { recursive: true, force: true }));
@@ -89,7 +89,7 @@ export async function startTestApp(
     for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
       await pool.query(await readFile(new URL(file, migrations), 'utf8'));
     }
-    await transaction(pool, seedRegistry);
+    await database.transaction(pool, registrySeedDb.seedRegistry);
     const importAi = new FixtureAi();
     const chatAi = new FixtureChat();
     const app = await buildApp({ dbPool: pool, config, importAi, chatAi });

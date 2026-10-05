@@ -1,7 +1,7 @@
 import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
-import { ownedActivity, saveEvent, saveIssue } from '../db/entities/activity.js';
-import { bumpThing, ownedThing } from '../db/entities/things.js';
+import * as activityDb from '../db/entities/activity.js';
+import * as thingsDb from '../db/entities/things.js';
 import { ensure } from './errors.js';
 
 export async function writeIssue(
@@ -10,14 +10,16 @@ export async function writeIssue(
   input: Schema['IssueInput'] | Schema['IssuePatch'],
   id?: string,
 ): Promise<Schema['Issue']> {
-  const existing = id ? await ownedActivity(db, owner, 'issues', id, true) : undefined;
+  const existing = id
+    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: true })
+    : undefined;
   const thingId = existing?.thingId ?? ('thingId' in input ? input.thingId : undefined);
   ensure(thingId, 'Thing is required');
-  await ownedThing(db, owner, thingId, true);
+  await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
   const title = (input.title ?? existing?.title ?? '').trim();
   ensure(title, 'Title cannot be blank');
   const status = input.status ?? existing?.status ?? 'OPEN';
-  const item = await saveIssue(
+  const item = await activityDb.saveIssue(
     db,
     owner,
     {
@@ -33,7 +35,7 @@ export async function writeIssue(
     },
     id,
   );
-  await bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, owner, thingId);
   return item;
 }
 export async function writeEvent(
@@ -42,10 +44,12 @@ export async function writeEvent(
   input: Schema['EventInput'] | Schema['EventPatch'],
   id?: string,
 ): Promise<Schema['Event']> {
-  const existing = id ? await ownedActivity(db, owner, 'events', id, true) : undefined;
+  const existing = id
+    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', id, { lock: true })
+    : undefined;
   const thingId = existing?.thingId ?? ('thingId' in input ? input.thingId : undefined);
   ensure(thingId, 'Thing is required');
-  await ownedThing(db, owner, thingId, true);
+  await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
   const title = (input.title ?? existing?.title ?? '').trim();
   ensure(title, 'Title cannot be blank');
   const status = input.status ?? existing?.status ?? 'SUGGESTED';
@@ -56,10 +60,10 @@ export async function writeEvent(
   ensure(status !== 'SCHEDULED' || startsAt || startsOn, 'Scheduled events need a date');
   if (issueId)
     ensure(
-      (await ownedActivity(db, owner, 'issues', issueId)).thingId === thingId,
+      (await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', issueId)).thingId === thingId,
       'Issue must belong to this Thing',
     );
-  const item = await saveEvent(
+  const item = await activityDb.saveEvent(
     db,
     owner,
     {
@@ -76,6 +80,6 @@ export async function writeEvent(
     },
     id,
   );
-  await bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, owner, thingId);
   return item;
 }

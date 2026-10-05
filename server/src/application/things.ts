@@ -1,6 +1,7 @@
-import { categoryExists } from '../db/entities/registry.js';
-import { linkedImage } from '../db/entities/attachments.js';
-import { setThingTags } from '../db/entities/tags.js';
+import * as registryDb from '../db/entities/registry.js';
+import * as attachmentsDb from '../db/entities/attachments.js';
+import * as tagsDb from '../db/entities/tags.js';
+
 /**
  * Builds Thing detail responses and coordinates transactional creation and patching with category,
  * tag and image validation.
@@ -8,9 +9,10 @@ import { setThingTags } from '../db/entities/tags.js';
 
 import type pg from 'pg';
 import { emptyData, type Schema, type ThingPatch } from '../../../shared/model.js';
-import { transaction, type Database } from '../db/connection.js';
-import { thingImport, assertEditable } from '../db/entities/imports.js';
-import { ownedThing, relatedIds, insertThing, updateThing } from '../db/entities/things.js';
+import * as database from '../db/connection.js';
+import type { Database } from '../db/connection.js';
+import * as importsDb from '../db/entities/imports.js';
+import * as thingsDb from '../db/entities/things.js';
 import { ensure } from './errors.js';
 import { patchData, projectData } from './thing-data.js';
 import type { Registry } from './registry/registry.js';
@@ -21,13 +23,13 @@ export async function detail(
   id: string,
   registry: Registry,
 ): Promise<Schema['Thing']> {
-  const thing = await ownedThing(db, owner, id);
+  const thing = await thingsDb.getOwnedThingOrThrow(db, owner, id);
   const { data, ownerId: _ownerId, ...summary } = thing;
   return {
     ...summary,
-    import: await thingImport(db, owner, id),
+    import: await importsDb.findThingImport(db, owner, id),
     ...projectData(data, registry),
-    ...(await relatedIds(db, owner, id)),
+    ...(await thingsDb.getThingRelatedIds(db, owner, id)),
   };
 }
 
@@ -38,17 +40,17 @@ export async function writeThing(
   registry: Registry,
   id?: string,
 ) {
-  return transaction(pool, async (db) => {
+  return database.transaction(pool, async (db) => {
     // Lock the stored Thing before merging a patch so concurrent writes cannot replace each other with stale data.
-    let thing = id ? await ownedThing(db, owner, id, true) : undefined;
-    if (thing) await assertEditable(db, owner, thing.id);
+    let thing = id ? await thingsDb.getOwnedThingOrThrow(db, owner, id, { lock: true }) : undefined;
+    if (thing) await importsDb.assertThingEditable(db, owner, thing.id);
     const category = input.categoryId ?? thing?.categoryId;
-    ensure(category && (await categoryExists(db, category)), 'Unknown category');
+    ensure(category && (await registryDb.categoryExists(db, category)), 'Unknown category');
     ensure((input.name ?? thing?.name)?.trim(), 'Name cannot be blank');
     const data = patchData(thing?.data ?? emptyData(), input, category, registry);
 
     if (!thing)
-      thing = await insertThing(db, owner, {
+      thing = await thingsDb.insertThing(db, owner, {
         id: 'id' in input ? input.id : undefined,
         categoryId: category,
         name: input.name!.trim(),
@@ -61,17 +63,17 @@ export async function writeThing(
 
     if (image)
       ensure(
-        await linkedImage(db, owner, thing.id, image),
+        await attachmentsDb.isLinkedImage(db, owner, thing.id, image),
         'Image must be a linked image attachment',
       );
-    await updateThing(db, owner, thing.id, {
+    await thingsDb.updateThing(db, owner, thing.id, {
       name: input.name?.trim() ?? thing.name,
       description: input.description ?? thing.description,
       categoryId: category,
       data,
       imageAttachmentId: image,
     });
-    if (input.tagIds) await setThingTags(db, owner, thing.id, input.tagIds);
+    if (input.tagIds) await tagsDb.setThingTags(db, owner, thing.id, input.tagIds);
 
     return detail(db, owner, thing.id, registry);
   });

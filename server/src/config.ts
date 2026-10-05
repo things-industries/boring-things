@@ -3,6 +3,8 @@
  * paths and workflow limits.
  */
 
+import { maxDocumentBytes } from './lib/document-limits.js';
+
 export type EnvConfig = ReturnType<typeof readConfig>;
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {
@@ -39,6 +41,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     chatToolCalls: numberOrFallback(env, 'CHAT_TOOL_CALLS', 12),
     openaiApiKey: env.OPENAI_API_KEY ?? '',
     openaiModel: env.OPENAI_MODEL ?? '',
+    documentExtractionModel: env.DOCUMENT_EXTRACTION_MODEL || env.OPENAI_MODEL || '',
     importTimeoutMs: numberOrFallback(env, 'IMPORT_TIMEOUT_MS', 180000),
     importToolRounds: numberOrFallback(env, 'IMPORT_TOOL_ROUNDS', 4),
     discoveryTimeoutMs: numberOrFallback(env, 'DISCOVERY_TIMEOUT_MS', 90000),
@@ -51,7 +54,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     logtoEndpoint: env.LOGTO_ENDPOINT ?? '',
     logtoAppId: env.LOGTO_APP_ID ?? '',
     apiResource: env.LOGTO_API_RESOURCE ?? 'https://api.boring-things.local',
-    maxUploadBytes: Number(env.MAX_UPLOAD_BYTES ?? 20971520),
+    maxUploadBytes: numberOrFallback(env, 'MAX_UPLOAD_BYTES', maxDocumentBytes),
     supportedMediaTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'text/plain'],
     sampleDataEnabled: env.ENABLE_SAMPLE_DATA === 'true',
   };

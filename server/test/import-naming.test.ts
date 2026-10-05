@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { candidateModel, importedName } from '../src/application/import/naming.js';
-import { candidates } from './fixtures/imports.js';
+import { extractedThingModel, importedName } from '../src/application/import/naming.js';
+import { extractedThings } from './fixtures/imports.js';
 
 test('import names stay short until a collision needs a model or number', () => {
   assert.equal(importedName('Bosch Oven', 'MODEL/01', []), 'Bosch Oven');
@@ -19,14 +19,14 @@ test('import names stay short until a collision needs a model or number', () => 
 });
 
 test('only nonsensitive model identifiers are eligible for disambiguation', () => {
-  assert.equal(candidateModel(candidates.neff), undefined);
-  const candidate = structuredClone(candidates.neff);
+  assert.equal(extractedThingModel(extractedThings.neff), undefined);
+  const candidate = structuredClone(extractedThings.neff);
   candidate.facts[0] = {
     ...candidate.facts[0],
     label: 'E-Nr',
     value: 'MODEL/01',
   };
-  assert.equal(candidateModel(candidate), 'MODEL/01');
+  assert.equal(extractedThingModel(candidate), 'MODEL/01');
   candidate.facts[0].sensitive = true;
-  assert.equal(candidateModel(candidate), undefined);
+  assert.equal(extractedThingModel(candidate), undefined);
 });

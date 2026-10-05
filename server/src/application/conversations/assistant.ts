@@ -11,26 +11,17 @@ import type { Schema } from '../../../../shared/model.js';
 import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
-import type { ChatAi, ChatToolResult } from './types.js';
-import type { ImportAi, Discovery } from '../import/types.js';
+import type { ChatAi, ChatToolResult, ResearchAnswer } from './types.js';
 import { blankUsage } from '../import/types.js';
 import { chatFunctions } from '../../contracts/chat-tools.js';
-import {
-  conversation,
-  type ChatJob,
-  recoverMessages,
-  nextMessage,
-  saveMessage,
-  searchChatThings,
-  chatResources,
-  chatAttachment,
-} from '../../db/entities/conversations.js';
-import { ownedThing } from '../../db/entities/things.js';
+import * as conversationsDb from '../../db/entities/conversations.js';
+import type { ChatJob } from '../../db/entities/conversations.js';
+import * as thingsDb from '../../db/entities/things.js';
 import { detail } from '../things.js';
 import { ensure } from '../errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { publicDiscoveryCandidate } from '../import/mapping.js';
-import { publicUrl, persistDiscovery } from '../discovery/discovery.js';
+import { publicFields } from '../public-fields.js';
+import { publicUrl } from '../../providers/web/resources.js';
 import type { ApplicationEvents } from '../events.js';
 
 const ajv = new Ajv({ strict: false });
@@ -62,13 +53,12 @@ export class Assistant {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ChatAi | undefined,
-    private discoveryAi: ImportAi | undefined,
     private config: EnvConfig,
     private events: ApplicationEvents,
   ) {}
 
   async snapshot(owner: string, id: string) {
-    const result = await conversation(this.pool, owner, id);
+    const result = await conversationsDb.getOwnedConversationSnapshot(this.pool, owner, id);
     const live = this.live.get(owner + ':' + id);
 
     if (live) {
@@ -82,12 +72,12 @@ export class Assistant {
   }
 
   async recover() {
-    await recoverMessages(this.pool);
+    await conversationsDb.recoverMessages(this.pool);
   }
 
   async next(shutdown: AbortSignal) {
     if (!this.ai) return false;
-    const job = await nextMessage(this.pool);
+    const job = await conversationsDb.getNextQueuedMessage(this.pool);
     if (!job) return false;
     await this.run(job, shutdown);
     return true;
@@ -107,17 +97,18 @@ export class Assistant {
     const allowedThings = new Map<string, Schema['Thing']>();
     const allowedResources = new Set<string>();
     let calls = 0,
-      discovered = false,
+      researched = false,
       files = 0;
 
     const record = async (delta: Partial<Schema['ImportUsage']>) => {
-      usage.model = delta.model ?? usage.model;
+      if (!usage.model) usage.model = delta.model ?? usage.model;
+      if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
       usage.inputTokens += delta.inputTokens ?? 0;
       usage.outputTokens += delta.outputTokens ?? 0;
       usage.cachedTokens += delta.cachedTokens ?? 0;
       usage.toolCalls.push(...(delta.toolCalls ?? []));
       usage.elapsedMs = elapsed + Date.now() - started;
-      await saveMessage(this.pool, job, { usage });
+      await conversationsDb.saveMessage(this.pool, job, { usage });
     };
 
     const addCard = (card: Schema['ResourceCard']) => {
@@ -131,7 +122,11 @@ export class Assistant {
       const thing = await detail(this.pool, job.ownerId, id, this.registry);
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
-      const { attachments, activity, truncated } = await chatResources(this.pool, job.ownerId, id);
+      const { attachments, activity, truncated } = await conversationsDb.getOwnedChatResources(
+        this.pool,
+        job.ownerId,
+        id,
+      );
       for (const a of attachments) allowedResources.add('attachment:' + a.id);
 
       for (const [kind, table] of [
@@ -152,14 +147,18 @@ export class Assistant {
       let output: unknown;
 
       if (name === 'search_things') {
-        const items = await searchChatThings(this.pool, job.ownerId, a['query']);
+        const items = await conversationsDb.searchChatThings(this.pool, job.ownerId, a['query']);
         items.slice(0, 20).forEach((i) => allowedResources.add('thing:' + i.id));
         output = { items: items.slice(0, 20), truncated: items.length > 20 };
       } else if (name === 'read_thing') output = await readThing(a['thingId']);
       else if (name === 'read_attachment') {
         ensure(++files <= 3, 'Attachment tool limit');
         ensure(allowedResources.has('attachment:' + a['attachmentId']), 'Read its Thing first');
-        const file = await chatAttachment(this.pool, job.ownerId, a['attachmentId']);
+        const file = await conversationsDb.getOwnedChatAttachmentOrThrow(
+          this.pool,
+          job.ownerId,
+          a['attachmentId'],
+        );
         ensure(file && file.byteSize <= this.config.maxUploadBytes, 'Attachment unavailable');
         const chunks: Buffer[] = [];
         let bytes = 0;
@@ -184,56 +183,40 @@ export class Assistant {
             content: Buffer.concat(chunks),
           },
         };
-      } else if (name === 'discover') {
-        ensure(!discovered && this.discoveryAi, 'Discovery unavailable or budget used');
-        discovered = true;
+      } else if (name === 'research') {
+        ensure(!researched && this.ai, 'Research unavailable or budget used');
+        researched = true;
         const thing = allowedThings.get(a['thingId']);
         ensure(thing, 'Read the Thing first');
-        const stored = await ownedThing(this.pool, job.ownerId, thing.id);
-        const candidate = publicDiscoveryCandidate(
-          {
-            id: thing.id,
-            name: thing.name,
-            categoryId: thing.categoryId,
-            terms: [],
-            facts: [],
-          },
-          stored.data,
-        );
-        ensure(candidate, 'Public model identifiers are missing');
-        const discoveryKey = 'discover:' + thing.id + ':' + a['focus'];
-        let found = job.toolResults.find((r) => r.key === discoveryKey)?.result as
-          Discovery | undefined;
-        const discoverySignal = AbortSignal.any([
+        const stored = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, thing.id);
+        const fields = publicFields(stored.data, this.registry);
+        const question = a['question'].trim();
+        ensure(question, 'Research question cannot be blank');
+        const researchKey = JSON.stringify(['research', thing.id, question]);
+        let found = job.toolResults.find((r) => r.key === researchKey)?.result as
+          ResearchAnswer | undefined;
+        const researchSignal = AbortSignal.any([
           signal,
           AbortSignal.timeout(this.config.discoveryTimeoutMs),
         ]);
-
         if (!found) {
           found = await awaitWithSignal(
-            this.discoveryAi.discover(
-              candidate,
-              { signal: discoverySignal, record },
-              a['focus'] as 'reference' | 'maintenance' | 'products',
-            ),
-            discoverySignal,
+            this.ai.research(question, fields, { signal: researchSignal, record }),
+            researchSignal,
           );
           signal.throwIfAborted();
-          job.toolResults.push({ key: discoveryKey, result: found });
-          await saveMessage(this.pool, job, { toolResults: job.toolResults });
+          ensure(
+            typeof found.text === 'string' &&
+              found.text.length <= 100000 &&
+              Array.isArray(found.sources) &&
+              found.sources.every(publicUrl),
+            'Invalid research answer',
+          );
+          job.toolResults.push({ key: researchKey, result: found });
+          await conversationsDb.saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
-
-        await persistDiscovery(
-          this.pool,
-          this.blobs,
-          { id: job.id, ownerId: job.ownerId },
-          { thingId: thing.id, candidateId: thing.id, isNew: false },
-          found,
-          { maxBytes: this.config.maxUploadBytes, signal: discoverySignal },
-        );
-        found.sources.filter(publicUrl).forEach((url) => refs.push({ url }));
-        output = { discovery: found, context: await readThing(thing.id) };
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        found.sources.forEach((url) => refs.push({ url }));
+        output = found;
       } else if (name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');
@@ -306,9 +289,13 @@ export class Assistant {
     };
 
     try {
-      await saveMessage(this.pool, job, { status: 'PROCESSING' });
+      await conversationsDb.saveMessage(this.pool, job, { status: 'PROCESSING' });
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-      const history = await conversation(this.pool, job.ownerId, job.conversationId);
+      const history = await conversationsDb.getOwnedConversationSnapshot(
+        this.pool,
+        job.ownerId,
+        job.conversationId,
+      );
       const messages = history.messages
         .filter((m) => m.id !== job.id && m.status === 'COMPLETE')
         .map((m) => ({ role: m.role, content: m.text }));
@@ -355,7 +342,7 @@ export class Assistant {
       );
       signal.throwIfAborted();
       ensure(text.trim() && text.length <= 100000, 'Empty assistant answer');
-      await saveMessage(this.pool, job, {
+      await conversationsDb.saveMessage(this.pool, job, {
         text,
         cards,
         sourceRefs: [...new Map(refs.map((r) => [JSON.stringify(r), r])).values()],
@@ -363,7 +350,7 @@ export class Assistant {
         error: null,
       });
     } catch {
-      await saveMessage(this.pool, job, {
+      await conversationsDb.saveMessage(this.pool, job, {
         text: live.text,
         cards,
         status: 'FAILED',

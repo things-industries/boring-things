@@ -1,6 +1,7 @@
 import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
-import { rows, type Database } from '../connection.js';
+import * as database from '../connection.js';
+import type { Database } from '../connection.js';
 import { ensure } from '../../application/errors.js';
 import { page, pageResult } from '../../application/pagination.js';
 
@@ -50,7 +51,9 @@ export async function listActivity<K extends ActivityKind>(
   }
   if (kind === 'events') {
     const timeZone = (query as EventQuery).timeZone ?? 'UTC';
-    const zones = await rows(db, 'select 1 from pg_timezone_names where name=$1', [timeZone]);
+    const zones = await database.rows(db, 'select 1 from pg_timezone_names where name=$1', [
+      timeZone,
+    ]);
     ensure(zones.length, 'Unknown timezone');
     params.push(timeZone);
     const zone = `$${params.length}`;
@@ -71,7 +74,7 @@ export async function listActivity<K extends ActivityKind>(
   }
   params.push(limit + 1, offset);
   return pageResult(
-    await rows<Activity[K]>(
+    await database.rows<Activity[K]>(
       db,
       `select ${columns[kind]} from bt.${kind} where ${filters.join(' and ')} order by ${order},id limit $${params.length - 1} offset $${params.length}`,
       params,
@@ -79,16 +82,16 @@ export async function listActivity<K extends ActivityKind>(
     query,
   );
 }
-export async function ownedActivity<K extends ActivityKind>(
+export async function getOwnedActivityOrThrow<K extends ActivityKind>(
   db: Database,
   owner: string,
   kind: K,
   id: string,
-  lock = false,
+  options: { lock?: boolean } = {},
 ): Promise<Activity[K]> {
-  const [item] = await rows<Activity[K]>(
+  const [item] = await database.rows<Activity[K]>(
     db,
-    `select ${columns[kind]} from bt.${kind} where id=$1 and owner_id=$2${lock ? ' for update' : ''}`,
+    `select ${columns[kind]} from bt.${kind} where id=$1 and owner_id=$2${options.lock ? ' for update' : ''}`,
     [id, owner],
   );
   ensure(item, 'Record not found', 'NOT_FOUND');
@@ -125,7 +128,7 @@ export async function saveIssue(
     id ?? value.thingId,
     owner,
   ];
-  const [item] = await rows<Schema['Issue']>(
+  const [item] = await database.rows<Schema['Issue']>(
     db,
     id
       ? `update bt.issues set title=$1,description=$2,status=$3,resolved_at=$4,status_text=$5,due_date=$6 where id=$7 and owner_id=$8 returning ${columns.issues}`
@@ -151,7 +154,7 @@ export async function saveEvent(
     id ?? value.thingId,
     owner,
   ];
-  const [item] = await rows<Schema['Event']>(
+  const [item] = await database.rows<Schema['Event']>(
     db,
     id
       ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,completed_at=$5,issue_id=$6,starts_on=$7 where id=$8 and owner_id=$9 returning ${columns.events}`

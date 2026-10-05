@@ -7,13 +7,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
-import {
-  conversation,
-  ownedConversation,
-  enqueueMessage,
-  createConversation,
-  listConversations,
-} from '../db/entities/conversations.js';
+import * as conversationsDb from '../db/entities/conversations.js';
 import type { JobRunner } from '../application/jobs/runner.js';
 import type { Assistant } from '../application/conversations/assistant.js';
 import type { ApplicationEvents } from '../application/events.js';
@@ -32,17 +26,19 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   app,
   { db, runner, assistant, events, enabled, sse },
 ) => {
-  route(app, 'GET', '/api/conversations', (req) => listConversations(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/conversations', (req) =>
+    conversationsDb.listConversations(db, req.ownerId, req.query),
+  );
 
   route(app, 'POST', '/api/conversations', async (req, reply) => {
-    const result = await createConversation(db, req.ownerId, req.body);
+    const result = await conversationsDb.createConversation(db, req.ownerId, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });
 
   route(app, 'POST', '/api/conversations/{id}/messages', async (req, reply) => {
     ensure(enabled, 'Assistant is not configured', 'UNAVAILABLE');
-    const result = await enqueueMessage(db, req.ownerId, req.params.id, req.body);
+    const result = await conversationsDb.enqueueMessage(db, req.ownerId, req.params.id, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     reply.code(202);
@@ -50,7 +46,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   });
 
   route(app, 'GET', '/api/conversations/{id}/stream', async (req, reply) => {
-    await ownedConversation(db, req.ownerId, req.params.id);
+    await conversationsDb.getOwnedConversationOrThrow(db, req.ownerId, req.params.id);
     const subscription = events.subscribe({ ownerId: req.ownerId, conversationId: req.params.id });
     return reply
       .headers(sseHeaders)
@@ -68,7 +64,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   });
 
   route(app, 'GET', '/api/conversations/{id}', (req) =>
-    conversation(db, req.ownerId, req.params.id),
+    conversationsDb.getOwnedConversationSnapshot(db, req.ownerId, req.params.id),
   );
 };
 

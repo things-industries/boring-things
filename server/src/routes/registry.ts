@@ -3,7 +3,7 @@ import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
 import { page, pageResult, type PageQuery } from '../application/pagination.js';
 import type { Database } from '../db/connection.js';
-import { listCategories, searchRegistry } from '../db/entities/registry.js';
+import * as registryDb from '../db/entities/registry.js';
 import { ensure } from '../application/errors.js';
 
 interface RegistryQuery extends PageQuery {
@@ -22,7 +22,7 @@ const registryRoutes: FastifyPluginAsync<Options> = async (app, { db, registry }
     query: RegistryQuery,
   ) {
     const { limit, offset } = page(query);
-    const ids = await searchRegistry(
+    const ids = await registryDb.searchRegistry(
       db,
       kind,
       [query.q ?? ''],
@@ -44,7 +44,9 @@ const registryRoutes: FastifyPluginAsync<Options> = async (app, { db, registry }
     ensure(item, 'Registry record not found', 'NOT_FOUND');
     return item;
   }
-  route(app, 'GET', '/api/categories', (req) => listCategories(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/categories', (req) =>
+    registryDb.listCategories(db, req.ownerId, req.query),
+  );
   route(app, 'GET', '/api/fields', (req) => list('fields', registry.fields, req.query));
   route(app, 'GET', '/api/field-sets', (req) => list('field-sets', registry.sets, req.query));
   route(app, 'GET', '/api/fields/{id}', (req) => get(registry.fields, req.params.id));

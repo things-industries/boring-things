@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
-import { createPool } from '../src/db/connection.js';
+import * as database from '../src/db/connection.js';
 import { readConfig } from '../src/config.js';
 
 test('Supabase connections enable TLS without a CA, preserving explicit verification', async () => {
@@ -23,7 +23,7 @@ test('Supabase connections enable TLS without a CA, preserving explicit verifica
     ['postgresql://postgres:supabase.co@database.example:5432/postgres', false],
     ['postgresql://postgres:synthetic@db.project.supabase.co.example:5432/postgres', false],
   ] as const) {
-    const pool = createPool(url);
+    const pool = database.createPool(url);
     try {
       // Resolve through pg because URL SSL parameters override the pool options.
       const client = new pg.Client(pool.options);

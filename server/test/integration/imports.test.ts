@@ -8,9 +8,19 @@ import type { Schema } from '../../../shared/model.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
-import { createPool, transaction } from '../../src/db/connection.js';
-import { seedRegistry } from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { PDFDocument } from 'pdf-lib';
+import type { Discovery, ImportAi, AiContext } from '../../src/application/import/types.js';
+import {
+  researchThing,
+  type ImportResearchOptions,
+} from '../../src/application/import/research.js';
+import { Registry } from '../../src/application/registry/registry.js';
+import { ApplicationEvents } from '../../src/application/events.js';
+import * as importsDb from '../../src/db/entities/imports.js';
+import { LocalBlobs } from '../../src/providers/blobs/local.js';
+import { DocumentSizeError } from '../../src/lib/document-limits.js';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -18,10 +28,10 @@ assert.ok(
   ['localhost', '127.0.0.1'].includes(url.hostname),
   'Integration tests require a local database',
 );
-const database = 'bt_test_' + randomUUID().replaceAll('-', '');
-const admin = createPool(url.toString());
-url.pathname = '/' + database;
-const pool = createPool(url.toString());
+const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
+const admin = database.createPool(url.toString());
+url.pathname = '/' + databaseName;
+const pool = database.createPool(url.toString());
 let app: FastifyInstance;
 const ai = new FixtureAi();
 let directory: string;
@@ -53,12 +63,12 @@ async function create(input: Partial<Schema['ThingCreate']> = {}, owner = 'alice
 }
 before(async () => {
   directory = await mkdtemp(tmpdir() + '/boring-test-');
-  await admin.query(`create database ${database}`);
+  await admin.query(`create database ${databaseName}`);
   const migrations = new URL('../../../supabase/migrations/', import.meta.url);
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   }
-  await transaction(pool, seedRegistry);
+  await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
     importAi: ai,
@@ -75,7 +85,7 @@ before(async () => {
 after(async () => {
   await app?.close();
   await pool.end();
-  await admin.query(`drop database if exists ${database} with (force)`);
+  await admin.query(`drop database if exists ${databaseName} with (force)`);
   await admin.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
@@ -320,22 +330,160 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   assert.equal(new Set(thing.undefinedFields.map((f) => f.id)).size, thing.undefinedFields.length);
   assert.equal((await request('POST', `/imports/${failed.id}:retry`)).statusCode, 409);
 });
+test('application fact batches have separate tool budgets, reject out-of-batch values and retry saved extraction', async (t) => {
+  const originalExtract = ai.extract.bind(ai);
+  const originalSelect = ai.selectFieldSets.bind(ai);
+  const originalMap = ai.mapFacts.bind(ai);
+  let extractions = 0;
+  const batches: number[] = [];
+  let invalidBatch = true;
+  t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
+    const [subject, tools] = args;
+    for (let call = 0; call < 2; call++)
+      await tools.searchFieldSets(subject.categoryId, subject.terms);
+    return originalSelect(...args);
+  });
+  t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
+    extractions++;
+    const extraction = await originalExtract(...args);
+    const subject = extraction.extractedThings[0];
+    subject.facts.push(
+      ...Array.from({ length: 19 }, (_, i) => ({
+        ...subject.facts[1],
+        id: `fact-${i + 3}`,
+        label: `Installer reference ${i + 3}`,
+      })),
+    );
+    return extraction;
+  });
+  t.mock.method(ai, 'mapFacts', async (...args: Parameters<typeof ai.mapFacts>) => {
+    const [subject, facts, selectedSets, tools] = args;
+    assert.equal(subject.name, 'Neff hob');
+    assert.equal(subject.facts.length, 21);
+    assert.deepEqual(
+      selectedSets.map((set) => set.id),
+      ['appliances.appliance', 'appliances.neff'],
+    );
+    assert.ok(
+      selectedSets.some((set) => set.fields.some((field) => field.id === 'appliances.zNumber')),
+    );
+    batches.push(facts.length);
+    if (facts.length === 1)
+      await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    if (facts.length === 1 && invalidBatch) {
+      invalidBatch = false;
+      return {
+        customFactIds: [],
+        discardedFactIds: [],
+        values: [
+          {
+            factId: 'fact-1',
+            fieldSetId: 'appliances.neff',
+            fieldId: 'appliances.zNumber',
+            value: '0015',
+            pin: false,
+          },
+        ],
+      };
+    }
+    return originalMap(...args);
+  });
+  const accepted = await start('neff');
+  const failed = await wait(accepted.importId);
+  assert.equal(failed.status, 'INCOMPLETE');
+  assert.equal(failed.error, 'import_failed');
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.equal(
+    thing.fieldSets
+      .find((s) => s.id === 'appliances.neff')!
+      .fields.find((f) => f.id === 'appliances.zNumber')!.value,
+    '0015',
+  );
+  assert.deepEqual(batches, [20, 1]);
+  assert.equal(thing.undefinedFields.length, 19);
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const completed = await wait(accepted.importId);
+  assert.equal(completed.status, 'COMPLETE', JSON.stringify(completed));
+  assert.deepEqual(completed.thingIds, [accepted.thingId]);
+  assert.equal(extractions, 1);
+  assert.deepEqual(batches, [20, 1, 1]);
+});
+test('fact decisions and Thing values roll back together, then retry preserves selection and source', async (t) => {
+  const extract = ai.extract.bind(ai),
+    select = ai.selectFieldSets.bind(ai),
+    map = ai.mapFacts.bind(ai);
+  let selections = 0;
+  t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
+    const result = await extract(...args);
+    result.extractedThings[0].facts.push({
+      id: 'fact-3',
+      label: 'Additional label marking',
+      value: 'V/C',
+      quote: 'V/C',
+      page: null,
+      sensitive: false,
+    });
+    return result;
+  });
+  t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
+    selections++;
+    return select(...args);
+  });
+  t.mock.method(ai, 'mapFacts', async (...args: Parameters<typeof ai.mapFacts>) => {
+    const result = await map(...args);
+    return { ...result, customFactIds: ['fact-2'], discardedFactIds: ['fact-3'] };
+  });
+  await pool.query(
+    "alter table bt.imports add constraint test_checkpoint_rejection check (jsonb_array_length(coalesce(extraction->'candidates'->0->'mapping'->'batches', '[]'::jsonb))=0) not valid",
+  );
+  const accepted = await start('neff');
+  try {
+    assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
+    const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+    assert.equal(thing.undefinedFields.length, 0);
+    assert.equal(
+      thing.fieldSets
+        .find((set) => set.id === 'appliances.neff')!
+        .fields.find((field) => field.id === 'appliances.zNumber')!.value,
+      null,
+    );
+  } finally {
+    await pool.query('alter table bt.imports drop constraint test_checkpoint_rejection');
+  }
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const done = await wait(accepted.importId);
+  assert.equal(done.status, 'COMPLETE');
+  assert.equal(selections, 1);
+  assert.equal('extraction' in done, false);
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.deepEqual(
+    thing.undefinedFields.map((field) => field.value),
+    ['ABC-12'],
+  );
+  assert.ok(thing.attachmentIds.includes(done.attachmentId));
+  const [saved] = await database.rows<{
+    extraction: { candidates: { mapping: { batches: { discardedFactIds: string[] }[] } }[] };
+  }>(pool, 'select extraction from bt.imports where id=$1', [accepted.importId]);
+  assert.deepEqual(saved.extraction.candidates[0].mapping.batches[0].discardedFactIds, ['fact-3']);
+});
+
 test('arbitrary model IDs never enter storage and tool exhaustion preserves partial data', async () => {
   ai.arbitraryId = true;
   const accepted = await start('neff');
   assert.equal((await wait(accepted.importId)).status, 'INCOMPLETE');
   let thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(thing.fieldSets.length, 0);
-  assert.equal(thing.undefinedFields.length, 2);
+  assert.equal(thing.undefinedFields.length, 0);
   ai.arbitraryId = false;
   ai.exhaustTools = true;
   const bounded = await start('neff'),
     job = await wait(bounded.importId);
   assert.equal(job.error, 'tool_limit');
-  assert.equal(job.usage.toolCalls.length, 4);
+  assert.equal(job.usage.toolCalls.filter((call) => call.name === 'search_field_sets').length, 1);
+  assert.equal(job.usage.toolCalls.filter((call) => call.name === 'search_fields').length, 4);
   thing = (await request('GET', `/things/${bounded.thingId}`)).json();
   assert.ok(thing.fieldSets.length);
-  assert.equal(thing.undefinedFields.length, 2);
+  assert.equal(thing.undefinedFields.length, 0);
   ai.exhaustTools = false;
 });
 test('all-existing confirmation removes untouched skeleton and redirects to selected target', async () => {
@@ -440,24 +588,63 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
   assert.deepEqual(done.thingIds, [accepted.thingId]);
 });
 
-test('discovery persists cited resources once and preserves edits on repeated writes', async () => {
-  const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
+async function researchRunner(
+  accepted: { importId: string; thingId: string },
+  discovery: Discovery | ImportAi['findResources'],
+  options: ImportResearchOptions,
+  input: {
+    extractDocument?: ImportAi['extractDocument'];
+    events?: ApplicationEvents;
+    record?: AiContext['record'];
+  } = {},
+) {
+  const patched = await request('PATCH', `/things/${accepted.thingId}`, {
+    values: [
+      { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'SYNTHETIC/01' },
+    ],
+  });
+  assert.equal(patched.statusCode, 200, patched.body);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const researchAi: ImportAi = new FixtureAi();
+  researchAi.findResources = typeof discovery === 'function' ? discovery : async () => discovery;
+  researchAi.extractDocument =
+    input.extractDocument ??
+    (async () => ({
+      applicable: true,
+      applicability: { page: 1, quote: 'Synthetic manual' },
+      values: [],
+    }));
+  return async (overrides: Partial<ImportResearchOptions> = {}) => {
+    const [target] = await importsDb.listImportTargets(pool, job);
+    await researchThing(
+      pool,
+      new Registry(registrySeedDb.fields, registrySeedDb.sets),
+      new LocalBlobs(directory),
+      researchAi,
+      input.events ?? new ApplicationEvents(),
+      job,
+      target,
+      { signal: new AbortController().signal, record: input.record ?? (async () => {}) },
+      { ...options, ...overrides },
+    );
+    return (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
+  };
+}
+
+test('imported documents preserve metadata, ownership and edits across retries', async () => {
   const accepted = await start('neff');
   await wait(accepted.importId);
-  const owner = (await request('GET', '/profile')).json().id;
-  const job = await ownedImport(pool, owner, accepted.importId),
-    [target] = await targets(pool, job);
+  const url = 'https://example.com/manual.pdf';
   const discovery = {
-    sources: ['https://example.com/manual', 'https://example.com/product'],
+    sources: [url],
     items: [
       {
         kind: 'reference' as const,
         title: 'Manual reference',
         description: 'Synthetic model source',
-        url: 'https://example.com/manual',
-        sourceUrl: 'https://example.com/manual',
+        url,
+        sourceUrl: url,
         metadata: {
           title: 'Oven manual',
           documentType: 'MANUAL' as const,
@@ -465,36 +652,42 @@ test('discovery persists cited resources once and preserves edits on repeated wr
           documentDate: '2022-03-12',
         },
       },
-      {
-        kind: 'maintenance' as const,
-        title: 'Clean filter',
-        description: 'Synthetic cited task',
-        url: 'https://example.com/manual',
-        sourceUrl: 'https://example.com/manual',
-      },
-      {
-        kind: 'consumable' as const,
-        title: 'Filter',
-        description: 'Synthetic cited compatibility',
-        url: 'https://example.com/product',
-        sourceUrl: 'https://example.com/manual',
-      },
     ],
   };
-  const blobs = new LocalBlobs(directory);
-  const options = { maxBytes: 4096, signal: new AbortController().signal };
   const document = await PDFDocument.create();
   document.addPage();
   const pdf = Buffer.from(await document.save());
-  let downloads = 0;
-  const download = async () => {
-    downloads++;
-    return pdf;
-  };
-  await persistDiscovery(pool, blobs, job, target, discovery, options, download);
-  const event = (await request('GET', `/events?thingId=${accepted.thingId}`)).json().items[0];
-  await request('PATCH', `/events/${event.id}`, { status: 'DISMISSED' });
-  await persistDiscovery(pool, blobs, job, target, discovery, options, download);
+  let downloads = 0,
+    extractions = 0;
+  const run = await researchRunner(
+    accepted,
+    discovery,
+    {
+      maxBytes: 4096,
+      searchCalls: 3,
+      download: async () => {
+        downloads++;
+        return pdf;
+      },
+    },
+    {
+      extractDocument: async () => {
+        extractions++;
+        return {
+          applicable: true,
+          applicability: { page: 1, quote: 'Synthetic manual' },
+          values: [],
+        };
+      },
+    },
+  );
+  await run();
+  await pool.query(
+    "update bt.import_targets set discovery=jsonb_set(discovery,'{documentBatches}', (select jsonb_agg(batch || '{\"firstPage\":1,\"lastPage\":1}'::jsonb) from jsonb_array_elements(discovery->'documentBatches') batch)) where import_id=$1",
+    [accepted.importId],
+  );
+  await run();
+  assert.equal(extractions, 2);
   assert.equal(downloads, 1);
   const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
     Schema['AttachmentList']
@@ -506,70 +699,44 @@ test('discovery persists cited resources once and preserves edits on repeated wr
   assert.equal(manual.publisher, 'Example maker');
   assert.equal(manual.documentDate, '2022-03-12');
   assert.equal(manual.pageCount, 1);
-  assert.deepEqual(manual.metadataSources.title, {
-    origin: 'DISCOVERY',
-    sourceRefs: [{ url: 'https://example.com/manual' }],
-  });
+  assert.deepEqual(manual.metadataSources.title, { origin: 'DISCOVERY', sourceRefs: [{ url }] });
   await request('PATCH', `/attachments/${manual.id}`, { title: 'My oven manual', publisher: null });
-  await persistDiscovery(pool, blobs, job, target, discovery, options, download);
+  await run();
   const edited = (await request('GET', `/attachments/${manual.id}`)).json<Schema['Attachment']>();
   assert.equal(edited.title, 'My oven manual');
   assert.equal(edited.publisher, null);
   assert.equal(downloads, 1);
-  assert.equal(manual.sourceUrl, 'https://example.com/manual');
+  assert.equal(manual.sourceUrl, url);
   assert.deepEqual((await request('GET', `/attachments/${manual.id}/content`)).rawPayload, pdf);
   assert.equal(
     (await request('GET', `/attachments/${manual.id}/content`, undefined, 'bob')).statusCode,
     404,
   );
   assert.equal(
-    (await request('GET', `/events?thingId=${accepted.thingId}`)).json().items.length,
-    1,
-  );
-  assert.equal((await request('GET', `/events/${event.id}`)).json().status, 'DISMISSED');
-  const purchases = (await request('GET', `/purchasables?thingId=${accepted.thingId}`)).json()
-    .items;
-  assert.equal(purchases.length, 1);
-  assert.equal(purchases[0].price, null);
-  assert.equal(purchases[0].sourceRefs[0].url, 'https://example.com/manual');
-  assert.equal(
     (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json().items.length,
     2,
   );
-  await assert.rejects(
-    persistDiscovery(
-      pool,
-      blobs,
-      job,
-      target,
-      {
-        ...discovery,
-        items: [{ ...discovery.items[0], url: 'https://invented.example/source' }],
-      },
-      options,
-      download,
-    ),
+  const { validateResource } = await import('../../src/application/import/resources.js');
+  assert.throws(() =>
+    validateResource({ ...discovery.items[0], url: 'https://invented.example/source' }, [url]),
   );
 });
 
 test('discovered names use only owner collisions and preserve existing or edited names', async () => {
-  const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
+  const { refineImportedName } = await import('../../src/application/import/resources.js');
   await create({ name: 'Bosch Oven' }, 'bob');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
-  const job = await ownedImport(pool, owner, accepted.importId);
-  const [target] = await targets(pool, job);
-  const blobs = new LocalBlobs(directory);
-  const options = { maxBytes: 4096, signal: new AbortController().signal };
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const [target] = await importsDb.listImportTargets(pool, job);
+  const signal = new AbortController().signal;
   const discovery = {
     identity: { name: 'Bosch Oven', sourceUrl: 'https://example.com/oven' },
     items: [],
     sources: ['https://example.com/oven'],
   };
-  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  await refineImportedName(pool, job, target, discovery, signal);
   assert.equal((await request('GET', `/things/${target.thingId}`)).json().name, 'Bosch Oven');
   await create({ name: 'Bosch Oven' });
   assert.equal(
@@ -586,18 +753,18 @@ test('discovered names use only owner collisions and preserve existing or edited
     ).statusCode,
     200,
   );
-  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  await refineImportedName(pool, job, target, discovery, signal);
   assert.equal(
     (await request('GET', `/things/${target.thingId}`)).json().name,
     'Bosch Oven (SYNTHETIC/01)',
   );
-  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  await refineImportedName(pool, job, target, discovery, signal);
   assert.equal(
     (await request('GET', `/things/${target.thingId}`)).json().name,
     'Bosch Oven (SYNTHETIC/01)',
   );
   await request('PATCH', `/things/${target.thingId}`, { name: 'Kitchen oven' });
-  await persistDiscovery(pool, blobs, job, target, discovery, options);
+  await refineImportedName(pool, job, target, discovery, signal);
   assert.equal((await request('GET', `/things/${target.thingId}`)).json().name, 'Kitchen oven');
   const existing = await create({
     name: 'Existing oven',
@@ -605,36 +772,27 @@ test('discovered names use only owner collisions and preserve existing or edited
   });
   const other = await start('neff', existing.id);
   await wait(other.importId);
-  const otherJob = await ownedImport(pool, owner, other.importId);
-  const [otherTarget] = await targets(pool, otherJob);
-  await persistDiscovery(pool, blobs, otherJob, otherTarget, discovery, options);
+  const otherJob = await importsDb.getOwnedImportOrThrow(pool, owner, other.importId);
+  const [otherTarget] = await importsDb.listImportTargets(pool, otherJob);
+  await refineImportedName(pool, otherJob, otherTarget, discovery, signal);
   assert.equal((await request('GET', `/things/${existing.id}`)).json().name, 'Existing oven');
   await assert.rejects(
-    persistDiscovery(
+    refineImportedName(
       pool,
-      blobs,
       job,
       target,
       {
         ...discovery,
         identity: { name: 'Invented', sourceUrl: 'https://uncited.example/' },
       },
-      options,
+      signal,
     ),
   );
 });
 
-test('failed PDF downloads preserve other results and retries skip saved files; HTML creates no attachment', async () => {
-  const { persistDiscovery } = await import('../../src/application/discovery/discovery.js');
-  const { ownedImport, targets } = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
+test('failed PDF downloads preserve documents and retries skip saved files; HTML creates no attachment', async () => {
   const accepted = await start('neff');
   await wait(accepted.importId);
-  const owner = (await request('GET', '/profile')).json().id;
-  const job = await ownedImport(pool, owner, accepted.importId);
-  const [target] = await targets(pool, job);
-  const blobs = new LocalBlobs(directory);
-  const options = { maxBytes: 4096, signal: new AbortController().signal };
   const sources = [
     'https://example.com/a.pdf',
     'https://example.com/b.pdf',
@@ -650,24 +808,494 @@ test('failed PDF downloads preserve other results and retries skip saved files; 
       sourceUrl: url,
     })),
   };
-  const pdf = Buffer.from('%PDF-1.7\nSynthetic manual\n%%EOF');
+  const document = await PDFDocument.create();
+  document.addPage();
+  const pdf = Buffer.from(await document.save());
+  let fail = true;
+  const fetched: string[] = [];
+  const run = await researchRunner(accepted, discovery, {
+    maxBytes: 4096,
+    searchCalls: 3,
+    download: async (url) => {
+      fetched.push(url);
+      if (url === sources[0] && fail) throw new Error('download failed');
+      return url === sources[2] ? null : pdf;
+    },
+  });
+  await run();
   const files = async () =>
-    (await request('GET', `/attachments?thingId=${target.thingId}`)).json<
+    (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
       Schema['AttachmentList']
     >().items;
-  await assert.rejects(
-    persistDiscovery(pool, blobs, job, target, discovery, options, async (url) => {
-      if (url === sources[0]) throw new Error('download failed');
-      return url === sources[2] ? null : pdf;
-    }),
-  );
   assert.equal((await files()).length, 2);
-  const fetched: string[] = [];
-  await persistDiscovery(pool, blobs, job, target, discovery, options, async (url) => {
-    fetched.push(url);
-    return url === sources[2] ? null : pdf;
-  });
+  fail = false;
+  fetched.length = 0;
+  await run();
   assert.deepEqual(fetched, [sources[0], sources[2]]);
   assert.equal((await files()).length, 3);
   assert.equal((await files()).filter((file) => file.mediaType === 'application/pdf').length, 2);
+});
+
+test('category document enrichment validates variants, commits cited values progressively, preserves owner clears and resumes without duplicate downloads', async () => {
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const updated = await request('PATCH', `/things/${accepted.thingId}`, {
+    addFieldSetIds: ['appliances.cookingOutput', 'appliances.electrical'],
+    values: [
+      { fieldSetId: 'appliances.neff', fieldId: 'appliances.eNumber', value: 'SYNTHETIC/01' },
+    ],
+    undefinedFields: [
+      { label: 'Public variant', value: 'UK', sensitive: true, instanceSpecific: false },
+      { label: 'Policy number', value: 'private-policy', sensitive: false },
+    ],
+  });
+  assert.equal(updated.statusCode, 200, updated.body);
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const events = new ApplicationEvents();
+  let progress = 0;
+  const unsubscribe = events.subscribe({ ownerId: owner })(() => {
+    progress++;
+  });
+  let downloads = 0,
+    extractions = 0,
+    searches = 0;
+  const budget: number[] = [];
+  const reference = (url: string) => ({
+    kind: 'reference' as const,
+    title: 'Synthetic manual',
+    description: 'Applies to SYNTHETIC/01',
+    url,
+    sourceUrl: url,
+  });
+  const findResources: ImportAi['findResources'] = async (research, _context, calls) => {
+    searches++;
+    budget.push(calls!);
+    assert.ok(research.knownFields.some((field) => field.undefinedFieldId && field.value === 'UK'));
+    assert.ok(!JSON.stringify(research).includes('private-policy'));
+    const urls = [
+      'https://example.com/wrong.pdf',
+      'https://example.com/manual.pdf',
+      'https://example.com/failure.pdf',
+    ];
+    return { sources: urls, items: urls.map(reference) };
+  };
+  const extractDocument: ImportAi['extractDocument'] = async (document, _research, targets) => {
+    extractions++;
+    if (document.url.endsWith('/wrong.pdf'))
+      return { applicable: false, applicability: null, values: [] };
+    assert.ok(targets.some((field) => field.fieldId === 'appliances.outputPower'));
+    const cleared = await request('PATCH', `/things/${accepted.thingId}`, {
+      values: [
+        { fieldSetId: 'appliances.electrical', fieldId: 'appliances.ratedInputPower', value: null },
+      ],
+    });
+    assert.equal(cleared.statusCode, 200, cleared.body);
+    return {
+      applicable: true,
+      applicability: { page: 1, quote: 'SYNTHETIC/01 UK' },
+      values: [
+        {
+          fieldSetId: 'appliances.cookingOutput',
+          fieldId: 'appliances.outputPower',
+          value: '900 W',
+          page: 1,
+          quote: 'Output power 900 W',
+        },
+        {
+          fieldSetId: 'appliances.electrical',
+          fieldId: 'appliances.ratedInputPower',
+          value: '1500 W',
+          page: 1,
+          quote: 'Input power 1500 W',
+        },
+      ],
+    };
+  };
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage();
+  page.drawText('SYNTHETIC/01 UK. Output power 900 W. Input power 1500 W.');
+  const content = Buffer.from(await pdf.save());
+  let fail = true;
+  const options = {
+    maxBytes: 4096,
+    searchCalls: 3,
+    download: async (url: string) => {
+      downloads++;
+      if (url.endsWith('/failure.pdf') && fail) throw new Error('synthetic download failure');
+      return url.endsWith('/failure.pdf') ? null : content;
+    },
+  };
+  const run = await researchRunner(accepted, findResources, options, { extractDocument, events });
+  await run();
+  assert.ok(
+    (await request('GET', `/imports/${job.id}`))
+      .json<Schema['Import']>()
+      .warnings?.some((warning) => warning.code === 'UNAVAILABLE'),
+  );
+  const result = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  const power = result.fieldSets
+    .find((set) => set.id === 'appliances.cookingOutput')!
+    .fields.find((field) => field.id === 'appliances.outputPower')!;
+  assert.equal(power.value, '900 W');
+  assert.equal(power.origin, 'DISCOVERY');
+  assert.equal(power.instanceSpecific, false);
+  assert.equal(power.sourceRefs[0].page, 1);
+  assert.equal(
+    result.fieldSets
+      .find((set) => set.id === 'appliances.electrical')!
+      .fields.find((field) => field.id === 'appliances.ratedInputPower')!.value,
+    null,
+  );
+  assert.ok(progress >= 3);
+  assert.equal(
+    (await request('GET', `/attachments?thingId=${accepted.thingId}`))
+      .json<Schema['AttachmentList']>()
+      .items.filter((file) => file.mediaType === 'application/pdf').length,
+    1,
+  );
+  assert.equal('researchOutcomes' in (await request('GET', `/imports/${job.id}`)).json(), false);
+  assert.equal((await request('GET', `/imports/${job.id}`, undefined, 'bob')).statusCode, 404);
+  const before = { downloads, extractions };
+  fail = false;
+  await run();
+  assert.equal(extractions, before.extractions + 1); // Only the rejected variant is reconsidered.
+  assert.equal(downloads, before.downloads + 2); // Saved manual bytes are reused.
+  assert.deepEqual(budget, [3, 3]);
+  assert.equal(searches, 2);
+  unsubscribe();
+});
+
+test('optional research failures complete with warnings and retry without reimporting fields', async (t) => {
+  const failing = t.mock.method(ai, 'findResources', async () => {
+    throw new Error('Synthetic research failure');
+  });
+  const existing = await create({
+    categoryId: 'appliances',
+    values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+  });
+  const accepted = await start('neff', existing.id);
+  const completed = await wait(accepted.importId);
+  assert.equal(completed.status, 'COMPLETE');
+  assert.equal(completed.error, null);
+  assert.equal(completed.warnings?.[0].code, 'RESEARCH_FAILED');
+  assert.equal(completed.warnings?.[0].retryable, true);
+  const before = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.ok(before.fieldSets.length);
+  assert.equal(before.import?.warnings?.[0].code, 'RESEARCH_FAILED');
+  failing.mock.restore();
+  assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
+  const retried = await wait(accepted.importId);
+  assert.equal(retried.status, 'COMPLETE');
+  assert.deepEqual(retried.warnings, []);
+  assert.deepEqual(retried.thingIds, completed.thingIds);
+  const after = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.deepEqual(after.fieldSets, before.fieldSets);
+  await pool.query('update bt.import_targets set discovery=null where import_id=$1', [
+    accepted.importId,
+  ]);
+  const failure = new Error('Synthetic usage persistence failure');
+  const run = await researchRunner(
+    accepted,
+    async (_research, context) => {
+      await context.record({});
+      return { items: [], sources: [] };
+    },
+    { maxBytes: 4096, searchCalls: 1 },
+    {
+      record: async () => {
+        throw failure;
+      },
+    },
+  );
+  await assert.rejects(run(), { cause: failure });
+});
+
+test('research values and checkpoints roll back together on persistence failure', async () => {
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  const content = Buffer.from(await pdf.save());
+  const url = 'https://example.com/manual.pdf';
+  const run = await researchRunner(
+    accepted,
+    {
+      sources: [url],
+      items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
+    },
+    { maxBytes: 4096, searchCalls: 1, download: async () => content },
+    {
+      extractDocument: async () => ({
+        applicable: true,
+        applicability: { page: 1, quote: 'Synthetic manual' },
+        values: [
+          {
+            fieldSetId: 'appliances.appliance',
+            fieldId: 'common.manufacturer',
+            value: 'Example maker',
+            page: 1,
+            quote: 'Example maker',
+          },
+        ],
+      }),
+    },
+  );
+  await pool.query(
+    "alter table bt.import_targets add constraint test_checkpoint_rejection check (jsonb_array_length(coalesce(discovery->'documentBatches', '[]'::jsonb))=0) not valid",
+  );
+  try {
+    await assert.rejects(run(), { code: '23514' });
+    const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+    assert.equal(
+      thing.fieldSets
+        .find((set) => set.id === 'appliances.appliance')!
+        .fields.find((field) => field.id === 'common.manufacturer')!.value,
+      null,
+    );
+    assert.deepEqual(
+      (await request('GET', `/imports/${accepted.importId}`)).json<Schema['Import']>().warnings,
+      [],
+    );
+  } finally {
+    await pool.query('alter table bt.import_targets drop constraint test_checkpoint_rejection');
+  }
+  await run();
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.equal(
+    thing.fieldSets
+      .find((set) => set.id === 'appliances.appliance')!
+      .fields.find((field) => field.id === 'common.manufacturer')!.value,
+    'Example maker',
+  );
+});
+
+test('oversized research documents are cached, skipped on retry and reconsidered after a limit change', async () => {
+  const existing = await create({
+    categoryId: 'appliances',
+    values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+  });
+  const accepted = await start('neff', existing.id);
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const url = 'https://example.com/large.pdf';
+  const discovery: Discovery = {
+    sources: [url],
+    items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
+  };
+  const [initialTarget] = await importsDb.listImportTargets(pool, job);
+  await importsDb.saveTargetDiscovery(pool, job, initialTarget.candidateId, {
+    sources: [url],
+    items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
+  });
+  let downloads = 0;
+  const options = {
+    maxBytes: 1000,
+    searchCalls: 1,
+    download: async (_url: string, input: { maxBytes: number }) => {
+      downloads++;
+      if (input.maxBytes < 2000) throw new DocumentSizeError(2000, input.maxBytes);
+      return null;
+    },
+  };
+  const run = await researchRunner(accepted, discovery, options);
+  const rejected = await run({ maxBytes: 1000 });
+  assert.equal(rejected.warnings?.[0].code, 'SIZE_LIMIT');
+  assert.equal(rejected.warnings?.[0].actual, 2000);
+  assert.equal(rejected.warnings?.[0].limit, 1000);
+  await run({ maxBytes: 1000 });
+  assert.equal(downloads, 1);
+  const reconsidered = await run({ maxBytes: 3000 });
+  assert.equal(downloads, 2);
+  assert.ok(!reconsidered.warnings?.some((warning) => warning.code === 'SIZE_LIMIT'));
+});
+
+test('research retry searches once for alternatives and extracts text beyond page 100', async () => {
+  const existing = await create({
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.cookingOutput'],
+    values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
+  });
+  const accepted = await start('neff', existing.id);
+  await wait(accepted.importId);
+  const owner = (await request('GET', '/profile')).json().id;
+  const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
+  const [initialTarget] = await importsDb.listImportTargets(pool, job);
+  const large = 'https://example.com/large.pdf';
+  const alternative = 'https://example.com/english.pdf';
+  const reference = (url: string) => ({
+    kind: 'reference' as const,
+    title: 'Manual',
+    description: '',
+    url,
+    sourceUrl: url,
+  });
+  await importsDb.saveTargetDiscovery(pool, job, initialTarget.candidateId, {
+    sources: [large],
+    items: [reference(large)],
+    warnings: [
+      { code: 'SIZE_LIMIT', sourceUrl: large, retryable: false, actual: 100001, limit: 100000 },
+    ],
+  });
+  const pdf = await PDFDocument.create();
+  for (let page = 1; page <= 101; page++) {
+    const sheet = pdf.addPage();
+    if (page === 1) sheet.drawText('SYNTHETIC/01');
+    if (page === 101) sheet.drawText('Output power 900 W');
+  }
+  const content = Buffer.from(await pdf.save());
+  let searches = 0,
+    downloads = 0,
+    extractions = 0;
+  const findResources: ImportAi['findResources'] = async (research, _context, calls) => {
+    searches++;
+    assert.equal(calls, 3);
+    assert.deepEqual(research.documentLimits, { maxBytes: 100000, maxTextCharacters: 1000000 });
+    assert.equal(research.rejectedDocuments?.[0].sourceUrl, large);
+    assert.equal(research.rejectedDocuments?.[0].code, 'SIZE_LIMIT');
+    return { sources: [alternative], items: [reference(alternative)] };
+  };
+  const extractDocument: ImportAi['extractDocument'] = async (document) => {
+    extractions++;
+    assert.equal(document.pageCount, 101);
+    assert.equal(document.text, '[PDF page 1]\nSYNTHETIC/01\n\n[PDF page 101]\nOutput power 900 W');
+    return {
+      applicable: true,
+      applicability: { page: 1, quote: 'SYNTHETIC/01' },
+      values: [
+        {
+          fieldSetId: 'appliances.cookingOutput',
+          fieldId: 'appliances.outputPower',
+          value: '900 W',
+          page: 101,
+          quote: 'Output power 900 W',
+        },
+      ],
+    };
+  };
+  const options = {
+    maxBytes: 100000,
+    searchCalls: 3,
+    download: async (url: string) => {
+      downloads++;
+      if (url === large) throw new DocumentSizeError(100001, 100000);
+      return content;
+    },
+  };
+  const run = await researchRunner(accepted, findResources, options, { extractDocument });
+  await run();
+  assert.equal(searches, 1);
+  assert.equal(downloads, 1);
+  assert.equal(extractions, 1);
+  const completed = (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
+  assert.ok(completed.warnings?.some((warning) => warning.code === 'SIZE_LIMIT'));
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  const output = thing.fieldSets
+    .find((set) => set.id === 'appliances.cookingOutput')
+    ?.fields.find((field) => field.id === 'appliances.outputPower');
+  assert.equal(output?.value, '900 W');
+  assert.equal(output?.sourceRefs?.[0].page, 101);
+  const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
+    Schema['AttachmentList']
+  >().items;
+  assert.equal(files.filter((file) => file.mediaType === 'application/pdf').length, 1);
+  assert.equal(files.find((file) => file.mediaType === 'application/pdf')?.pageCount, 101);
+  await run();
+  assert.equal(downloads, 1);
+  assert.equal(extractions, 1);
+});
+
+test('research images preserve provenance, owner choices and removals; image failures preserve documents', async () => {
+  const { createCanvas } = await import('@napi-rs/canvas');
+  const { validateProductImage } = await import('../../src/providers/web/image.js');
+  const photo = await validateProductImage(await createCanvas(300, 300).encode('png'));
+  const imageUrl = 'https://manufacturer.example/model/photo.png';
+  const sourceUrl = 'https://manufacturer.example/model';
+  const image = {
+    kind: 'image' as const,
+    title: 'Product photo',
+    description: 'Official model photo',
+    url: imageUrl,
+    sourceUrl,
+  };
+  const discovery = { items: [image], sources: [imageUrl, sourceUrl] };
+  const options = { maxBytes: 100000, searchCalls: 3, downloadImage: async () => photo };
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const save = await researchRunner(accepted, discovery, options);
+  await save();
+  const saved = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.ok(saved.imageAttachmentId);
+  const metadata = (await request('GET', `/attachments/${saved.imageAttachmentId}`)).json<
+    Schema['Attachment']
+  >();
+  assert.equal(metadata.mediaType, 'image/png');
+  assert.equal(metadata.sourceUrl, imageUrl);
+  assert.deepEqual(metadata.metadataSources.title, {
+    origin: 'DISCOVERY',
+    sourceRefs: [{ url: sourceUrl }],
+  });
+  assert.equal(
+    (await request('GET', `/attachments/${saved.imageAttachmentId}`, undefined, 'bob')).statusCode,
+    404,
+  );
+  await save();
+  assert.equal(
+    (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>().attachmentIds
+      .length,
+    2,
+  );
+  await request('PATCH', `/things/${accepted.thingId}`, { imageAttachmentId: null });
+  await save();
+  assert.equal(
+    (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>().imageAttachmentId,
+    null,
+  );
+
+  const second = await start('neff');
+  await wait(second.importId);
+  const saveSecond = await researchRunner(second, discovery, options);
+  await saveSecond();
+  const secondSaved = (await request('GET', `/things/${second.thingId}`)).json<Schema['Thing']>();
+  assert.ok(secondSaved.imageAttachmentId);
+  const unlinked = await request(
+    'DELETE',
+    `/attachments/${secondSaved.imageAttachmentId}/things/${second.thingId}`,
+  );
+  assert.equal(unlinked.statusCode, 204, unlinked.body);
+  await saveSecond();
+  const removed = (await request('GET', `/things/${second.thingId}`)).json<Schema['Thing']>();
+  assert.equal(removed.imageAttachmentId, null);
+  assert.ok(!removed.attachmentIds.includes(secondSaved.imageAttachmentId));
+
+  const third = await start('neff');
+  await wait(third.importId);
+  const manualUrl = 'https://manufacturer.example/manual.pdf';
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  const content = Buffer.from(await pdf.save());
+  const manual = {
+    kind: 'reference' as const,
+    title: 'Manual',
+    description: '',
+    url: manualUrl,
+    sourceUrl: manualUrl,
+  };
+  const fail = await researchRunner(
+    third,
+    { items: [manual, image], sources: [manualUrl, imageUrl, sourceUrl] },
+    {
+      ...options,
+      download: async () => content,
+      downloadImage: async () => validateProductImage(Buffer.from('invalid image')),
+    },
+  );
+  await fail();
+  const failed = (await request('GET', `/things/${third.thingId}`)).json<Schema['Thing']>();
+  assert.equal(failed.attachmentIds.length, 2);
+  assert.equal(failed.imageAttachmentId, null);
+  const result = (await request('GET', `/imports/${third.importId}`)).json<Schema['Import']>();
+  assert.equal(result.status, 'COMPLETE');
+  assert.ok(result.warnings?.some((warning) => warning.sourceUrl === imageUrl));
 });

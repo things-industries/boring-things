@@ -24,7 +24,7 @@ test('configuration defaults and parsed values are isolated from their environme
   assert.equal(defaults.blobStorage, 'local');
   assert.equal(defaults.s3, undefined);
   assert.equal(defaults.port, 3000);
-  assert.equal(defaults.maxUploadBytes, 20971520);
+  assert.equal(defaults.maxUploadBytes, 100000000);
   assert.equal(defaults.chatTimeoutMs, 180000);
   assert.equal(defaults.sampleDataEnabled, false);
   const env = { PORT: '4000', CHAT_TIMEOUT_MS: '1500', ENABLE_SAMPLE_DATA: 'true' };
@@ -57,6 +57,7 @@ test('workflow limits reject invalid values and retain numeric defaults', () => 
     'DISCOVERY_TIMEOUT_MS',
     'DISCOVERY_SEARCH_CALLS',
     'AI_MAX_OUTPUT_TOKENS',
+    'MAX_UPLOAD_BYTES',
   ]) {
     for (const value of ['', 'no', '0', '-1', '1.5', 'Infinity', '9007199254740992'])
       assert.throws(() => readConfig({ [name]: value }), new RegExp('Invalid ' + name));
@@ -71,5 +72,17 @@ test('production validates authentication, database and storage together', () =>
   assert.throws(
     () => readConfig({ ...production, BLOB_STORAGE: 'local' }),
     /requires BLOB_STORAGE=s3/,
+  );
+});
+
+test('document extraction model has independent configuration with the import model fallback', () => {
+  assert.equal(
+    readConfig({ OPENAI_MODEL: 'import-model' }).documentExtractionModel,
+    'import-model',
+  );
+  assert.equal(
+    readConfig({ OPENAI_MODEL: 'import-model', DOCUMENT_EXTRACTION_MODEL: 'document-model' })
+      .documentExtractionModel,
+    'document-model',
   );
 });

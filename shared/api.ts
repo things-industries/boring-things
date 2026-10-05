@@ -626,7 +626,7 @@ export interface paths {
         put?: never;
         /**
          * Retry import
-         * @description Queues another attempt for a failed or incomplete import, reusing its saved progress. Returns 409 if the import is in another state, a target was deleted or a target has another active import.
+         * @description Queues another attempt for a failed or incomplete import, or retries optional research on a completed import with warnings. Reuses saved progress and completed document batches. Returns 409 if there is no work to retry, a target was deleted or a target has another active import.
          */
         post: operations["retryImport"];
         delete?: never;
@@ -776,6 +776,8 @@ export interface components {
             sensitive: boolean;
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Field definition with its current value, source information and masking state. */
         Field: {
@@ -792,6 +794,8 @@ export interface components {
             sourceRefs: components["schemas"]["SourceRef"][];
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Category-specific group of field definitions, required dependencies and suggested related sets. */
         FieldSet: {
@@ -826,6 +830,8 @@ export interface components {
             origin: components["schemas"]["FieldOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
             valueType: components["schemas"]["ValueTypeEnum"];
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Thing category with display settings and the number of your Things in that category. */
         Category: {
@@ -932,6 +938,8 @@ export interface components {
                 thingIds: string[];
                 error: string | null;
                 usage: components["schemas"]["ImportUsage"];
+                /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
+                warnings?: components["schemas"]["ImportWarning"][];
             } | null;
             /** @description Number of explicit user views recorded for this Thing. */
             accessCount: number;
@@ -947,13 +955,15 @@ export interface components {
             fieldId: string;
             value: components["schemas"]["NullableValue"];
         };
-        /** @description Update to a custom field, including its label, value and sensitivity. */
+        /** @description Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific. */
         UndefinedPatch: {
             /** Format: uuid */
             id?: string;
             label: string;
             value: components["schemas"]["Value"];
             sensitive: boolean;
+            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
+            instanceSpecific?: boolean;
         };
         /** @description Properties for creating a Thing, including its category and optional fields, tags and pins. */
         ThingCreate: {
@@ -1276,6 +1286,8 @@ export interface components {
                 resultCount: number;
                 truncated: boolean;
             }[];
+            /** @description Per-request task, model, token counts and latency, including retries. Older jobs may omit these entries. */
+            entries?: components["schemas"]["AiUsageEntry"][];
         };
         /** @description Import status, detected candidates, resulting Thing IDs and processing details. */
         Import: {
@@ -1290,6 +1302,8 @@ export interface components {
             thingIds: string[];
             error: string | null;
             usage: components["schemas"]["ImportUsage"];
+            /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
+            warnings?: components["schemas"]["ImportWarning"][];
         };
         /** @description Attachment to process and an optional existing Thing to update. */
         ImportStart: {
@@ -1403,6 +1417,29 @@ export interface components {
             publisher?: components["schemas"]["AttachmentMetadataSource"];
             documentDate?: components["schemas"]["AttachmentMetadataSource"];
         };
+        /** @description Usage for one provider request, identified by task and model. */
+        AiUsageEntry: {
+            task: string;
+            model: string;
+            inputTokens: number;
+            outputTokens: number;
+            cachedTokens: number;
+            elapsedMs: number;
+        };
+        /** @description A research operation that could not complete, with a generic reason and optional public source URL. */
+        ImportWarning: {
+            /** Format: uuid */
+            thingId: string;
+            code: components["schemas"]["ImportWarningCodeEnum"];
+            /** @description Cited public document URL, or null for a search or overall processing warning. */
+            sourceUrl: string | null;
+            /** @description Whether another attempt may succeed without changing the document limits. */
+            retryable: boolean;
+            /** @description Observed byte size, text character count or page count, when known. */
+            actual: number | null;
+            /** @description Applicable byte, text character or page limit, when known. */
+            limit: number | null;
+        };
         /**
          * @description Whether an issue is open or resolved.
          * @enum {string}
@@ -1439,17 +1476,17 @@ export interface components {
          */
         UiHintEnum: "TEXT" | "TEXTAREA" | "NUMBER" | "CHECKBOX" | "SELECT" | "DATE" | "DATETIME" | "MONEY" | "PASSWORD";
         /**
-         * @description Whether a field value was entered by the user or obtained from an import.
+         * @description Whether a field value was entered by the user, extracted from an uploaded source or enriched from a reference document.
          * @enum {string}
          */
-        FieldOriginEnum: "USER" | "IMPORT";
+        FieldOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
         /**
          * @description Data type of a custom field value.
          * @enum {string}
          */
         ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY";
         /**
-         * @description Current stage or outcome of document processing.
+         * @description Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.
          * @enum {string}
          */
         ImportStatusEnum: "QUEUED" | "EXTRACTING" | "AWAITING_SELECTION" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED";
@@ -1478,6 +1515,11 @@ export interface components {
          * @enum {string}
          */
         AttachmentMetadataOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
+        /**
+         * @description Reason an optional research operation could not complete. PAGE_BUDGET identifies persisted page-limited imports.
+         * @enum {string}
+         */
+        ImportWarningCodeEnum: "SIZE_LIMIT" | "MODEL_INPUT_LIMIT" | "PAGE_BUDGET" | "TIMEOUT" | "UNAVAILABLE" | "EXTRACTION_FAILED" | "RESEARCH_FAILED";
     };
     responses: {
         /** @description A valid bearer token is required. */

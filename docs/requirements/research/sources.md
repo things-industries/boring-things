@@ -1,5 +1,16 @@
 # Sources
 
+## Import provider evaluation — 4 October 2026
+
+References for the [import improvement plan](../../plans/import-improvements.md). Capabilities establish evaluation options; task-specific quality, latency and savings require measurement.
+
+- [OpenAI SDKs](https://developers.openai.com/api/docs/libraries): official JavaScript/TypeScript client for provider requests.
+- [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs): supported JSON Schema subset and response-shape guarantees; factual correctness still requires evaluation.
+- [OpenAI cost optimisation](https://developers.openai.com/api/docs/guides/cost-optimization): reduce requests and tokens and evaluate smaller models for bounded tasks.
+- [OpenAI evaluation practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices): representative task-specific evaluations and comparison against labelled examples.
+- [Jev tutorial](https://openrouter.ai/docs/guides/community/jev-tutorial): typed choice, boolean and score decisions over supplied context.
+- [Firecrawl search](https://docs.firecrawl.dev/features/search): web search with optional content retrieval, image results and PDF search.
+
 ## Fieldset catalogue — 30 September 2026
 
 - [fieldsets-review.csv](fieldsets-review.csv): reviewed contents of `bt.field_sets`, using its eight columns in table order. Contains 154 new sets and revisions to all 11 existing seeded sets. Array columns use PostgreSQL `text[]` literals; `{}` is an empty array. Field order in `field_ids` is display order.

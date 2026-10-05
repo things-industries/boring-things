@@ -16,6 +16,7 @@ export interface LocalField extends StoredValue {
   id: string;
   label: string;
   sensitive: boolean;
+  instanceSpecific?: boolean;
 }
 export interface ThingData {
   userEdited?: string[];
