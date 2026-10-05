@@ -474,6 +474,34 @@ test('text-only questions return messages without intent or new activity', async
   for (const resource of ['events', 'issues'])
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
 });
+test('invalid cards are skipped without failing the answer', async () => {
+  const { thing, chat } = await setup();
+  const foreign = await setup('bob');
+  ai.probe = async (_input, execute) => {
+    const result = await execute('show_cards', {
+      cards: [
+        { type: 'FIELD', id: thing.id, fieldSetId: null, fieldId: randomUUID(), page: null },
+        { type: 'THING', id: foreign.thing.id, fieldSetId: null, fieldId: null, page: null },
+      ],
+    });
+    assert.deepEqual(result.output, {
+      shown: 0,
+      skipped: [
+        { index: 0, reason: 'Unknown field' },
+        { index: 1, reason: 'Card was not retrieved' },
+      ],
+    });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'What is saved?',
+    requestId: randomUUID(),
+  });
+  const { message } = await wait(chat.id);
+  assert.equal(message.status, 'COMPLETE');
+  assert.ok(
+    message.cards.every((card) => card.type !== 'THING' || card.thingId !== foreign.thing.id),
+  );
+});
 test('writes require a retrieved owned Thing and valid arguments', async () => {
   const { thing } = await setup();
   const foreign = await setup('bob');

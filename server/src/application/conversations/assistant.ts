@@ -240,23 +240,33 @@ export class Assistant {
         this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       } else if (name === 'show_cards') {
         const selected = (args as unknown as ShowCardsInput).cards;
+        // Invalid cards are reported back to the model instead of failing the answer.
+        const skipped: { index: number; reason: string }[] = [];
 
-        for (const c of selected) {
-          ensure(
-            allowedResources.has(
+        for (const [index, c] of selected.entries()) {
+          if (
+            !allowedResources.has(
               (c.type === 'FIELD' ? 'thing' : c.type.toLowerCase()) + ':' + c.id,
-            ),
-            'Card was not retrieved',
-          );
+            )
+          ) {
+            skipped.push({ index, reason: 'Card was not retrieved' });
+            continue;
+          }
 
           if (c.type === 'FIELD') {
             const thing = allowedThings.get(c.id);
-            ensure(thing, 'Read the Thing first');
+            if (!thing) {
+              skipped.push({ index, reason: 'Read the Thing first' });
+              continue;
+            }
             const fields = c.fieldSetId
               ? thing.fieldSets.find((s) => s.id === c.fieldSetId)?.fields
               : thing.standaloneFields;
             const field = fields?.find((f) => f.id === c.fieldId);
-            ensure(field, 'Unknown field');
+            if (!field) {
+              skipped.push({ index, reason: 'Unknown field' });
+              continue;
+            }
             addCard({
               type: 'FIELD',
               thingId: c.id,
@@ -280,7 +290,10 @@ export class Assistant {
           else addCard({ type: 'PURCHASABLE', purchasableId: c.id });
         }
 
-        output = { shown: selected.length };
+        output = {
+          shown: selected.length - skipped.length,
+          ...(skipped.length ? { skipped } : {}),
+        };
       }
 
       signal.throwIfAborted();
