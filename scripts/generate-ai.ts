@@ -19,6 +19,8 @@ const generatedTypes = astToString(
           Mapping: schemas.$defs.mapping,
           Discovery: schemas.$defs.discovery,
           DocumentExtraction: schemas.$defs.documentExtraction,
+          TaskSuggestions: schemas.$defs.taskSuggestions,
+          PurchasableSuggestions: schemas.$defs.purchasableSuggestions,
           ...Object.fromEntries(
             [...schemas.registryTools, ...schemas.chatTools].map((tool) => [
               tool.name,

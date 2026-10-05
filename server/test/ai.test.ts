@@ -533,3 +533,161 @@ test('AI attachment metadata validates calendar dates without unknown-format war
   }
   assert.equal(warnings.mock.callCount(), 0);
 });
+
+test('SDK task suggestions research mapped public fields in one bounded structured request', async (t) => {
+  const url = 'https://manufacturer.example/manual';
+  const requests: Record<string, unknown>[] = [];
+  const entries: Partial<Usage>[] = [];
+  const research = {
+    categoryId: 'appliances',
+    knownFields: [
+      {
+        fieldSetId: null,
+        fieldId: 'common.model',
+        label: 'Model',
+        description: '',
+        value: 'Model A',
+      },
+    ],
+    referenceUrls: [url],
+    existingTasks: [{ title: 'Private owner title', status: 'DISMISSED' as const }],
+  };
+  let sourceUrl: string | null = url;
+  const item = {
+    title: 'Clean the filter',
+    description: 'Clean every six months.',
+    quote: 'Clean every six months.',
+  };
+  const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    requests.push(body);
+    assert.equal(body.store, false);
+    assert.match(body.input, /Model A/);
+    assert.ok(!body.input.includes('Private owner title'));
+    assert.ok(!body.input.includes('Imported facts'));
+    const properties = body.text.format.schema.properties.items.items.properties;
+    assert.ok(!('factId' in properties));
+    assert.equal(properties.sourceUrl.type, 'string');
+    const response = output({ items: [{ ...item, sourceUrl }] });
+    return jsonResponse({
+      ...response,
+      output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
+      usage: { input_tokens: 25, output_tokens: 10 },
+    });
+  });
+  const ai = new OpenAiImports('test-key', 'import-model');
+  const suggestions = await ai.suggestTasks(
+    research,
+    {
+      ...context(),
+      record: async (entry) => {
+        entries.push(entry);
+      },
+    },
+    2,
+  );
+  assert.deepEqual(suggestions.items, [
+    {
+      title: item.title,
+      description: item.description,
+      sourceRefs: [{ url, quote: item.quote }],
+    },
+  ]);
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(requests[0].max_tool_calls, 2);
+  assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
+  assert.deepEqual(requests[0].include, ['web_search_call.action.sources']);
+  assert.deepEqual(
+    entries.flatMap((entry) => entry.entries ?? []).map((entry) => entry.task),
+    ['task_suggestions'],
+  );
+  assert.equal(entries.flatMap((entry) => entry.toolCalls ?? []).length, 1);
+  assert.deepEqual(
+    await ai.suggestTasks(
+      { ...research, existingTasks: [{ title: item.title, status: 'DISMISSED' }] },
+      context(),
+    ),
+    { items: [] },
+  );
+  sourceUrl = 'https://invented.example/manual';
+  await assert.rejects(ai.suggestTasks(research, context()), /Uncited task source/);
+  sourceUrl = 'http://localhost/private';
+  await assert.rejects(ai.suggestTasks(research, context()), /Uncited task source/);
+  sourceUrl = null;
+  await assert.rejects(ai.suggestTasks(research, context()), /Invalid AI output/);
+  const before = fetch.mock.callCount();
+  assert.deepEqual(await ai.suggestTasks({ ...research, knownFields: [] }, context()), {
+    items: [],
+  });
+  assert.equal(fetch.mock.callCount(), before);
+});
+
+test('SDK purchasable research discovers products and purchase links within one bounded operation', async (t) => {
+  const url = 'https://manufacturer.example/filter-0015';
+  const requests: Record<string, unknown>[] = [];
+  let product = {
+    kind: 'CONSUMABLE',
+    name: 'Filter 0015',
+    description: 'Fits Model A',
+    merchantUrl: url,
+    sourceUrl: url,
+    quote: '0015 fits Model A',
+  };
+  const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    requests.push(body);
+    assert.match(body.input, /Find useful purchasables/);
+    assert.match(body.input, /consumables/);
+    assert.ok(!body.input.includes('Private owner product'));
+    assert.equal(body.text.format.schema.properties.items.type, 'array');
+    const response = output({ items: [product] });
+    return jsonResponse({
+      ...response,
+      output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
+    });
+  });
+  const ai = new OpenAiImports('test-key', 'import-model');
+  const research = {
+    categoryId: 'appliances',
+    knownFields: [
+      {
+        fieldSetId: null,
+        fieldId: 'common.model',
+        label: 'Model',
+        description: '',
+        value: 'Model A',
+      },
+    ],
+    referenceUrls: [],
+    existingPurchasables: [{ kind: 'CONSUMABLE' as const, name: 'Private owner product' }],
+  };
+  assert.deepEqual(await ai.findPurchasables(research, context(), 2), {
+    items: [
+      {
+        kind: 'CONSUMABLE',
+        name: 'Filter 0015',
+        description: 'Fits Model A',
+        merchantUrl: url,
+        sourceRefs: [{ url, quote: product.quote }],
+      },
+    ],
+  });
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(requests[0].max_tool_calls, 2);
+  assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
+  assert.deepEqual(requests[0].include, ['web_search_call.action.sources']);
+  assert.deepEqual(
+    await ai.findPurchasables(
+      { ...research, existingPurchasables: [{ kind: 'CONSUMABLE', name: product.name }] },
+      context(),
+    ),
+    { items: [] },
+  );
+  product = { ...product, merchantUrl: 'https://invented.example/filter' };
+  await assert.rejects(ai.findPurchasables(research, context()), /Uncited purchasable/);
+  const before = fetch.mock.callCount();
+  assert.deepEqual(await ai.findPurchasables({ ...research, knownFields: [] }, context()), {
+    items: [],
+  });
+  assert.equal(fetch.mock.callCount(), before);
+});

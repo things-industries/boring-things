@@ -20,7 +20,6 @@ import type { DocumentDownload } from '../../providers/web/pdf.js';
 import * as database from '../../db/connection.js';
 import * as thingsDb from '../../db/entities/things.js';
 import * as attachmentsDb from '../../db/entities/attachments.js';
-import * as discoveryDb from '../../db/entities/discovery.js';
 import * as importsDb from '../../db/entities/imports.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import { downloadPdf } from '../../providers/web/pdf.js';
@@ -43,7 +42,7 @@ import {
   validateResource,
 } from './resources.js';
 
-class ResearchPersistenceError extends Error {
+export class ResearchPersistenceError extends Error {
   constructor(cause: unknown) {
     super('Research persistence failed', { cause });
   }
@@ -192,7 +191,7 @@ class ResearchSession {
         const savedUrls = new Set<string>();
         for (const item of references) {
           if (
-            await discoveryDb.findDiscoveryAttachment(
+            await attachmentsDb.findDiscoveryAttachment(
               this.pool,
               this.job.ownerId,
               resourceKey(this.job.id, this.destination.candidateId, item),
@@ -362,7 +361,7 @@ class ResearchSession {
       return false;
     }
     const key = resourceKey(job.id, destination.candidateId, item);
-    let file = await discoveryDb.findDiscoveryAttachment(pool, job.ownerId, key);
+    let file = await attachmentsDb.findDiscoveryAttachment(pool, job.ownerId, key);
     const research = await this.readThing();
     if (!research) return false;
     const fields = research.emptyFields.filter(

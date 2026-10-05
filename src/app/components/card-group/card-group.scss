@@ -5,3 +5,6 @@
   border-radius: tokens.radius(card);
   background: tokens.color('white');
 }
+:host(.has-action) {
+  padding-right: tokens.space(1);
+}

@@ -8,6 +8,8 @@ import type {
   ResearchThing,
   EmptyResearchField,
   ReferenceDocument,
+  TaskResearch,
+  PurchasableResearch,
 } from '../../application/import/types.js';
 import type { PublicField } from '../../application/public-fields.js';
 import type { ChatInput } from '../../application/conversations/types.js';
@@ -68,6 +70,46 @@ export function categoryResearchPrompt(categoryId: string): string {
     utilities: 'Find the service or tariff documentation matching the provider and product.',
   };
   return byCategory[categoryId] ?? 'Find supporting reference documents relevant to the Thing.';
+}
+
+export function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
+  const guidance: Record<string, string> = {
+    appliances:
+      'Manufacturer-recommended cleaning, consumable replacement, inspection and/or servicing.',
+    devices: 'Documented care, maintenance and upkeep.',
+    vehicles:
+      'Manufacturer-recommended servicing, inspections and part-replacement requirements, retaining time and distance conditions.',
+    memberships: 'Documented renewal and required member actions, review of value.',
+    subscriptions: 'Documented renewal, cancellation deadlines and required account actions.',
+    insurance: 'Documented renewal review and policy-required actions.',
+    utilities:
+      'Required meter readings, tariff reviews and renewal actions supported by the contract.',
+  };
+  const subject = {
+    categoryId: research.categoryId,
+    knownFields: research.knownFields,
+    referenceUrls: research.referenceUrls,
+  };
+  return `${thingDefinition}  Find useful management tasks for a Thing. Suitable task ideas for this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs and prefer official manufacturer or provider documentation. Establish applicability to the model, variant, region and service version where relevant. Preserve supported instructions, intervals, usage thresholds and conditions. Every task needs supporting evidence of applicability to the thing. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 3 distinct suggested tasks from public research. Use a supporting URL observed through web search with a supporting quote for every task. Keep secrets and individual identifiers out of task text. Return an empty items array when none are justifiable.  Finding no applicable tasks is a valid outcome.`;
+}
+
+export function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: number) {
+  const guidance: Record<string, string> = {
+    appliances: 'Useful documented consumables: filters, bags, cartridges and cleaning supplies.',
+    devices: 'Compatible accessories: chargers, docks, cases and mounts.',
+    vehicles: 'Documented consumables and compatible accessories.',
+    memberships: 'Usually no purchasables.',
+    subscriptions: 'Usually no purchasables.',
+    insurance: 'Usually no purchasables.',
+    utilities:
+      'Usually no purchasables; include only products required or supported by the service documentation.',
+  };
+  const subject = {
+    categoryId: research.categoryId,
+    knownFields: research.knownFields,
+    referenceUrls: research.referenceUrls,
+  };
+  return `${thingDefinition}  Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs an observed direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Every merchantUrl and sourceUrl must be observed through web search. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
 export function resourceSearchPrompt(research: ResearchThing, searchCalls: number) {

@@ -114,21 +114,17 @@ export class Assistant {
       const thing = await detail(this.pool, job.ownerId, id, this.registry);
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
-      const { attachments, activity, truncated } = await conversationsDb.getOwnedChatResources(
-        this.pool,
-        job.ownerId,
-        id,
-      );
-      for (const a of attachments) allowedResources.add('attachment:' + a.id);
+      const resources = await conversationsDb.getOwnedChatResources(this.pool, job.ownerId, id);
+      for (const a of resources.attachments) allowedResources.add('attachment:' + a.id);
 
       for (const [kind, table] of [
         ['event', 'events'],
         ['issue', 'issues'],
         ['purchasable', 'purchasables'],
       ] as const)
-        activity[table].forEach((i) => allowedResources.add(kind + ':' + i.id));
+        resources[table].forEach((i) => allowedResources.add(kind + ':' + i.id));
 
-      return chatThingContext(thing, { attachments, activity, truncated });
+      return chatThingContext(thing, resources);
     };
 
     const execute = async (name: string, args: unknown): Promise<ChatToolResult> => {
