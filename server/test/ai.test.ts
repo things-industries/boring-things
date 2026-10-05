@@ -54,6 +54,32 @@ test('PDF source text uses one request, retains original pages and skips model t
   assert.equal(result.extractedThings[0].facts[0].page, 26);
 });
 
+test('camera source extraction requests and returns a descriptive attachment title', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.match(body.input[0].content[0].text, /Data plate photo/);
+    assert.equal(body.input[0].content[1].type, 'input_image');
+    return jsonResponse(
+      output({
+        text: 'Manufacturer label',
+        metadata: {
+          title: 'Data plate photo',
+          documentType: null,
+          publisher: null,
+          documentDate: null,
+        },
+        candidates: [extractedThings.neff],
+      }),
+    );
+  });
+  const result = await new OpenAiImports('test-key', 'fixture').extract(
+    { filename: 'IMG_1234.png', mediaType: 'image/png', content: Buffer.from('fixture image') },
+    ['appliances'],
+    context(),
+  );
+  assert.equal(result.metadata?.title, 'Data plate photo');
+});
+
 test('reference extraction consumes page-labelled PDF text with original citations', async (t) => {
   const pdf = await PDFDocument.create();
   for (let page = 1; page <= 101; page++) {
@@ -69,6 +95,7 @@ test('reference extraction consumes page-labelled PDF text with original citatio
     });
     return jsonResponse(
       output({
+        metadata: null,
         applicable: true,
         applicability: { page: 1, quote: 'Cover' },
         values: [
@@ -417,7 +444,7 @@ test('SDK document extraction uses the configured model, contained schema and pe
     assert.equal(body.text.format.schema.properties.applicable.type, 'boolean');
     assert.ok(body.input[0].content.some((part: { type: string }) => part.type === 'input_file'));
     return jsonResponse({
-      ...output({ applicable: false, applicability: null, values: [] }),
+      ...output({ metadata: null, applicable: false, applicability: null, values: [] }),
       usage: { input_tokens: 25, output_tokens: 10, input_tokens_details: { cached_tokens: 5 } },
     });
   });

@@ -45,7 +45,7 @@ Use namespace imports for database modules throughout the repository, including 
 ## Attachments
 
 - Attachments are top-level owner-scoped resources and can link to multiple Things of the same owner. Unlinking retains the attachment; deletion is rejected while referenced.
-- Attachment metadata patches merge under a row lock and refresh every linked Thing. Preserve USER provenance for explicit clears; automated extraction only fills missing, unedited metadata. Page counts are derived from PDF bytes and are read-only.
+- Attachment metadata patches merge under a row lock and refresh every linked Thing. Preserve USER provenance for explicit clears; source extraction fills missing, unedited metadata; discovered PDF content can replace automated metadata. Page counts are derived from PDF bytes and are read-only.
 - A Thing image must be a linked image attachment. Private uploads stay behind authenticated API downloads and the blob adapter; never copy them into `public/`.
 - Keep upload size/type limits in configuration. Validate file contents as well as declared media type; sanitise display filenames and use random storage keys.
 - Preserve restricted filesystem permissions and download headers. Do not expose storage keys or filesystem paths as public URLs.

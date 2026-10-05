@@ -149,6 +149,7 @@ test('document values validate addresses, types, applicability and page evidence
     pageCount: 2,
   };
   const result = {
+    metadata: null,
     applicable: true,
     applicability: { page: 1, quote: 'Model A' },
     values: [

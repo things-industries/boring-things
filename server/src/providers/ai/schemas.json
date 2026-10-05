@@ -9,7 +9,7 @@
       "additionalProperties": false,
       "properties": {
         "metadata": {
-          "description": "Information about the uploaded source document as a whole.",
+          "description": "Display metadata for the uploaded source, including a descriptive title for photographs and notes.",
           "anyOf": [
             {
               "$ref": "#/$defs/attachmentMetadata"
@@ -321,9 +321,20 @@
             },
             "required": ["fieldSetId", "fieldId", "value", "page", "quote"]
           }
+        },
+        "metadata": {
+          "description": "Document metadata established by the content, with null for each unsupported property.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/attachmentMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
-      "required": ["applicable", "applicability", "values"]
+      "required": ["applicable", "applicability", "values", "metadata"]
     },
     "value": {
       "anyOf": [
@@ -360,13 +371,13 @@
       ]
     },
     "attachmentMetadata": {
+      "description": "Display and organisation metadata supported by the source content.",
       "type": "object",
-      "description": "Information about the uploaded source document as a whole.",
       "additionalProperties": false,
       "properties": {
         "title": {
           "type": ["string", "null"],
-          "description": "Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars).",
+          "description": "Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars).",
           "minLength": 1,
           "maxLength": 200
         },
