@@ -4,7 +4,7 @@
 
 import { readFile, writeFile } from 'node:fs/promises';
 import openapiTS, { astToString } from 'openapi-typescript';
-import schemas from '../server/src/providers/ai/schemas.json' with { type: 'json' };
+import schemas from '../server/src/providers/ai/schemas.js';
 
 const generatedTypes = astToString(
   await openapiTS(

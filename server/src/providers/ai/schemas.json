@@ -12,42 +12,7 @@
           "description": "Information about the uploaded source document as a whole.",
           "anyOf": [
             {
-              "type": "object",
-              "description": "Information about the uploaded source document as a whole.",
-              "additionalProperties": false,
-              "properties": {
-                "title": {
-                  "type": ["string", "null"],
-                  "description": "Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars).",
-                  "minLength": 1,
-                  "maxLength": 200
-                },
-                "documentType": {
-                  "type": ["string", "null"],
-                  "enum": [
-                    "MANUAL",
-                    "RECEIPT",
-                    "INVOICE",
-                    "INSTALLATION_GUIDE",
-                    "SPECIFICATION",
-                    "OTHER",
-                    null
-                  ],
-                  "description": "Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown."
-                },
-                "publisher": {
-                  "type": ["string", "null"],
-                  "description": "Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars).",
-                  "minLength": 1,
-                  "maxLength": 200
-                },
-                "documentDate": {
-                  "type": ["string", "null"],
-                  "format": "date",
-                  "description": "Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date."
-                }
-              },
-              "required": ["title", "documentType", "publisher", "documentDate"]
+              "$ref": "#/$defs/attachmentMetadata"
             },
             {
               "type": "null"
@@ -106,38 +71,7 @@
                     },
                     "value": {
                       "description": "Value of this fact, as defined in the source, represented as text, number, boolean or money, with explicit false, zero and empty text preserved.",
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings."
-                        },
-                        {
-                          "type": "number",
-                          "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
-                        },
-                        {
-                          "type": "boolean",
-                          "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
-                        },
-                        {
-                          "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
-                          "type": "object",
-                          "additionalProperties": false,
-                          "properties": {
-                            "amountMinor": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
-                            },
-                            "currency": {
-                              "type": "string",
-                              "enum": ["GBP", "EUR", "USD"],
-                              "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
-                            }
-                          },
-                          "required": ["amountMinor", "currency"]
-                        }
-                      ]
+                      "$ref": "#/$defs/value"
                     },
                     "quote": {
                       "type": "string",
@@ -207,39 +141,8 @@
                 "description": "Field definition ID copied from the selected set definitions or search_fields results. The field must belong to the specified set when fieldSetId is present."
               },
               "value": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings. Dates are formatted YYYY-MM-DD only when the full date is supported, following the target field format when supplied."
-                  },
-                  {
-                    "type": "number",
-                    "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
-                  },
-                  {
-                    "type": "boolean",
-                    "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
-                  },
-                  {
-                    "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "amountMinor": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
-                      },
-                      "currency": {
-                        "type": "string",
-                        "enum": ["GBP", "EUR", "USD"],
-                        "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
-                      }
-                    },
-                    "required": ["amountMinor", "currency"]
-                  }
-                ],
-                "description": "Value of the referenced fact, satisfying the target field schema, format and units, with its meaning and identifiers preserved and money or unit conversions supported by the source."
+                "description": "Value of the referenced fact, satisfying the target field schema, format and units, with its meaning and identifiers preserved and money or unit conversions supported by the source.",
+                "$ref": "#/$defs/value"
               },
               "pin": {
                 "type": "boolean",
@@ -329,41 +232,7 @@
               "metadata": {
                 "anyOf": [
                   {
-                    "description": "Source-supported metadata describing the cited reference document.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "title": {
-                        "type": ["string", "null"],
-                        "description": "Short descriptive document title, such as \"Oven user manual\", excluding account numbers, serial numbers and secrets; null when unsupported (min 1 char, max 200 chars).",
-                        "minLength": 1,
-                        "maxLength": 200
-                      },
-                      "documentType": {
-                        "type": ["string", "null"],
-                        "enum": [
-                          "MANUAL",
-                          "RECEIPT",
-                          "INVOICE",
-                          "INSTALLATION_GUIDE",
-                          "SPECIFICATION",
-                          "OTHER",
-                          null
-                        ],
-                        "description": "Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown."
-                      },
-                      "publisher": {
-                        "type": ["string", "null"],
-                        "description": "Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars).",
-                        "minLength": 1,
-                        "maxLength": 200
-                      },
-                      "documentDate": {
-                        "type": ["string", "null"],
-                        "description": "Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date."
-                      }
-                    },
-                    "required": ["title", "documentType", "publisher", "documentDate"]
+                    "$ref": "#/$defs/attachmentMetadata"
                   },
                   {
                     "type": "null",
@@ -435,39 +304,8 @@
                 "description": "Field definition ID copied from the requested targets, forming a requested address."
               },
               "value": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings. Dates are formatted YYYY-MM-DD only when the full date is supported, following the target field format when supplied."
-                  },
-                  {
-                    "type": "number",
-                    "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
-                  },
-                  {
-                    "type": "boolean",
-                    "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
-                  },
-                  {
-                    "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "amountMinor": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
-                      },
-                      "currency": {
-                        "type": "string",
-                        "enum": ["GBP", "EUR", "USD"],
-                        "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
-                      }
-                    },
-                    "required": ["amountMinor", "currency"]
-                  }
-                ],
-                "description": "Value established for this subject and variant by the cited document, satisfying the requested field schema, format, units and measurement basis."
+                "description": "Value established for this subject and variant by the cited document, satisfying the requested field schema, format, units and measurement basis.",
+                "$ref": "#/$defs/value"
               },
               "page": {
                 "type": "integer",
@@ -486,6 +324,78 @@
         }
       },
       "required": ["applicable", "applicability", "values"]
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Text supported by the source, with identifiers, leading zeroes and suffixes preserved as strings. Dates are formatted YYYY-MM-DD only when the full date is supported, following the target field format when supplied."
+        },
+        {
+          "type": "number",
+          "description": "Source-supported numeric quantity, including zero, in the target field units and measurement basis when supplied, with conversions supported by the source."
+        },
+        {
+          "type": "boolean",
+          "description": "Source-supported true or false, including explicit false. Absence of a statement does not establish false."
+        },
+        {
+          "description": "Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {\"amountMinor\":1234,\"currency\":\"GBP\"}.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amountMinor": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero."
+            },
+            "currency": {
+              "type": "string",
+              "enum": ["GBP", "EUR", "USD"],
+              "description": "ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent."
+            }
+          },
+          "required": ["amountMinor", "currency"]
+        }
+      ]
+    },
+    "attachmentMetadata": {
+      "type": "object",
+      "description": "Information about the uploaded source document as a whole.",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": ["string", "null"],
+          "description": "Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars).",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "documentType": {
+          "type": ["string", "null"],
+          "enum": [
+            "MANUAL",
+            "RECEIPT",
+            "INVOICE",
+            "INSTALLATION_GUIDE",
+            "SPECIFICATION",
+            "OTHER",
+            null
+          ],
+          "description": "Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown."
+        },
+        "publisher": {
+          "type": ["string", "null"],
+          "description": "Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars).",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "documentDate": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date."
+        }
+      },
+      "required": ["title", "documentType", "publisher", "documentDate"]
     }
   },
   "registryTools": [

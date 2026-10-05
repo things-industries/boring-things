@@ -55,19 +55,11 @@ export interface Discovery {
   items: DiscoveryItem[];
   sources: string[];
   identity?: { name: string; sourceUrl: string } | null;
-  researchRounds?: number;
   documentBatches?: {
     attachmentId: string;
     targetKeys: string[];
-    firstPage?: number;
-    lastPage?: number;
   }[];
   warnings?: DiscoveryWarning[];
-  outcomes?: {
-    fieldSetId: string | null;
-    fieldId: string | null;
-    outcome: 'found' | 'unavailable' | 'retrieval_failed' | 'budget_exhausted';
-  }[];
 }
 
 export type Usage = Schema['ImportUsage'];

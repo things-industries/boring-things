@@ -940,15 +940,6 @@ export interface components {
                 usage: components["schemas"]["ImportUsage"];
                 /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
                 warnings?: components["schemas"]["ImportWarning"][];
-                /** @description Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted. */
-                researchOutcomes?: {
-                    /** Format: uuid */
-                    thingId: string;
-                    fieldSetId: string | null;
-                    /** @description Null for a resource-level outcome. */
-                    fieldId: string | null;
-                    outcome: components["schemas"]["ResearchOutcomeEnum"];
-                }[];
             } | null;
             /** @description Number of explicit user views recorded for this Thing. */
             accessCount: number;
@@ -1311,15 +1302,6 @@ export interface components {
             thingIds: string[];
             error: string | null;
             usage: components["schemas"]["ImportUsage"];
-            /** @description Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted. */
-            researchOutcomes?: {
-                /** Format: uuid */
-                thingId: string;
-                fieldSetId: string | null;
-                /** @description Null for a resource-level outcome. */
-                fieldId: string | null;
-                outcome: components["schemas"]["ResearchOutcomeEnum"];
-            }[];
             /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
             warnings?: components["schemas"]["ImportWarning"][];
         };
@@ -1534,12 +1516,7 @@ export interface components {
          */
         AttachmentMetadataOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
         /**
-         * @description Generic research result for a reference resource or missing field.
-         * @enum {string}
-         */
-        ResearchOutcomeEnum: "FOUND" | "UNAVAILABLE" | "RETRIEVAL_FAILED" | "BUDGET_EXHAUSTED";
-        /**
-         * @description Reason an optional research operation could not complete.
+         * @description Reason an optional research operation could not complete. PAGE_BUDGET identifies persisted page-limited imports.
          * @enum {string}
          */
         ImportWarningCodeEnum: "SIZE_LIMIT" | "MODEL_INPUT_LIMIT" | "PAGE_BUDGET" | "TIMEOUT" | "UNAVAILABLE" | "EXTRACTION_FAILED" | "RESEARCH_FAILED";

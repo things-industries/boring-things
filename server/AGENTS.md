@@ -78,7 +78,7 @@ Use namespace imports for database modules throughout the repository, including 
 - Schema descriptions describe content or behaviour without imperative instructions. Include any `minLength` and `maxLength` limits in the description. Place `description` first in schema objects containing `properties`.
 - Treat source documents and model output as untrusted data. Validate returned registry and owned-record IDs, field schemas and owner scope before writes or tool execution.
 - Preserve source files, extraction provenance and user-entered values. Keep unsupported claims absent; retain citations for discovered facts and suggestions.
-- Import resource discovery finds category documents and a photograph through `ImportAi.findResources`. Assistant chat reads existing attachments and uses `ChatAi.research` for cited answers to public questions; research results are saved in the message for retry. Public research uses registry or custom-field `instanceSpecific: false` metadata independently of sensitivity. Category prompts supply reference priorities. The contained document task fills empty eligible fields with cited `DISCOVERY` values, checking owner edits at each commit. Keep backend research changes compatible with the existing submission lifecycle when frontend work is out of scope. Keep POC changes small and prefer existing libraries or hosted services. Documents default to a 100 MB limit; PDF.js supplies bounded page-labelled text, with multilingual repetition handled by the extraction prompt. Optional enrichment failures finish with warnings and reuse saved work on retry. Limits and model evaluation are in [the import guide](../docs/setup/imports.md).
+- Import research saves applicable category documents, enriches empty eligible fields and selects an official product photo while preserving owner edits. Assistant research answers the user question independently. Share public-field selection and bounded web search. Use `instanceSpecific: false` for research eligibility independently of sensitivity. Category prompts supply document priorities. Keep optional retrieval/model failures recoverable and persistence failures fatal. Workflow, limits, configuration and evaluations are in [the import guide](../docs/setup/imports.md).
 - The planned [single-Thing import flow](../docs/plans/import-improvements.md#3-import-identity-and-single-thing-lifecycle) ends imports identifying multiple independent Things with an error. Retries must reuse persisted work without duplicating Things or overwriting user edits.
 - Implement bounded work, persisted status and interruption recovery before claiming background jobs survive restarts. A dedicated PostgreSQL session lock permits one active runner per database; recovery happens after acquiring it. Release the lock only after work stops. Loss of the lock session exits the process. Deploy overlap uses persisted SSE snapshots; token-level deltas remain process-local.
 
@@ -87,3 +87,11 @@ Use namespace imports for database modules throughout the repository, including 
 From the root, use `pnpm dev:server`, `pnpm test`, `CI=true pnpm check` and, where relevant, `pnpm test:integration`. Integration checks require local Supabase and a built frontend.
 
 Test changed business invariants and regressions, particularly cross-owner access, sensitive-field omission/reveal, shared attachment lifecycle, independent set values and preservation on category changes. Use the existing Node test harness; add coverage where behaviour warrants it.
+
+## Coding practice and style
+
+- Place a file level comment at the top of all files explaining what that file is for (max 300 chars)
+- Put line-comments preceding function declarations to explain the purpose or use case for that function, except when extremely obvious. Max 150 chars. Don't name or count callers or call sites.
+- Add line comments to code that merits additional explanation, using concise but readable prose.
+- Avoid jargon in comments
+- Avoid async iterators, prefer explicitly calling functions in a loop.

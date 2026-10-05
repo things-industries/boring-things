@@ -11,6 +11,16 @@ import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { PDFDocument } from 'pdf-lib';
+import type { Discovery, ImportAi, AiContext } from '../../src/application/import/types.js';
+import {
+  researchThing,
+  type ImportResearchOptions,
+} from '../../src/application/import/research.js';
+import { Registry } from '../../src/application/registry/registry.js';
+import { ApplicationEvents } from '../../src/application/events.js';
+import * as importsDb from '../../src/db/entities/imports.js';
+import { LocalBlobs } from '../../src/providers/blobs/local.js';
+import { DocumentSizeError } from '../../src/lib/document-limits.js';
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -580,41 +590,45 @@ test('restart marks interrupted jobs retryable and queued work resumes without d
 
 async function researchRunner(
   accepted: { importId: string; thingId: string },
-  discovery: import('../../src/application/import/types.js').Discovery,
-  options: import('../../src/application/import/research.js').ImportResearchOptions,
+  discovery: Discovery | ImportAi['findResources'],
+  options: ImportResearchOptions,
+  input: {
+    extractDocument?: ImportAi['extractDocument'];
+    events?: ApplicationEvents;
+    record?: AiContext['record'];
+  } = {},
 ) {
-  const { researchThing } = await import('../../src/application/import/research.js');
-  const { Registry } = await import('../../src/application/registry/registry.js');
-  const { ApplicationEvents } = await import('../../src/application/events.js');
-  const importsDb = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
-  await request('PATCH', `/things/${accepted.thingId}`, {
+  const patched = await request('PATCH', `/things/${accepted.thingId}`, {
     values: [
       { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'SYNTHETIC/01' },
     ],
   });
+  assert.equal(patched.statusCode, 200, patched.body);
   const owner = (await request('GET', '/profile')).json().id;
   const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
-  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
-  researchAi.findResources = async () => discovery;
-  researchAi.extractDocument = async () => ({
-    applicable: true,
-    applicability: { page: 1, quote: 'Synthetic manual' },
-    values: [],
-  });
-  return async () => {
+  const researchAi: ImportAi = new FixtureAi();
+  researchAi.findResources = typeof discovery === 'function' ? discovery : async () => discovery;
+  researchAi.extractDocument =
+    input.extractDocument ??
+    (async () => ({
+      applicable: true,
+      applicability: { page: 1, quote: 'Synthetic manual' },
+      values: [],
+    }));
+  return async (overrides: Partial<ImportResearchOptions> = {}) => {
     const [target] = await importsDb.listImportTargets(pool, job);
     await researchThing(
       pool,
       new Registry(registrySeedDb.fields, registrySeedDb.sets),
       new LocalBlobs(directory),
       researchAi,
-      new ApplicationEvents(),
+      input.events ?? new ApplicationEvents(),
       job,
       target,
-      { signal: new AbortController().signal, record: async () => {} },
-      options,
+      { signal: new AbortController().signal, record: input.record ?? (async () => {}) },
+      { ...options, ...overrides },
     );
+    return (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
   };
 }
 
@@ -643,17 +657,37 @@ test('imported documents preserve metadata, ownership and edits across retries',
   const document = await PDFDocument.create();
   document.addPage();
   const pdf = Buffer.from(await document.save());
-  let downloads = 0;
-  const run = await researchRunner(accepted, discovery, {
-    maxBytes: 4096,
-    searchCalls: 3,
-    download: async () => {
-      downloads++;
-      return pdf;
+  let downloads = 0,
+    extractions = 0;
+  const run = await researchRunner(
+    accepted,
+    discovery,
+    {
+      maxBytes: 4096,
+      searchCalls: 3,
+      download: async () => {
+        downloads++;
+        return pdf;
+      },
     },
-  });
+    {
+      extractDocument: async () => {
+        extractions++;
+        return {
+          applicable: true,
+          applicability: { page: 1, quote: 'Synthetic manual' },
+          values: [],
+        };
+      },
+    },
+  );
   await run();
+  await pool.query(
+    "update bt.import_targets set discovery=jsonb_set(discovery,'{documentBatches}', (select jsonb_agg(batch || '{\"firstPage\":1,\"lastPage\":1}'::jsonb) from jsonb_array_elements(discovery->'documentBatches') batch)) where import_id=$1",
+    [accepted.importId],
+  );
   await run();
+  assert.equal(extractions, 2);
   assert.equal(downloads, 1);
   const files = (await request('GET', `/attachments?thingId=${accepted.thingId}`)).json<
     Schema['AttachmentList']
@@ -690,7 +724,6 @@ test('imported documents preserve metadata, ownership and edits across retries',
 
 test('discovered names use only owner collisions and preserve existing or edited names', async () => {
   const { refineImportedName } = await import('../../src/application/import/resources.js');
-  const importsDb = await import('../../src/db/entities/imports.js');
   await create({ name: 'Bosch Oven' }, 'bob');
   const accepted = await start('neff');
   await wait(accepted.importId);
@@ -804,11 +837,6 @@ test('failed PDF downloads preserve documents and retries skip saved files; HTML
 });
 
 test('category document enrichment validates variants, commits cited values progressively, preserves owner clears and resumes without duplicate downloads', async () => {
-  const { researchThing } = await import('../../src/application/import/research.js');
-  const { Registry } = await import('../../src/application/registry/registry.js');
-  const { ApplicationEvents } = await import('../../src/application/events.js');
-  const importsDb = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
   const accepted = await start('neff');
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
@@ -823,10 +851,7 @@ test('category document enrichment validates variants, commits cited values prog
     ],
   });
   assert.equal(updated.statusCode, 200, updated.body);
-  const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
-  const blobs = new LocalBlobs(directory);
   const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
-  let [target] = await importsDb.listImportTargets(pool, job);
   const events = new ApplicationEvents();
   let progress = 0;
   const unsubscribe = events.subscribe({ ownerId: owner })(() => {
@@ -843,8 +868,7 @@ test('category document enrichment validates variants, commits cited values prog
     url,
     sourceUrl: url,
   });
-  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
-  researchAi.findResources = async (research, _context, calls) => {
+  const findResources: ImportAi['findResources'] = async (research, _context, calls) => {
     searches++;
     budget.push(calls!);
     assert.ok(research.knownFields.some((field) => field.undefinedFieldId && field.value === 'UK'));
@@ -856,7 +880,7 @@ test('category document enrichment validates variants, commits cited values prog
     ];
     return { sources: urls, items: urls.map(reference) };
   };
-  researchAi.extractDocument = async (document, _research, targets) => {
+  const extractDocument: ImportAi['extractDocument'] = async (document, _research, targets) => {
     extractions++;
     if (document.url.endsWith('/wrong.pdf'))
       return { applicable: false, applicability: null, values: [] };
@@ -902,8 +926,8 @@ test('category document enrichment validates variants, commits cited values prog
       return url.endsWith('/failure.pdf') ? null : content;
     },
   };
-  const context = { signal: new AbortController().signal, record: async () => {} };
-  await researchThing(pool, registry, blobs, researchAi, events, job, target, context, options);
+  const run = await researchRunner(accepted, findResources, options, { extractDocument, events });
+  await run();
   assert.ok(
     (await request('GET', `/imports/${job.id}`))
       .json<Schema['Import']>()
@@ -930,16 +954,11 @@ test('category document enrichment validates variants, commits cited values prog
       .items.filter((file) => file.mediaType === 'application/pdf').length,
     1,
   );
-  assert.ok(
-    (await request('GET', `/imports/${job.id}`))
-      .json<Schema['Import']>()
-      .researchOutcomes?.some((outcome) => outcome.outcome === 'RETRIEVAL_FAILED'),
-  );
+  assert.equal('researchOutcomes' in (await request('GET', `/imports/${job.id}`)).json(), false);
   assert.equal((await request('GET', `/imports/${job.id}`, undefined, 'bob')).statusCode, 404);
   const before = { downloads, extractions };
   fail = false;
-  [target] = await importsDb.listImportTargets(pool, job);
-  await researchThing(pool, registry, blobs, researchAi, events, job, target, context, options);
+  await run();
   assert.equal(extractions, before.extractions + 1); // Only the rejected variant is reconsidered.
   assert.equal(downloads, before.downloads + 2); // Saved manual bytes are reused.
   assert.deepEqual(budget, [3, 3]);
@@ -972,15 +991,86 @@ test('optional research failures complete with warnings and retry without reimpo
   assert.deepEqual(retried.thingIds, completed.thingIds);
   const after = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.deepEqual(after.fieldSets, before.fieldSets);
+  await pool.query('update bt.import_targets set discovery=null where import_id=$1', [
+    accepted.importId,
+  ]);
+  const failure = new Error('Synthetic usage persistence failure');
+  const run = await researchRunner(
+    accepted,
+    async (_research, context) => {
+      await context.record({});
+      return { items: [], sources: [] };
+    },
+    { maxBytes: 4096, searchCalls: 1 },
+    {
+      record: async () => {
+        throw failure;
+      },
+    },
+  );
+  await assert.rejects(run(), { cause: failure });
+});
+
+test('research values and checkpoints roll back together on persistence failure', async () => {
+  const accepted = await start('neff');
+  await wait(accepted.importId);
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  const content = Buffer.from(await pdf.save());
+  const url = 'https://example.com/manual.pdf';
+  const run = await researchRunner(
+    accepted,
+    {
+      sources: [url],
+      items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
+    },
+    { maxBytes: 4096, searchCalls: 1, download: async () => content },
+    {
+      extractDocument: async () => ({
+        applicable: true,
+        applicability: { page: 1, quote: 'Synthetic manual' },
+        values: [
+          {
+            fieldSetId: 'appliances.appliance',
+            fieldId: 'common.manufacturer',
+            value: 'Example maker',
+            page: 1,
+            quote: 'Example maker',
+          },
+        ],
+      }),
+    },
+  );
+  await pool.query(
+    "alter table bt.import_targets add constraint test_checkpoint_rejection check (jsonb_array_length(coalesce(discovery->'documentBatches', '[]'::jsonb))=0) not valid",
+  );
+  try {
+    await assert.rejects(run(), { code: '23514' });
+    const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+    assert.equal(
+      thing.fieldSets
+        .find((set) => set.id === 'appliances.appliance')!
+        .fields.find((field) => field.id === 'common.manufacturer')!.value,
+      null,
+    );
+    assert.deepEqual(
+      (await request('GET', `/imports/${accepted.importId}`)).json<Schema['Import']>().warnings,
+      [],
+    );
+  } finally {
+    await pool.query('alter table bt.import_targets drop constraint test_checkpoint_rejection');
+  }
+  await run();
+  const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
+  assert.equal(
+    thing.fieldSets
+      .find((set) => set.id === 'appliances.appliance')!
+      .fields.find((field) => field.id === 'common.manufacturer')!.value,
+    'Example maker',
+  );
 });
 
 test('oversized research documents are cached, skipped on retry and reconsidered after a limit change', async () => {
-  const { researchThing } = await import('../../src/application/import/research.js');
-  const { Registry } = await import('../../src/application/registry/registry.js');
-  const { ApplicationEvents } = await import('../../src/application/events.js');
-  const importsDb = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
-  const { DocumentSizeError } = await import('../../src/lib/document-limits.js');
   const existing = await create({
     categoryId: 'appliances',
     values: [{ fieldSetId: null, fieldId: 'common.model', value: 'SYNTHETIC/01' }],
@@ -989,13 +1079,11 @@ test('oversized research documents are cached, skipped on retry and reconsidered
   await wait(accepted.importId);
   const owner = (await request('GET', '/profile')).json().id;
   const job = await importsDb.getOwnedImportOrThrow(pool, owner, accepted.importId);
-  const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
-  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
   const url = 'https://example.com/large.pdf';
-  researchAi.findResources = async () => ({
+  const discovery: Discovery = {
     sources: [url],
     items: [{ kind: 'reference', title: 'Manual', description: '', url, sourceUrl: url }],
-  });
+  };
   const [initialTarget] = await importsDb.listImportTargets(pool, job);
   await importsDb.saveTargetDiscovery(pool, job, initialTarget.candidateId, {
     sources: [url],
@@ -1011,39 +1099,19 @@ test('oversized research documents are cached, skipped on retry and reconsidered
       return null;
     },
   };
-  const run = async (maxBytes: number) => {
-    const [target] = await importsDb.listImportTargets(pool, job);
-    await researchThing(
-      pool,
-      registry,
-      new LocalBlobs(directory),
-      researchAi,
-      new ApplicationEvents(),
-      job,
-      target,
-      { signal: new AbortController().signal, record: async () => {} },
-      { ...options, maxBytes },
-    );
-    return (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
-  };
-  const rejected = await run(1000);
+  const run = await researchRunner(accepted, discovery, options);
+  const rejected = await run({ maxBytes: 1000 });
   assert.equal(rejected.warnings?.[0].code, 'SIZE_LIMIT');
   assert.equal(rejected.warnings?.[0].actual, 2000);
   assert.equal(rejected.warnings?.[0].limit, 1000);
-  await run(1000);
+  await run({ maxBytes: 1000 });
   assert.equal(downloads, 1);
-  const reconsidered = await run(3000);
+  const reconsidered = await run({ maxBytes: 3000 });
   assert.equal(downloads, 2);
   assert.ok(!reconsidered.warnings?.some((warning) => warning.code === 'SIZE_LIMIT'));
 });
 
 test('research retry searches once for alternatives and extracts text beyond page 100', async () => {
-  const { researchThing } = await import('../../src/application/import/research.js');
-  const { Registry } = await import('../../src/application/registry/registry.js');
-  const { ApplicationEvents } = await import('../../src/application/events.js');
-  const importsDb = await import('../../src/db/entities/imports.js');
-  const { LocalBlobs } = await import('../../src/providers/blobs/local.js');
-  const { DocumentSizeError } = await import('../../src/lib/document-limits.js');
   const existing = await create({
     categoryId: 'appliances',
     addFieldSetIds: ['appliances.cookingOutput'],
@@ -1077,11 +1145,10 @@ test('research retry searches once for alternatives and extracts text beyond pag
     if (page === 101) sheet.drawText('Output power 900 W');
   }
   const content = Buffer.from(await pdf.save());
-  const researchAi: import('../../src/application/import/types.js').ImportAi = new FixtureAi();
   let searches = 0,
     downloads = 0,
     extractions = 0;
-  researchAi.findResources = async (research, _context, calls) => {
+  const findResources: ImportAi['findResources'] = async (research, _context, calls) => {
     searches++;
     assert.equal(calls, 3);
     assert.deepEqual(research.documentLimits, { maxBytes: 100000, maxTextCharacters: 1000000 });
@@ -1089,7 +1156,7 @@ test('research retry searches once for alternatives and extracts text beyond pag
     assert.equal(research.rejectedDocuments?.[0].code, 'SIZE_LIMIT');
     return { sources: [alternative], items: [reference(alternative)] };
   };
-  researchAi.extractDocument = async (document) => {
+  const extractDocument: ImportAi['extractDocument'] = async (document) => {
     extractions++;
     assert.equal(document.pageCount, 101);
     assert.equal(document.text, '[PDF page 1]\nSYNTHETIC/01\n\n[PDF page 101]\nOutput power 900 W');
@@ -1116,26 +1183,12 @@ test('research retry searches once for alternatives and extracts text beyond pag
       return content;
     },
   };
-  const run = async () => {
-    const [target] = await importsDb.listImportTargets(pool, job);
-    await researchThing(
-      pool,
-      new Registry(registrySeedDb.fields, registrySeedDb.sets),
-      new LocalBlobs(directory),
-      researchAi,
-      new ApplicationEvents(),
-      job,
-      target,
-      { signal: new AbortController().signal, record: async () => {} },
-      options,
-    );
-  };
+  const run = await researchRunner(accepted, findResources, options, { extractDocument });
   await run();
   assert.equal(searches, 1);
   assert.equal(downloads, 1);
   assert.equal(extractions, 1);
   const completed = (await request('GET', `/imports/${job.id}`)).json<Schema['Import']>();
-  assert.ok(!completed.warnings?.some((warning) => warning.code === 'PAGE_BUDGET'));
   assert.ok(completed.warnings?.some((warning) => warning.code === 'SIZE_LIMIT'));
   const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   const output = thing.fieldSets

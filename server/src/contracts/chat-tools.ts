@@ -1,3 +1,3 @@
-import schemas from '../providers/ai/schemas.json' with { type: 'json' };
+import schemas from '../providers/ai/schemas.js';
 
 export const chatFunctions = schemas.chatTools;

@@ -9,7 +9,7 @@ import type {
   Tool,
 } from 'openai/resources/responses/responses';
 import { Ajv } from 'ajv';
-import schemas from './schemas.json' with { type: 'json' };
+import schemas from './schemas.js';
 import type { components } from './schema-types.js';
 import * as prompts from './prompts.js';
 import type {

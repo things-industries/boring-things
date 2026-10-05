@@ -3156,31 +3156,6 @@
                 "items": {
                   "$ref": "#/components/schemas/ImportWarning"
                 }
-              },
-              "researchOutcomes": {
-                "type": "array",
-                "description": "Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted.",
-                "items": {
-                  "type": "object",
-                  "required": ["thingId", "fieldSetId", "fieldId", "outcome"],
-                  "properties": {
-                    "thingId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "fieldSetId": {
-                      "type": ["string", "null"]
-                    },
-                    "fieldId": {
-                      "type": ["string", "null"],
-                      "description": "Null for a resource-level outcome."
-                    },
-                    "outcome": {
-                      "$ref": "#/components/schemas/ResearchOutcomeEnum"
-                    }
-                  },
-                  "additionalProperties": false
-                }
               }
             },
             "additionalProperties": false
@@ -4260,31 +4235,6 @@
           "usage": {
             "$ref": "#/components/schemas/ImportUsage"
           },
-          "researchOutcomes": {
-            "type": "array",
-            "description": "Resource and missing-field research outcomes. Contains field addresses and generic outcomes; source text and values are omitted.",
-            "items": {
-              "type": "object",
-              "required": ["thingId", "fieldSetId", "fieldId", "outcome"],
-              "properties": {
-                "thingId": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "fieldSetId": {
-                  "type": ["string", "null"]
-                },
-                "fieldId": {
-                  "type": ["string", "null"],
-                  "description": "Null for a resource-level outcome."
-                },
-                "outcome": {
-                  "$ref": "#/components/schemas/ResearchOutcomeEnum"
-                }
-              },
-              "additionalProperties": false
-            }
-          },
           "warnings": {
             "type": "array",
             "description": "Warnings for unfinished optional research. Imported fields and successful documents remain available.",
@@ -4762,14 +4712,9 @@
         "description": "Whether attachment metadata came from a user edit, an import or source discovery.",
         "enum": ["USER", "IMPORT", "DISCOVERY"]
       },
-      "ResearchOutcomeEnum": {
-        "type": "string",
-        "description": "Generic research result for a reference resource or missing field.",
-        "enum": ["FOUND", "UNAVAILABLE", "RETRIEVAL_FAILED", "BUDGET_EXHAUSTED"]
-      },
       "ImportWarningCodeEnum": {
         "type": "string",
-        "description": "Reason an optional research operation could not complete.",
+        "description": "Reason an optional research operation could not complete. PAGE_BUDGET identifies persisted page-limited imports.",
         "enum": [
           "SIZE_LIMIT",
           "MODEL_INPUT_LIMIT",

@@ -121,7 +121,7 @@ export interface components {
                 sourceUrl: string;
                 /** @description Metadata supported by the cited reference document; null for other item kinds or when no metadata is supported, with null for each unknown property. */
                 metadata: {
-                    /** @description Short descriptive document title, such as "Oven user manual", excluding account numbers, serial numbers and secrets; null when unsupported (min 1 char, max 200 chars). */
+                    /** @description Short descriptive document title, such as 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
                     title: string | null;
                     /**
                      * @description Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown.
@@ -130,7 +130,10 @@ export interface components {
                     documentType: "MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER" | null;
                     /** @description Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars). */
                     publisher: string | null;
-                    /** @description Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date. */
+                    /**
+                     * Format: date
+                     * @description Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date.
+                     */
                     documentDate: string | null;
                 } | null;
             }[];

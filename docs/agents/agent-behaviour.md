@@ -42,6 +42,7 @@ State the preference as a rule, not as a record of the conversation it came from
 ## Refactoring
 
 - Look for opportunities to refactor instead of repeating code blocks or styles.
+- Use the same pattern for the same-shaped problem. Add abstractions only when they save significant lines of code. Reuse established terminology and report new symbol names or terms at handoff.
 - Always ask before refactoring. Describe the duplication and the proposed change, then wait for approval.
 
 ## Comments
