@@ -4,46 +4,32 @@ The Angular client manages Things, fields, documents and activity through relati
 
 ## Structure
 
-Paths below are relative to `src/` unless stated otherwise.
+Paths are relative to `src/` unless stated otherwise. List a folder to see what it holds; this section says where code belongs.
 
-- `main.ts`: fetch public runtime configuration and bootstrap the application. Startup failure copy lives in `index.html`.
-- `app/app.config.ts`: application-wide providers and initialisation.
-- `app/app.routes.ts`: lazy page routes, authentication guards and page titles.
-- `app/app.ts`, `.html`, `.scss`: application shell: the centred page column and `bt-bottom-nav` on routes with `data: { bottomNav: true }`. Keep feature behaviour out of the shell.
-- `app/core/app.config.ts`: application constants such as page sizes and timeouts.
-- `app/core/runtime-config.ts`: typed injection token for server-supplied public configuration.
-- `app/core/app-icons.ts`: use-case-named icon catalogue.
-- `app/core/app-terms.ts`: repeated product/screen names, rendered through `app/pipes/term.pipe.ts`; toast action leads (`ACTION_TERMS`) and shared error-code copy (`ERROR_TERMS`).
-- `app/core/mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
-- `app/core/services/`: application-wide authentication, route guards (`authenticated`, `addFirstThing`, `importsEnabled`), API client, `Toasts` and `ImageCache` (session object URLs for attachment images) services.
-- `app/core/data/`: stateless domain services, one per API domain (`<domain>.service.ts`). They shape requests, follow pagination, wrap streams and return contract types.
-- `app/core/state/`: NgRx Signal Store stores (`<domain>.store.ts`), the `withEntityCollection` feature (optimistic entities, `withLoad`, `loadOne` and `withSession` in one), the lower-level `withOptimisticEntities`, `withLoad` and `withSession` features, the pure optimistic bookkeeping in `optimistic.ts`, `loadCollections()` for pages that load several stores, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
-- `app/core/api/thing-stream.ts`: authenticated snapshot transport with reconnect/backoff and cancellation.
-- `app/core/api/api-client.ts`: typed `openapi-fetch` client, authentication/error handling and pagination. This is the HTTP path; do not introduce Angular `HttpClient` alongside it. Only domain services call it.
-- `app/features/home/`: Home: greeting, Ask promo, Needs attention, Upcoming, Frequent & recent, Categories and the empty-account sample-data action.
-- `app/features/dashboard/`: Things list at `/things`: search, category (`?categoryId=`) and tag filters, sample-data action and activity overview.
-- `app/features/add-thing/`: Add Thing (`/things/new`) with import tiles, and sub pages for the paste-text step (`paste-text/`, `/things/new/text`) and the manual form (`manual-thing/`, `/things/new/manual`).
-- `app/features/things/`: the Thing page (`thing.page.*`: hero, sheet, Key details, tasks, products, attachments, overflow menu and dialogs) and the All details sub page (`thing-details/`: grouped detail cards with pin, reveal and delete row menus; editing is #51), sharing `thing-loader.ts` (route Thing, load and stream) and `thing.view.ts` (view helpers). `import-sources/` adds details from a source; `import-progress/` and `import-steps/` show import progress and retry through `ThingsStore`.
-- `app/features/chat/`: global and Thing chat on `ConversationsStore`: Thing context card, message bubbles with Markdown answers (`bt-rich-text`), resource cards read from their stores, retry and the composer (`bt-chat-composer`). Global chat starts a new conversation, Thing chat resumes the Thing's latest one (preloaded by the Thing page; a Thing without messages starts its conversation only when its chat opens), and the top bar menu's New chat starts another; the history list is #22.
-- `app/utils/sections.util.ts`: section grouping and stable field anchors; preserve set identity for edits/pins.
-- `app/features/login/`: sign-in and setup-pending screen.
-- `app/features/timeline/`, `app/features/profile/`: placeholder pages; Profile holds Sign out.
-- `app/components/`: reusable components: navigation (`bt-bottom-nav`, `bt-top-bar`, `bt-icon-button`, `bt-menu`), page layout (`bt-scroll-container`, `bt-hero`, `bt-sheet`), `bt-dialog`, `bt-schedule-dialog`, `bt-key-value-row`, `bt-rich-text` (sanitised Markdown), `bt-attachment-image` (authenticated inline image), `bt-typewriter` (typed-in text), `bt-thing-card`, `bt-status-summary`, `bt-placeholder-page` for destinations not built yet, `bt-notice` banners, `bt-option-tile`, sections and rows (`bt-section-header`, `bt-card-group`, `bt-list-row`, `bt-icon-badge`, `bt-event-card`, `bt-date-tile`, `bt-thing-row`, `bt-thing-thumbnail`, `bt-attachment-thumbnail` (image attachment in a list row), `bt-category-chip`, `bt-promo-card`), field editor, activity cards and error display.
-- `app/interfaces/`: exported frontend interfaces and types, grouped by concept.
-- `app/validators/`: form validators returning error keys.
-- `app/utils/`: pure helpers in concept-named files, including dates, field values, and icon badges and formats for Issues, Events and attachments (`issue.util.ts`, `event.util.ts`, `attachment.util.ts`). Do not create a catch-all utility file.
-- `styles.scss`: global Sass entry point; imports only.
-- `styles/`: design system, one file per style scope (`_buttons.scss`, `_forms.scss`, …) or one folder when a scope needs several files (`colors/`, `typography/`), plus `_core.scss`, `_mixins.scss` and `CHEATSHEET.md`.
-- Root `shared/api.ts`: generated OpenAPI types. Root `shared/model.ts`: derived aliases and shared shapes. Import or derive API types instead of duplicating them.
+- `main.ts` fetches runtime configuration and bootstraps. `app/app.config.ts` holds providers; `app/app.routes.ts` holds lazy routes, guards and titles.
+- `app/app.ts`: application shell (page column and bottom nav). Keep feature behaviour out of it.
+- `app/core/`: application-wide, singleton-like code.
+  - `app.config.ts` constants, `runtime-config.ts` server-supplied configuration, `app-icons.ts` icon catalogue, `app-terms.ts` repeated copy (`APP_TERMS`, `ACTION_TERMS`, `ERROR_TERMS`).
+  - `api/api-client.ts`: typed `openapi-fetch` client and the only HTTP path. Only domain services call it; do not add Angular `HttpClient`.
+  - `data/`: stateless domain services, one per API domain.
+  - `state/`: Signal Store stores, one per entity type, their shared features, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
+  - `services/`: authentication, route guards, `Toasts` and `ImageCache`.
+  - `mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
+- `app/features/<feature>/`: one folder per page area, laid out as below.
+- `app/components/`: reusable `bt-*` components. Check here before building a new one.
+- `app/interfaces/`: exported frontend types. `app/validators/`: form validators. `app/pipes/`: shared pipes.
+- `app/utils/`: pure helpers in concept-named files. Do not create a catch-all utility file.
+- `styles.scss` only imports; `styles/` is the design system (see `styles/CHEATSHEET.md`).
+- Root `shared/api.ts` (generated) and `shared/model.ts`: import or derive API types instead of duplicating them.
 
 Feature folder layout:
 
-- Each feature folder holds its page at the top level, named `<page>.page.ts` with `<page>.page.html` and `<page>.page.scss`. Page components are named `<Name>Page`.
-- Each sub component of the page lives in its own folder inside the feature folder (`chat/chat-composer/chat-composer.ts`). A sub component shared by several pages of the feature sits in the feature folder the same way.
-- A sub page lives in its own folder inside the feature folder (`add-thing/paste-text/paste-text.page.ts`), with its own sub component folders beneath it.
-- Non-component helpers for a page (`<page>.view.ts`, loaders) sit beside the page they serve.
+- The page sits at the top level: `<page>.page.ts`, `.html` and `.scss`, with a component named `<Name>Page`.
+- Each sub component gets its own folder in the feature folder (`chat/chat-composer/chat-composer.ts`), including ones shared by several pages of the feature.
+- A sub page gets its own folder (`add-thing/paste-text/paste-text.page.ts`), with its sub components beneath it.
+- Non-component helpers (`<page>.view.ts`, loaders) sit beside the page they serve.
 
-Keep feature-only components and data services beside their feature. Move code into `core/` when it is application-wide and singleton-like. Create shared directives, pipes or stores only when needed.
+Keep feature-only code beside its feature; move it into `core/` only when it is application-wide. Create shared directives, pipes or stores only when needed.
 
 ## Components and state
 
