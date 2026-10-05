@@ -381,7 +381,11 @@
             @for (file of linkedFiles(); track file.id) {
               @let badge = attachmentBadge(file);
               @let name = file.title ?? file.filename;
-              <bt-list-row [title]="name" [icon]="badge.icon" [tone]="badge.tone">
+              @let image = file.mediaType.startsWith('image/');
+              <bt-list-row [title]="name" [icon]="image ? null : badge.icon" [tone]="badge.tone">
+                @if (image) {
+                  <bt-attachment-thumbnail rowLeading [attachment]="file" />
+                }
                 <span rowSubtitle>
                   {{ attachmentFormat(file.mediaType) }}
                   @if (file.pageCount) {
@@ -589,7 +593,11 @@
         @for (file of library(); track file.id) {
           @let badge = attachmentBadge(file);
           @let name = file.title ?? file.filename;
-          <bt-list-row [title]="name" [icon]="badge.icon" [tone]="badge.tone">
+          @let image = file.mediaType.startsWith('image/');
+          <bt-list-row [title]="name" [icon]="image ? null : badge.icon" [tone]="badge.tone">
+            @if (image) {
+              <bt-attachment-thumbnail rowLeading [attachment]="file" />
+            }
             <span rowSubtitle>{{ attachmentFormat(file.mediaType) }}</span>
             @if (!file.thingIds.length) {
               <button

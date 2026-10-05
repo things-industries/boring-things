@@ -1,0 +1,29 @@
+@use 'tokens';
+:host {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: tokens.size(icon-badge);
+  height: tokens.size(icon-badge);
+  overflow: hidden;
+  border-radius: tokens.radius(control);
+}
+:host(.loading) {
+  border-radius: tokens.radius(pill);
+}
+@each $tone in (info, accent, warning) {
+  :host(.loading.tone-#{$tone}) {
+    background: tokens.color(#{$tone}-subtle);
+  }
+}
+:host(.loading.tone-neutral) {
+  background: tokens.color(secondary-muted);
+}
+:host(.loading.tone-white) {
+  background: tokens.color('white');
+}
+img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

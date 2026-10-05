@@ -1,0 +1,5 @@
+@if (failed()) {
+  <bt-icon-badge [icon]="badge().icon" [tone]="badge().tone" />
+} @else if (imageUrl()) {
+  <img [src]="imageUrl()" alt="" (error)="markBroken()" />
+}
