@@ -39,7 +39,9 @@ export function chatThingContext(
         pageCount,
       }),
     ),
-    ...resources.activity,
+    events: resources.events,
+    issues: resources.issues,
+    purchasables: resources.purchasables,
     truncated: resources.truncated,
   };
 }

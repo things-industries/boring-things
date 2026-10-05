@@ -74,7 +74,7 @@
       "post": {
         "operationId": "seedSamples",
         "summary": "Seed samples",
-        "description": "Adds sample Things and related activity, then returns the updated profile. Repeated requests preserve the existing sample collection. Returns 404 when sample data is disabled.",
+        "description": "Adds sample Things, activities and purchasables, then returns the updated profile. Repeated requests preserve the existing sample collection. Returns 404 when sample data is disabled.",
         "tags": ["Profile"],
         "responses": {
           "200": {
@@ -1687,8 +1687,8 @@
       "get": {
         "operationId": "listPurchasables",
         "summary": "List purchasables",
-        "description": "Lists product suggestions, optionally filtered by Thing and suggestion kind.",
-        "tags": ["Activity"],
+        "description": "Lists opportunities to buy products that maintain or improve a Thing, optionally filtered by Thing and suggestion kind.",
+        "tags": ["Purchasables"],
         "parameters": [
           {
             "$ref": "#/components/parameters/limit"
@@ -1743,8 +1743,8 @@
       "get": {
         "operationId": "getPurchasable",
         "summary": "Get purchasable",
-        "description": "Returns a product suggestion with its merchant link, price when available and supporting sources. Merchant actions for sample suggestions are disabled.",
-        "tags": ["Activity"],
+        "description": "Returns a purchasable opportunity with its merchant link, price when available and supporting sources. Merchant actions for sample suggestions are disabled.",
+        "tags": ["Purchasables"],
         "parameters": [
           {
             "$ref": "#/components/parameters/resourceId"
@@ -3727,7 +3727,7 @@
       },
       "Purchasable": {
         "type": "object",
-        "description": "Consumable, accessory or upgrade suggestion with supporting sources. Merchant actions for samples are disabled.",
+        "description": "Opportunity to buy a consumable, accessory or upgrade that maintains or improves a Thing, with supporting sources. Merchant actions for samples are disabled.",
         "required": [
           "id",
           "thingId",
@@ -4945,7 +4945,11 @@
     },
     {
       "name": "Activity",
-      "description": "Issues, events and purchasable suggestions."
+      "description": "Managed issues and events, including suggested tasks."
+    },
+    {
+      "name": "Purchasables",
+      "description": "Opportunities to buy products that maintain or improve a Thing."
     },
     {
       "name": "Imports",

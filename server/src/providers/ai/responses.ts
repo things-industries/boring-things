@@ -31,6 +31,7 @@ export async function searchWeb(
   context: AiContext,
   sourceMode: 'retrieved' | 'cited' = 'retrieved',
   onTurnCompleted?: AiTurnCompleted,
+  output?: { text: NonNullable<ResponseCreateParamsNonStreaming['text']>; task: string },
 ) {
   const result = await requestResponse(
     client,
@@ -40,13 +41,15 @@ export async function searchWeb(
     context,
     {
       instructions: webResearchInstructions,
-      tools: [{ type: 'web_search' }],
-      max_tool_calls: searchCalls,
+      ...(searchCalls > 0
+        ? { tools: [{ type: 'web_search' as const }], max_tool_calls: searchCalls }
+        : {}),
+      ...(output ? { text: output.text } : {}),
       ...(sourceMode === 'retrieved'
         ? { include: ['web_search_call.action.sources' as const] }
         : {}),
     },
-    'research',
+    output?.task ?? 'research',
     onTurnCompleted,
   );
   const sources = [

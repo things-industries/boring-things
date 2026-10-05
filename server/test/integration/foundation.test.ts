@@ -336,8 +336,8 @@ test('list filters omit inaccessible records on every page', async (t) => {
       }
       const productId = randomUUID();
       await pool.query(
-        "insert into bt.purchasables(id,owner_id,thing_id,kind,name,merchant_url) values($1,$2,$3,'CONSUMABLE','List fixture','https://example.com/product')",
-        [productId, ownerId, thing.id],
+        "insert into bt.purchasables(id,owner_id,thing_id,kind,name,merchant_url) values($1,$2,$3,$4,'List fixture','https://example.com/product')",
+        [productId, ownerId, thing.id, index ? 'ACCESSORY' : 'CONSUMABLE'],
       );
       ids.push(productId);
       if (owner === 'bob') for (const id of ids) foreignIds.add(id);
@@ -377,6 +377,22 @@ test('list filters omit inaccessible records on every page', async (t) => {
       if (cursor) query.set('cursor', cursor);
     } while (cursor);
     assert.equal((await request('GET', path + '?thingId=invalid')).statusCode, 422);
+  }
+  for (const kind of ['CONSUMABLE', 'ACCESSORY']) {
+    const response = await request(
+      'GET',
+      '/purchasables?' + new URLSearchParams({ thingId: alice.id, kind, limit: '1' }),
+    );
+    assert.equal(response.statusCode, 200, response.body);
+    const page = response.json<Schema['PurchasableList']>();
+    assert.equal(page.items.length, 1);
+    assert.equal(page.items[0].kind, kind);
+    assert.equal(page.nextCursor, null);
+    assert.equal((await request('GET', `/purchasables/${page.items[0].id}`)).statusCode, 200);
+    assert.equal(
+      (await request('GET', `/purchasables/${page.items[0].id}`, undefined, 'bob')).statusCode,
+      404,
+    );
   }
   const tag = (await request('POST', '/tags', { name: 'Private filter' }, 'bob')).json();
   await request('PATCH', `/things/${bob.id}`, { tagIds: [tag.id] }, 'bob');

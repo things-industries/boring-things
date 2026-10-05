@@ -1,3 +1,6 @@
+// Persists owner-scoped Issues and Events, including suggested tasks.
+
+import { createHash } from 'node:crypto';
 import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import * as database from '../connection.js';
@@ -8,28 +11,25 @@ import { page, pageResult } from '../../application/pagination.js';
 type Activity = {
   issues: Schema['Issue'];
   events: Schema['Event'];
-  purchasables: Schema['Purchasable'];
 };
 type ActivityKind = keyof Activity;
 export type IssueQuery = RouteTypes<'/api/issues', 'get'>['Querystring'];
 export type EventQuery = RouteTypes<'/api/events', 'get'>['Querystring'];
-export type PurchasableQuery = RouteTypes<'/api/purchasables', 'get'>['Querystring'];
-type ActivityQuery = Omit<EventQuery, 'status'> &
-  PurchasableQuery & { status?: IssueQuery['status'] | EventQuery['status'] };
+type ActivityQuery = Omit<EventQuery, 'status'> & {
+  status?: IssueQuery['status'] | EventQuery['status'];
+};
 type ActivityPage<K extends ActivityKind> = { items: Activity[K][]; nextCursor: string | null };
 const columns = {
   issues:
     'id,thing_id,title,description,status,status_text,due_date::text,resolved_at,is_sample,created_at,updated_at',
   events:
     'id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,completed_at,source_refs,is_sample,created_at,updated_at',
-  purchasables:
-    "id,thing_id,kind,name,description,merchant_url,image_url,source_refs,checked_at,is_sample,created_at,updated_at,case when price_amount is null then null else jsonb_build_object('amountMinor',price_amount,'currency',currency) end as price",
 } as const;
 export async function listActivity<K extends ActivityKind>(
   db: Database,
   owner: string,
   kind: K,
-  query: IssueQuery | EventQuery | PurchasableQuery,
+  query: IssueQuery | EventQuery,
 ): Promise<ActivityPage<K>> {
   const { limit, offset } = page(query);
   const filters = ['owner_id=$1'];
@@ -37,7 +37,7 @@ export async function listActivity<K extends ActivityKind>(
   const q = query as Partial<Record<keyof ActivityQuery, string | number>>;
   for (const [key, column, op] of [
     ['thingId', 'thing_id', '='],
-    [kind === 'purchasables' ? 'kind' : 'status', kind === 'purchasables' ? 'kind' : 'status', '='],
+    ['status', 'status', '='],
   ]) {
     const value = q[key as keyof ActivityQuery];
     if (value) {
@@ -162,4 +162,41 @@ export async function saveEvent(
     id ? params : [...params, value.id],
   );
   return item;
+}
+
+const activityKey = (thingId: string, kind: string, identity: string) =>
+  createHash('sha256')
+    .update(`${thingId}:${kind}:${identity.trim().toLowerCase().replace(/\s+/g, ' ')}`)
+    .digest('hex');
+
+export async function existingTasks(db: Database, owner: string, thingId: string) {
+  return database.rows<Pick<Schema['Event'], 'title' | 'status'>>(
+    db,
+    'select title,status from bt.events where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 200',
+    [thingId, owner],
+  );
+}
+
+// Inserts an imported Event once, preserving existing edits, completion and dismissal.
+export async function saveSuggestedTask(
+  db: Database,
+  owner: string,
+  thingId: string,
+  task: Pick<Schema['Event'], 'title' | 'description' | 'sourceRefs'>,
+) {
+  await database.execute(
+    db,
+    `insert into bt.events(owner_id,thing_id,title,description,status,source_refs,import_key)
+     select $1,$2,$3,$4,'SUGGESTED',$5,$6
+     where not exists(select 1 from bt.events where owner_id=$1 and thing_id=$2 and lower(trim(title))=lower(trim($3)))
+     on conflict(import_key) do nothing`,
+    [
+      owner,
+      thingId,
+      task.title,
+      task.description,
+      JSON.stringify(task.sourceRefs),
+      activityKey(thingId, 'task', task.title),
+    ],
+  );
 }

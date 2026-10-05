@@ -233,3 +233,83 @@ test('assistant Markdown renders as sanitised formatted text', async ({ page }) 
   await expect(text.locator('script, [onerror]')).toHaveCount(0);
   expect(await page.evaluate(() => 'injected' in window)).toBe(false);
 });
+
+test.describe('an assistant message citing an image', () => {
+  const attachmentId = '00000000-0000-4000-8000-0000000000a1';
+  // A 1x1 PNG.
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+
+  test.beforeEach(async ({ page }) => {
+    await page.route(/\/api\/conversations\/[^/]+\/stream$/, (route) => {
+      const id = new URL(route.request().url()).pathname.split('/')[3];
+      const snapshot = {
+        id,
+        thingId: null,
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            conversationId: id,
+            requestId: '00000000-0000-4000-8000-000000000002',
+            role: 'ASSISTANT',
+            text: 'Here is the photo.',
+            cards: [{ type: 'ATTACHMENT', attachmentId }],
+            sourceRefs: [],
+            status: 'COMPLETE',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      };
+
+      return route.fulfill({
+        headers: { 'content-type': 'text/event-stream' },
+        body: `event: conversation.snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
+      });
+    });
+    await page.route(`**/api/attachments/${attachmentId}`, (route) =>
+      route.fulfill({
+        json: {
+          id: attachmentId,
+          filename: 'hob.png',
+          mediaType: 'image/png',
+          byteSize: png.length,
+          sourceUrl: null,
+          thingIds: [],
+          createdAt: new Date().toISOString(),
+          title: 'Hob rating plate',
+          documentType: null,
+          publisher: null,
+          documentDate: null,
+          pageCount: null,
+          metadataSources: {},
+        },
+      }),
+    );
+  });
+
+  test('shows the image inline', async ({ page }) => {
+    await page.route(`**/api/attachments/${attachmentId}/content`, (route) =>
+      route.fulfill({ contentType: 'image/png', body: png }),
+    );
+    await page.goto('/chat');
+
+    await expect(page.getByRole('img', { name: 'Hob rating plate' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Download Hob rating plate' })).toHaveCount(0);
+  });
+
+  test.describe('when the image cannot load', () => {
+    test.use({ expectedConsoleErrors: [/Failed to load resource/] });
+
+    test('shows the download row', async ({ page }) => {
+      await page.route(`**/api/attachments/${attachmentId}/content`, (route) =>
+        route.fulfill({ status: 404, json: { code: 'not-found' } }),
+      );
+      await page.goto('/chat');
+
+      await expect(page.getByRole('button', { name: 'Download Hob rating plate' })).toBeVisible();
+      await expect(page.getByRole('img', { name: 'Hob rating plate' })).toHaveCount(0);
+    });
+  });
+});

@@ -81,6 +81,8 @@
           (click)="download(file)"
         ></button>
       </div>
+    } @else if (file.mediaType.startsWith('image/') && imageFailed() !== file.id) {
+      <bt-attachment-image [attachment]="file" (failed)="imageFailed.set(file.id)" />
     } @else {
       @let badge = attachmentBadge(file);
       <bt-list-row class="resource-row" [title]="name" [icon]="badge.icon" [tone]="badge.tone">

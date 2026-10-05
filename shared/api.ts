@@ -50,7 +50,7 @@ export interface paths {
         put?: never;
         /**
          * Seed samples
-         * @description Adds sample Things and related activity, then returns the updated profile. Repeated requests preserve the existing sample collection. Returns 404 when sample data is disabled.
+         * @description Adds sample Things, activities and purchasables, then returns the updated profile. Repeated requests preserve the existing sample collection. Returns 404 when sample data is disabled.
          */
         post: operations["seedSamples"];
         delete?: never;
@@ -480,7 +480,7 @@ export interface paths {
         };
         /**
          * List purchasables
-         * @description Lists product suggestions, optionally filtered by Thing and suggestion kind.
+         * @description Lists opportunities to buy products that maintain or improve a Thing, optionally filtered by Thing and suggestion kind.
          */
         get: operations["listPurchasables"];
         put?: never;
@@ -500,7 +500,7 @@ export interface paths {
         };
         /**
          * Get purchasable
-         * @description Returns a product suggestion with its merchant link, price when available and supporting sources. Merchant actions for sample suggestions are disabled.
+         * @description Returns a purchasable opportunity with its merchant link, price when available and supporting sources. Merchant actions for sample suggestions are disabled.
          */
         get: operations["getPurchasable"];
         put?: never;
@@ -1145,7 +1145,7 @@ export interface components {
              */
             startsOn?: string | null;
         };
-        /** @description Consumable, accessory or upgrade suggestion with supporting sources. Merchant actions for samples are disabled. */
+        /** @description Opportunity to buy a consumable, accessory or upgrade that maintains or improves a Thing, with supporting sources. Merchant actions for samples are disabled. */
         Purchasable: {
             /** Format: uuid */
             id: string;

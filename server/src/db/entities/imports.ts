@@ -8,7 +8,12 @@ import * as database from '../connection.js';
 import { isDeepStrictEqual } from 'node:util';
 import type pg from 'pg';
 import { emptyData, type Schema } from '../../../../shared/model.js';
-import type { Discovery, Extraction, Usage } from '../../application/import/types.js';
+import type {
+  Discovery,
+  Extraction,
+  Usage,
+  ImportResearchCheckpoint,
+} from '../../application/import/types.js';
 import { activeStatuses, blankUsage } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
 import type { Database } from '../connection.js';
@@ -76,9 +81,11 @@ export interface ImportDestination {
   mapped: boolean;
   discovered: boolean;
   discovery: Discovery | null;
+  taskSuggestions: ImportResearchCheckpoint | null;
+  purchasableSuggestions: ImportResearchCheckpoint | null;
 }
 
-const warningsProjection = `coalesce((select jsonb_agg(w || jsonb_build_object('thingId',t.thing_id)) from bt.import_targets t cross join lateral jsonb_array_elements(coalesce(t.discovery->'warnings','[]'::jsonb)) w where t.import_id=i.id),'[]'::jsonb) as warnings`;
+const warningsProjection = `coalesce((select jsonb_agg(w || jsonb_build_object('thingId',t.thing_id)) from bt.import_targets t cross join lateral jsonb_array_elements(coalesce(t.discovery->'warnings','[]'::jsonb) || coalesce(t.task_suggestions->'warnings','[]'::jsonb) || coalesce(t.purchasable_suggestions->'warnings','[]'::jsonb)) w where t.import_id=i.id),'[]'::jsonb) as warnings`;
 
 export async function getOwnedImportOrThrow(
   db: Database,
@@ -306,14 +313,14 @@ export async function allocateTargets(
       [job.skeletonId, job.attachmentId],
     );
 
-    const activity = await database.execute(
+    const relatedRecords = await database.execute(
       db,
       'select 1 from bt.issues where thing_id=$1 union all select 1 from bt.events where thing_id=$1 union all select 1 from bt.purchasables where thing_id=$1 union all select 1 from bt.conversations where thing_id=$1 limit 1',
       [job.skeletonId],
     );
 
     if (
-      !activity.rowCount &&
+      !relatedRecords.rowCount &&
       skeleton.description === '' &&
       !skeleton.imageAttachmentId &&
       skeleton.name === 'Importing…' &&
@@ -408,6 +415,21 @@ export async function saveTargetDiscovery(
     [JSON.stringify(discovery), job.id, candidateId, job.ownerId],
   );
 }
+export async function saveSuggestionCheckpoint(
+  db: Database,
+  job: ImportRow,
+  candidateId: string,
+  operation: 'taskSuggestions' | 'purchasableSuggestions',
+  checkpoint: ImportResearchCheckpoint,
+) {
+  const column = operation === 'taskSuggestions' ? 'task_suggestions' : 'purchasable_suggestions';
+  await database.execute(
+    db,
+    `update bt.import_targets set ${column}=$1 where import_id=$2 and candidate_id=$3 and owner_id=$4`,
+    [JSON.stringify(checkpoint), job.id, candidateId, job.ownerId],
+  );
+}
+
 export async function markTargetStage(
   db: Database,
   job: ImportRow,
