@@ -85,7 +85,7 @@ bt-scroll-container {
 .chat-data-notice {
   padding: tokens.space(3) tokens.space(4);
   border-radius: tokens.radius(tile);
-  background: tokens.color(secondary-muted);
+  background: tokens.color(secondary-subtle);
   @include typography.role(caption);
   color: tokens.color(primary-muted);
 }
