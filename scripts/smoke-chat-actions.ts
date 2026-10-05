@@ -121,8 +121,10 @@ for (const scenario of cases) {
             },
           };
         }
-        if (name === 'discover')
-          return { output: { discovery: { sources: [], items: [] }, context } };
+        if (name === 'research')
+          return {
+            output: { text: 'No additional public evidence in this fixture.', sources: [] },
+          };
         throw new Error('Unexpected tool: ' + name);
       },
       {

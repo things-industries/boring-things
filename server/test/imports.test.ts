@@ -9,7 +9,7 @@ import {
   applyFactMapping,
   applySelectedSets,
   localFactId,
-  buildResearchContext,
+  buildResearchThing,
   validateExtraction,
 } from '../src/application/import/mapping.js';
 import { patchData } from '../src/application/thing-data.js';
@@ -180,9 +180,9 @@ test('sensitive facts cannot map to an unmasked definition and research only rec
     'appliances.zNumber': { value: 'private-serial', origin: 'USER', sourceRefs: [] },
     'appliances.eNumber': { value: 'MODEL/01', origin: 'USER', sourceRefs: [] },
   };
-  const query = buildResearchContext(candidate, data, registry)!;
-  assert.equal(query.name, 'MODEL/01');
-  assert.deepEqual(Object.keys(query).sort(), ['categoryId', 'fields', 'id', 'name', 'targets']);
+  const query = buildResearchThing(candidate, data, registry)!;
+  assert.equal(query.knownFields[0].value, 'MODEL/01');
+  assert.deepEqual(Object.keys(query).sort(), ['categoryId', 'emptyFields', 'id', 'knownFields']);
   assert.ok(!JSON.stringify(query).includes('private-serial'));
 });
 

@@ -1,3 +1,4 @@
+import type { PublicField } from '../public-fields.js';
 import type { FieldSearchLabel } from '../registry/registry.js';
 /**
  * Defines import extraction, mapping, discovery and provider interfaces, plus shared usage tracking
@@ -42,7 +43,7 @@ export interface Source {
 export type FactMapping = components['schemas']['Mapping'];
 
 export interface DiscoveryItem {
-  kind: 'reference' | 'maintenance' | 'consumable' | 'accessory' | 'upgrade';
+  kind: 'reference' | 'image';
   title: string;
   description: string;
   url: string;
@@ -83,17 +84,16 @@ export interface RegistryTools {
   searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
 }
 
-export interface ResearchContext {
+export interface ResearchThing {
   id: string;
-  name: string;
   categoryId: string;
-  fields: ResearchField[];
-  targets: ResearchTarget[];
+  knownFields: KnownResearchField[];
+  emptyFields: EmptyResearchField[];
   documentLimits?: { maxBytes: number; maxTextCharacters: number };
   rejectedDocuments?: Pick<DiscoveryWarning, 'sourceUrl' | 'code' | 'actual' | 'limit'>[];
 }
 
-export interface ResearchTarget {
+export interface EmptyResearchField {
   fieldSetId: string | null;
   fieldId: string;
   label: string;
@@ -101,12 +101,10 @@ export interface ResearchTarget {
   schema: FieldDefinition['schema'];
 }
 
-export interface ResearchField extends Omit<ResearchTarget, 'schema'> {
-  undefinedFieldId?: string;
-  value: Value;
-}
+export type KnownResearchField = PublicField;
 
 export interface ReferenceDocument extends Source {
+  sourceContext?: { url: string; description: string };
   attachmentId: string;
   url: string;
   pageCount: number;
@@ -138,16 +136,15 @@ export interface ImportAi {
     tools: RegistryTools,
     context: AiContext,
   ): Promise<FactMapping>;
-  discover(
-    research: ResearchContext,
+  findResources(
+    research: ResearchThing,
     context: AiContext,
-    focus?: 'reference' | 'maintenance' | 'products',
     searchCalls?: number,
   ): Promise<Discovery>;
   extractDocument(
     document: ReferenceDocument,
-    research: ResearchContext,
-    targets: ResearchTarget[],
+    research: ResearchThing,
+    targets: EmptyResearchField[],
     context: AiContext,
   ): Promise<DocumentExtraction>;
 }

@@ -1,4 +1,4 @@
-// Paid synthetic chat discovery check. Temporary database; no application records are changed.
+// Paid synthetic chat research check. Temporary database; no application records are changed.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
@@ -70,7 +70,7 @@ try {
     headers,
     payload: {
       requestId: randomUUID(),
-      text: 'Find a compatible detergent consumable for this model. Research products, verify compatibility from manufacturer evidence, and show a product card with a retrieved merchant link. Do not invent a price.',
+      text: 'Find a compatible detergent consumable for this model. Research this question, verify compatibility from manufacturer evidence, and cite the sources. Do not invent a price.',
     },
   });
   assert.equal(accepted.statusCode, 202, accepted.body);
@@ -104,14 +104,14 @@ try {
     status: message?.status,
     error: message?.error,
     usage: message?.usage,
-    merchantLinks: products.items.length,
+    sources: message?.sourceRefs,
     cardTypes: message?.cards.map((c) => c.type),
     artifact: 'test-results/assistant-products-smoke.json',
   });
   assert.equal(message?.status, 'COMPLETE');
-  assert.ok(products.items.length);
-  assert.ok(message?.cards.some((c) => c.type === 'PURCHASABLE'));
-  assert.ok(products.items.every((p) => p.sourceRefs.length && !p.price));
+  assert.equal(products.items.length, 0);
+  assert.ok(message?.sourceRefs.some((source) => source.url));
+  assert.ok(message?.usage?.toolCalls.some((call) => call.name === 'research'));
 } finally {
   await app?.close();
   await pool.end();

@@ -19,10 +19,10 @@ import { searchFieldSets, searchFields } from '../registry/search.js';
 import { ensure } from '../errors.js';
 import * as database from '../../db/connection.js';
 import * as importsDb from '../../db/entities/imports.js';
-import type { ImportRow, Target } from '../../db/entities/imports.js';
+import type { ImportRow, ImportDestination } from '../../db/entities/imports.js';
 import * as thingsDb from '../../db/entities/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { isResearchPersistenceError, persistResearch, researchImportTarget } from './research.js';
+import { researchThing } from './research.js';
 import { updateAttachmentMetadata } from '../attachments.js';
 import { pdfPageCount } from '../../lib/pdf.js';
 
@@ -155,11 +155,11 @@ export class ImportProcessor {
       ensure(selected.length === job.selection!.length, 'Import target no longer exists');
 
       for (const target of selected) {
-        const candidate = job.extraction!.extractedThings.find((c) => c.id === target.candidateId)!;
+        const subject = job.extraction!.extractedThings.find((c) => c.id === target.candidateId)!;
 
         if (!target.mapped) {
           await this.status(job, 'MAPPING');
-          await this.map(job, target, candidate, context);
+          await this.map(job, target, subject, context);
         }
       }
 
@@ -167,57 +167,21 @@ export class ImportProcessor {
       for (const target of await importsDb.listImportTargets(this.pool, job)) {
         if (target.discovered) continue;
         await this.status(job, 'DISCOVERING');
-        const discoverySignal = AbortSignal.any([
-          shutdown,
-          AbortSignal.timeout(this.config.discoveryTimeoutMs),
-        ]);
-        try {
-          const discoveryContext: AiContext = {
-            signal: discoverySignal,
-            record: async (delta) => {
-              discoverySignal.throwIfAborted();
-              await persistResearch(() => record(delta));
-            },
-          };
-          await researchImportTarget(
-            this.pool,
-            this.registry,
-            this.blobs,
-            this.ai!,
-            this.events,
-            job,
-            target,
-            discoveryContext,
-            {
-              maxBytes: this.config.maxUploadBytes,
-              searchCalls: this.config.discoverySearchCalls,
-            },
-          );
-
-          await importsDb.markTargetStage(this.pool, job, target.candidateId, 'discovered');
-          this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-        } catch (error) {
-          if (shutdown.aborted || isResearchPersistenceError(error)) throw error;
-          const current = (await importsDb.listImportTargets(this.pool, job)).find(
-            (entry) => entry.candidateId === target.candidateId,
-          )!;
-          const found = current.discovery ?? { items: [], sources: [] };
-          await importsDb.saveTargetDiscovery(this.pool, job, target.candidateId, {
-            ...found,
-            warnings: [
-              ...(found.warnings ?? []),
-              {
-                code: discoverySignal.aborted ? 'TIMEOUT' : 'RESEARCH_FAILED',
-                sourceUrl: null,
-                retryable: true,
-                actual: null,
-                limit: null,
-              },
-            ],
-          });
-          await importsDb.markTargetStage(this.pool, job, target.candidateId, 'discovered');
-          this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-        }
+        await researchThing(
+          this.pool,
+          this.registry,
+          this.blobs,
+          this.ai!,
+          this.events,
+          job,
+          target,
+          { signal: shutdown, record },
+          {
+            maxBytes: this.config.maxUploadBytes,
+            searchCalls: this.config.discoverySearchCalls,
+            timeoutMs: this.config.discoveryTimeoutMs,
+          },
+        );
       }
 
       await this.status(job, 'COMPLETE');
@@ -239,7 +203,12 @@ export class ImportProcessor {
     }
   }
 
-  private async map(job: ImportRow, target: Target, candidate: ExtractedThing, context: AiContext) {
+  private async map(
+    job: ImportRow,
+    target: ImportDestination,
+    subject: ExtractedThing,
+    context: AiContext,
+  ) {
     const allowedSets = new Set<string>(),
       allowedFields = new Set<string>();
     let calls = 0;
@@ -252,7 +221,7 @@ export class ImportProcessor {
     const tools: RegistryTools = {
       searchFieldSets: async (category, terms) => {
         checkBudget();
-        ensure(category === candidate.categoryId, 'Wrong category');
+        ensure(category === subject.categoryId, 'Wrong category');
         const result = await searchFieldSets(this.pool, this.registry, category, terms);
         result.sets.forEach((s) => {
           allowedSets.add(s.id);
@@ -306,8 +275,8 @@ export class ImportProcessor {
       context.signal.throwIfAborted();
       const extraction = {
         ...job.extraction!,
-        extractedThings: job.extraction!.extractedThings.map((subject) =>
-          subject.id === candidate.id ? { ...subject, mapping } : subject,
+        extractedThings: job.extraction!.extractedThings.map((entry) =>
+          entry.id === subject.id ? { ...entry, mapping } : entry,
         ),
       };
       await database.transaction(this.pool, async (db) => {
@@ -320,12 +289,12 @@ export class ImportProcessor {
         await importsDb.saveExtraction(db, job, extraction);
       });
       job.extraction = extraction;
-      candidate.mapping = mapping;
+      subject.mapping = mapping;
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     };
-    if (!candidate.mapping) {
+    if (!subject.mapping) {
       const selection = await awaitWithSignal(
-        this.ai!.selectFieldSets(candidate, tools, context),
+        this.ai!.selectFieldSets(subject, tools, context),
         context.signal,
       );
       await commit(
@@ -335,23 +304,23 @@ export class ImportProcessor {
       );
     }
     const selectedSets = this.registry
-      .expand(candidate.mapping!.setIds, candidate.categoryId)
+      .expand(subject.mapping!.setIds, subject.categoryId)
       .map((id) => this.registry.sets.get(id)!);
     const completed = new Set(
-      candidate.mapping!.batches.flatMap((batch) => [
+      subject.mapping!.batches.flatMap((batch) => [
         ...batch.values.map((value) => value.factId),
         ...batch.customFactIds,
         ...batch.discardedFactIds,
       ]),
     );
-    const pending = candidate.facts.filter((fact) => !completed.has(fact.id));
+    const pending = subject.facts.filter((fact) => !completed.has(fact.id));
     for (let offset = 0; offset < pending.length; offset += 20) {
       calls = 0;
       allowedFields.clear();
       selectedSets.forEach((set) => set.fields.forEach((field) => allowedFields.add(field.id)));
       const facts = pending.slice(offset, offset + 20);
       const batch = await awaitWithSignal(
-        this.ai!.mapFacts(candidate, facts, selectedSets, tools, context),
+        this.ai!.mapFacts(subject, facts, selectedSets, tools, context),
         context.signal,
       );
       await commit(
@@ -359,13 +328,13 @@ export class ImportProcessor {
           applyFactMapping(
             data,
             batch,
-            { id: candidate.id, facts },
+            { id: subject.id, facts },
             this.registry,
             allowedFields,
             job.id,
             job.attachmentId,
           ),
-        { ...candidate.mapping!, batches: [...candidate.mapping!.batches, batch] },
+        { ...subject.mapping!, batches: [...subject.mapping!.batches, batch] },
       );
     }
 

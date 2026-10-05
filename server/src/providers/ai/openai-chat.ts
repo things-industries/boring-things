@@ -14,6 +14,9 @@ import type {
 } from '../../application/conversations/types.js';
 import { chatFunctions } from '../../contracts/chat-tools.js';
 import { ensure } from '../../application/errors.js';
+import type { PublicField } from '../../application/public-fields.js';
+import type { AiContext } from '../../application/import/types.js';
+import { searchWeb } from './responses.js';
 
 export class OpenAiChat implements ChatAi {
   private client: OpenAI;
@@ -22,8 +25,20 @@ export class OpenAiChat implements ChatAi {
     private model: string,
     private maxOutputTokens: number,
     private rounds: number,
+    private searchCalls = 3,
   ) {
     this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
+  }
+
+  async research(question: string, fields: PublicField[], context: AiContext) {
+    return searchWeb(
+      this.client,
+      this.model,
+      this.maxOutputTokens,
+      prompts.chatResearchPrompt(question, fields, this.searchCalls),
+      this.searchCalls,
+      context,
+    );
   }
 
   async respond(

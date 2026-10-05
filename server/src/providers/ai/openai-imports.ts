@@ -1,3 +1,5 @@
+import { responseText, searchWeb, requestResponse } from './responses.js';
+import { readResourcePage } from '../web/resources.js';
 import OpenAI from 'openai';
 import type {
   Response,
@@ -13,7 +15,7 @@ import * as prompts from './prompts.js';
 import type {
   AiContext,
   ExtractedThing,
-  ResearchContext,
+  ResearchThing,
   Discovery,
   Extraction,
   ImportAi,
@@ -22,7 +24,7 @@ import type {
   RegistryTools,
   Source,
   ReferenceDocument,
-  ResearchTarget,
+  EmptyResearchField,
   DocumentExtraction,
 } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
@@ -48,6 +50,7 @@ export class OpenAiImports implements ImportAi {
     private maxOutputTokens = 12000,
     private searchCalls = 3,
     private documentModel = model,
+    private readPage = readResourcePage,
   ) {
     this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
   }
@@ -58,63 +61,21 @@ export class OpenAiImports implements ImportAi {
     extra: Partial<ResponseCreateParamsNonStreaming> & { max_tool_calls?: number } = {},
     task = 'structured_output',
   ): Promise<Response> {
-    context.signal.throwIfAborted();
-    const started = Date.now();
-    const model = extra.model ?? this.model;
-    let result: Response;
-    try {
-      result = await this.client.responses.create(
-        {
-          model: this.model,
-          store: false,
-          instructions: prompts.importInstructions,
-          input: conversation,
-          max_output_tokens: this.maxOutputTokens,
-          ...extra,
-          stream: false,
-        },
-        { signal: context.signal },
-      );
-    } catch (error) {
-      context.signal.throwIfAborted();
-      throw new Error(
-        error instanceof OpenAI.APIError && error.status
-          ? `ai_http_${error.status}`
-          : 'ai_provider_failed',
-      );
-    }
-    await context.record({
-      model,
-      entries: [
-        {
-          task,
-          model,
-          inputTokens: result.usage?.input_tokens ?? 0,
-          outputTokens: result.usage?.output_tokens ?? 0,
-          cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
-          elapsedMs: Date.now() - started,
-        },
-      ],
-      inputTokens: result.usage?.input_tokens ?? 0,
-      outputTokens: result.usage?.output_tokens ?? 0,
-      cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
-    });
-    ensure(result.status === 'completed' && Array.isArray(result.output), 'AI response incomplete');
-    return result;
-  }
-
-  private text(result: Response) {
-    return result.output
-      .flatMap((o) => (o.type === 'message' ? o.content : []))
-      .filter((c) => c.type === 'output_text')
-      .map((c) => c.text)
-      .join('');
+    return requestResponse(
+      this.client,
+      this.model,
+      this.maxOutputTokens,
+      conversation,
+      context,
+      extra,
+      task,
+    );
   }
 
   private validateOutput<T>(result: Response, schema: object): T {
     let data: unknown;
     try {
-      data = JSON.parse(this.text(result));
+      data = JSON.parse(responseText(result));
     } catch {
       throw new Error('Invalid AI output');
     }
@@ -286,67 +247,54 @@ export class OpenAiImports implements ImportAi {
       context,
     );
   }
-  async discover(
-    candidate: ResearchContext,
+  async findResources(
+    research: ResearchThing,
     context: AiContext,
-    focus: 'reference' | 'maintenance' | 'products' = 'reference',
     searchCalls = this.searchCalls,
   ): Promise<Discovery> {
-    const result = await this.requestResponse(
-      [
-        {
-          role: 'user',
-          content: prompts.researchPrompt(candidate, focus, searchCalls),
-        },
-      ],
+    const { text, sources } = await searchWeb(
+      this.client,
+      this.model,
+      this.maxOutputTokens,
+      prompts.resourceSearchPrompt(research, searchCalls),
+      searchCalls,
       context,
-      {
-        tools: [{ type: 'web_search' }],
-        max_tool_calls: searchCalls,
-        include: ['web_search_call.action.sources'],
-      },
-      'research',
-    );
-
-    // Citable URLs come from provider search metadata; persistence checks model-selected URLs against this list.
-    const sources = [
-      ...new Set(
-        result.output.flatMap((o) => {
-          if (o.type === 'web_search_call') {
-            return [
-              ...('url' in o.action && typeof o.action.url === 'string' ? [o.action.url] : []),
-              ...('sources' in o.action ? (o.action.sources ?? []).map((s) => s.url) : []),
-            ];
-          }
-          return o.type === 'message'
-            ? o.content.flatMap((c) =>
-                c.type === 'output_text'
-                  ? c.annotations.filter((a) => a.type === 'url_citation').map((a) => a.url)
-                  : [],
-              )
-            : [];
-        }),
-      ),
-    ];
-    await context.record({
-      toolCalls: result.output
-        .filter((o) => o.type === 'web_search_call')
-        .map(() => ({
-          name: 'web_search',
-          resultCount: sources.length,
-          truncated: false,
-        })),
-    });
-    ensure(
-      result.output.filter((o) => o.type === 'web_search_call').length <= searchCalls,
-      'Discovery tool limit exceeded',
     );
     if (!sources.length) return { items: [], sources: [] };
+    const pages = await Promise.all(
+      sources
+        .filter((url) => !/\.(pdf|png|(?:jpg|jpeg)|webp)(?:[?#]|$)/i.test(url))
+        .sort((left, right) => {
+          const relevance = (url: string) =>
+            research.knownFields.filter(
+              ({ value }) =>
+                typeof value === 'string' &&
+                value.length >= 3 &&
+                url
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]/g, '')
+                  .includes(value.toLowerCase().replace(/[^a-z0-9]/g, '')),
+            ).length;
+          return relevance(right) - relevance(left);
+        })
+        .slice(0, 3)
+        .map((url) => this.readPage(url, context.signal)),
+    );
+    const resources = pages.filter((page) => page !== null);
+    sources.push(
+      ...resources
+        .flatMap((page) => page.links.map((link) => link.url))
+        .filter((url) => !sources.includes(url)),
+    );
     const parsed = await this.requestStructuredOutput<Outputs['Discovery']>(
       [
         {
           role: 'user',
-          content: prompts.structureResearchPrompt(this.text(result), sources),
+          content: prompts.structureResearchPrompt(
+            text + '\nRetrieved page links: ' + JSON.stringify(resources),
+            sources,
+            research,
+          ),
         },
       ],
       schemas.$defs.discovery,
@@ -358,8 +306,8 @@ export class OpenAiImports implements ImportAi {
   }
   async extractDocument(
     document: ReferenceDocument,
-    research: ResearchContext,
-    targets: ResearchTarget[],
+    research: ResearchThing,
+    targets: EmptyResearchField[],
     context: AiContext,
   ): Promise<DocumentExtraction> {
     ensure(targets.length <= 20, 'Document extraction limit exceeded');
@@ -369,7 +317,10 @@ export class OpenAiImports implements ImportAi {
         {
           role: 'user',
           content: [
-            { type: 'input_text', text: prompts.extractDocumentPrompt(research, targets) },
+            {
+              type: 'input_text',
+              text: prompts.extractDocumentPrompt(research, targets, document.sourceContext),
+            },
             content,
           ],
         },

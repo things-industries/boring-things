@@ -70,7 +70,7 @@ function decodeImport(job: StoredImportRow): ImportRow {
   };
 }
 
-export interface Target {
+export interface ImportDestination {
   candidateId: string;
   thingId: string;
   isNew: boolean;
@@ -229,7 +229,7 @@ export async function allocateTargets(
     const current = await findThingImport(db, job.ownerId, id);
     ensure(
       !current || current.id === job.id || !activeStatuses.includes(current.status),
-      'Target is processing an import',
+      'Thing is processing an import',
       'CONFLICT',
     );
   }
@@ -343,7 +343,7 @@ export async function allocateTargets(
 }
 
 export async function listImportTargets(db: Database, job: ImportRow) {
-  return database.rows<Target>(
+  return database.rows<ImportDestination>(
     db,
     'select * from bt.import_targets where import_id=$1 and owner_id=$2 order by candidate_id',
     [job.id, job.ownerId],

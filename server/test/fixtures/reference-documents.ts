@@ -1,5 +1,5 @@
 import type { FieldDefinition, FieldSet } from '../../../shared/model.js';
-import type { ResearchContext } from '../../src/application/import/types.js';
+import type { ResearchThing } from '../../src/application/import/types.js';
 
 const field = (
   id: string,
@@ -40,11 +40,10 @@ export const referenceSet: FieldSet = {
   considerAlongside: [],
   fields: referenceFields,
 };
-const context = (categoryId: string, model: string, ids: string[]): ResearchContext => ({
+const context = (categoryId: string, model: string, ids: string[]): ResearchThing => ({
   id: 'synthetic',
-  name: model,
   categoryId,
-  fields: [
+  knownFields: [
     {
       fieldSetId: null,
       fieldId: 'model',
@@ -53,7 +52,7 @@ const context = (categoryId: string, model: string, ids: string[]): ResearchCont
       value: model,
     },
   ],
-  targets: referenceFields
+  emptyFields: referenceFields
     .filter((field) => ids.includes(field.id))
     .map((field) => ({
       fieldSetId: 'reference',

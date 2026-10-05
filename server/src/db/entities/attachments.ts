@@ -1,3 +1,4 @@
+import * as thingsDb from './things.js';
 import * as database from '../connection.js';
 import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
@@ -116,6 +117,11 @@ export async function linkAttachment(
       [thingId, id, owner],
     );
   else {
+    const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    if (thing.imageAttachmentId === id) {
+      thing.data.userEdited = [...new Set([...(thing.data.userEdited ?? []), 'imageAttachmentId'])];
+      await thingsDb.saveThingData(db, owner, thingId, thing.data);
+    }
     await database.execute(
       db,
       'update bt.things set image_attachment_id=null where id=$1 and owner_id=$2 and image_attachment_id=$3',

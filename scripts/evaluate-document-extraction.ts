@@ -62,13 +62,18 @@ for (const model of models) {
     let attempts = 0;
     for (; attempts < 2; attempts++) {
       try {
-        result = await ai.extractDocument(document, fixture.research, fixture.research.targets, {
-          signal: AbortSignal.timeout(90000),
-          record: async (delta) => {
-            usage.push(...(delta.entries ?? []));
+        result = await ai.extractDocument(
+          document,
+          fixture.research,
+          fixture.research.emptyFields,
+          {
+            signal: AbortSignal.timeout(90000),
+            record: async (delta) => {
+              usage.push(...(delta.entries ?? []));
+            },
           },
-        });
-        validateDocumentExtraction(result, document, fixture.research.targets, registry);
+        );
+        validateDocumentExtraction(result, document, fixture.research.emptyFields, registry);
         break;
       } catch (error) {
         failure = error instanceof Error ? error.message : 'failed';

@@ -92,7 +92,7 @@ test('reference extraction consumes page-labelled PDF text with original citatio
       content: Buffer.from(await pdf.save()),
       pageCount: 101,
     },
-    { id: 'subject', name: 'Example', categoryId: 'devices', fields: [], targets: [] },
+    { id: 'subject', categoryId: 'devices', knownFields: [], emptyFields: [] },
     [],
     context(),
   );
@@ -327,6 +327,7 @@ test('SDK import cancellation reaches the request signal', async (t) => {
 test('discovery retains opened PDF URLs and structures a cited product identity', async (t) => {
   const source = 'https://manufacturer.example/oven';
   const pdf = 'https://documents.example/download?id=123';
+  const linkedPdf = 'https://documents.example/manual.pdf';
   const requests: Record<string, unknown>[] = [];
   const usage: Partial<Usage>[] = [];
   const expected = {
@@ -336,7 +337,7 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
         kind: 'reference',
         title: 'User manual',
         description: 'Applies to the identified model',
-        url: pdf,
+        url: linkedPdf,
         sourceUrl: source,
         metadata: {
           title: 'User manual',
@@ -381,14 +382,17 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       { headers: { 'Content-Type': 'application/json' } },
     );
   });
-  const ai = new OpenAiImports('test-key', 'test-model');
-  const result = await ai.discover(
+  const ai = new OpenAiImports('test-key', 'test-model', 12000, 3, 'test-model', async (url) =>
+    url === source
+      ? { url, links: [{ url: linkedPdf, context: 'Official user manual for the model' }] }
+      : null,
+  );
+  const result = await ai.findResources(
     {
       id: 'candidate-1',
-      name: 'Bosch SYNTHETIC/01',
       categoryId: 'appliances',
-      fields: [],
-      targets: [],
+      knownFields: [],
+      emptyFields: [],
     },
     {
       signal: new AbortController().signal,
@@ -397,9 +401,9 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       },
     },
   );
-  assert.deepEqual(result, { ...expected, sources: [source, pdf] });
+  assert.deepEqual(result, { ...expected, sources: [source, pdf, linkedPdf] });
   assert.equal(requests[0].max_tool_calls, 3);
-  assert.ok(JSON.stringify(requests[1].input).includes(pdf));
+  assert.ok(JSON.stringify(requests[1].input).includes(linkedPdf));
   assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
 });
 
@@ -429,7 +433,7 @@ test('SDK document extraction uses the configured model, contained schema and pe
       content: Buffer.from(await pdf.save()),
       pageCount: 1,
     },
-    { id: 'subject', categoryId: 'devices', name: 'Example', fields: [], targets: [] },
+    { id: 'subject', categoryId: 'devices', knownFields: [], emptyFields: [] },
     [],
     {
       ...context(),

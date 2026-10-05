@@ -11,8 +11,7 @@ import type { Schema } from '../../../../shared/model.js';
 import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
-import type { ChatAi, ChatToolResult } from './types.js';
-import type { ImportAi, Discovery } from '../import/types.js';
+import type { ChatAi, ChatToolResult, ResearchAnswer } from './types.js';
 import { blankUsage } from '../import/types.js';
 import { chatFunctions } from '../../contracts/chat-tools.js';
 import * as conversationsDb from '../../db/entities/conversations.js';
@@ -21,8 +20,8 @@ import * as thingsDb from '../../db/entities/things.js';
 import { detail } from '../things.js';
 import { ensure } from '../errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { buildResearchContext } from '../import/mapping.js';
-import { publicUrl, persistDiscovery } from '../discovery/discovery.js';
+import { publicFields } from '../public-fields.js';
+import { publicUrl } from '../../providers/web/resources.js';
 import type { ApplicationEvents } from '../events.js';
 
 const ajv = new Ajv({ strict: false });
@@ -54,7 +53,6 @@ export class Assistant {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ChatAi | undefined,
-    private discoveryAi: ImportAi | undefined,
     private config: EnvConfig,
     private events: ApplicationEvents,
   ) {}
@@ -99,7 +97,7 @@ export class Assistant {
     const allowedThings = new Map<string, Schema['Thing']>();
     const allowedResources = new Set<string>();
     let calls = 0,
-      discovered = false,
+      researched = false,
       files = 0;
 
     const record = async (delta: Partial<Schema['ImportUsage']>) => {
@@ -185,54 +183,40 @@ export class Assistant {
             content: Buffer.concat(chunks),
           },
         };
-      } else if (name === 'discover') {
-        ensure(!discovered && this.discoveryAi, 'Discovery unavailable or budget used');
-        discovered = true;
+      } else if (name === 'research') {
+        ensure(!researched && this.ai, 'Research unavailable or budget used');
+        researched = true;
         const thing = allowedThings.get(a['thingId']);
         ensure(thing, 'Read the Thing first');
         const stored = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, thing.id);
-        const candidate = buildResearchContext(
-          {
-            id: thing.id,
-            categoryId: thing.categoryId,
-          },
-          stored.data,
-          this.registry,
-        );
-        ensure(candidate, 'Public research context is missing');
-        const discoveryKey = 'discover:' + thing.id + ':' + a['focus'];
-        let found = job.toolResults.find((r) => r.key === discoveryKey)?.result as
-          Discovery | undefined;
-        const discoverySignal = AbortSignal.any([
+        const fields = publicFields(stored.data, this.registry);
+        const question = a['question'].trim();
+        ensure(question, 'Research question cannot be blank');
+        const researchKey = JSON.stringify(['research', thing.id, question]);
+        let found = job.toolResults.find((r) => r.key === researchKey)?.result as
+          ResearchAnswer | undefined;
+        const researchSignal = AbortSignal.any([
           signal,
           AbortSignal.timeout(this.config.discoveryTimeoutMs),
         ]);
-
         if (!found) {
           found = await awaitWithSignal(
-            this.discoveryAi.discover(
-              candidate,
-              { signal: discoverySignal, record },
-              a['focus'] as 'reference' | 'maintenance' | 'products',
-            ),
-            discoverySignal,
+            this.ai.research(question, fields, { signal: researchSignal, record }),
+            researchSignal,
           );
           signal.throwIfAborted();
-          job.toolResults.push({ key: discoveryKey, result: found });
+          ensure(
+            typeof found.text === 'string' &&
+              found.text.length <= 100000 &&
+              Array.isArray(found.sources) &&
+              found.sources.every(publicUrl),
+            'Invalid research answer',
+          );
+          job.toolResults.push({ key: researchKey, result: found });
           await conversationsDb.saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
-
-        await persistDiscovery(
-          this.pool,
-          this.blobs,
-          { id: job.id, ownerId: job.ownerId },
-          { thingId: thing.id, candidateId: thing.id, isNew: false },
-          found,
-          { maxBytes: this.config.maxUploadBytes, signal: discoverySignal },
-        );
-        found.sources.filter(publicUrl).forEach((url) => refs.push({ url }));
-        output = { discovery: found, context: await readThing(thing.id) };
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        found.sources.forEach((url) => refs.push({ url }));
+        output = found;
       } else if (name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
         ensure(a['title'].trim(), 'Title cannot be blank');

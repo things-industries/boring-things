@@ -44,6 +44,9 @@ importers:
       '@logto/browser':
         specifier: ^3.0.14
         version: 3.0.14
+      '@napi-rs/canvas':
+        specifier: 1.0.10
+        version: 1.0.10
       '@ng-icons/core':
         specifier: ^34.0.0
         version: 34.0.0(@angular-devkit/schematics@21.2.24(chokidar@5.0.0))(@angular/common@21.2.24(@angular/core@21.2.24(@angular/compiler@21.2.24)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.24(@angular/compiler@21.2.24)(rxjs@7.8.2))(@schematics/angular@21.2.24(chokidar@5.0.0))(rxjs@7.8.2)
@@ -71,6 +74,9 @@ importers:
       fastify-plugin:
         specifier: ^5.1.0
         version: 5.1.0
+      image-size:
+        specifier: 2.0.2
+        version: 2.0.2
       jose:
         specifier: ^6.0.0
         version: 6.2.12
@@ -3003,6 +3009,11 @@ packages:
     resolution: {integrity: sha512-HpbUakT7xp5miBUywCHf36ZEuAJNklBJDDsGpUIjMzOSmM8ELSfA9Sa/QDPeNeqeoN31u+UTCkL4klCOVvRm4Q==}
     engines: {node: '>= 4'}
 
+  image-size@2.0.2:
+    resolution: {integrity: sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w==}
+    engines: {node: '>=16.x'}
+    hasBin: true
+
   immutable@5.1.9:
     resolution: {integrity: sha512-m8nVez3rwrgmWxtLMt1ZYXB2Lv7OKYn/disyxAlSDYAlKSlFoPPfIAmAM/M5xqL4m4C/wAPw7S2/CNaUii1Hxg==}
 
@@ -5570,7 +5581,6 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 1.0.10
       '@napi-rs/canvas-win32-arm64-msvc': 1.0.10
       '@napi-rs/canvas-win32-x64-msvc': 1.0.10
-    optional: true
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
@@ -7088,6 +7098,8 @@ snapshots:
   ignore@5.3.2: {}
 
   ignore@7.0.10: {}
+
+  image-size@2.0.2: {}
 
   immutable@5.1.9: {}
 

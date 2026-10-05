@@ -27,7 +27,7 @@ export function patchData(
   const data = structuredClone(original);
   // Track explicit clears and removals too, so later import retries cannot restore values the owner discarded.
   const edited = new Set(data.userEdited ?? []);
-  for (const key of ['name', 'categoryId', 'description'] as const)
+  for (const key of ['name', 'categoryId', 'description', 'imageAttachmentId'] as const)
     if (patch[key] !== undefined) edited.add(key);
   for (const v of patch.values ?? []) edited.add(`${v.fieldSetId ?? ''}:${v.fieldId}`);
   for (const id of patch.removeUndefinedFieldIds ?? []) edited.add(`local:${id}`);

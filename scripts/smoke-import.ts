@@ -74,8 +74,8 @@ const recorded: ImportAi = {
     });
     return result;
   },
-  async discover(candidate, context, focus, searchCalls) {
-    const result = await ai.discover(candidate, context, focus, searchCalls);
+  async findResources(candidate, context, searchCalls) {
+    const result = await ai.findResources(candidate, context, searchCalls);
     trace.push({ stage: 'discovery', result });
     return result;
   },
@@ -253,19 +253,6 @@ try {
       payload: { status: 'SCHEDULED', startsAt: '2026-10-01T09:00:00Z' },
     });
     assert.equal(scheduled.statusCode, 200, scheduled.body);
-    const purchases = (
-      await app.inject({
-        method: 'GET',
-        url: `/api/purchasables?thingId=${thing.id}`,
-        headers,
-      })
-    ).json<{ items: Schema['Purchasable'][] }>();
-    if (purchases.items.length) {
-      const products = await send(
-        'Show a saved compatible accessory, consumable or upgrade with its merchant link and supporting source. Do not invent products.',
-      );
-      assert.ok(products.cards.some((c) => c.type === 'PURCHASABLE'));
-    }
     await app.close();
     app = await buildApp({
       dbPool: pool,
@@ -293,7 +280,6 @@ try {
     console.log({
       assistantArtifact: 'test-results/assistant-smoke.json',
       restartVerified: true,
-      merchantLinks: purchases.items.length,
     });
   }
 } finally {

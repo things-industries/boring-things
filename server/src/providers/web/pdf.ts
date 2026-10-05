@@ -90,7 +90,7 @@ async function publicRequest(url: URL, signal: AbortSignal): Promise<IncomingMes
           if (options.all) callback(null, [address]);
           else callback(null, address.address, address.family);
         },
-        headers: { Accept: 'application/pdf', 'Accept-Encoding': 'identity' },
+        headers: { Accept: '*/*', 'Accept-Encoding': 'identity' },
       },
       resolve,
     );
@@ -105,11 +105,12 @@ export interface DocumentOptions {
 
 export type DocumentDownload = (url: string, options: DocumentOptions) => Promise<Buffer | null>;
 
-export async function downloadPdf(
+export async function downloadResource(
   value: string,
   options: DocumentOptions,
   request = publicRequest,
-): Promise<Buffer | null> {
+  mediaTypes: string[] = [],
+): Promise<{ content: Buffer; mediaType: string; url: string } | null> {
   const signal = AbortSignal.any([options.signal, AbortSignal.timeout(15000)]);
   let url = documentUrl(value);
 
@@ -128,11 +129,7 @@ export async function downloadPdf(
       ensure(response.statusCode === 200, 'Document download failed');
       const type = response.headers['content-type']?.split(';')[0].trim().toLowerCase();
 
-      if (
-        type &&
-        !['application/pdf', 'application/octet-stream', 'binary/octet-stream'].includes(type)
-      )
-        return null;
+      if (type && mediaTypes.length && !mediaTypes.includes(type)) return null;
 
       ensure(
         !response.headers['content-encoding'] ||
@@ -155,16 +152,30 @@ export async function downloadPdf(
       }
 
       const content = Buffer.concat(chunks);
-      ensure(
-        content.subarray(0, 5).toString() === '%PDF-' && content.subarray(-1024).includes('%%EOF'),
-        'Invalid PDF document',
-      );
-
-      return content;
+      return { content, mediaType: type ?? '', url: url.href };
     } finally {
       response.destroy();
     }
   }
 
   throw new Error('Document redirect limit');
+}
+
+export async function downloadPdf(
+  value: string,
+  options: DocumentOptions,
+  request = publicRequest,
+): Promise<Buffer | null> {
+  const resource = await downloadResource(value, options, request, [
+    'application/pdf',
+    'application/octet-stream',
+    'binary/octet-stream',
+  ]);
+  if (!resource) return null;
+  ensure(
+    resource.content.subarray(0, 5).toString() === '%PDF-' &&
+      resource.content.subarray(-1024).includes('%%EOF'),
+    'Invalid PDF document',
+  );
+  return resource.content;
 }

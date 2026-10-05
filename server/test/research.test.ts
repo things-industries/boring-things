@@ -7,13 +7,13 @@ import {
   type StoredValue,
 } from '../../shared/model.js';
 import { Registry } from '../src/application/registry/registry.js';
-import { buildResearchContext } from '../src/application/import/mapping.js';
+import { buildResearchThing } from '../src/application/import/mapping.js';
 import { patchData, projectData } from '../src/application/thing-data.js';
 import {
   applyDocumentValues,
   validateDocumentExtraction,
 } from '../src/application/import/research.js';
-import { categoryResearchPrompt, researchPrompt } from '../src/providers/ai/prompts.js';
+import { categoryResearchPrompt, resourceSearchPrompt } from '../src/providers/ai/prompts.js';
 
 const field = (
   id: string,
@@ -93,15 +93,18 @@ test('research eligibility uses metadata independently of sensitivity and retain
       sourceRefs: [],
     },
   ];
-  const research = buildResearchContext(subject, data, registry)!;
-  assert.equal(research.fields.length, 8);
-  assert.ok(research.fields.some((f) => f.fieldSetId === 'second' && f.value === 'C'));
-  assert.ok(research.fields.some((f) => f.fieldSetId === null && f.value === 'D'));
-  for (const value of [0, false, '']) assert.ok(research.fields.some((f) => f.value === value));
-  assert.ok(research.fields.some((f) => f.undefinedFieldId === 'local-public' && f.value === 0));
-  assert.ok(research.targets.some((f) => f.fieldId === 'target'));
-  assert.ok(!research.targets.some((f) => f.fieldSetId === 'first' && f.fieldId === 'cleared'));
-  const prompt = researchPrompt(research, 'reference', 3);
+  const research = buildResearchThing(subject, data, registry)!;
+  assert.equal(research.knownFields.length, 8);
+  assert.ok(research.knownFields.some((f) => f.fieldSetId === 'second' && f.value === 'C'));
+  assert.ok(research.knownFields.some((f) => f.fieldSetId === null && f.value === 'D'));
+  for (const value of [0, false, ''])
+    assert.ok(research.knownFields.some((f) => f.value === value));
+  assert.ok(
+    research.knownFields.some((f) => f.undefinedFieldId === 'local-public' && f.value === 0),
+  );
+  assert.ok(research.emptyFields.some((f) => f.fieldId === 'target'));
+  assert.ok(!research.emptyFields.some((f) => f.fieldSetId === 'first' && f.fieldId === 'cleared'));
+  const prompt = resourceSearchPrompt(research, 3);
   for (const secret of ['private-instance', 'secret-instance', 'private-custom'])
     assert.ok(!prompt.includes(secret));
 });
@@ -144,7 +147,7 @@ test('document values validate addresses, types, applicability and page evidence
   const data = emptyData();
   data.setIds = ['first', 'second'];
   data.values.first = { public: stored('Model A') };
-  const research = buildResearchContext(subject, data, registry)!;
+  const research = buildResearchThing(subject, data, registry)!;
   const document = {
     attachmentId: 'document-id',
     url: 'https://example.com/manual.pdf',
@@ -173,7 +176,9 @@ test('document values validate addresses, types, applicability and page evidence
     { ...result, values: [{ ...result.values[0], quote: '' }] },
     { ...result, values: [result.values[0], result.values[0]] },
   ])
-    assert.throws(() => validateDocumentExtraction(invalid, document, research.targets, registry));
+    assert.throws(() =>
+      validateDocumentExtraction(invalid, document, research.emptyFields, registry),
+    );
   const cleared = patchData(
     data,
     { values: [{ fieldSetId: 'first', fieldId: 'target', value: null }] },
@@ -204,11 +209,11 @@ test('document values validate addresses, types, applicability and page evidence
   );
 });
 
-test('category prompts use authored priorities and a general fallback while preserving chat modes', () => {
+test('import resource prompts use category priorities and a general fallback', () => {
   assert.match(categoryResearchPrompt('insurance'), /policy.*version/);
   assert.match(categoryResearchPrompt('vehicles'), /variant/);
   assert.equal(categoryResearchPrompt('new-category'), categoryResearchPrompt('other'));
-  const context = { ...subject, name: 'Provider Plan', fields: [], targets: [] };
-  assert.match(researchPrompt(context, 'products', 3), /merchant/);
-  assert.match(researchPrompt(context, 'maintenance', 3), /maintenance instructions/);
+  const context = { ...subject, knownFields: [], emptyFields: [] };
+  assert.match(resourceSearchPrompt(context, 3), /official product photograph/);
+  assert.match(resourceSearchPrompt(context, 3), /at most 3 web tool calls/);
 });

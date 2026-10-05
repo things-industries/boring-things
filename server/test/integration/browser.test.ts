@@ -431,8 +431,8 @@ test(
           '--warning-test\r\nContent-Disposition: form-data; name="file"; filename="source.txt"\r\nContent-Type: text/plain\r\n\r\nneff\r\n--warning-test--\r\n',
       });
       assert.equal(upload.statusCode, 201, upload.body);
-      const discover = env.importAi.discover;
-      env.importAi.discover = async () => {
+      const discover = env.importAi.findResources;
+      env.importAi.findResources = async () => {
         throw new Error('Synthetic research failure');
       };
       let release!: () => void;
@@ -468,7 +468,7 @@ test(
       );
       await mkdir('test-results', { recursive: true });
       await page.screenshot({ path: 'test-results/import-warning-mobile.png', fullPage: true });
-      env.importAi.discover = discover;
+      env.importAi.findResources = discover;
       await progress.getByRole('button', { name: 'Retry research' }).click();
       await expect(progress).toHaveCount(0);
       const details = await env.app.inject({ url: '/api/things/' + thingId, headers });

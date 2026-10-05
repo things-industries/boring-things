@@ -5,6 +5,12 @@
 
 import type { Schema } from '../../../../shared/model.js';
 import type { AiContext, Source } from '../import/types.js';
+import type { PublicField } from '../public-fields.js';
+
+export interface ResearchAnswer {
+  text: string;
+  sources: string[];
+}
 
 export interface ChatToolResult {
   output: unknown;
@@ -27,6 +33,7 @@ export interface ChatInput {
 }
 
 export interface ChatAi {
+  research(question: string, fields: PublicField[], context: AiContext): Promise<ResearchAnswer>;
   respond(
     input: ChatInput,
     execute: (name: string, args: unknown) => Promise<ChatToolResult>,

@@ -2,11 +2,11 @@
 
 <!-- Tracks staged import improvements, dependencies and acceptance criteria; marks implemented stages. -->
 
-Status: stages 1, 2, 4 and 5 implemented. Stages 6–8 are pending; stage 3 is deferred.
+Status: stages 1, 2, 4, 5 and 6 implemented. Stages 7–8 are pending; stage 3 is deferred.
 
 Imports should extract source information, identify one Thing, populate useful fields and enrich missing information from cited sources. Results become available progressively. Original sources, owner edits, explicit clears and provenance remain preserved.
 
-Each stage has its own acceptance criteria and can be delivered separately. Stages 3 and 6–8 specify planned behaviour; [the import process guide](../setup/imports.md) describes the current implementation.
+Each stage has its own acceptance criteria and can be delivered separately. Stages 3, 7 and 8 specify planned behaviour; [the import process guide](../setup/imports.md) describes the current implementation.
 
 ## Decisions
 
@@ -26,8 +26,8 @@ Each stage has its own acceptance criteria and can be delivered separately. Stag
 | Submission     | [Import routes](../../server/src/routes/imports.ts) call [import persistence](../../server/src/db/entities/imports.ts), creating a skeleton Thing and queued import.                                                                                                                                                                                 |
 | Processing     | [ImportProcessor](../../server/src/application/import/processor.ts) sequences extraction, target allocation, mapping and discovery. [JobRunner](../../server/src/application/jobs/runner.ts) also processes assistant work.                                                                                                                          |
 | AI             | [OpenAiImports](../../server/src/providers/ai/openai-imports.ts) uses the SDK for structured requests, registry conversations and research; prompts and schemas live in separate provider files. [OpenAiChat](../../server/src/providers/ai/openai-chat.ts) uses SDK streaming and task prompts.                                                     |
-| Fact retention | [Mapping](../../server/src/application/import/mapping.ts) applies explicit registry, useful custom-field and discard decisions, with atomic retry checkpoints. It builds research context and targets from field metadata.                                                                                                                           |
-| Research       | [Discovery](../../server/src/application/discovery/discovery.ts) persists cited names, PDFs, maintenance suggestions and products. [Reference enrichment](../../server/src/application/import/research.ts) fills eligible missing fields from applicable PDFs. Image retrieval is pending.                                                           |
+| Fact retention | [Mapping](../../server/src/application/import/mapping.ts) applies explicit registry, useful custom-field and discard decisions, with atomic retry checkpoints. It builds public known fields and eligible empty fields from registry metadata.                                                                                                       |
+| Research       | [Import resources](../../server/src/application/import/resources.ts) persist cited names and attachments. [Reference enrichment](../../server/src/application/import/research.ts) fills eligible missing fields from applicable PDFs. Official product photographs are retrieved and selected when the owner has left the main image unset.          |
 | HTTP boundary  | [The route helper](../../server/src/contracts/routes.ts) supplies contract types, validation and response schemas. [Thing routes](../../server/src/routes/things.ts) perform separate record lookups.                                                                                                                                                |
 | Client         | [ThingsStore](../../src/app/core/state/things.store.ts), [ImportsService](../../src/app/core/data/imports.service.ts) and [AddThing](../../src/app/features/add-thing/add-thing.ts) depend on an immediately returned Thing ID. [ImportProgress](../../src/app/features/things/import-progress.ts) offers retry; the client has no selection action. |
 
@@ -58,9 +58,9 @@ Scope:
 - Move provider output and tool schemas into an authored JSON Schema document under `server/src/providers/ai`. Describe field meaning, supported values and evidence requirements. Use constraints supported by the configured provider; retain application validation. Keep schemas and TypeScript types aligned through generation or consistency checks.
 - Adopt the official OpenAI TypeScript SDK for the import and chat adapters. Preserve storage settings, cancellation, usage accounting, error sanitisation, response completion checks and bounded retries. Keep SDK types inside the provider boundary.
 - Separate tool-free structured requests, registry tool conversations and output validation. Name the accumulated provider history `conversation`; make its lifetime and mutation visible. Extraction uses structured output even though it offers no tools.
-- Use `ExtractedThing` for an identified source subject and `ResearchContext` for information supplied to research. Name associated collections `extractedThings`. Adapt existing persisted and HTTP representations at their boundaries until stage 3 migrates them.
+- Use `ExtractedThing` for an identified source subject and `ResearchThing` for information supplied to research. Name associated collections `extractedThings`. Adapt existing persisted and HTTP representations at their boundaries until stage 3 migrates them.
 - Namespace every runtime import from database modules, including routes, application workflows, other DB modules, scripts and tests: for example, `importsDb.saveExtraction(...)`, `thingsDb.getOwnedThingOrThrow(...)` and `database.transaction(...)`. Named type imports remain suitable. Keep `dbPool` for the assembled pool.
-- Use names that reveal lookup, existence-check, lock and persistence effects. Preserve existing transaction helpers and their ability to share an executor.
+- Use `ResearchThing.knownFields` for populated public context and `emptyFields` for eligible missing definitions. `ImportDestination` is the persisted association between an extracted subject and its destination Thing; stored candidate IDs remain at the persistence and HTTP boundaries. Use names that reveal lookup, existence-check, lock and persistence effects. Preserve existing transaction helpers and their ability to share an executor.
 
 Acceptance:
 
@@ -132,7 +132,7 @@ Add `instance_specific` to registry persistence and expose it as `instanceSpecif
 
 `instanceSpecific` means that the value belongs to the particular owned item, account or agreement. A policy number and acquisition date are instance-specific; a model's output power is reference information. `sensitive` independently controls masking and reveal. Neither flag is derived from the other, and sensitivity does not supply a second research eligibility rule.
 
-Build `ResearchContext` from all populated fields with `instanceSpecific: false`, across selected sets and standalone fields. Carry field labels, descriptions, addresses and typed values. Preserve `false`, zero and empty strings as populated values. Custom fields participate when they carry an explicit `instanceSpecific` classification; unclassified custom fields remain instance-specific. Include that metadata in custom-field creation, storage and projection when enabling their participation.
+Build `ResearchThing` from all populated fields with `instanceSpecific: false`, across selected sets and standalone fields. Carry field labels, descriptions, addresses and typed values. Preserve `false`, zero and empty strings as populated values. Custom fields participate when they carry an explicit `instanceSpecific` classification; unclassified custom fields remain instance-specific. Include that metadata in custom-field creation, storage and projection when enabling their participation.
 
 Build enrichment targets from empty, non-instance-specific fields already associated with the Thing, excluding owner-cleared values. Registry metadata determines eligibility. Research can use any available eligible context; fixed field IDs and a mandatory model-number field are unnecessary.
 
@@ -167,9 +167,9 @@ Workflow:
 2. Find documents matching the category instruction. Verify applicability, including model or product variant, region, language and version when relevant. Persist supported resources as they arrive.
 3. Run a contained document-extraction task using verified documents, subject context and requested field definitions. Return proposed values with attachment/page/quote or URL evidence. It has no web-search or write tools.
 4. Validate field addresses, types, units and evidence; fill still-empty eligible destinations with `DISCOVERY` provenance. Recheck owner edits and explicit clears at each commit.
-5. Research remaining gaps within the budget. Leave unsupported values absent and report generic outcomes for unresolved research targets.
+5. Leave unsupported values absent and record outcomes for resources and empty fields.
 
-Reference-document extraction remains within this import. Its scope is the identified Thing and requested fields. Preserve explicit maintenance and product research modes used by assistant chat. Publish progress after each committed document or value batch.
+Reference-document extraction remains within this import. Its scope is the identified Thing and requested fields. Assistant research answers the user question independently through `ChatAi.research`; public field selection and bounded web search are shared. Publish progress after each committed document or value batch.
 
 ### Cost evaluation within this stage
 
@@ -182,6 +182,8 @@ Record task and model per usage entry so different models remain distinguishable
 Acceptance: changing a category prompt changes the research target without new workflow branches; a label import gains supported field data from reference documents; private policy identifiers remain excluded; cheaper-model results pass the same validation and quality checks.
 
 ## 6. Thing images
+
+Implemented: category resources and official product photographs use one bounded search. Retrieved support pages supply observed download links, including embedded metadata. Reference extraction receives the matching download-page context for family manuals. Validated JPEG, PNG and WebP images become private attachments; owner image choices and clears survive retries. Optional failures retain completed results.
 
 Extend research to retrieve an applicable official product image, validate and download it, and link it as an attachment. Distinguish a product photograph from a label or document scan. Reuse download URL, address, redirect and size protections with image content validation.
 

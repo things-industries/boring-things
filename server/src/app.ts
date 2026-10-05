@@ -96,7 +96,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const events = new ApplicationEvents();
 
-    const assistant = new Assistant(dbPool, registry, blobs, chatAi, importAi, config, events);
+    const assistant = new Assistant(dbPool, registry, blobs, chatAi, config, events);
     const runner = new JobRunner(
       [assistant, new ImportProcessor(dbPool, registry, blobs, importAi, config, events)],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),

@@ -95,7 +95,7 @@ export interface components {
             /** @description IDs of facts without established practical meaning or relevance to the Thing. */
             discardedFactIds: string[];
         };
-        /** @description Cited identity and recommendations supported by the research report and supplied retrieved URLs. */
+        /** @description Cited reference documents, a product photograph and identity supported by the research report and supplied retrieved URLs. */
         Discovery: {
             /** @description Source-supported everyday Thing name with evidence identifying the subject; null when the research does not establish the identity. */
             identity: {
@@ -104,20 +104,20 @@ export interface components {
                 /** @description URL copied from the supplied retrieved URL list whose content establishes the subject identity and type. */
                 sourceUrl: string;
             } | null;
-            /** @description Up to eight cited reference documents, maintenance tasks or compatible products, supported by retrieved evidence, with retrieved merchant pages for products. */
+            /** @description Up to eight cited reference documents and product photographs supported by retrieved evidence. */
             items: {
                 /**
-                 * @description Resource kind: reference for an applicable downloadable PDF, maintenance for a supported care or servicing task, consumable for a replacement supply, accessory for an add-on, or upgrade for a supported improvement product.
+                 * @description Resource kind: reference for an applicable downloadable PDF or image for an official product photograph.
                  * @enum {string}
                  */
-                kind: "reference" | "maintenance" | "consumable" | "accessory" | "upgrade";
-                /** @description Short display title for the document, maintenance task or product, using source-supported wording, at most 200 characters. */
+                kind: "reference" | "image";
+                /** @description Short display title for the document or photograph, using source-supported wording, at most 200 characters. */
                 title: string;
-                /** @description Summary of the resource or suggested action and why it applies to this Thing, including supported compatibility or maintenance details, excluding prices and unsupported claims, at most 4000 characters. */
+                /** @description Summary of the resource and why it applies to this Thing, supported by the cited source, at most 4000 characters. */
                 description: string;
-                /** @description URL copied from the supplied retrieved URL list: the direct downloadable PDF URL for reference, supporting instructions for maintenance, or a merchant product page for products. */
+                /** @description URL copied from the supplied retrieved URL list for the downloadable PDF or product photograph. */
                 url: string;
-                /** @description URL copied from the supplied retrieved URL list whose content supports applicability, the maintenance task or product compatibility. It may equal url when that resource provides the evidence. */
+                /** @description URL copied from the supplied retrieved URL list whose content supports applicability. It may equal url when that resource provides the evidence. */
                 sourceUrl: string;
                 /** @description Metadata supported by the cited reference document; null for other item kinds or when no metadata is supported, with null for each unknown property. */
                 metadata: {
@@ -206,18 +206,15 @@ export interface components {
              */
             attachmentId: string;
         };
-        /** @description Previously read Thing and research focus derived from the user request. */
-        discover: {
+        /** @description Previously read Thing and public question to answer, excluding instance-specific facts and secrets. */
+        research: {
             /**
              * Format: uuid
              * @description UUID of the Thing already retrieved with read_thing whose public product or provider facts support this research.
              */
             thingId: string;
-            /**
-             * @description Research focus matching the user question: reference for manuals or supporting documents, maintenance for care or servicing instructions, or products for compatible consumables, accessories or upgrades.
-             * @enum {string}
-             */
-            focus: "reference" | "maintenance" | "products";
+            /** @description Public research question about the product or service, with no instance-specific facts or secrets (min 1 char, max 2000 chars). */
+            question: string;
         };
         /** @description Suggested maintenance Event requested by the user for a Thing already read. */
         create_event: {

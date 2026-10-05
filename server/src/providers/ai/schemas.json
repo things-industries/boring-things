@@ -269,7 +269,7 @@
       "required": ["values", "customFactIds", "discardedFactIds"]
     },
     "discovery": {
-      "description": "Cited identity and recommendations supported by the research report and supplied retrieved URLs.",
+      "description": "Cited reference documents, a product photograph and identity supported by the research report and supplied retrieved URLs.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -301,30 +301,30 @@
         "items": {
           "type": "array",
           "items": {
-            "description": "One cited resource, maintenance suggestion or compatible product for the researched Thing.",
+            "description": "One cited reference document or product photograph for the researched Thing.",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["reference", "maintenance", "consumable", "accessory", "upgrade"],
-                "description": "Resource kind: reference for an applicable downloadable PDF, maintenance for a supported care or servicing task, consumable for a replacement supply, accessory for an add-on, or upgrade for a supported improvement product."
+                "enum": ["reference", "image"],
+                "description": "Resource kind: reference for an applicable downloadable PDF or image for an official product photograph."
               },
               "title": {
                 "type": "string",
-                "description": "Short display title for the document, maintenance task or product, using source-supported wording, at most 200 characters."
+                "description": "Short display title for the document or photograph, using source-supported wording, at most 200 characters."
               },
               "description": {
                 "type": "string",
-                "description": "Summary of the resource or suggested action and why it applies to this Thing, including supported compatibility or maintenance details, excluding prices and unsupported claims, at most 4000 characters."
+                "description": "Summary of the resource and why it applies to this Thing, supported by the cited source, at most 4000 characters."
               },
               "url": {
                 "type": "string",
-                "description": "URL copied from the supplied retrieved URL list: the direct downloadable PDF URL for reference, supporting instructions for maintenance, or a merchant product page for products."
+                "description": "URL copied from the supplied retrieved URL list for the downloadable PDF or product photograph."
               },
               "sourceUrl": {
                 "type": "string",
-                "description": "URL copied from the supplied retrieved URL list whose content supports applicability, the maintenance task or product compatibility. It may equal url when that resource provides the evidence."
+                "description": "URL copied from the supplied retrieved URL list whose content supports applicability. It may equal url when that resource provides the evidence."
               },
               "metadata": {
                 "anyOf": [
@@ -375,7 +375,7 @@
             },
             "required": ["kind", "title", "description", "url", "sourceUrl", "metadata"]
           },
-          "description": "Up to eight cited reference documents, maintenance tasks or compatible products, supported by retrieved evidence, with retrieved merchant pages for products."
+          "description": "Up to eight cited reference documents and product photographs supported by retrieved evidence."
         }
       },
       "required": ["identity", "items"]
@@ -610,11 +610,11 @@
     },
     {
       "type": "function",
-      "name": "discover",
-      "description": "Discovery of cited manuals, maintenance and compatible products using public manufacturer/model facts for a Thing already read, with a focus matching the user question and at most one discovery per message.",
+      "name": "research",
+      "description": "Cited answers to a public research question about a Thing already read, using public facts and at most one research operation per message. Existing attachments supply evidence before external research.",
       "strict": true,
       "parameters": {
-        "description": "Previously read Thing and research focus derived from the user request.",
+        "description": "Previously read Thing and public question to answer, excluding instance-specific facts and secrets.",
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -623,13 +623,14 @@
             "format": "uuid",
             "description": "UUID of the Thing already retrieved with read_thing whose public product or provider facts support this research."
           },
-          "focus": {
+          "question": {
             "type": "string",
-            "enum": ["reference", "maintenance", "products"],
-            "description": "Research focus matching the user question: reference for manuals or supporting documents, maintenance for care or servicing instructions, or products for compatible consumables, accessories or upgrades."
+            "description": "Public research question about the product or service, with no instance-specific facts or secrets (min 1 char, max 2000 chars).",
+            "minLength": 1,
+            "maxLength": 2000
           }
         },
-        "required": ["thingId", "focus"]
+        "required": ["thingId", "question"]
       }
     },
     {

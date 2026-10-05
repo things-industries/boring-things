@@ -35,6 +35,7 @@ export function createAi(config: EnvConfig, overrides: AiProviders = {}): AiProv
             config.openaiModel,
             config.aiMaxOutputTokens,
             config.chatToolCalls,
+            config.discoverySearchCalls,
           )
         : undefined),
   };

@@ -1,10 +1,11 @@
+import { publicFields } from '../public-fields.js';
 /**
  * Validates extracted facts and maps them into Thing fields while preserving provenance, sensitive
  * values and user edits.
  */
 
 import { createHash } from 'node:crypto';
-import type { ExtractedThing, Extraction, FactMapping, Fact, ResearchContext } from './types.js';
+import type { ExtractedThing, Extraction, FactMapping, Fact, ResearchThing } from './types.js';
 import type { Registry } from '../registry/registry.js';
 import type { ThingData, StoredValue } from '../../../../shared/model.js';
 import { ensure } from '../errors.js';
@@ -197,51 +198,39 @@ export function applyFactMapping(
   return data;
 }
 
-export function buildResearchContext(
+export function buildResearchThing(
   subject: Pick<ExtractedThing, 'id' | 'categoryId'>,
   data: ThingData,
   registry: Registry,
-): ResearchContext | null {
-  const fields: ResearchContext['fields'] = [];
-  const targets: ResearchContext['targets'] = [];
+): ResearchThing | null {
+  const fields = publicFields(data, registry);
+  const targets: ResearchThing['emptyFields'] = [];
   const add = (fieldSetId: string | null, fieldId: string, stored?: StoredValue) => {
     const definition = registry.fields.get(fieldId);
-    if (!definition || definition.instanceSpecific !== false) return;
-    const field = {
+    if (
+      !definition ||
+      definition.instanceSpecific !== false ||
+      stored?.value != null ||
+      data.userEdited?.includes(`${fieldSetId ?? ''}:${fieldId}`)
+    )
+      return;
+    targets.push({
       fieldSetId,
       fieldId,
       label: definition.name,
       description: definition.description,
-    };
-    if (stored && stored.value !== null && stored.value !== undefined)
-      fields.push({ ...field, value: stored.value });
-    else if (!data.userEdited?.includes(`${fieldSetId ?? ''}:${fieldId}`))
-      targets.push({ ...field, schema: definition.schema });
+      schema: definition.schema,
+    });
   };
   for (const setId of data.setIds)
     for (const field of registry.sets.get(setId)?.fields ?? [])
       add(setId, field.id, data.values[setId]?.[field.id]);
   for (const [id, stored] of Object.entries(data.standalone)) add(null, id, stored);
-  for (const field of data.undefinedFields)
-    if (field.instanceSpecific === false)
-      fields.push({
-        fieldSetId: null,
-        fieldId: field.id,
-        undefinedFieldId: field.id,
-        label: field.label,
-        description: field.label,
-        value: field.value,
-      });
   if (!fields.length) return null;
   return {
     id: subject.id,
     categoryId: subject.categoryId,
-    name: [
-      ...new Set(
-        fields.map((f) => (typeof f.value === 'string' ? f.value : JSON.stringify(f.value))),
-      ),
-    ].join(' '),
-    fields,
-    targets,
+    knownFields: fields,
+    emptyFields: targets,
   };
 }

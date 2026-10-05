@@ -14,6 +14,7 @@ export class FixtureChat implements ChatAi {
     input: ChatInput,
     execute: (name: string, args: unknown) => Promise<ChatToolResult>,
   ) => Promise<void>;
+  research: ChatAi['research'] = async () => ({ text: 'Synthetic research answer', sources: [] });
   async respond(
     input: ChatInput,
     execute: (name: string, args: unknown) => Promise<ChatToolResult>,
