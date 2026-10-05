@@ -153,6 +153,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         events,
       });
       await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
+      await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });
       await authenticatedApi.register(routes.conversationRoutes, {
         db: dbPool,
         runner,

@@ -1,7 +1,7 @@
 // Adapts AI extraction, registry selection, mapping and research, validating model output before use.
 
 import { responseText, searchWeb, requestResponse, type AiTurnCompleted } from './responses.js';
-import { readResourcePage } from '../web/resources.js';
+import { readResourcePage, publicUrl } from '../web/resources.js';
 import OpenAI from 'openai';
 import type {
   Response,
@@ -29,6 +29,10 @@ import type {
   ReferenceDocument,
   EmptyResearchField,
   DocumentExtraction,
+  TaskResearch,
+  TaskSuggestions,
+  PurchasableResearch,
+  PurchasableSuggestions,
 } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
 import type { FieldSet } from '../../../../shared/model.js';
@@ -78,10 +82,10 @@ export class OpenAiImports implements ImportAi {
     );
   }
 
-  private validateOutput<T>(result: Response, schema: object): T {
+  private validateOutput<T>(text: string, schema: object): T {
     let data: unknown;
     try {
-      data = JSON.parse(responseText(result));
+      data = JSON.parse(text);
     } catch {
       throw new Error('Invalid AI output');
     }
@@ -117,7 +121,7 @@ export class OpenAiImports implements ImportAi {
       },
       task,
     );
-    return this.validateOutput<T>(result, schema);
+    return this.validateOutput<T>(responseText(result), schema);
   }
 
   private async runRegistryConversation<T>(
@@ -146,7 +150,7 @@ export class OpenAiImports implements ImportAi {
       );
       conversation.push(...(result.output as ResponseInput));
       const calls = result.output.filter((o) => o.type === 'function_call');
-      if (!calls.length) return this.validateOutput<T>(result, schema);
+      if (!calls.length) return this.validateOutput<T>(responseText(result), schema);
       ensure(calls.length === 1, 'Invalid registry tool calls');
       const call = calls[0];
       const fn = schemas.registryTools.find((f) => f.name === call.name);
@@ -339,5 +343,101 @@ export class OpenAiImports implements ImportAi {
       this.documentModel,
     );
     return result;
+  }
+
+  async suggestTasks(
+    research: TaskResearch,
+    context: AiContext,
+    searchCalls = this.searchCalls,
+  ): Promise<TaskSuggestions> {
+    if (!research.knownFields.length) return { items: [] };
+    const { text, sources } = await searchWeb(
+      this.client,
+      this.model,
+      this.maxOutputTokens,
+      prompts.suggestTasksPrompt(research, searchCalls),
+      searchCalls,
+      context,
+      'retrieved',
+      this.onTurnCompleted,
+      { text: this.outputFormat(schemas.$defs.taskSuggestions), task: 'task_suggestions' },
+    );
+    const result = this.validateOutput<Outputs['TaskSuggestions']>(
+      text,
+      schemas.$defs.taskSuggestions,
+    );
+    return {
+      items: result.items
+        .map((item) => {
+          ensure(
+            publicUrl(item.sourceUrl) && sources.includes(item.sourceUrl),
+            'Uncited task source',
+          );
+          return {
+            title: item.title,
+            description: item.description,
+            sourceRefs: [{ url: item.sourceUrl, quote: item.quote }],
+          };
+        })
+        .filter(
+          (item) =>
+            !research.existingTasks.some(
+              (task) => task.title.trim().toLowerCase() === item.title.trim().toLowerCase(),
+            ),
+        ),
+    };
+  }
+
+  async findPurchasables(
+    research: PurchasableResearch,
+    context: AiContext,
+    searchCalls = this.searchCalls,
+  ): Promise<PurchasableSuggestions> {
+    if (!research.knownFields.length) return { items: [] };
+    const { text, sources } = await searchWeb(
+      this.client,
+      this.model,
+      this.maxOutputTokens,
+      prompts.findPurchasablesPrompt(research, searchCalls),
+      searchCalls,
+      context,
+      'retrieved',
+      this.onTurnCompleted,
+      {
+        text: this.outputFormat(schemas.$defs.purchasableSuggestions),
+        task: 'purchasable_suggestions',
+      },
+    );
+    const result = this.validateOutput<Outputs['PurchasableSuggestions']>(
+      text,
+      schemas.$defs.purchasableSuggestions,
+    );
+    return {
+      items: result.items
+        .map((item) => {
+          ensure(
+            publicUrl(item.merchantUrl) &&
+              publicUrl(item.sourceUrl) &&
+              sources.includes(item.merchantUrl) &&
+              sources.includes(item.sourceUrl),
+            'Uncited purchasable',
+          );
+          return {
+            kind: item.kind,
+            name: item.name,
+            description: item.description,
+            merchantUrl: item.merchantUrl,
+            sourceRefs: [{ url: item.sourceUrl, quote: item.quote }],
+          };
+        })
+        .filter(
+          (item) =>
+            !research.existingPurchasables.some(
+              (product) =>
+                product.kind === item.kind &&
+                product.name.trim().toLowerCase() === item.name.trim().toLowerCase(),
+            ),
+        ),
+    };
   }
 }

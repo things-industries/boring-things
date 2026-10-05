@@ -87,7 +87,7 @@ export interface components {
                      */
                     currency: "GBP" | "EUR" | "USD";
                 };
-                /** @description Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   At most three suggestions. */
+                /** @description Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   Top candidates for pins are, for physical objects: the model number, serial number; for insurance: a regular payment amount, expiry or renewal date, key entitlement and excess amounts; for memberships/subscriptions: a membership tier or benefit level, expiry/renewal date, cancellation policy.  At most three suggestions. */
                 pin: boolean;
             }[];
             /** @description IDs of unmatched facts with identifiable value in operating, maintaining, identifying or administering the Thing. */
@@ -187,6 +187,41 @@ export interface components {
                  */
                 documentDate: string | null;
             } | null;
+        };
+        /** @description Supported management tasks for one Thing, ready to become unscheduled suggested Events. */
+        TaskSuggestions: {
+            /** @description Up to eight distinct supported tasks; empty when none are established. */
+            items: {
+                /** @description Short action title naming the task (min 1 char, max 200 chars). */
+                title: string;
+                /** @description Supported instructions, intervals and conditions, with no inferred next date (min 1 char, max 4000 chars). */
+                description: string;
+                /** @description Supporting URL observed through web search (min 1 char, max 2000 chars). */
+                sourceUrl: string;
+                /** @description Supporting excerpt from the public source establishing task applicability (min 1 char, max 2000 chars). */
+                quote: string;
+            }[];
+        };
+        /** @description Supported consumables and accessories with purchase pages and compatibility evidence. */
+        PurchasableSuggestions: {
+            /** @description Up to eight distinct compatible products; empty when purchase links or compatibility are unproven. */
+            items: {
+                /**
+                 * @description Consumable used or replaced during operation, or an accessory compatible with the Thing.
+                 * @enum {string}
+                 */
+                kind: "CONSUMABLE" | "ACCESSORY";
+                /** @description Source-supported product name, retaining any manufacturer part number (min 1 char, max 200 chars). */
+                name: string;
+                /** @description Purpose and compatibility explanation supported by retrieved evidence (min 1 char, max 4000 chars). */
+                description: string;
+                /** @description Direct purchase page URL observed through web search (min 1 char, max 2000 chars). */
+                merchantUrl: string;
+                /** @description URL observed through web search establishing compatibility (min 1 char, max 2000 chars). */
+                sourceUrl: string;
+                /** @description Supporting excerpt establishing model, variant, part number or technical compatibility (min 1 char, max 2000 chars). */
+                quote: string;
+            }[];
         };
         /** @description Category and source-supported terms used to find eligible field sets. */
         search_field_sets: {

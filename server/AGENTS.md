@@ -11,7 +11,7 @@ Paths are relative to `server/`.
 - `src/http/sse.ts`: bounded SSE transport and connection lifecycle. Routes send readable streams through Fastify. `application/events.ts` supplies the app-owned, typed event bus for data changes and conversation deltas.
 - `src/contracts/`: operation types, runtime schema validation, path/reference adaptation and contract checks. Root `openapi.json` generates root `shared/api.ts` for both client and server.
 - `src/application/`: workflow rules and transport-independent errors. Imports, conversations and registry have feature folders. Public field selection and bounded web search are shared. `jobs/runner.ts` schedules imports and chat in one process.
-- `src/db/`: connection, transaction, row-mapping and error infrastructure. `entities/` groups typed persistence by entity or semantic concept; `seeds/registry.ts` owns authored registry metadata.
+- `src/db/`: connection, transaction, row-mapping and error infrastructure. `entities/` groups typed persistence by entity: Issues and Events in `activity.ts`, purchasables in `purchasables.ts`, attachments in `attachments.ts`. `seeds/registry.ts` owns authored registry metadata.
 - `src/providers/`: modules for capabilities outside the application boundary, grouped by capability. Encapsulate runtime substitutes and fallback behaviour within each provider, selected through configuration/options. Fake modes require explicit configuration, normally environment settings; failure behaviour is provider-specific. Test-only injection remains available for failure and ownership checks.
 - `src/plugins/`: Fastify plugins with typed options, a default `FastifyPluginAsync` export and registration through `fastify.register(plugin, options)`. Choose encapsulation deliberately so hooks and decorators reach their intended routes. Name authenticated child scopes to make their access boundary visible.
 - `src/lib/`: purpose-neutral generic helpers.
@@ -20,6 +20,8 @@ Paths are relative to `server/`.
 Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish `data.changed` after successful mutations, using `ownerId` to scope delivery to that user, independently of HTTP response delivery. Subscribe before the initial snapshot and retain periodic refresh for cross-process changes. Keep transport lifecycle outside route modules. Use `dbPool` for the assembled database pool and retain provider names such as `importAi`. Make Fastify schema registration and validator installation explicit in `buildApp`. Add classes for state or lifecycle. Import research uses `ResearchThing` with public `knownFields` and eligible `emptyFields`; `ImportDestination` names the persisted subject-to-Thing association. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
 
 Use namespace imports for database modules throughout the repository, including routes, application workflows, other DB modules, scripts and tests; call functions through names such as `thingsDb` and `importsDb`. Named type imports remain suitable. Prefer readable boundaries and development speed at the current traffic volume; retain transaction support for associated queries. The [import improvement plan](../docs/plans/import-improvements.md) defines the staged refactor and future route entity resolution.
+
+Activities are work the owner manages: suggested tasks, scheduled Events and Issues. Purchasables are opportunities to buy something that maintains or improves a Thing, with dedicated persistence and routes. Shared research patterns use neutral suggestion or research names.
 
 ## Authentication and privacy
 
@@ -70,6 +72,7 @@ Use namespace imports for database modules throughout the repository, including 
 
 - Fact batches account for every fact through registry mappings, useful custom fields or discard decisions. Commit decisions and Thing updates together; retries reuse selected sets and skip committed batches. Preserve source evidence and owner edits.
 - Import selection and fact mapping use separate provider methods. The processor supplies selected field definitions and batches facts; each mapping batch owns its tool conversation.
+- Suggested tasks and purchasables are separate import operations, each with its own prompt, provider method and completion checkpoint. Research from the current mapped Thing’s public fields and reference URLs. Combine web search and structured output in one model request per operation. Keep their orchestration in the import processor and reuse existing provider and persistence helpers.
 - Limit each AI task's input to the context, evidence, definitions and tools needed to complete that task. Pass `ExtractedThing` through mapping callers and select the required subject properties in the prompt.
 
 - Helpers that advance conversation history return the updated history; callers assign it explicitly. Do not mutate supplied history arrays.

@@ -155,4 +155,10 @@ export class FixtureAi implements ImportAi {
   async findResources() {
     return { items: [], sources: [] };
   }
+  async suggestTasks() {
+    return { items: [] };
+  }
+  async findPurchasables() {
+    return { items: [] };
+  }
 }
