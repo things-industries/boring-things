@@ -46,7 +46,7 @@ const thing: ThingRecord = {
   detail: {
     fieldSets: [],
     standaloneFields: [],
-    undefinedFields: [],
+    customFields: [],
     pinnedFields: [],
     import: null,
   },

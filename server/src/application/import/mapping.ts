@@ -130,9 +130,9 @@ export function applyFactMapping(
     const id = localFactId(jobId, candidate.id, fact.id);
     const localEdited =
       data.userEdited?.includes(`local:${id}`) ||
-      data.undefinedFields.some((field) => field.id === id && field.origin === 'USER');
+      data.customFields.some((field) => field.id === id && field.origin === 'USER');
     if (!localEdited)
-      data.undefinedFields = data.undefinedFields.filter(
+      data.customFields = data.customFields.filter(
         (field) => field.id !== id || field.origin !== 'IMPORT',
       );
     const stored: StoredValue = {
@@ -187,8 +187,8 @@ export function applyFactMapping(
       )
         data.pins.push({ fieldSetId: entry.fieldSetId, fieldId: entry.fieldId });
     }
-    if (custom && !localEdited && !data.undefinedFields.some((field) => field.id === id))
-      data.undefinedFields.push({
+    if (custom && !localEdited && !data.customFields.some((field) => field.id === id))
+      data.customFields.push({
         ...stored,
         id,
         label: fact.label,

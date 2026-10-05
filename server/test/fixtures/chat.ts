@@ -3,6 +3,7 @@ import type {
   ChatInput,
   ChatContext,
   ChatToolResult,
+  ChatTools,
 } from '../../src/application/conversations/types.js';
 export class FixtureChat implements ChatAi {
   constructor(public creation?: 'create_event' | 'create_issue') {}
@@ -15,17 +16,21 @@ export class FixtureChat implements ChatAi {
     execute: (name: string, args: unknown) => Promise<ChatToolResult>,
   ) => Promise<void>;
   research: ChatAi['research'] = async () => ({ text: 'Synthetic research answer', sources: [] });
-  async respond(
-    input: ChatInput,
-    execute: (name: string, args: unknown) => Promise<ChatToolResult>,
-    context: ChatContext,
-  ) {
+  async respond(input: ChatInput, tools: ChatTools, context: ChatContext) {
+    const execute = tools.execute;
     this.calls++;
     const searched = input.thingId ? null : await execute('search_things', { query: '' });
     const id = input.thingId ?? (searched!.output as { items: { id: string }[] }).items[0]?.id;
-    const result = await execute('read_thing', {
-      thingId: this.foreignThing ?? id,
-    });
+    const result =
+      input.activeThing && !this.foreignThing
+        ? { output: input.activeThing }
+        : await execute('read_thing', {
+            thingId: this.foreignThing ?? id,
+          });
+    if ('error' in (result.output as object)) {
+      context.delta('That Thing is unavailable.');
+      return 'That Thing is unavailable.';
+    }
     await this.probe?.(input, execute);
     const { thing, attachments } = result.output as {
       thing: {
@@ -48,6 +53,7 @@ export class FixtureChat implements ChatAi {
           id: thing.id,
           fieldSetId: null,
           fieldId: null,
+          customFieldId: null,
           page: null,
         },
         ...(thing.fieldSets.length
@@ -57,6 +63,7 @@ export class FixtureChat implements ChatAi {
                 id: thing.id,
                 fieldSetId: thing.fieldSets[0].id,
                 fieldId: thing.fieldSets[0].fields[0].id,
+                customFieldId: null,
                 page: null,
               },
             ]
@@ -68,6 +75,7 @@ export class FixtureChat implements ChatAi {
                 id: attachments[0].id,
                 fieldSetId: null,
                 fieldId: null,
+                customFieldId: null,
                 page: 1,
               },
             ]

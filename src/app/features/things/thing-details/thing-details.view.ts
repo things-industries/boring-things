@@ -42,8 +42,8 @@ function fieldRow(detail: ThingDetail, field: Schema['Field'], setId: string | n
   };
 }
 
-function customRow(detail: ThingDetail, field: Schema['UndefinedField']): DetailRow {
-  const pin: Pin = { undefinedFieldId: field.id };
+function customRow(detail: ThingDetail, field: Schema['CustomField']): DetailRow {
+  const pin: Pin = { customFieldId: field.id };
 
   return {
     anchor: 'custom-' + field.id,
@@ -54,7 +54,7 @@ function customRow(detail: ThingDetail, field: Schema['UndefinedField']): Detail
     pin,
     pinned: detail.pinnedFields.some((p) => samePin(p, pin)),
     remove: {
-      removeUndefinedFieldIds: [field.id],
+      removeCustomFieldIds: [field.id],
       pinnedFields: detail.pinnedFields.filter((p) => !samePin(p, pin)),
     },
   };
@@ -80,7 +80,7 @@ export function detailGroups(detail: ThingDetail): DetailGroup[] {
       id: 'custom',
       kind: 'custom',
       title: '',
-      rows: detail.undefinedFields.map((field) => customRow(detail, field)),
+      rows: detail.customFields.map((field) => customRow(detail, field)),
     },
   );
   return groups.filter((group) => group.rows.length);

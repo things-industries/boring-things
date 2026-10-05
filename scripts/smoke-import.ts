@@ -189,7 +189,7 @@ try {
       ?.fields.find((f) => f.id === 'insurance.sumInsured')?.value,
     { amountMinor: 5000000, currency: 'GBP' },
   );
-  assert.ok(things.some((t) => t.undefinedFields.some((f) => f.value === 'ABC-12')));
+  assert.ok(things.some((t) => t.customFields.some((f) => f.value === 'ABC-12')));
   if (process.argv.includes('--assistant')) {
     const thing = things.find((t) => t.categoryId === 'appliances')!;
     const chat = (

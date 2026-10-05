@@ -31,11 +31,7 @@ export function fieldAnchor(setId: string | null, fieldId: string) {
 }
 /** Whether two pins point at the same field, whatever their key order. */
 export function samePin(a: Pin, b: Pin) {
-  if ('undefinedFieldId' in a || 'undefinedFieldId' in b)
-    return (
-      'undefinedFieldId' in a &&
-      'undefinedFieldId' in b &&
-      a.undefinedFieldId === b.undefinedFieldId
-    );
+  if ('customFieldId' in a || 'customFieldId' in b)
+    return 'customFieldId' in a && 'customFieldId' in b && a.customFieldId === b.customFieldId;
   return (a.fieldSetId ?? null) === (b.fieldSetId ?? null) && a.fieldId === b.fieldId;
 }

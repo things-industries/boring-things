@@ -32,7 +32,7 @@ export function discovering(detail: ThingDetail, imageId: string | null): boolea
   const hasValues =
     detail.fieldSets.some((set) => set.fields.some((field) => field.value !== null)) ||
     detail.standaloneFields.length > 0 ||
-    detail.undefinedFields.length > 0;
+    detail.customFields.length > 0;
 
   return (status === 'QUEUED' || status === 'EXTRACTING') && !hasValues && !imageId;
 }
@@ -81,8 +81,8 @@ export interface KeyDetail {
 /** Pinned fields in pin order, skipping pins whose field no longer exists. */
 export function keyDetails(detail: ThingDetail): KeyDetail[] {
   return detail.pinnedFields.flatMap((pin): KeyDetail[] => {
-    if ('undefinedFieldId' in pin) {
-      const field = detail.undefinedFields.find((f) => f.id === pin.undefinedFieldId);
+    if ('customFieldId' in pin) {
+      const field = detail.customFields.find((f) => f.id === pin.customFieldId);
 
       return field
         ? [
