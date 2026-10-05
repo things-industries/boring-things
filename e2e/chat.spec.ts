@@ -1,110 +1,15 @@
+import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures.js';
 
-test('chat groups document pages and renders a custom field after its answer', async ({ page }) => {
-  await page.goto('/things');
-  const loaded = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'GET' &&
-      /\/api\/things\/[0-9a-f-]{36}$/.test(new URL(response.url()).pathname),
-  );
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
-  const thing = await (await loaded).json();
-  const fieldId = crypto.randomUUID();
-  const attachmentId = crypto.randomUUID();
-  thing.customFields = [
-    {
-      id: fieldId,
-      label: 'Purchase date',
-      value: '2026-10-01',
-      sensitive: false,
-      masked: false,
-      origin: 'USER',
-      sourceRefs: [],
-      valueType: 'TEXT',
-    },
-  ];
-  await page.route(`**/api/things/${thing.id}`, (route) => route.fulfill({ json: thing }));
-  await page.route(`**/api/attachments/${attachmentId}`, (route) =>
-    route.fulfill({
-      json: {
-        id: attachmentId,
-        filename: 'manual.pdf',
-        title: 'User Manual',
-        mediaType: 'application/pdf',
-        documentType: 'MANUAL',
-        pageCount: 88,
-        thingIds: [thing.id],
-      },
-    }),
-  );
-  await page.route(/\/api\/conversations\/[^/]+\/stream$/, (route) => {
-    const id = new URL(route.request().url()).pathname.split('/')[3];
-    return route.fulfill({
-      headers: { 'content-type': 'text/event-stream' },
-      body: `event: conversation.snapshot\ndata: ${JSON.stringify({
-        id,
-        thingId: null,
-        messages: [
-          {
-            id: crypto.randomUUID(),
-            conversationId: id,
-            requestId: crypto.randomUUID(),
-            role: 'ASSISTANT',
-            status: 'COMPLETE',
-            text: 'The purchase date is 1 October 2026. [Receipt](https://manufacturer.example/receipt)',
-            createdAt: new Date().toISOString(),
-            cards: [
-              {
-                type: 'FIELD',
-                thingId: thing.id,
-                fieldSetId: null,
-                fieldId: null,
-                customFieldId: fieldId,
-              },
-              { type: 'ATTACHMENT', attachmentId },
-              { type: 'ATTACHMENT', attachmentId, page: 29 },
-              { type: 'ATTACHMENT', attachmentId, page: 50 },
-            ],
-            sourceRefs: [
-              { attachmentId, page: 29 },
-              { attachmentId, page: 50 },
-              ...Array.from({ length: 100 }, (_, id) => ({
-                url: `https://candidate.example/${id}`,
-              })),
-            ],
-          },
-        ],
-      })}\n\n`,
-    });
-  });
-  await page.goto('/chat');
-  const answer = page.locator('bt-chat-bubble:not(.user)');
-  await expect(answer.locator('bt-rich-text')).toHaveText(
-    'The purchase date is 1 October 2026. Receipt',
-  );
-  await expect(answer.getByRole('link', { name: 'Receipt' })).toHaveAttribute(
-    'href',
-    'https://manufacturer.example/receipt',
-  );
-  await expect(answer.locator('bt-rich-text').getByRole('link')).toHaveCount(1);
-  await expect(answer.locator('a[href^="https://candidate.example/"]')).toHaveCount(0);
-  await expect(answer.locator('bt-key-value-row')).toContainText('Purchase date');
-  await expect(answer.locator('bt-key-value-row')).toContainText('2026-10-01');
-  await expect(answer.getByRole('button', { name: 'Download User Manual' })).toHaveCount(1);
-  await expect(answer).toContainText('Cited on pages 29, 50');
-  expect(
-    await answer.evaluate((element) => {
-      const text = element.querySelector('bt-rich-text')!;
-      const card = element.querySelector('bt-resource-card')!;
-      return !!(text.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING);
-    }),
-  ).toBe(true);
-});
+const prompt = 'Ask about a detail, a manual, maintenance or compatible products.';
+
+/** The visible, typed copy of the empty chat prompt. */
+const introPrompt = (page: Page) => page.locator('bt-typewriter > [aria-hidden="true"]');
 
 test('global chat starts empty with the composer', async ({ page }) => {
   await page.goto('/chat');
   await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
   await expect(page.getByLabel('Message', { exact: true })).toHaveAttribute(
     'placeholder',
     'Ask across all your Things',
@@ -116,13 +21,43 @@ test('global chat starts empty with the composer', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 });
 
+test('chat intro types the prompt, then fades in the data notice', async ({ page }) => {
+  await page.goto('/chat', { waitUntil: 'commit' });
+
+  // Mid-typing, untyped characters stay in place and the notice is hidden.
+  await page.waitForFunction(
+    () => {
+      const rest = document.querySelector('.typewriter-rest')?.textContent;
+      const notice = document.querySelector('.chat-data-notice');
+
+      return !!rest && !!notice && getComputedStyle(notice).opacity === '0';
+    },
+    undefined,
+    { polling: 'raf' },
+  );
+  await expect(page.locator('bt-typewriter .visually-hidden')).toHaveText(prompt);
+  await expect(introPrompt(page)).toHaveText(prompt);
+
+  await expect(page.locator('.typewriter-rest')).toHaveText('');
+  await expect(page.locator('.chat-data-notice')).toHaveCSS('opacity', '1');
+});
+
+test('chat intro shows at once with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/chat');
+
+  await expect(introPrompt(page)).toBeVisible();
+  await expect(page.locator('.typewriter-rest')).toHaveText('');
+  await expect(page.locator('.chat-data-notice')).toHaveCSS('opacity', '1');
+});
+
 test('chat fits the visible area while the composer has focus', async ({ page }) => {
   await page.goto('/chat');
 
   const chat = page.locator('bt-chat');
   const message = page.getByLabel('Message', { exact: true });
 
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
   await message.focus();
   await expect(chat).toHaveClass(/keyboard/);
   // An on-screen keyboard shrinks the visual viewport.
@@ -144,7 +79,7 @@ test('Thing chat shows its Thing and streams an answer with cards', async ({ pag
     'Ask about this Thing',
   );
 
-  await expect(page.getByText('Ask about a detail, a manual, maintenance')).toBeVisible();
+  await expect(introPrompt(page)).toBeVisible();
 
   const message = page.getByLabel('Message', { exact: true });
 

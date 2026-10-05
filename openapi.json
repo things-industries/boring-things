@@ -3834,7 +3834,7 @@
           },
           "sourceRefs": {
             "type": "array",
-            "description": "Attachment references for supporting document cards. Web citations appear as inline links in text.",
+            "description": "Empty in conversation responses: attachment references are represented by document cards and web citations appear as inline links in text.",
             "items": {
               "$ref": "#/components/schemas/SourceRef"
             }

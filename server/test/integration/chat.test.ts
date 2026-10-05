@@ -698,6 +698,30 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
       },
     ],
   );
+  assert.deepEqual(result.message.sourceRefs, []);
+  const savedCards = [
+    { type: 'ATTACHMENT', attachmentId: file.id },
+    { type: 'ATTACHMENT', attachmentId: file.id, page: 29 },
+    { type: 'ATTACHMENT', attachmentId: file.id, page: 50 },
+  ];
+  const savedRefs = [{ attachmentId: file.id, page: 10 }, { url: 'https://example.com/manual' }];
+  await pool.query('update bt.messages set cards=$2,source_refs=$3 where id=$1', [
+    result.message.id,
+    JSON.stringify(savedCards),
+    JSON.stringify(savedRefs),
+  ]);
+  const snapshot = (await request('GET', `/conversations/${chat.id}`)).json<
+    Schema['Conversation']
+  >();
+  assert.deepEqual(snapshot.messages.at(-1)!.cards, [
+    { type: 'ATTACHMENT', attachmentId: file.id, page: 10, pages: [10, 29, 50], available: true },
+  ]);
+  assert.deepEqual(snapshot.messages.at(-1)!.sourceRefs, []);
+  const stored = (
+    await pool.query('select cards,source_refs from bt.messages where id=$1', [result.message.id])
+  ).rows[0];
+  assert.deepEqual(stored.cards, savedCards);
+  assert.deepEqual(stored.source_refs, savedRefs);
   const bob = await setup('bob');
   ai.probe = async (_input, execute) => {
     assert.deepEqual(

@@ -58,6 +58,19 @@ bt-scroll-container {
     transform: rotate(1turn);
   }
 }
+.chat-sources {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  @include typography.role(caption);
+  overflow-wrap: anywhere;
+  a {
+    color: tokens.color(accent);
+  }
+}
 .chat-retry {
   align-self: flex-start;
 }
@@ -70,8 +83,36 @@ bt-scroll-container {
   }
 }
 .chat-data-notice {
+  padding: tokens.space(3) tokens.space(4);
+  border-radius: tokens.radius(tile);
+  background: tokens.color(secondary-muted);
   @include typography.role(caption);
   color: tokens.color(primary-muted);
+}
+// Intro blocks wait for the prompt to finish typing, then fade in in order.
+.intro-typing .chat-intro-block {
+  opacity: 0;
+}
+.intro-reveal .chat-intro-block {
+  animation: chat-fade-in 400ms ease-out both;
+  @for $i from 2 through 4 {
+    &:nth-child(#{$i}) {
+      animation-delay: ($i - 2) * 150ms;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-typing .chat-intro-block {
+    opacity: 1;
+  }
+  .intro-reveal .chat-intro-block {
+    animation: none;
+  }
+}
+@keyframes chat-fade-in {
+  from {
+    opacity: 0;
+  }
 }
 .chat-error {
   display: flex;

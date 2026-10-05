@@ -17,7 +17,10 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import type { Schema } from '../../../../shared/model';
 import { chatUnavailable, loading, moreActions, responseFailed } from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
+import { AttachmentsService } from '../../core/data/attachments.service';
 import { CONFIG } from '../../core/runtime-config';
+import { Toasts } from '../../core/services/toasts.service';
+import { AttachmentsStore } from '../../core/state/attachments.store';
 import { CategoriesStore } from '../../core/state/categories.store';
 import { ConversationsStore } from '../../core/state/conversations.store';
 import { ThingsStore } from '../../core/state/things.store';
@@ -29,12 +32,16 @@ import { ScheduleDialog } from '../../components/schedule-dialog/schedule-dialog
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { ThingCard } from '../../components/thing-card/thing-card';
 import { TopBar } from '../../components/top-bar/top-bar';
+import { Typewriter } from '../../components/typewriter/typewriter';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import { TermPipe } from '../../pipes/term.pipe';
+import { errorCode } from '../../utils/error.util';
 import { ChatBubble } from './chat-bubble/chat-bubble';
 import { ChatComposer } from './chat-composer/chat-composer';
 import { assistantState, messageCards } from './chat.view';
 import { ResourceCard } from './resource-card/resource-card';
+
+type IntroPhase = 'typing' | 'reveal' | 'shown';
 
 /** A new conversation, global or about the Thing in the route, kept current by its stream. */
 @Component({
@@ -54,6 +61,7 @@ import { ResourceCard } from './resource-card/resource-card';
     TermPipe,
     ThingCard,
     TopBar,
+    Typewriter,
   ],
   viewProviders: [provideIcons({ chatUnavailable, loading, moreActions, responseFailed })],
   templateUrl: './chat.page.html',
@@ -68,6 +76,9 @@ export class ChatPage {
   private conversations = inject(ConversationsStore);
   private things = inject(ThingsStore);
   private categories = inject(CategoriesStore);
+  private files = inject(AttachmentsService);
+  private toasts = inject(Toasts);
+  private attachments = inject(AttachmentsStore);
   private injector = inject(Injector);
   private destroyRef = inject(DestroyRef);
   private scroller = viewChild(ScrollContainer, { read: ElementRef<HTMLElement> });
@@ -108,7 +119,7 @@ export class ChatPage {
   readonly messages = computed(() =>
     (this.conversation()?.messages ?? []).map((message) => ({
       message,
-      ...messageCards(message.cards, this.thingId, message.sourceRefs),
+      ...messageCards(message.cards, this.thingId),
     })),
   );
 
@@ -120,6 +131,15 @@ export class ChatPage {
   );
 
   readonly assistantState = computed(() => assistantState(this.conversation()?.messages ?? []));
+
+  private readonly intro = signal<{ id: string; phase: IntroPhase } | null>(null);
+
+  /** Intro animation step for the current conversation; it plays once per conversation. */
+  readonly introPhase = computed<IntroPhase>(() => {
+    const intro = this.intro();
+
+    return intro && intro.id === this.id() ? intro.phase : 'typing';
+  });
 
   /** Request reused when the same text is sent again after a failed or uncertain send. */
   private pending: Schema['MessageInput'] | null = null;
@@ -174,11 +194,19 @@ export class ChatPage {
     this.id.set(id);
   }
 
+  /** Moves the intro animation on from `from` to `to` for the current conversation. */
+  introStep(from: IntroPhase, to: IntroPhase) {
+    const id = this.id();
+
+    if (id && this.introPhase() === from) this.intro.set({ id, phase: to });
+  }
+
   send() {
     const id = this.id();
     const text = this.text().trim();
 
     if (!id || !text || this.sending() || this.inFlight()) return;
+    this.intro.set({ id, phase: 'shown' });
 
     const input =
       this.pending?.text === text ? this.pending : { text, requestId: crypto.randomUUID() };
@@ -254,5 +282,24 @@ export class ChatPage {
     const el = this.scroller()?.nativeElement;
 
     if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  /** Downloads a cited document. */
+  async openSource(attachmentId: string) {
+    const code = this.attachments.entityMap()[attachmentId]
+      ? null
+      : await this.attachments.loadOne(attachmentId);
+    const file = this.attachments.entityMap()[attachmentId];
+
+    if (!file) {
+      this.toasts.error('downloadFile', code ?? 'not-found');
+      return;
+    }
+
+    try {
+      await this.files.download(file);
+    } catch (e) {
+      this.toasts.error('downloadFile', errorCode(e));
+    }
   }
 }

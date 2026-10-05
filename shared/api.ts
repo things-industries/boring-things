@@ -1175,7 +1175,7 @@ export interface components {
             role: components["schemas"]["MessageRoleEnum"];
             text: string;
             cards: components["schemas"]["ResourceCard"][];
-            /** @description Attachment references for supporting document cards. Web citations appear as inline links in text. */
+            /** @description Empty in conversation responses: attachment references are represented by document cards and web citations appear as inline links in text. */
             sourceRefs: components["schemas"]["SourceRef"][];
             status: components["schemas"]["MessageStatusEnum"];
             /** Format: date-time */

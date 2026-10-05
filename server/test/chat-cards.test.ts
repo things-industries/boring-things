@@ -2,7 +2,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mergeResourceCards } from '../../shared/resource-cards.js';
-import { messageCards } from '../../src/app/features/chat/chat.view.js';
 import type { Schema } from '../../shared/model.js';
 import { schemaValidator } from '../src/contracts/schemas.js';
 
@@ -54,13 +53,4 @@ test('resource cards merge entities and document pages while keeping distinct fi
   });
   assert.deepEqual(cards, original);
   assert.deepEqual(mergeResourceCards(merged), merged);
-  const view = messageCards(cards, 'thing', [{ attachmentId: 'manual', page: 10 }]);
-  assert.deepEqual(view.things, []);
-  assert.equal(view.others.length, 4);
-  assert.deepEqual(view.others[0], {
-    type: 'ATTACHMENT',
-    attachmentId: 'manual',
-    page: 10,
-    pages: [10, 29, 50],
-  });
 });

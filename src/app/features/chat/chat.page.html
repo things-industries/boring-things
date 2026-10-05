@@ -44,11 +44,11 @@
           } @else {
             <bt-chat-bubble role="ASSISTANT">
               <h2 class="visually-hidden">Assistant</h2>
-              @if (message.text) {
-                <bt-rich-text [text]="message.text" />
-              }
               @for (card of entry.things; track $index) {
                 <bt-resource-card [card]="card" />
+              }
+              @if (message.text) {
+                <bt-rich-text [text]="message.text" />
               }
               @if (message.status === 'QUEUED' || message.status === 'PROCESSING') {
                 @if (!message.text) {
@@ -63,22 +63,36 @@
               @for (card of entry.others; track $index) {
                 <bt-resource-card [card]="card" (schedule)="scheduling.set($event)" />
               }
+              @if (message.sourceRefs.length) {
+                <ul class="chat-sources" aria-label="Sources">
+                  @for (source of message.sourceRefs; track $index) {
+                    @if (source.url) {
+                      <li>
+                        <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{
+                          source.url
+                        }}</a>
+                      </li>
+                    }
+                    @if (source.attachmentId) {
+                      <li>
+                        <button
+                          type="button"
+                          class="button-link"
+                          (click)="openSource(source.attachmentId)"
+                        >
+                          Open cited document
+                          @if (source.page) {
+                            · page {{ source.page }}
+                          }
+                        </button>
+                      </li>
+                    }
+                  }
+                </ul>
+              }
               @if (message.status === 'FAILED') {
                 <bt-notice tone="warning" icon="responseFailed">
-                  @switch (message.error) {
-                    @case ('timeout') {
-                      The assistant took too long to answer. Retry the response.
-                    }
-                    @case ('interrupted') {
-                      The server restarted before the answer finished. Retry the response.
-                    }
-                    @default {
-                      The assistant couldn't finish the answer. Retry the response.
-                    }
-                  }
-                  @if (entry.others.length) {
-                    Saved records and documents remain available.
-                  }
+                  The response was interrupted. Saved actions remain available.
                 </bt-notice>
                 @if ($last) {
                   <button
@@ -94,11 +108,23 @@
             </bt-chat-bubble>
           }
         } @empty {
-          <div class="chat-empty">
+          @let phase = introPhase();
+          <div
+            class="chat-empty"
+            [class.intro-typing]="phase === 'typing'"
+            [class.intro-reveal]="phase === 'reveal'"
+          >
             <p class="text-primary-muted">
-              Ask about a detail, a manual, maintenance or compatible products.
+              <bt-typewriter
+                text="Ask about a detail, a manual, maintenance or compatible products."
+                [animate]="phase === 'typing'"
+                (typed)="introStep('typing', 'reveal')"
+              />
             </p>
-            <p class="chat-data-notice">
+            <p
+              class="chat-data-notice chat-intro-block"
+              (animationend)="introStep('reveal', 'shown')"
+            >
               Questions and relevant records or documents are sent to OpenAI. Review answers and
               sources.
             </p>
