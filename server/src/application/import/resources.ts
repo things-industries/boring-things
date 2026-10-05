@@ -1,4 +1,6 @@
+// Validates cited resources and saves their private attachments and imported Thing names.
 import type pg from 'pg';
+import type { Schema } from '../../../../shared/model.js';
 import { createHash } from 'node:crypto';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Discovery, DiscoveryItem } from './types.js';
@@ -80,7 +82,12 @@ export async function saveResourceAttachment(
   thingId: string,
   key: string,
   item: DiscoveryItem,
-  file: { content: Buffer; mediaType: string; pageCount?: number | null },
+  file: {
+    content: Buffer;
+    mediaType: string;
+    pageCount?: number | null;
+    metadataSources?: Schema['AttachmentMetadataSources'];
+  },
   signal: AbortSignal,
 ) {
   signal.throwIfAborted();
@@ -94,6 +101,7 @@ export async function saveResourceAttachment(
         byteSize: file.content.length,
         mediaType: file.mediaType,
         pageCount: file.pageCount,
+        metadataSources: file.metadataSources,
       });
     });
     return await discoveryDb.findDiscoveryAttachment(pool, owner, key);

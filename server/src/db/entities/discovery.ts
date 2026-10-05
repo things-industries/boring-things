@@ -1,3 +1,4 @@
+// Persists discovered private attachments and owner-scoped Thing links.
 import * as database from '../connection.js';
 import type { Database } from '../connection.js';
 import * as thingsDb from './things.js';
@@ -10,6 +11,7 @@ interface DownloadedResource {
   byteSize: number;
   pageCount?: number | null;
   mediaType: string;
+  metadataSources?: Schema['AttachmentMetadataSources'];
 }
 export async function findDiscoveryAttachment(
   db: Database,
@@ -43,7 +45,10 @@ export async function saveDiscoveredAttachment(
   const metadataSources: Schema['AttachmentMetadataSources'] = {};
   for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
     if (metadata[key] != null)
-      metadataSources[key] = { origin: 'DISCOVERY', sourceRefs: [{ url: item.sourceUrl }] };
+      metadataSources[key] = document.metadataSources?.[key] ?? {
+        origin: 'DISCOVERY',
+        sourceRefs: [{ url: item.sourceUrl }],
+      };
   const filename =
     (item.title
       .replace(/[^\p{L}\p{N} ._-]/gu, '')

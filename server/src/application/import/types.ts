@@ -60,6 +60,7 @@ export interface Discovery {
     targetKeys: string[];
   }[];
   warnings?: DiscoveryWarning[];
+  rejectedDocumentUrls?: string[];
 }
 
 export type Usage = Schema['ImportUsage'];
@@ -82,6 +83,7 @@ export interface ResearchThing {
   knownFields: KnownResearchField[];
   emptyFields: EmptyResearchField[];
   documentLimits?: { maxBytes: number; maxTextCharacters: number };
+  rejectedDocumentUrls?: string[];
   rejectedDocuments?: Pick<DiscoveryWarning, 'sourceUrl' | 'code' | 'actual' | 'limit'>[];
 }
 
@@ -103,6 +105,7 @@ export interface ReferenceDocument extends Source {
 }
 
 export interface DocumentExtraction {
+  metadata: Schema['AttachmentPatch'] | null;
   applicable: boolean;
   applicability: { page: number; quote: string } | null;
   values: {
