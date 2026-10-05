@@ -35,6 +35,62 @@ Attachment-to-Thing links record association. Import decisions identify which Th
 
 Commit newly created Thing IDs with matching decisions so retries reuse them. Schedule enrichment when creation is committed. Persist the decision and resulting Thing association needed for recovery; a permanent matched-versus-created flag is optional if a delivered feature requires it.
 
+### Entity relationships
+
+These are planned domain relationships. Import attachment and Import decision represent links and checkpoints within Import persistence. Enrichment represents current Thing-owned state; it requires no run-history entity. A decision can await a Thing match or map targeted evidence with no Thing Candidate. Existing Thing inputs can be matching hints or scope restrictions.
+
+```mermaid
+erDiagram
+    ATTACHMENT ||--|| EXTRACTION : "owns current record"
+    EXTRACTION ||--o{ THING_CANDIDATE : contains
+    IMPORT ||--|{ IMPORT_ATTACHMENT : "has inputs"
+    ATTACHMENT ||--o{ IMPORT_ATTACHMENT : "supplies evidence"
+    IMPORT }o--o{ THING : "has hints or restrictions"
+    IMPORT ||--o{ IMPORT_DECISION : "owns decisions and mapping"
+    THING_CANDIDATE |o--o{ IMPORT_DECISION : "contributes facts"
+    THING |o--o{ IMPORT_DECISION : "receives mapped evidence"
+    ATTACHMENT }o--o{ THING : "is linked to"
+    THING ||--o| ENRICHMENT : "owns current state"
+    ENRICHMENT }o..o{ ATTACHMENT : "discovers or reuses"
+    ENRICHMENT |o..o{ IMPORT : "schedules restricted processing"
+```
+
+Each Import attachment link records the consumed extraction date. Candidate-to-Thing decisions remain owner-scoped, including when several owners reuse one unowned reference attachment.
+
+### Process flow
+
+The general-review branch runs for each candidate, combining evidence across attachments. Ambiguous decisions wait independently while resolved Things continue. Existing-Thing processing uses relevant candidates when available or reads targeted evidence directly. Unsupported sources retain their attachment links without scheduling AI work.
+
+```mermaid
+flowchart TD
+    General["General Import: one or more attachments"] --> Read["Prepare or reuse readable content and metadata"]
+    Read --> Candidates["Extract or reuse Thing Candidates"]
+    Candidates --> Match{"Match owned Things and Things created in this Import"}
+    Match -->|"Existing instance"| MapExisting["Select fieldsets and map relevant evidence into existing Thing"]
+    Match -->|"New instance"| Create["Create Thing and persist candidate decision"]
+    Match -->|"Ambiguous"| Review["Await owner decision"]
+    Review --> Match
+    Candidates -->|"No relevant candidates"| Empty["Complete; retain attachments"]
+    Create --> MapNew["Select fieldsets and map initial evidence into new Thing"]
+    MapNew -->|"Schedule once"| Enrich["Thing enrichment: resources, tasks and purchasables"]
+    MapNew --> Complete
+    Manual["Manual enrichment request for existing Thing"] --> Enrich
+    Enrich --> Known{"Applicable reference attachment already available?"}
+    Known -->|"Yes"| Reuse["Reuse attachment"]
+    Known -->|"No"| Save["Retrieve and save verified public resource as unowned attachment"]
+    Reuse --> Link["Link attachment to this Thing"]
+    Save --> Link
+    Detail["Upload or link attachment from Thing detail"] --> Link
+    Link --> Restricted["Restricted Import: only this Thing; creation disabled"]
+    Restricted --> Evidence["Reuse candidates or read targeted evidence; manuals may skip candidate extraction"]
+    Evidence --> Relevant{"Relevant evidence?"}
+    Relevant -->|"Yes"| MapExisting
+    Relevant -->|"No"| Unrelated["Report relevance warning; retain link and Thing fields"]
+    MapExisting --> Complete["Complete Import; preserve owner edits and citations"]
+```
+
+Enrichment can attach several resources or find none. Task and purchasable suggestions are saved against the Thing. Document processing returns through the restricted Import branch and completes after mapping; automatic enrichment is triggered by Thing creation after initial mapping.
+
 ### Use cases
 
 | Source and context                                                 | Planned outcome                                                                                                        |
