@@ -1,5 +1,95 @@
 import { test, expect } from './fixtures.js';
 
+test('chat groups document pages and renders a custom field after its answer', async ({ page }) => {
+  await page.goto('/things');
+  const loaded = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      /\/api\/things\/[0-9a-f-]{36}$/.test(new URL(response.url()).pathname),
+  );
+  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  const thing = await (await loaded).json();
+  const fieldId = crypto.randomUUID();
+  const attachmentId = crypto.randomUUID();
+  thing.undefinedFields = [
+    {
+      id: fieldId,
+      label: 'Purchase date',
+      value: '2026-10-01',
+      sensitive: false,
+      masked: false,
+      origin: 'USER',
+      sourceRefs: [],
+      valueType: 'TEXT',
+    },
+  ];
+  await page.route(`**/api/things/${thing.id}`, (route) => route.fulfill({ json: thing }));
+  await page.route(`**/api/attachments/${attachmentId}`, (route) =>
+    route.fulfill({
+      json: {
+        id: attachmentId,
+        filename: 'manual.pdf',
+        title: 'User Manual',
+        mediaType: 'application/pdf',
+        documentType: 'MANUAL',
+        pageCount: 88,
+        thingIds: [thing.id],
+      },
+    }),
+  );
+  await page.route(/\/api\/conversations\/[^/]+\/stream$/, (route) => {
+    const id = new URL(route.request().url()).pathname.split('/')[3];
+    return route.fulfill({
+      headers: { 'content-type': 'text/event-stream' },
+      body: `event: conversation.snapshot\ndata: ${JSON.stringify({
+        id,
+        thingId: null,
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            conversationId: id,
+            requestId: crypto.randomUUID(),
+            role: 'ASSISTANT',
+            status: 'COMPLETE',
+            text: 'The purchase date is 1 October 2026.',
+            createdAt: new Date().toISOString(),
+            cards: [
+              {
+                type: 'FIELD',
+                thingId: thing.id,
+                fieldSetId: null,
+                fieldId: null,
+                undefinedFieldId: fieldId,
+              },
+              { type: 'ATTACHMENT', attachmentId },
+              { type: 'ATTACHMENT', attachmentId, page: 29 },
+              { type: 'ATTACHMENT', attachmentId, page: 50 },
+            ],
+            sourceRefs: [
+              { attachmentId, page: 29 },
+              { attachmentId, page: 50 },
+            ],
+          },
+        ],
+      })}\n\n`,
+    });
+  });
+  await page.goto('/chat');
+  const answer = page.locator('bt-chat-bubble:not(.user)');
+  await expect(answer.locator('bt-rich-text')).toHaveText('The purchase date is 1 October 2026.');
+  await expect(answer.locator('bt-key-value-row')).toContainText('Purchase date');
+  await expect(answer.locator('bt-key-value-row')).toContainText('2026-10-01');
+  await expect(answer.getByRole('button', { name: 'Download User Manual' })).toHaveCount(1);
+  await expect(answer).toContainText('Cited on pages 29, 50');
+  expect(
+    await answer.evaluate((element) => {
+      const text = element.querySelector('bt-rich-text')!;
+      const card = element.querySelector('bt-resource-card')!;
+      return !!(text.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING);
+    }),
+  ).toBe(true);
+});
+
 test('global chat starts empty with the composer', async ({ page }) => {
   await page.goto('/chat');
   await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();

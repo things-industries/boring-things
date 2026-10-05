@@ -89,7 +89,9 @@
           @if (file.pageCount) {
             · {{ file.pageCount }} {{ file.pageCount === 1 ? 'page' : 'pages' }}
           }
-          @if (c.page) {
+          @if (c.pages?.length) {
+            · Cited on {{ c.pages!.length === 1 ? 'page' : 'pages' }} {{ c.pages!.join(', ') }}
+          } @else if (c.page) {
             · Cited on page {{ c.page }}
           }
         </span>

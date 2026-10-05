@@ -208,12 +208,14 @@ export interface components {
              * @description Attachment UUID copied from a previously read Thing's linked attachments.
              */
             attachmentId: string;
+            /** @description True for PDF diagrams or visual layout requiring the original file; false or null for page-labelled text. Images always retain their original content. */
+            includeImages: boolean | null;
         };
         /** @description Previously read Thing and public question to answer, excluding instance-specific facts and secrets. */
         research: {
             /**
              * Format: uuid
-             * @description UUID of the Thing already retrieved with read_thing whose public product or provider facts support this research.
+             * @description UUID of a retrieved Thing whose model, product or service details identify the research subject.
              */
             thingId: string;
             /** @description Public research question about the product or service, with no instance-specific facts or secrets (min 1 char, max 2000 chars). */
@@ -259,10 +261,15 @@ export interface components {
                 id: string;
                 /** @description Field's set ID copied from the read Thing for FIELD; null for a standalone field or any other card type. */
                 fieldSetId: string | null;
-                /** @description Field ID copied from the read Thing at the specified fieldSetId address for FIELD; null for all other card types. */
+                /** @description Registry field ID from the read Thing at the fieldSetId address for FIELD; null for a custom field or another card type. */
                 fieldId: string | null;
                 /** @description One-based page supporting the answer for ATTACHMENT when known; null when the page is unknown or for another card type. */
                 page: number | null;
+                /**
+                 * Format: uuid
+                 * @description Custom field UUID from the read Thing for a FIELD card; fieldId and fieldSetId are null for this address. Null for registry fields and other card types.
+                 */
+                undefinedFieldId: string | null;
             }[];
         };
     };

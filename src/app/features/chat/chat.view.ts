@@ -1,20 +1,31 @@
 import type { Schema } from '../../../../shared/model';
+import { mergeResourceCards } from '../../../../shared/resource-cards';
 
 export interface MessageCards {
-  /** Thing cards, shown before the message text. */
+  /** Thing cards, shown after the answer text. */
   things: Schema['ResourceCard'][];
   /** Every other card, shown after the text. */
   others: Schema['ResourceCard'][];
 }
 
 /**
- * Splits a message's cards around its text. Leaves out the chat's own Thing, and adds a Thing card
- * for each field card whose Thing has none.
+ * Groups supporting cards, omits the chat's own Thing and adds the Thing for referenced fields.
  */
 export function messageCards(
   cards: Schema['ResourceCard'][],
   contextThingId: string | null,
+  sourceRefs: Schema['SourceRef'][] = [],
 ): MessageCards {
+  cards = mergeResourceCards([
+    ...cards,
+    ...sourceRefs
+      .filter((ref) => ref.attachmentId)
+      .map((ref): Schema['ResourceCard'] => ({
+        type: 'ATTACHMENT',
+        attachmentId: ref.attachmentId!,
+        ...(ref.page ? { page: ref.page } : {}),
+      })),
+  ]);
   const things: Schema['ResourceCard'][] = [];
   const seen = new Set<string>(contextThingId ? [contextThingId] : []);
 

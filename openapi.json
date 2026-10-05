@@ -4347,10 +4347,39 @@
                 "type": ["string", "null"]
               },
               "fieldId": {
-                "type": "string"
+                "type": ["string", "null"],
+                "description": "Registry field ID; null for a custom field."
+              },
+              "undefinedFieldId": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Custom field ID from the referenced Thing. Present only when fieldId and fieldSetId are null."
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "if": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "required": ["undefinedFieldId"],
+              "properties": {
+                "fieldSetId": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "not": {
+                "type": "object",
+                "required": ["undefinedFieldId"]
+              }
+            }
           },
           {
             "type": "object",
@@ -4370,6 +4399,16 @@
               "page": {
                 "type": "integer",
                 "minimum": 1
+              },
+              "pages": {
+                "type": "array",
+                "description": "Distinct one-based pages cited from this attachment, in ascending order. The page property retains the first cited page.",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "minItems": 1,
+                "uniqueItems": true
               }
             },
             "additionalProperties": false

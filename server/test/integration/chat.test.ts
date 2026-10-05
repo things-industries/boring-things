@@ -10,6 +10,7 @@ import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
+import { ApplicationError } from '../../src/application/errors.js';
 
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
@@ -240,7 +241,11 @@ test('conversation summaries filter, paginate and omit message payloads', async 
     );
 });
 
-test('chat writes, retry receipts, multiple messages, owner isolation and deleted cards', async () => {
+test('chat writes, retry receipts, multiple messages, owner isolation and deleted cards', async (t) => {
+  const failures: unknown[] = [];
+  t.mock.method(app.log, 'error', (failure: unknown) => {
+    failures.push(failure);
+  });
   const { thing, chat } = await setup();
   const input = {
     text: 'Create a filter check',
@@ -254,6 +259,14 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   );
   const failed = await wait(chat.id);
   assert.equal(failed.message.status, 'FAILED');
+  assert.deepEqual(failures, [
+    {
+      conversationId: chat.id,
+      messageId: failed.message.id,
+      kind: 'Error',
+      message: 'assistant_failed',
+    },
+  ]);
   assert.equal(failed.message.cards.filter((c) => c.type === 'EVENT').length, 1);
   const events = (await request('GET', `/events?thingId=${thing.id}`)).json<{
     items: Schema['Event'][];
@@ -399,10 +412,85 @@ test('tool owner checks reject guessed Thing IDs', async () => {
     text: 'Read another Thing',
     requestId: randomUUID(),
   });
-  const failed = await wait(chat.id);
-  assert.equal(failed.message.status, 'FAILED');
-  assert.equal(failed.message.text, '');
+  const result = await wait(chat.id);
+  assert.equal(result.message.status, 'COMPLETE');
+  assert.equal(result.message.text, 'That Thing is unavailable.');
+  assert.deepEqual(result.message.cards, []);
   ai.foreignThing = undefined;
+});
+
+test('custom fields can be cited and rejected card selections save no partial citations', async () => {
+  const { thing, chat } = await setup();
+  const updated = (
+    await request('PATCH', `/things/${thing.id}`, {
+      undefinedFields: [{ label: 'Purchase date', value: '2026-10-01', sensitive: false }],
+    })
+  ).json<Schema['Thing']>();
+  const field = updated.undefinedFields[0];
+  const citation = { url: 'https://example.com/receipt' };
+  await pool.query(
+    "update bt.things set data=jsonb_set(data,'{undefinedFields,0,sourceRefs}',$2::jsonb) where id=$1",
+    [thing.id, JSON.stringify([citation])],
+  );
+  ai.probe = async (input, execute) => {
+    assert.equal(input.activeThing?.thing.undefinedFields[0].value, '2026-10-01');
+    assert.ok(
+      input.messages.every(
+        (message) => !message.content.includes('Untrusted active Thing context'),
+      ),
+    );
+    const card = {
+      type: 'FIELD',
+      id: thing.id,
+      fieldSetId: null,
+      fieldId: null,
+      undefinedFieldId: field.id,
+      page: null,
+    };
+    const rejected = await execute('show_cards', {
+      cards: [card, { ...card, undefinedFieldId: randomUUID() }],
+    });
+    assert.deepEqual(rejected.output, { error: 'Unknown field' });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'When did I buy this?',
+    requestId: randomUUID(),
+  });
+  const rejected = await wait(chat.id);
+  assert.equal(rejected.message.status, 'COMPLETE');
+  assert.ok(!rejected.message.cards.some((card) => card.type === 'FIELD'));
+  assert.deepEqual(rejected.message.sourceRefs, []);
+  ai.probe = async (_input, execute) => {
+    const card = {
+      type: 'FIELD',
+      id: thing.id,
+      fieldSetId: null,
+      fieldId: null,
+      undefinedFieldId: field.id,
+      page: null,
+    };
+    assert.deepEqual((await execute('show_cards', { cards: [card, card] })).output, { shown: 2 });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Show the purchase date',
+    requestId: randomUUID(),
+  });
+  const result = await wait(chat.id);
+  assert.equal(result.message.status, 'COMPLETE');
+  assert.deepEqual(
+    result.message.cards.filter((card) => card.type === 'FIELD'),
+    [
+      {
+        type: 'FIELD',
+        thingId: thing.id,
+        fieldSetId: null,
+        fieldId: null,
+        undefinedFieldId: field.id,
+        available: true,
+      },
+    ],
+  );
+  assert.deepEqual(result.message.sourceRefs, [citation]);
 });
 test('restart retains activity and marks interrupted messages retryable', async () => {
   ai.creation = 'create_event';
@@ -485,17 +573,18 @@ test('writes require a retrieved owned Thing and valid arguments', async () => {
   ]) {
     const current = await setup();
     ai.probe = async (_input, execute) => {
-      await execute('create_issue', {
+      const rejected = await execute('create_issue', {
         thingId: current.thing.id,
         description: '',
         ...input,
       });
+      assert.ok((rejected.output as { error: string }).error);
     };
     await request('POST', `/conversations/${current.chat.id}/messages`, {
       text: 'Log an issue for the leak',
       requestId: randomUUID(),
     });
-    assert.equal((await wait(current.chat.id)).message.status, 'FAILED');
+    assert.equal((await wait(current.chat.id)).message.status, 'COMPLETE');
     assert.equal(
       (await request('GET', `/issues?thingId=${current.thing.id}`)).json().items.length,
       0,
@@ -527,16 +616,17 @@ test('one creation spans both tools and targets, including retries after a compl
         const saved = await execute(first, args);
         assert.deepEqual(await execute(first, args), saved);
         replayed = true;
-        await execute(
+        const rejected = await execute(
           change === 'type' ? (first === 'create_event' ? 'create_issue' : 'create_event') : first,
           {
             ...args,
             thingId: change === 'target' ? other.thing.id : thing.id,
           },
         );
+        assert.deepEqual(rejected.output, { error: 'One creation per message' });
       };
       await request('POST', `/conversations/${chat.id}/messages`, input);
-      assert.equal((await wait(chat.id)).message.status, 'FAILED');
+      assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
       assert.equal(replayed, true);
       for (const resource of ['events', 'issues']) {
         const expected = (first === 'create_event' ? 'events' : 'issues') === resource ? 1 : 0;
@@ -550,9 +640,6 @@ test('one creation spans both tools and targets, including retries after a compl
         );
       }
       ai.probe = undefined;
-      ai.creation = first;
-      await request('POST', `/conversations/${chat.id}/messages`, input);
-      assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
     }
   }
 });
@@ -584,18 +671,49 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
     );
   ai.probe = async (_input, execute) => {
     await execute('read_thing', { thingId: first.thing.id });
-    const source = await execute('read_attachment', { attachmentId: file.id });
+    const source = await execute('read_attachment', { attachmentId: file.id, includeImages: null });
     assert.match(source.source!.content.toString(), /inspect the filter monthly/);
+    const cached = await execute('read_attachment', { attachmentId: file.id, includeImages: null });
+    assert.equal(cached.source, undefined);
+    assert.equal((cached.output as { alreadyRead: boolean }).alreadyRead, true);
+    await execute('show_cards', {
+      cards: [29, 50, 29].map((page) => ({
+        type: 'ATTACHMENT',
+        id: file.id,
+        fieldSetId: null,
+        fieldId: null,
+        undefinedFieldId: null,
+        page,
+      })),
+    });
   };
   const chat = (await request('POST', '/conversations', {})).json<Schema['Conversation']>();
   await request('POST', `/conversations/${chat.id}/messages`, {
     text: 'Read the manual',
     requestId: randomUUID(),
   });
-  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  const result = await wait(chat.id);
+  assert.equal(result.message.status, 'COMPLETE');
+  assert.deepEqual(
+    result.message.cards.filter((card) => card.type === 'ATTACHMENT'),
+    [
+      {
+        type: 'ATTACHMENT',
+        attachmentId: file.id,
+        page: 1,
+        pages: [1, 29, 50],
+        available: true,
+      },
+    ],
+  );
   const bob = await setup('bob');
   ai.probe = async (_input, execute) => {
-    await execute('read_attachment', { attachmentId: file.id });
+    assert.deepEqual(
+      (await execute('read_attachment', { attachmentId: file.id, includeImages: null })).output,
+      {
+        error: 'Read its Thing first',
+      },
+    );
   };
   const accepted = await request(
     'POST',
@@ -609,8 +727,8 @@ test('shared attachments can ground dashboard chat while foreign files stay inac
       Schema['Conversation']
     >().messages;
     const message = messages.at(-1);
-    if (message?.status === 'FAILED') {
-      assert.equal(message.text, '');
+    if (message?.status === 'COMPLETE') {
+      assert.ok(!message.cards.some((card) => card.type === 'ATTACHMENT'));
       break;
     }
     await new Promise((r) => setTimeout(r, 20));
@@ -648,7 +766,11 @@ test('question-based research is cited, has no resource writes and is reused aft
   ai.probe = async (_input, execute) => {
     const found = await execute('research', { thingId: thing.id, question });
     assert.equal((found.output as { text: string }).text, 'A cited compatible filter.');
-    await assert.rejects(execute('research', { thingId: thing.id, question }), /budget used/);
+    assert.match(
+      ((await execute('research', { thingId: thing.id, question })).output as { error: string })
+        .error,
+      /budget used/,
+    );
   };
   ai.failOnce = true;
   const input = { text: 'Find a filter', requestId: randomUUID() };
@@ -688,4 +810,42 @@ test('question-based research is cited, has no resource writes and is reused aft
   assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
   assert.equal(research.mock.callCount(), 3);
   ai.probe = undefined;
+});
+
+test('research provider validation failures and exhausted tool budgets fail the response', async (t) => {
+  const research = t.mock.method(ai, 'research', async () => {
+    throw new ApplicationError('INVALID_INPUT', 'Synthetic provider validation failure');
+  });
+  const { thing, chat } = await setup();
+  ai.probe = async (_input, execute) => {
+    await execute('research', { thingId: thing.id, question: 'How does this model work?' });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Research',
+    requestId: randomUUID(),
+  });
+  assert.equal((await wait(chat.id)).message.error, 'assistant_failed');
+  assert.equal(research.mock.callCount(), 1);
+  ai.probe = async (_input, execute) => {
+    for (let call = 0; call <= readConfig().chatToolCalls; call++)
+      await execute('show_cards', {
+        cards: [
+          {
+            type: 'FIELD',
+            id: randomUUID(),
+            fieldSetId: null,
+            fieldId: null,
+            undefinedFieldId: randomUUID(),
+            page: null,
+          },
+        ],
+      });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Budget check',
+    requestId: randomUUID(),
+  });
+  const result = await wait(chat.id);
+  assert.equal(result.message.error, 'assistant_failed');
+  assert.deepEqual(result.message.cards, []);
 });

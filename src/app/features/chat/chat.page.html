@@ -44,11 +44,11 @@
           } @else {
             <bt-chat-bubble role="ASSISTANT">
               <h2 class="visually-hidden">Assistant</h2>
-              @for (card of entry.things; track $index) {
-                <bt-resource-card [card]="card" />
-              }
               @if (message.text) {
                 <bt-rich-text [text]="message.text" />
+              }
+              @for (card of entry.things; track $index) {
+                <bt-resource-card [card]="card" />
               }
               @if (message.status === 'QUEUED' || message.status === 'PROCESSING') {
                 @if (!message.text) {
@@ -63,9 +63,9 @@
               @for (card of entry.others; track $index) {
                 <bt-resource-card [card]="card" (schedule)="scheduling.set($event)" />
               }
-              @if (message.sourceRefs.length) {
+              @if (entry.sources.length) {
                 <ul class="chat-sources" aria-label="Sources">
-                  @for (source of message.sourceRefs; track $index) {
+                  @for (source of entry.sources; track $index) {
                     @if (source.url) {
                       <li>
                         <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{
@@ -73,26 +73,25 @@
                         }}</a>
                       </li>
                     }
-                    @if (source.attachmentId) {
-                      <li>
-                        <button
-                          type="button"
-                          class="button-link"
-                          (click)="openSource(source.attachmentId)"
-                        >
-                          Open cited document
-                          @if (source.page) {
-                            · page {{ source.page }}
-                          }
-                        </button>
-                      </li>
-                    }
                   }
                 </ul>
               }
               @if (message.status === 'FAILED') {
                 <bt-notice tone="warning" icon="responseFailed">
-                  The response was interrupted. Saved actions remain available.
+                  @switch (message.error) {
+                    @case ('timeout') {
+                      The assistant took too long to answer. Retry the response.
+                    }
+                    @case ('interrupted') {
+                      The server restarted before the answer finished. Retry the response.
+                    }
+                    @default {
+                      The assistant couldn't finish the answer. Retry the response.
+                    }
+                  }
+                  @if (entry.others.length) {
+                    Saved records and documents remain available.
+                  }
                 </bt-notice>
                 @if ($last) {
                   <button

@@ -1342,7 +1342,13 @@ export interface components {
             thingId: string;
             available?: boolean;
             fieldSetId: string | null;
-            fieldId: string;
+            /** @description Registry field ID; null for a custom field. */
+            fieldId: string | null;
+            /**
+             * Format: uuid
+             * @description Custom field ID from the referenced Thing. Present only when fieldId and fieldSetId are null.
+             */
+            undefinedFieldId?: string;
         } | {
             /** @constant */
             type: "ATTACHMENT";
@@ -1350,6 +1356,8 @@ export interface components {
             attachmentId: string;
             available?: boolean;
             page?: number;
+            /** @description Distinct one-based pages cited from this attachment, in ascending order. The page property retains the first cited page. */
+            pages?: number[];
         } | {
             /** @constant */
             type: "ISSUE";

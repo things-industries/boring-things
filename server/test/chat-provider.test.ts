@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
+import { chatFunctions } from '../src/contracts/chat-tools.js';
 import type { Usage } from '../src/application/import/types.js';
 const task = {
   thingId: null,
@@ -164,10 +166,13 @@ test('Responses streaming collects split frames, passes function results and rec
   };
   const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
     task,
-    async (name, args) => {
-      assert.equal(name, 'search_things');
-      assert.deepEqual(args, { query: 'hob' });
-      return { output: { items: [] } };
+    {
+      definitions: chatFunctions,
+      execute: async (name, args) => {
+        assert.equal(name, 'search_things');
+        assert.deepEqual(args, { query: 'hob' });
+        return { output: { items: [] } };
+      },
     },
     context,
   );
@@ -183,7 +188,7 @@ test('an interrupted provider stream cannot complete an assistant response', asy
   await assert.rejects(
     new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
       task,
-      async () => ({ output: {} }),
+      { definitions: chatFunctions, execute: async () => ({ output: {} }) },
       {
         signal: new AbortController().signal,
         delta: () => {},
@@ -192,6 +197,122 @@ test('an interrupted provider stream cannot complete an assistant response', asy
     ),
     /incomplete/,
   );
+});
+
+test('one AI turn handles multiple tool calls and returns rejected calls for correction', async (t) => {
+  let requests = 0;
+  const calls: string[] = [];
+  const definitions = chatFunctions.filter((tool) => tool.name === 'show_cards');
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    assert.deepEqual(body.tools, definitions);
+    assert.equal(body.parallel_tool_calls, true);
+    requests++;
+    if (requests === 1)
+      return stream([
+        {
+          type: 'response.completed',
+          response: {
+            status: 'completed',
+            output: ['rejected', 'valid'].map((id) => ({
+              type: 'function_call',
+              name: 'show_cards',
+              arguments: JSON.stringify({ id }),
+              call_id: id,
+            })),
+          },
+        },
+      ]);
+    assert.deepEqual(
+      body.input
+        .filter((item: { type: string }) => item.type === 'function_call_output')
+        .map((item: { output: string }) => JSON.parse(item.output)),
+      [{ error: 'Unknown field' }, { shown: 1 }],
+    );
+    return stream([
+      { type: 'response.output_text.delta', delta: 'The recorded purchase date is 1 October.' },
+      { type: 'response.completed', response: { status: 'completed', output: [] } },
+    ]);
+  });
+  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
+    task,
+    {
+      definitions,
+      execute: async (_name, args) => {
+        const { id } = args as { id: string };
+        calls.push(id);
+        return { output: id === 'rejected' ? { error: 'Unknown field' } : { shown: 1 } };
+      },
+    },
+    { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+  );
+  assert.equal(answer, 'The recorded purchase date is 1 October.');
+  assert.deepEqual(calls, ['rejected', 'valid']);
+  assert.equal(requests, 2);
+});
+
+test('PDF attachment input preserves text pages and original files for diagrams', async (t) => {
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  pdf.addPage();
+  pdf.addPage().drawText('The two compartments share one temperature setting.', { font });
+  const content = Buffer.from(await pdf.save());
+  for (const includeImages of [false, true]) {
+    let requests = 0;
+    t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      if (++requests === 1)
+        return stream([
+          {
+            type: 'response.completed',
+            response: {
+              status: 'completed',
+              output: [
+                {
+                  type: 'function_call',
+                  name: 'read_attachment',
+                  arguments: '{}',
+                  call_id: 'manual',
+                },
+              ],
+            },
+          },
+        ]);
+      const evidence = body.input.at(-1).content;
+      if (includeImages) {
+        assert.equal(evidence[1].type, 'input_file');
+        assert.equal(
+          evidence[1].file_data,
+          'data:application/pdf;base64,' + content.toString('base64'),
+        );
+      } else {
+        assert.equal(evidence[1].type, 'input_text');
+        assert.match(evidence[1].text, /\[PDF page 2\]/);
+        assert.match(evidence[1].text, /share one temperature setting/);
+        assert.ok(!JSON.stringify(body.input).includes('file_data'));
+      }
+      return stream([
+        {
+          type: 'response.output_text.delta',
+          delta: 'No. Both compartments share one temperature setting.',
+        },
+        { type: 'response.completed', response: { status: 'completed', output: [] } },
+      ]);
+    });
+    const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 2).respond(
+      task,
+      {
+        definitions: chatFunctions,
+        execute: async () => ({
+          output: { attachmentId: 'manual' },
+          source: { filename: 'manual.pdf', mediaType: 'application/pdf', content, includeImages },
+        }),
+      },
+      { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+    );
+    assert.equal(answer, 'No. Both compartments share one temperature setting.');
+    assert.equal(requests, 2);
+  }
 });
 
 test('SDK streaming cancellation closes the response and prevents tool execution', async (t) => {
@@ -219,7 +340,10 @@ test('SDK streaming cancellation closes the response and prevents tool execution
   await assert.rejects(
     new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
       task,
-      async () => assert.fail('tool executed after cancellation'),
+      {
+        definitions: chatFunctions,
+        execute: async () => assert.fail('tool executed after cancellation'),
+      },
       {
         signal: controller.signal,
         delta: () => controller.abort(new Error('cancelled')),
@@ -239,7 +363,10 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
     await assert.rejects(
       new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
         task,
-        async () => assert.fail('failed response executed a tool'),
+        {
+          definitions: chatFunctions,
+          execute: async () => assert.fail('failed response executed a tool'),
+        },
         {
           signal: new AbortController().signal,
           delta: () => {},
@@ -249,4 +376,26 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
       { message: 'chat_provider_failed' },
     );
   }
+});
+
+test('SDK HTTP failures retain status without provider error text', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(
+      {
+        error: { message: 'Private provider details', code: 'insufficient_quota' },
+      },
+      { status: 429 },
+    ),
+  );
+  await assert.rejects(
+    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+      task,
+      {
+        definitions: chatFunctions,
+        execute: async () => assert.fail('HTTP failure executed a tool'),
+      },
+      { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
+    ),
+    { message: 'ai_http_429' },
+  );
 });
