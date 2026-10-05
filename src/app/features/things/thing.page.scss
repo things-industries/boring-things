@@ -3,6 +3,7 @@
 @use 'mixins';
 :host {
   @include mixins.viewport-page;
+  --page-max: #{tokens.size(content-wide)};
 }
 .over-hero {
   --top-bar-background: transparent;
@@ -12,6 +13,21 @@
 }
 .thing-content {
   padding-top: 0;
+}
+// Two columns of sections on wider screens; the header and notices span both.
+@media (min-width: 650px) {
+  bt-sheet {
+    display: block;
+    column-count: 2;
+    column-gap: tokens.space(8);
+    > * {
+      break-inside: avoid;
+      margin-bottom: tokens.space(6);
+    }
+    > :not(.thing-section) {
+      column-span: all;
+    }
+  }
 }
 .thing-message {
   display: flex;
