@@ -19,13 +19,25 @@
   height: tokens.size(thumbnail-md);
   @include mixins.icon-size(lg);
 }
-/* Fills its container and keeps the whole image in view. */
+/*
+ * Fills its container and keeps the whole image in view at its own ratio, anchored to the bottom.
+ * `--thumbnail-overhang` is the share of the image's height that hangs below the container.
+ */
 :host(.size-fill) {
+  position: relative;
+  overflow: visible;
   border-radius: 0;
   background: transparent;
   @include mixins.icon-size(artwork);
   img {
-    object-fit: contain;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100% / (1 - var(--thumbnail-overhang, 0)));
+    transform: translate(-50%, calc(var(--thumbnail-overhang, 0) * 100%));
   }
 }
 img {

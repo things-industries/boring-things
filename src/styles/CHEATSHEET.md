@@ -92,7 +92,7 @@ Each set has four tokens, and optionally a fifth. The element decides where each
 - `tokens.radius(name)`: `tile` 12px (tiles, chips, event cards), `card` 18px (cards), `sheet` 28px (sheets), `pill` 999px (buttons, badges), `tail` 4px (chat bubble corner). `control` (9px) is legacy.
 - `tokens.shadow(name)`: `raised` (call-to-action cards), `floating` (controls over images), `sheet` (sheet over an image).
 - `tokens.icon-size(name)`: `sm` 16px, `md` 20px, `lg` 24px, `artwork` 96px (category artwork in the hero).
-- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `hero` 400px, `hero-overlap` 104px (sheet over the hero image), `top-bar` 60px, `bottom-nav` 64px, `content-max` 480px (page column width), `composer-max` 144px (chat message field height).
+- `tokens.size(name)`: `control-sm` 32px, `control-md` 44px, `control-lg` 52px, `list-row` 58px, `icon-badge` 36px, `thumbnail-sm` 40px, `thumbnail-md` 48px, `key-value-row` 39px, `hero` 400px, `hero-overlap` 104px (sheet over the hero image), `top-bar` 60px, `bottom-nav` 64px, `content-max` 480px (page column width), `content-wide` 960px (wide page column, the Thing page), `composer-max` 144px (chat message field height).
 
 Unknown keys fail Sass compilation. CSS custom properties are emitted through `tokens.properties` on `:root`; set tokens resolve to their palette variable.
 
@@ -104,9 +104,9 @@ Unknown keys fail Sass compilation. CSS custom properties are emitted through `t
 - `mixins.skeleton`: placeholder surface and radius.
 - `mixins.skeleton-line`: a skeleton text line; `mixins.skeleton-circle($size)`: a round skeleton, such as an icon badge.
 - `mixins.viewport-page`: page host that fills the viewport above the bottom nav, with a `bt-top-bar` over a `bt-scroll-container`. Only the container scrolls.
-- `mixins.page-gutter`: inline padding that centres content in the page column on a full-width element.
+- `mixins.page-gutter`: inline padding that centres content in the page column on a full-width element. The column is `content-max` wide; a page widens it by setting `--page-max` on its host. `mixins.page-max()` returns that width and `mixins.sheet-width()` the matching `hero-sheet` width.
 - `mixins.touch-field-text`: field text of at least 16px on touch screens, so iOS Safari does not zoom in on focus. Global `input`, `select` and `textarea` styles include it; include it again after a `typography.role` on a field.
-- `mixins.hero-backdrop`: fixed image area at the top of a `viewport-page`, behind its top bar and content (`bt-hero`).
+- `mixins.hero-backdrop`: fixed image area at the top of a `viewport-page`, behind its top bar and content (`bt-hero`). It spans the viewport, and fills the page height above phone widths so no edge shows beside the sheet.
 - `mixins.hero-scrim`: dark-to-clear gradient at the top of the hero, behind the top bar controls.
 - `mixins.hero-sheet`: white sheet that scrolls over the `hero-backdrop` (`bt-sheet`, the Thing skeleton). Its scroll container needs no top padding.
 - `mixins.visually-hidden`: accessible offscreen content.
