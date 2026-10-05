@@ -189,8 +189,18 @@ export class ChatPage {
     this.start();
   }
 
-  /** Resumes the Thing's latest conversation, or starts a new one for global chat. */
+  /**
+   * Resumes the Thing's current conversation, straight away when the Thing page preloaded it, or
+   * starts a new one for global chat.
+   */
   start() {
+    const loaded = this.thingId ? this.conversations.current(this.thingId) : null;
+
+    if (loaded && this.config.chatEnabled) {
+      this.show(loaded);
+      return;
+    }
+
     void this.open(() =>
       this.thingId ? this.conversations.resume(this.thingId) : this.conversations.create(null),
     );
@@ -221,8 +231,12 @@ export class ChatPage {
       return;
     }
 
-    const id = result.value.id;
+    this.show(result.value.id);
+  }
 
+  private show(id: string) {
+    this.error.set(null);
+    this.stopWatching?.();
     this.stopWatching = this.conversations.watch(id);
     this.id.set(id);
   }
