@@ -263,14 +263,14 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
     [id, owner],
   );
 
-  const activity: Record<string, { id: string }[]> = {};
+  const records: Record<string, { id: string }[]> = {};
 
   for (const [kind, table] of [
     ['event', 'events'],
     ['issue', 'issues'],
     ['purchasable', 'purchasables'],
   ] as const) {
-    activity[table] = await database.rows<{ id: string }>(
+    records[table] = await database.rows<{ id: string }>(
       db,
       `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ''}`}${kind === 'event' ? ',starts_at,starts_on::text,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
       [id, owner],
@@ -279,8 +279,10 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
 
   return {
     attachments: attachments.slice(0, 30),
-    activity: Object.fromEntries(Object.entries(activity).map(([k, v]) => [k, v.slice(0, 30)])),
-    truncated: attachments.length > 30 || Object.values(activity).some((v) => v.length > 30),
+    events: records.events.slice(0, 30),
+    issues: records.issues.slice(0, 30),
+    purchasables: records.purchasables.slice(0, 30),
+    truncated: attachments.length > 30 || Object.values(records).some((v) => v.length > 30),
   };
 }
 

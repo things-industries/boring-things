@@ -1,0 +1,13 @@
+@let file = attachment();
+@if (imageUrl(); as url) {
+  <img
+    class="attachment-image"
+    [src]="url"
+    [alt]="file.title ?? file.filename"
+    (error)="failed.emit()"
+  />
+} @else {
+  <div class="attachment-image-skeleton" role="status">
+    <span class="visually-hidden">Loading image</span>
+  </div>
+}

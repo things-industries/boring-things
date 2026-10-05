@@ -48,6 +48,7 @@ import { EventsStore } from '../../../core/state/events.store';
 import { IssuesStore } from '../../../core/state/issues.store';
 import { PurchasablesStore } from '../../../core/state/purchasables.store';
 import { ThingsStore } from '../../../core/state/things.store';
+import { AttachmentImage } from '../../../components/attachment-image/attachment-image';
 import { EventCard } from '../../../components/event-card/event-card';
 import { IconButton } from '../../../components/icon-button/icon-button';
 import { KeyValueRow } from '../../../components/key-value-row/key-value-row';
@@ -68,6 +69,7 @@ type CardStatus = 'idle' | 'loading' | 'missing' | 'error';
 @Component({
   selector: 'bt-resource-card',
   imports: [
+    AttachmentImage,
     DatePipe,
     NgIcon,
     EventCard,
@@ -121,6 +123,9 @@ export class ResourceCard {
   readonly card = input.required<Schema['ResourceCard']>();
   readonly schedule = output<Schema['Event']>();
   readonly status = signal<CardStatus>('idle');
+
+  /** ID of the image attachment whose content failed to load, shown as a download row instead. */
+  readonly imageFailed = signal<string | null>(null);
   readonly attachmentBadge = attachmentBadge;
   readonly attachmentFormat = attachmentFormat;
   readonly issueBadges = issueBadges;

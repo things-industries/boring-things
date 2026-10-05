@@ -5,7 +5,7 @@ import type { ApplicationEvents } from '../../application/events.js';
 import * as usersDb from '../../db/entities/users.js';
 
 /**
- * Reads owner profiles and creates labelled demonstration Things and activity once per owner when
+ * Reads owner profiles and creates labelled demonstration Things, activities and purchasables once per owner when
  * sample creation is enabled.
  */
 

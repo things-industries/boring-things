@@ -25,7 +25,7 @@
     <div class="details-content">
       <section class="details-section">
         <bt-section-header title="Thing details" />
-        <bt-card-group>
+        <bt-card-group hasAction>
           <bt-key-value-row label="Name" copyable>
             <span class="details-fixed-value">{{ t.name }}</span>
             <bt-menu
@@ -86,7 +86,7 @@
               <bt-section-header [title]="group.title" />
             }
           }
-          <bt-card-group>
+          <bt-card-group hasAction>
             @for (row of group.rows; track row.anchor) {
               <bt-key-value-row
                 [label]="row.label"

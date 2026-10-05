@@ -3,6 +3,7 @@ export { default as thingRoutes } from './things.js';
 export { default as tagRoutes } from './tags.js';
 export { default as attachmentRoutes } from './attachments.js';
 export { default as activityRoutes } from './activity.js';
+export { default as purchasableRoutes } from './purchasables.js';
 export { default as conversationRoutes } from './conversations.js';
 export { default as importRoutes } from './imports.js';
 export { default as profileRoutes } from './profile.js';

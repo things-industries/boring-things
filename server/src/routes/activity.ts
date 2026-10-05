@@ -1,3 +1,5 @@
+// Registers owner-scoped Issue and Event routes for managed activities.
+
 import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import { route } from '../contracts/routes.js';
@@ -18,17 +20,11 @@ const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events }) 
   route(app, 'GET', '/api/events', (req) =>
     activityDb.listActivity(db, req.ownerId, 'events', req.query),
   );
-  route(app, 'GET', '/api/purchasables', (req) =>
-    activityDb.listActivity(db, req.ownerId, 'purchasables', req.query),
-  );
   route(app, 'GET', '/api/issues/{id}', (req) =>
     activityDb.getOwnedActivityOrThrow(db, req.ownerId, 'issues', req.params.id),
   );
   route(app, 'GET', '/api/events/{id}', (req) =>
     activityDb.getOwnedActivityOrThrow(db, req.ownerId, 'events', req.params.id),
-  );
-  route(app, 'GET', '/api/purchasables/{id}', (req) =>
-    activityDb.getOwnedActivityOrThrow(db, req.ownerId, 'purchasables', req.params.id),
   );
   route(app, 'POST', '/api/issues', async (req, reply) => {
     const result = await database.transaction(db, (tx) => writeIssue(tx, req.ownerId, req.body));

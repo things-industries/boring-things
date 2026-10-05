@@ -1,0 +1,16 @@
+@use 'tokens';
+@use 'mixins';
+:host {
+  display: block;
+}
+.attachment-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: tokens.radius(tile);
+}
+.attachment-image-skeleton {
+  @include mixins.skeleton;
+  aspect-ratio: 4 / 3;
+  border-radius: tokens.radius(tile);
+}

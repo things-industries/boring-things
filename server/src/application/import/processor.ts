@@ -22,7 +22,11 @@ import * as importsDb from '../../db/entities/imports.js';
 import type { ImportRow, ImportDestination } from '../../db/entities/imports.js';
 import * as thingsDb from '../../db/entities/things.js';
 import { awaitWithSignal } from '../../lib/abort.js';
-import { researchThing } from './research.js';
+import { researchThing, ResearchPersistenceError } from './research.js';
+import { publicFields } from '../public-fields.js';
+import * as activityDb from '../../db/entities/activity.js';
+import * as purchasablesDb from '../../db/entities/purchasables.js';
+import type { TaskSuggestions, PurchasableSuggestions } from './types.js';
 import { updateAttachmentMetadata } from '../attachments.js';
 import { pdfPageCount } from '../../lib/pdf.js';
 
@@ -184,6 +188,11 @@ export class ImportProcessor {
         );
       }
 
+      for (const target of await importsDb.listImportTargets(this.pool, job)) {
+        await this.status(job, 'DISCOVERING');
+        await this.researchSuggestions(job, target, { signal: shutdown, record });
+      }
+
       await this.status(job, 'COMPLETE');
     } catch (error) {
       const hasResults =
@@ -199,6 +208,108 @@ export class ImportProcessor {
       await this.status(job, hasResults ? 'INCOMPLETE' : 'FAILED', code);
     } finally {
       await record({});
+      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+    }
+  }
+
+  private async researchSuggestions(job: ImportRow, target: ImportDestination, context: AiContext) {
+    for (const operation of ['taskSuggestions', 'purchasableSuggestions'] as const) {
+      if (target[operation]?.complete) continue;
+      const thing = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, target.thingId);
+      const existingTasks =
+        operation === 'taskSuggestions'
+          ? await activityDb.existingTasks(this.pool, job.ownerId, thing.id)
+          : [];
+      const existingPurchasables =
+        operation === 'purchasableSuggestions'
+          ? await purchasablesDb.existingPurchasables(this.pool, job.ownerId, thing.id)
+          : [];
+      const research = {
+        categoryId: thing.categoryId,
+        knownFields: publicFields(thing.data, this.registry),
+        referenceUrls:
+          target.discovery?.items
+            .filter((item) => item.kind === 'reference')
+            .map((item) => item.url) ?? [],
+      };
+      const taskContext: AiContext = {
+        signal: AbortSignal.any([
+          context.signal,
+          AbortSignal.timeout(this.config.discoveryTimeoutMs),
+        ]),
+        record: async (usage) => {
+          try {
+            await context.record(usage);
+          } catch (error) {
+            throw new ResearchPersistenceError(error);
+          }
+        },
+      };
+      let tasks: TaskSuggestions['items'] | undefined;
+      let products: PurchasableSuggestions['items'] | undefined;
+      try {
+        if (operation === 'taskSuggestions') {
+          tasks = (
+            await awaitWithSignal(
+              this.ai!.suggestTasks(
+                {
+                  ...research,
+                  existingTasks,
+                },
+                taskContext,
+                this.config.discoverySearchCalls,
+              ),
+              taskContext.signal,
+            )
+          ).items;
+        } else {
+          products = (
+            await awaitWithSignal(
+              this.ai!.findPurchasables(
+                {
+                  ...research,
+                  existingPurchasables,
+                },
+                taskContext,
+                this.config.discoverySearchCalls,
+              ),
+              taskContext.signal,
+            )
+          ).items;
+        }
+        taskContext.signal.throwIfAborted();
+      } catch (error) {
+        if (context.signal.aborted || error instanceof ResearchPersistenceError) throw error;
+        await importsDb.saveSuggestionCheckpoint(this.pool, job, target.candidateId, operation, {
+          complete: false,
+          warnings: [
+            {
+              code: taskContext.signal.aborted ? 'TIMEOUT' : 'RESEARCH_FAILED',
+              sourceUrl: null,
+              retryable: true,
+              actual: null,
+              limit: null,
+            },
+          ],
+        });
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        continue;
+      }
+      await database.transaction(this.pool, async (db) => {
+        const current = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, target.thingId, {
+          lock: true,
+        });
+        ensure(current.categoryId === thing.categoryId, 'Thing category changed');
+        for (const task of tasks ?? [])
+          await activityDb.saveSuggestedTask(db, job.ownerId, thing.id, task);
+        for (const product of products ?? [])
+          await purchasablesDb.saveSuggestedPurchasable(db, job.ownerId, thing.id, product);
+        await importsDb.saveSuggestionCheckpoint(db, job, target.candidateId, operation, {
+          complete: true,
+          warnings: [],
+        });
+        await thingsDb.bumpThing(db, job.ownerId, thing.id);
+      });
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     }
   }

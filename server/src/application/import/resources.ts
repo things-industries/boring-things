@@ -5,9 +5,9 @@ import { createHash } from 'node:crypto';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Discovery, DiscoveryItem } from './types.js';
 import type { ImportRow, ImportDestination } from '../../db/entities/imports.js';
+import * as attachmentsDb from '../../db/entities/attachments.js';
 import * as importsDb from '../../db/entities/imports.js';
 import * as thingsDb from '../../db/entities/things.js';
-import * as discoveryDb from '../../db/entities/discovery.js';
 import * as database from '../../db/connection.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import { ensure } from '../errors.js';
@@ -96,7 +96,7 @@ export async function saveResourceAttachment(
   try {
     used = await database.transaction(pool, (db) => {
       signal.throwIfAborted();
-      return discoveryDb.saveDiscoveredAttachment(db, owner, thingId, key, item, {
+      return attachmentsDb.saveDiscoveredAttachment(db, owner, thingId, key, item, {
         storageKey,
         byteSize: file.content.length,
         mediaType: file.mediaType,
@@ -104,7 +104,7 @@ export async function saveResourceAttachment(
         metadataSources: file.metadataSources,
       });
     });
-    return await discoveryDb.findDiscoveryAttachment(pool, owner, key);
+    return await attachmentsDb.findDiscoveryAttachment(pool, owner, key);
   } finally {
     if (!used) await blobs.remove(storageKey);
   }
