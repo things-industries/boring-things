@@ -1,6 +1,6 @@
-import type { Pin, Schema, ThingPatch, Value } from '../../../../shared/model';
-import type { ThingDetail } from '../../interfaces/thing.interface';
-import { fieldAnchor, fieldSections, samePin } from '../../utils/sections.util';
+import type { Pin, Schema, ThingPatch, Value } from '../../../../../shared/model';
+import type { ThingDetail } from '../../../interfaces/thing.interface';
+import { fieldAnchor, fieldSections, samePin } from '../../../utils/sections.util';
 
 export interface DetailRow {
   anchor: string;

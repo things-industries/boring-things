@@ -10,9 +10,9 @@ import { Notice } from '../../components/notice/notice';
   viewProviders: [provideIcons({ signInWithEmail, signInWithApple, setupNotice })],
   selector: 'bt-login',
   imports: [RouterLink, ErrorMessage, NgIcon, Notice, TermPipe],
-  templateUrl: './login.html',
-  styleUrl: './login.scss',
+  templateUrl: './login.page.html',
+  styleUrl: './login.page.scss',
 })
-export class Login {
+export class LoginPage {
   readonly auth = inject(Auth);
 }

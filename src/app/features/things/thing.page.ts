@@ -86,12 +86,12 @@ import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
 import { taskBadges } from '../../utils/event.util';
 import { formatFieldValue } from '../../utils/field.util';
 import { issueBadges } from '../../utils/issue.util';
-import { ImportProgress } from './import-progress';
-import { ImportSteps } from './import-steps';
-import { ImportSources } from './import-sources';
+import { ImportProgress } from './import-progress/import-progress';
+import { ImportSteps } from './import-steps/import-steps';
+import { ImportSources } from './import-sources/import-sources';
 import { routeThing } from './thing-loader';
-import { RowSkeleton } from './row-skeleton';
-import { ThingSkeleton } from './thing-skeleton';
+import { RowSkeleton } from './row-skeleton/row-skeleton';
+import { ThingSkeleton } from './thing-skeleton/thing-skeleton';
 import { activeImport, discovering, fieldValueById, keyDetails } from './thing.view';
 
 type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'link' | 'deleteFile';
@@ -166,8 +166,8 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
       scheduleTask,
     }),
   ],
-  templateUrl: './thing.html',
-  styleUrl: './thing.scss',
+  templateUrl: './thing.page.html',
+  styleUrl: './thing.page.scss',
 })
 export class ThingPage {
   private things = inject(ThingsStore);

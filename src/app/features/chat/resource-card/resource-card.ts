@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import type { Schema } from '../../../../shared/model';
+import type { Schema } from '../../../../../shared/model';
 import {
   attachmentFile,
   attachmentGuide,
@@ -36,31 +36,31 @@ import {
   taskReplacement,
   taskService,
   upcomingEvent,
-} from '../../core/app-icons';
-import { AttachmentsService } from '../../core/data/attachments.service';
-import { mockEventRecurrence } from '../../core/mocks/event-recurrence.mock';
-import { mockIssueKinds } from '../../core/mocks/issue-kind.mock';
-import { mockSavedDocument } from '../../core/mocks/saved-document.mock';
-import { Toasts } from '../../core/services/toasts.service';
-import { AttachmentsStore } from '../../core/state/attachments.store';
-import { CategoriesStore } from '../../core/state/categories.store';
-import { EventsStore } from '../../core/state/events.store';
-import { IssuesStore } from '../../core/state/issues.store';
-import { PurchasablesStore } from '../../core/state/purchasables.store';
-import { ThingsStore } from '../../core/state/things.store';
-import { EventCard } from '../../components/event-card/event-card';
-import { IconButton } from '../../components/icon-button/icon-button';
-import { KeyValueRow } from '../../components/key-value-row/key-value-row';
-import { ListRow } from '../../components/list-row/list-row';
-import { ThingCard } from '../../components/thing-card/thing-card';
-import type { UiErrorCode } from '../../interfaces/error.interface';
-import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
-import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
-import { errorCode } from '../../utils/error.util';
-import { taskBadges } from '../../utils/event.util';
-import { fieldIcon } from '../../utils/field-icon.util';
-import { formatFieldValue } from '../../utils/field.util';
-import { issueBadges } from '../../utils/issue.util';
+} from '../../../core/app-icons';
+import { AttachmentsService } from '../../../core/data/attachments.service';
+import { mockEventRecurrence } from '../../../core/mocks/event-recurrence.mock';
+import { mockIssueKinds } from '../../../core/mocks/issue-kind.mock';
+import { mockSavedDocument } from '../../../core/mocks/saved-document.mock';
+import { Toasts } from '../../../core/services/toasts.service';
+import { AttachmentsStore } from '../../../core/state/attachments.store';
+import { CategoriesStore } from '../../../core/state/categories.store';
+import { EventsStore } from '../../../core/state/events.store';
+import { IssuesStore } from '../../../core/state/issues.store';
+import { PurchasablesStore } from '../../../core/state/purchasables.store';
+import { ThingsStore } from '../../../core/state/things.store';
+import { EventCard } from '../../../components/event-card/event-card';
+import { IconButton } from '../../../components/icon-button/icon-button';
+import { KeyValueRow } from '../../../components/key-value-row/key-value-row';
+import { ListRow } from '../../../components/list-row/list-row';
+import { ThingCard } from '../../../components/thing-card/thing-card';
+import type { UiErrorCode } from '../../../interfaces/error.interface';
+import { RelativeTimePipe } from '../../../pipes/relative-time.pipe';
+import { attachmentBadge, attachmentFormat } from '../../../utils/attachment.util';
+import { errorCode } from '../../../utils/error.util';
+import { taskBadges } from '../../../utils/event.util';
+import { fieldIcon } from '../../../utils/field-icon.util';
+import { formatFieldValue } from '../../../utils/field.util';
+import { issueBadges } from '../../../utils/issue.util';
 
 type CardStatus = 'idle' | 'loading' | 'missing' | 'error';
 

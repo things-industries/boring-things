@@ -1,7 +1,7 @@
 import { Component, input, model, output } from '@angular/core';
 import { provideIcons } from '@ng-icons/core';
-import { attachToMessage, sendMessage } from '../../core/app-icons';
-import { IconButton } from '../../components/icon-button/icon-button';
+import { attachToMessage, sendMessage } from '../../../core/app-icons';
+import { IconButton } from '../../../components/icon-button/icon-button';
 
 /** Message field with a disabled attach button and a send button. Enter sends; Shift+Enter adds a line. */
 @Component({

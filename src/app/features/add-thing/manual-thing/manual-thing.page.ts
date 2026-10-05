@@ -1,19 +1,19 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { CategoriesStore } from '../../core/state/categories.store';
-import { loadCollections } from '../../core/state/load-collections';
-import { RegistryStore } from '../../core/state/registry.store';
-import { ThingsStore } from '../../core/state/things.store';
-import { ErrorMessage } from '../../components/error-message/error-message';
-import { ScrollContainer } from '../../components/scroll-container/scroll-container';
-import { TopBar } from '../../components/top-bar/top-bar';
+import { CategoriesStore } from '../../../core/state/categories.store';
+import { loadCollections } from '../../../core/state/load-collections';
+import { RegistryStore } from '../../../core/state/registry.store';
+import { ThingsStore } from '../../../core/state/things.store';
+import { ErrorMessage } from '../../../components/error-message/error-message';
+import { ScrollContainer } from '../../../components/scroll-container/scroll-container';
+import { TopBar } from '../../../components/top-bar/top-bar';
 
 @Component({
   selector: 'bt-manual-thing',
   imports: [FormsModule, ErrorMessage, ScrollContainer, TopBar],
-  templateUrl: './manual-thing.html',
-  styleUrl: './manual-thing.scss',
+  templateUrl: './manual-thing.page.html',
+  styleUrl: './manual-thing.page.scss',
 })
 export class ManualThingPage {
   private things = inject(ThingsStore);

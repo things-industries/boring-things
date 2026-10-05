@@ -10,7 +10,7 @@ import { TermPipe } from '../../pipes/term.pipe';
   selector: 'bt-profile',
   imports: [PlaceholderPage, TermPipe],
   viewProviders: [provideIcons({ openProfile })],
-  templateUrl: './profile.html',
+  templateUrl: './profile.page.html',
 })
 export class ProfilePage {
   readonly auth = inject(Auth);
