@@ -39,6 +39,7 @@ import { ScheduleDialog } from '../../components/schedule-dialog/schedule-dialog
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { ThingCard } from '../../components/thing-card/thing-card';
 import { TopBar } from '../../components/top-bar/top-bar';
+import { Typewriter } from '../../components/typewriter/typewriter';
 import type { UiErrorCode } from '../../interfaces/error.interface';
 import type { MutationResult } from '../../interfaces/state.interface';
 import { TermPipe } from '../../pipes/term.pipe';
@@ -47,6 +48,8 @@ import { ChatBubble } from './chat-bubble/chat-bubble';
 import { ChatComposer } from './chat-composer/chat-composer';
 import { assistantState, messageCards } from './chat.view';
 import { ResourceCard } from './resource-card/resource-card';
+
+type IntroPhase = 'typing' | 'reveal' | 'shown';
 
 /**
  * Chat kept current by its stream: a new global conversation, or the latest conversation about the
@@ -70,6 +73,7 @@ import { ResourceCard } from './resource-card/resource-card';
     TermPipe,
     ThingCard,
     TopBar,
+    Typewriter,
   ],
   viewProviders: [provideIcons({ chatHistory, chatUnavailable, loading, newChat, responseFailed })],
   templateUrl: './chat.page.html',
@@ -139,6 +143,15 @@ export class ChatPage {
   );
 
   readonly assistantState = computed(() => assistantState(this.conversation()?.messages ?? []));
+
+  private readonly intro = signal<{ id: string; phase: IntroPhase } | null>(null);
+
+  /** Intro animation step for the current conversation; it plays once per conversation. */
+  readonly introPhase = computed<IntroPhase>(() => {
+    const intro = this.intro();
+
+    return intro && intro.id === this.id() ? intro.phase : 'typing';
+  });
 
   /** Request reused when the same text is sent again after a failed or uncertain send. */
   private pending: Schema['MessageInput'] | null = null;
@@ -214,11 +227,19 @@ export class ChatPage {
     this.id.set(id);
   }
 
+  /** Moves the intro animation on from `from` to `to` for the current conversation. */
+  introStep(from: IntroPhase, to: IntroPhase) {
+    const id = this.id();
+
+    if (id && this.introPhase() === from) this.intro.set({ id, phase: to });
+  }
+
   send() {
     const id = this.id();
     const text = this.text().trim();
 
     if (!id || !text || this.sending() || this.inFlight()) return;
+    this.intro.set({ id, phase: 'shown' });
 
     const input =
       this.pending?.text === text ? this.pending : { text, requestId: crypto.randomUUID() };
