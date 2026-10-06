@@ -13,9 +13,9 @@ const configure = (page: Page, changes: Record<string, unknown>) =>
 
 test('Add a Thing offers file, photo and text imports', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Add a thing', exact: true }).click();
+  await page.getByRole('link', { name: 'Add a Thing', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/new$/);
-  await expect(page.getByRole('heading', { name: 'Add a thing', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add a Thing', level: 1 })).toBeVisible();
 
   for (const name of tiles) {
     const chooser = page.waitForEvent('filechooser');
@@ -36,7 +36,7 @@ test('a manually created Thing shows in the Things list without a reload', async
   const name = `Manual hob ${Date.now()}`;
 
   await page.goto('/things');
-  await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
+  await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
   await page.goto('/things/new/manual');
   await page.getByRole('textbox', { name: 'Name' }).fill(name);
   await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
@@ -46,7 +46,7 @@ test('a manually created Thing shows in the Things list without a reload', async
 
   await page.getByRole('link', { name: 'Back', exact: true }).click();
   await page.getByRole('link', { name: 'Things', exact: true }).click();
-  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
 });
 
 test.describe('with a small upload limit', () => {
@@ -92,5 +92,5 @@ test('an empty library is asked to add its first thing', async ({ page }) => {
   );
 
   await page.goto('/things/new');
-  await expect(page.getByRole('heading', { name: 'Add your first thing', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add your first Thing', level: 1 })).toBeVisible();
 });

@@ -16,6 +16,10 @@
   @include typography.role(label);
   font-weight: typography.weight(regular);
   @include mixins.icon-size(sm);
+  &[aria-current] {
+    background: tokens.color(primary);
+    color: tokens.color(primary-contrast);
+  }
   span {
     overflow: hidden;
     text-overflow: ellipsis;

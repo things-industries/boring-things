@@ -9,7 +9,7 @@ Style debt found during front-end reviews in files the reviewed change did not t
 
 ## Breakpoints
 
-- Bare `@media (max-width: 650px)` / `(max-width: 900px)` / `(min-width: 640px)` queries with three different breakpoint values: `src/styles/_status.scss`, `src/styles/_layout.scss`, `src/styles/_mixins.scss` (`thing-art-size`), `src/styles/typography/_base.scss`, `src/app/components/field/field.scss`, `src/app/components/activity/activity.scss`, `src/app/features/dashboard/dashboard.page.scss`, `src/app/features/things/thing.page.scss`, `src/app/features/things/import-panel.scss`. Add a breakpoint map to `_tokens.scss` and a `mixins.from(...)` / `mixins.below(...)` mixin, then settle on one set of breakpoint values.
+- Bare `@media (max-width: 650px)` / `(max-width: 900px)` / `(min-width: 640px)` queries with three different breakpoint values: `src/styles/_status.scss`, `src/styles/_layout.scss`, `src/styles/_mixins.scss` (`thing-art-size`), `src/styles/typography/_base.scss`, `src/app/components/field/field.scss`, `src/app/components/activity/activity.scss`, `src/app/features/things/thing.page.scss`, `src/app/features/things/import-panel.scss`. Add a breakpoint map to `_tokens.scss` and a `mixins.from(...)` / `mixins.below(...)` mixin, then settle on one set of breakpoint values.
 
 ## Stacking order
 
@@ -17,4 +17,4 @@ Style debt found during front-end reviews in files the reviewed change did not t
 
 ## Card surfaces
 
-- `src/app/features/chat/resource-card/resource-card.scss` (`.resource`) draws a bordered `radius(card)` card using the legacy `border` colour, and `src/app/features/dashboard/dashboard-skeleton/dashboard-skeleton.scss` (`.skeleton-card`) repeats the card radius. Move both to `bt-card-group` or a `mixins.card-surface` mixin when those screens are rebuilt.
+- `src/app/features/chat/resource-card/resource-card.scss` (`.resource`) draws a bordered `radius(card)` card using the legacy `border` colour. Move it to `bt-card-group` or a `mixins.card-surface` mixin when that screen is rebuilt.

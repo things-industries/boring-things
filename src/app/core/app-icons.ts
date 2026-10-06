@@ -113,6 +113,7 @@ export const back = remixArrowLeftSLine;
 export const open = remixArrowRightUpLine;
 export const complete = remixCheckLine;
 export const searchThings = remixSearchLine;
+export const clearFilter = remixCloseLine;
 export const pinField = remixPushpinLine;
 export const pinnedField = remixPushpinFill;
 export const unpinField = remixUnpinLine;

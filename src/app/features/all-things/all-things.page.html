@@ -1,0 +1,47 @@
+<h1>{{ 'things' | term }}</h1>
+<div class="things-search" role="search">
+  <ng-icon name="searchThings" aria-hidden="true" />
+  <input
+    #search
+    type="search"
+    placeholder="Search things"
+    aria-label="Search things"
+    [value]="query()"
+    (input)="query.set(search.value)"
+  />
+</div>
+@if (error()) {
+  <div class="things-error">
+    <bt-error-message [code]="error()" />
+    <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+  </div>
+}
+@if (!loaded()) {
+  <bt-all-things-skeleton />
+} @else {
+  @if (shownCategories().length) {
+    <nav class="things-categories" aria-label="Categories">
+      @for (category of shownCategories(); track category.id) {
+        <bt-category-chip [category]="category" [active]="category.id === categoryId()" />
+      }
+    </nav>
+  }
+  <div class="things-list">
+    @for (thing of things(); track thing.id) {
+      <bt-thing-row [thing]="thing" [category]="category(thing.categoryId)" />
+    } @empty {
+      <bt-card-group>
+        @if (thingsFailed()) {
+          <p class="things-empty">Couldn't load your things.</p>
+        } @else if (hasThings()) {
+          <p class="things-empty">No matching things.</p>
+        } @else {
+          <p class="things-empty">Add a thing and give its details a home.</p>
+          <div class="things-start">
+            <a class="button-primary" routerLink="/things/new">Add your first thing</a>
+          </div>
+        }
+      </bt-card-group>
+    }
+  </div>
+}

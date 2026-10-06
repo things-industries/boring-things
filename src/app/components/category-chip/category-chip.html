@@ -1,4 +1,13 @@
-<a class="category-chip" routerLink="/things" [queryParams]="{ categoryId: category().id }">
+<a
+  class="category-chip"
+  routerLink="/things"
+  [queryParams]="active() ? {} : { categoryId: category().id }"
+  [attr.aria-current]="active() || null"
+>
   <ng-icon [name]="categoryIcon(category().icon)" aria-hidden="true" />
   <span>{{ category().name }} · {{ category().thingCount }}</span>
+  @if (active()) {
+    <ng-icon name="clearFilter" aria-hidden="true" />
+    <span class="visually-hidden">, show all things</span>
+  }
 </a>

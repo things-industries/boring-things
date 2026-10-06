@@ -22,7 +22,7 @@ async function createThing(page: Page, name: string) {
 
 test('Thing detail shows issues, tasks, products and attachments', async ({ page }) => {
   await page.goto('/things');
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
   await expect(page.locator('bt-thing-skeleton')).toHaveCount(0);
   // An existing Thing shows its hero image in place.
@@ -47,7 +47,7 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
 
 test('image attachments show thumbnails in the attachments list and library', async ({ page }) => {
   await page.goto('/things');
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
 
   const thingId = new URL(page.url()).pathname.split('/').pop()!;
@@ -125,7 +125,7 @@ test('a Thing image shows no fallback while it loads and shows at once when reop
   });
 
   await page.goto('/things');
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kitchen hob', level: 1 })).toBeVisible();
 
   const hero = page.locator('bt-hero bt-thing-thumbnail');
@@ -137,7 +137,7 @@ test('a Thing image shows no fallback while it loads and shows at once when reop
   await expect(page.locator('bt-hero')).not.toHaveClass(/\barrive\b/);
 
   await page.goBack();
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(hero.locator('img')).toBeVisible();
   expect(requests).toBe(1);
 });
@@ -250,8 +250,8 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   // A full reload before the delete lands would abort it.
   await deleted;
   await page.goto('/things');
-  await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name, exact: true })).toHaveCount(0);
+  await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
+  await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
 });
 
 test('a suggested task is scheduled and completed', async ({ page }) => {
@@ -357,7 +357,7 @@ test('import steps show while discovering, then the sheet slides up once', async
   });
 
   await page.goto('/things');
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.locator('.thing-discovering')).toContainText(
     'Step 1 of 3: Reading your source',
   );

@@ -17,21 +17,45 @@ test('Home shows attention, upcoming, recent Things and categories', async ({ pa
   await expect(page.locator('bt-thing-row')).toHaveCount(3);
   await page.getByRole('link', { name: /^Vehicles · \d+$/ }).click();
   await expect(page).toHaveURL(/\/things\?categoryId=vehicles$/);
-  await expect(page.getByRole('heading', { name: 'Weekend van', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Kitchen hob', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Weekend van', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Kitchen hob', exact: true })).toHaveCount(0);
 });
 
 test('Things list shows sample Things', async ({ page }) => {
   await page.goto('/things');
-  await expect(page.getByRole('heading', { name: 'Your things', exact: true })).toBeVisible();
-  await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Your Things', exact: true })).toBeVisible();
+  await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
   for (const name of ['Home insurance', 'Kitchen hob', 'Museum membership', 'Weekend van'])
-    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+});
+
+test('Things list filters by search and category', async ({ page }) => {
+  await page.goto('/things');
+  await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
+
+  const hob = page.getByRole('link', { name: 'Kitchen hob', exact: true });
+  const van = page.getByRole('link', { name: 'Weekend van', exact: true });
+
+  await page.getByRole('searchbox', { name: 'Search things' }).fill('hob');
+  await expect(hob).toBeVisible();
+  await expect(van).toHaveCount(0);
+
+  await page.getByRole('searchbox', { name: 'Search things' }).fill('');
+  const categories = page.getByRole('navigation', { name: 'Categories' });
+
+  await categories.getByRole('link', { name: /^Vehicles/ }).click();
+  await expect(page).toHaveURL(/categoryId=/);
+  await expect(van).toBeVisible();
+  await expect(hob).toHaveCount(0);
+
+  await categories.getByRole('link', { name: /^Vehicles/ }).click();
+  await expect(page).not.toHaveURL(/categoryId=/);
+  await expect(hob).toBeVisible();
 });
 
 test('All details masks sensitive fields until revealed', async ({ page }) => {
   await page.goto('/things');
-  await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
+  await page.getByRole('link', { name: 'Museum membership', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'All details' }).click();
@@ -61,13 +85,13 @@ test.describe('signed out', () => {
   });
 });
 
-for (const path of ['/', '/things/new', '/chat']) {
+for (const path of ['/', '/things', '/things/new', '/chat']) {
   test(`${path} fits the viewport width`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator('main h1')).toBeVisible();
     // Measure the loaded page, not its skeleton.
     await expect(
-      page.locator('[class*="skeleton"], bt-dashboard-skeleton, bt-home-skeleton'),
+      page.locator('[class*="skeleton"], bt-all-things-skeleton, bt-home-skeleton'),
     ).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     expect(await noHorizontalOverflow(page)).toBe(true);
