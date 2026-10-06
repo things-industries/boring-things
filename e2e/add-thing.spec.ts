@@ -13,9 +13,9 @@ const configure = (page: Page, changes: Record<string, unknown>) =>
 
 test('Add a Thing offers file, photo and text imports', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Add a thing', exact: true }).click();
+  await page.getByRole('link', { name: 'Add a Thing', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/new$/);
-  await expect(page.getByRole('heading', { name: 'Add a thing', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add a Thing', level: 1 })).toBeVisible();
 
   for (const name of tiles) {
     const chooser = page.waitForEvent('filechooser');
@@ -92,5 +92,5 @@ test('an empty library is asked to add its first thing', async ({ page }) => {
   );
 
   await page.goto('/things/new');
-  await expect(page.getByRole('heading', { name: 'Add your first thing', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add your first Thing', level: 1 })).toBeVisible();
 });

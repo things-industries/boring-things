@@ -23,7 +23,7 @@ test('Home shows attention, upcoming, recent Things and categories', async ({ pa
 
 test('Things list shows sample Things', async ({ page }) => {
   await page.goto('/things');
-  await expect(page.getByRole('heading', { name: 'Your things', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your Things', exact: true })).toBeVisible();
   await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
   for (const name of ['Home insurance', 'Kitchen hob', 'Museum membership', 'Weekend van'])
     await expect(page.getByRole('link', { name, exact: true })).toBeVisible();

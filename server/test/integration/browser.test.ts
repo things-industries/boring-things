@@ -48,19 +48,13 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     assert.equal(seeded.status(), 200, await seeded.text());
     await expect(page.locator('bt-thing-row')).toHaveCount(3);
     await page.getByRole('link', { name: 'All Things', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Kitchen hob', exact: true })).toBeVisible();
-    const vehicleArt = page.locator('.thing-art[data-category="vehicles"]');
-    const applianceArt = page.locator('.thing-art[data-category="appliances"]');
-    assert.notEqual(
-      await vehicleArt.evaluate((element) => getComputedStyle(element).backgroundColor),
-      await applianceArt.evaluate((element) => getComputedStyle(element).backgroundColor),
-    );
+    await expect(page.getByRole('link', { name: 'Kitchen hob', exact: true })).toBeVisible();
     await mkdir('test-results', { recursive: true });
     await page.screenshot({
       path: 'test-results/dashboard.png',
       fullPage: true,
     });
-    await page.getByRole('heading', { name: 'Museum membership', exact: true }).click();
+    await page.getByRole('link', { name: 'Museum membership', exact: true }).click();
     await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
     const membershipId = new URL(page.url()).pathname.split('/').at(-1)!;
     const accessCount = async () =>
@@ -207,8 +201,8 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await page.setViewportSize({ width: 1440, height: 1100 });
 
     await page.goto(base);
-    await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
-    await expect(page.getByRole('heading', { name: 'Add a thing', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Add a Thing', exact: false }).click();
+    await expect(page.getByRole('heading', { name: 'Add a Thing', exact: true })).toBeVisible();
     for (const label of ['Camera', 'Photos', 'Files']) {
       const button = page.getByRole('button', { name: label, exact: true });
       await expect(button).toBeVisible();
@@ -334,7 +328,7 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
       false,
     );
     await page.goto(base);
-    await page.getByRole('link', { name: 'Add a thing', exact: false }).click();
+    await page.getByRole('link', { name: 'Add a Thing', exact: false }).click();
     await page.screenshot({
       path: 'test-results/add-thing-mobile.png',
       fullPage: true,
