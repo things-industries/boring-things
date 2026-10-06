@@ -1,0 +1,42 @@
+@use 'tokens';
+@use 'mixins';
+.all-things-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
+}
+.skeleton-categories {
+  display: flex;
+  gap: tokens.space(2);
+  overflow: hidden;
+}
+.skeleton-chip {
+  @include mixins.skeleton;
+  flex: 1 0 0;
+  height: tokens.size(control-md);
+  border-radius: tokens.radius(tile);
+}
+.skeleton-row {
+  @include mixins.list-row;
+}
+.skeleton-thumbnail {
+  @include mixins.skeleton;
+  width: tokens.size(thumbnail-md);
+  height: tokens.size(thumbnail-md);
+  border-radius: tokens.radius(tile);
+}
+.skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: tokens.space(2);
+  span {
+    @include mixins.skeleton-line;
+    &:first-child {
+      width: 60%;
+    }
+    &:last-child {
+      width: 35%;
+    }
+  }
+}

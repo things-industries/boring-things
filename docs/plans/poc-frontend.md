@@ -194,17 +194,17 @@ Components (`src/app/components/<name>/`):
 
 Routes:
 
-| Route                 | Page                                        | Bottom nav |
-| --------------------- | ------------------------------------------- | ---------- |
-| `/`                   | Dashboard (rebuilt as Home in stage 3)      | Yes        |
-| `/things`             | Dashboard (rebuilt as Things list, stage 8) | Yes        |
-| `/things/new`         | Thing page                                  | No         |
-| `/things/:id`         | Thing page                                  | No         |
-| `/things/:id/details` | Thing page (rebuilt in stage 6)             | No         |
-| `/things/:id/chat`    | Chat, Thing context from the route          | No         |
-| `/chat`               | Chat                                        | No         |
-| `/timeline`           | Placeholder (#19)                           | Yes        |
-| `/profile`            | Placeholder with Sign out                   | No         |
+| Route                 | Page                                   | Bottom nav |
+| --------------------- | -------------------------------------- | ---------- |
+| `/`                   | Dashboard (rebuilt as Home in stage 3) | Yes        |
+| `/things`             | Things list (stage 8)                  | Yes        |
+| `/things/new`         | Thing page                             | No         |
+| `/things/:id`         | Thing page                             | No         |
+| `/things/:id/details` | Thing page (rebuilt in stage 6)        | No         |
+| `/things/:id/chat`    | Chat, Thing context from the route     | No         |
+| `/chat`               | Chat                                   | No         |
+| `/timeline`           | Placeholder (#19)                      | Yes        |
+| `/profile`            | Placeholder with Sign out              | No         |
 
 Existing pages:
 
@@ -506,7 +506,17 @@ Validation: `CI=true pnpm check`; e2e chat spec (global chat empty state and com
 
 ### 8. Things list and Profile
 
-- Things list with category/tag filter and search; Profile with sign out and sample data.
+Things list (`features/all-things/`) at `/things`, top to bottom with `space(4)` between:
+
+- Page `h1` "Your things" in `title`.
+- Search field: white, radius `card`, search icon, `control-md` high. Filters by name and description as the user types.
+- Category chips: one horizontally scrolling row of `bt-category-chip`, showing categories with Things plus the selected one. The selected chip (`categoryId` query parameter) has a `primary` fill and a clear icon, and links back to the unfiltered list.
+- `bt-thing-row` list as on Home, most recently updated first. Empty, in a `bt-card-group`: "No matching things." when filters hide every Thing, otherwise "Add a thing and give its details a home." with **Add your first thing**.
+- Bottom nav keeps Things active while filtered (path match ignores query parameters).
+
+Loading: skeleton of chips and rows with a visually hidden status. Error: `bt-error-message` with Retry.
+
+Profile with sign out and sample data.
 
 ### 9. Clean-up
 

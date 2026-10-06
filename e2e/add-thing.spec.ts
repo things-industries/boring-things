@@ -36,7 +36,7 @@ test('a manually created Thing shows in the Things list without a reload', async
   const name = `Manual hob ${Date.now()}`;
 
   await page.goto('/things');
-  await expect(page.locator('bt-dashboard-skeleton')).toHaveCount(0);
+  await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
   await page.goto('/things/new/manual');
   await page.getByRole('textbox', { name: 'Name' }).fill(name);
   await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
@@ -46,7 +46,7 @@ test('a manually created Thing shows in the Things list without a reload', async
 
   await page.getByRole('link', { name: 'Back', exact: true }).click();
   await page.getByRole('link', { name: 'Things', exact: true }).click();
-  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
 });
 
 test.describe('with a small upload limit', () => {

@@ -90,7 +90,7 @@ test('Thing chat shows its Thing and streams an answer with cards', async ({ pag
     route.fulfill({ json: { items: [], nextCursor: null } }),
   );
   await page.goto('/things');
-  await page.getByRole('heading', { name: 'Kitchen hob', exact: true }).click();
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await page.getByRole('link', { name: 'Ask about this thing' }).click();
 
   await expect(page.locator('bt-thing-card')).toContainText('Kitchen hob');

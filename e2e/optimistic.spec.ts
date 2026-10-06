@@ -13,14 +13,12 @@ test('a failed issue resolve shows a toast and restores the issue', async ({ pag
   });
 
   await page.goto('/things');
+  await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
 
-  const issue = page.getByRole('heading', { name: 'One ring heats unevenly' });
+  const issue = page.getByRole('button', { name: 'Resolve: One ring heats unevenly' });
 
   await expect(issue).toBeVisible();
-  await page
-    .locator('.activity-card', { has: issue })
-    .getByRole('button', { name: 'Mark resolved' })
-    .click();
+  await issue.click();
 
   await expect(issue).toHaveCount(0);
   release();
