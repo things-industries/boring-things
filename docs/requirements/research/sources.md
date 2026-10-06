@@ -2,7 +2,7 @@
 
 ## Import provider evaluation — 4 October 2026
 
-References for the [import improvement plan](../../plans/import-improvements.md). Capabilities establish evaluation options; task-specific quality, latency and savings require measurement.
+References for the [import latency and provider evaluation plan](../../plans/import-provider-evaluations.md). Capabilities establish evaluation options; task-specific quality, latency and savings require measurement.
 
 - [OpenAI SDKs](https://developers.openai.com/api/docs/libraries): official JavaScript/TypeScript client for provider requests.
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs): supported JSON Schema subset and response-shape guarantees; factual correctness still requires evaluation.
