@@ -2,8 +2,8 @@ import type { UiErrorCode } from '../interfaces/error.interface';
 export const APP_TERMS = {
   appName: 'Boring Things',
   home: 'Home',
-  things: 'Your things',
-  addThing: 'Add a thing',
+  things: 'Your Things',
+  addThing: 'Add a Thing',
   login: 'Sign in',
   assistant: 'Assistant',
   timeline: 'Timeline',
