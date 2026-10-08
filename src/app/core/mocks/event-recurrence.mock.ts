@@ -1,4 +1,4 @@
-// Mock for #11: Event kind and recurrence. Remove when #11 is delivered.
+// Mock for #100 (replaces #11): Event kind and recurrence. Remove when #100 is delivered.
 import type { Schema } from '../../../../shared/model';
 import type { EventKind, EventRecurrence, TaskView } from '../../interfaces/event.interface';
 function kind(event: Schema['Event']): EventKind {

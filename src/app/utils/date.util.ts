@@ -1,4 +1,8 @@
 import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
   differenceInCalendarDays,
   differenceInMonths,
   differenceInYears,
@@ -7,6 +11,7 @@ import {
   parseISO,
   startOfDay,
 } from 'date-fns';
+import type { EventRecurrence } from '../interfaces/event.interface';
 export function localDateTimeToUtc(value: string): string | null {
   const date = parseISO(value);
   return isValid(date) ? date.toISOString() : null;
@@ -83,4 +88,16 @@ export function timeSince(
   return months < 12
     ? { amount: months, unit: 'month' }
     : { amount: Math.floor(months / 6) / 2, unit: 'year' };
+}
+
+/** Local calendar date of `value`, as `yyyy-MM-dd`. */
+export function dayKey(value: Date | string): string {
+  return format(typeof value === 'string' ? parseISO(value) : value, 'yyyy-MM-dd');
+}
+
+const addUnit = { DAY: addDays, WEEK: addWeeks, MONTH: addMonths, YEAR: addYears };
+
+/** The calendar date one recurrence interval after `day`. */
+export function addRecurrence(day: string, { interval, unit }: EventRecurrence): string {
+  return dayKey(addUnit[unit](parseISO(day), interval));
 }

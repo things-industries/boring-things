@@ -26,7 +26,7 @@ Replaces the Timeline placeholder with the Tasks screen from Figma ([Tasks frame
 - Overdue status uses the warning colour and clock icon: "Yesterday", "2 days ago", measured from the scheduled date or a passed deadline.
 - Critical tasks show the flag after the title. Other priorities show no marker.
 - The overflow menu offers **Ask** (chat with task context), **Reschedule**, **Go to Thing** and **Delete task**. Thing events offer **Ask** and **Go to Thing** only.
-- When a completed item has a follow-up, a button appears under the title (Figma "How did it go?"). A `CHAT` follow-up opens the Thing chat with the task context. An `UPDATE_FIELD` follow-up opens a dialog with the question and an input for the target field: a date input for DATE fields, a file picker for document fields.
+- When a completed item has a follow-up, a button appears under the title (Figma "How did it go?"). A `CHAT` follow-up opens the Thing chat with the task context. An `UPDATE_FIELD` follow-up opens a dialog with the question and an input for the target field. An `ADD_DOCUMENT` follow-up opens a dialog with the question and a file picker; the upload is linked to the Thing.
 - **Reschedule** opens a sheet with two controls: a new date, and the interval (number plus days, weeks, months or years; recurring tasks only, with an option to make a one-off task recurring).
 
 ### Layout and order
@@ -61,9 +61,10 @@ Contract, using existing component names where they exist:
   "deadlineOn": "2026-10-18", // optional hard deadline
   "recurrence": { "interval": 12, "unit": "MONTH" }, // DAY | WEEK | MONTH | YEAR, nullable
   "followUp": {
-    "type": "UPDATE_FIELD", // CHAT | UPDATE_FIELD, nullable
+    "type": "UPDATE_FIELD", // CHAT | UPDATE_FIELD | ADD_DOCUMENT, nullable
     "prompt": "When does the new policy end?",
     "fieldId": "uuid", // UPDATE_FIELD only: the Thing field to update
+    // ADD_DOCUMENT only: "documentType", an AttachmentDocumentTypeEnum value
   },
   "completedAt": null,
   "sourceRefs": [],
@@ -71,7 +72,7 @@ Contract, using existing component names where they exist:
 }
 ```
 
-- Completing a recurring task stores `completedAt` and creates the next occurrence with `scheduledOn` advanced by the interval. Reopening it (status back to `SCHEDULED`) deletes that generated occurrence if it is still unchanged. The response returns both tasks.
+- Completing a recurring task stores `completedAt` and creates the next occurrence with `scheduledOn` set to the interval after the later of `scheduledOn` and the completion date. Reopening it (status back to `SCHEDULED`) deletes that generated occurrence if it is still unchanged. The response returns both tasks.
 - Rescheduling patches `scheduledOn` and `recurrence`.
 - `Event` gains `endsAt` (nullable date-time, for "14:00–16:00") and the same nullable `followUp`. An Event with a follow-up accepts `status: COMPLETED`.
 - `GET /api/thing-dates?from=&to=` returns derived Thing events: `{ thingId, fieldId, label, date }` from DATE fields whose definitions are marked as deadlines (warranty end, renewal, expiry). Registry seeds mark those definitions.
@@ -84,8 +85,8 @@ Contract, using existing component names where they exist:
 Each stage is one commit, with `pnpm format` and `CI=true pnpm check` passing.
 
 1. **Route and naming.** Rename `features/timeline` to `features/tasks` (`TasksPage`, `tasks.page.*`), route `/tasks`, `APP_TERMS.tasks`, nav icons `navTasks`/`navTasksActive` (Remix `task` / checkbox icons), bottom nav and Home **View Tasks** link. Update e2e selectors.
-2. **Contract and mocks.** Add `Task`, `ThingDate`, `TaskFollowUp` and `TaskPriority` interfaces in `app/interfaces/task.interface.ts`, shaped like the proposed contract so the swap is a type change. Add `core/mocks/tasks.mock.ts` (header naming the Backend issue): an in-memory task service seeded from the owner's Things and existing suggested Events, implementing list, patch, complete (with next occurrence), reopen, reschedule and return to suggested; plus derived Thing dates from DATE field values whose keys match end, expiry or renewal; plus Event `endsAt` and `followUp`. Record the mock in `poc-frontend-progress.md`.
-3. **State.** `TasksService` in `core/data/` backed by the mock; `TasksStore` in `core/state/` using `withEntityCollection` and `withOptimisticEntities` (`complete`, `reopen`, `reschedule`, `unschedule`); `ThingDatesStore` (read-only). Cross-store read model `core/state/views/agenda.view.ts` merging tasks, events and Thing dates into day groups with the ordering rules above; pure ordering and grouping helpers in `app/utils/agenda.util.ts` with Node unit tests.
+2. **Contract and mocks.** Add `Task`, `ThingDate`, `FollowUp` and `TaskPriority` interfaces in `app/interfaces/task.interface.ts`, shaped like the proposed contract so the swap is a type change. Add `core/mocks/tasks.mock.ts` (header naming #100). Until #100, a Task is a date-only Event (`startsOn`, or no date while suggested) and an appointment is a timed Event (`startsAt`), so status and date changes persist through `/api/events`. The mock fills priority, kind, recurrence and follow-ups from the title and description, deadlines and `UPDATE_FIELD` follow-ups from the Thing's deadline dates, and Thing dates from DATE field values whose names mention an end, expiry or renewal. Interval changes and links to generated occurrences last for the session only. Record the mock in `poc-frontend-progress.md`.
+3. **State.** `TasksStore` in `core/state/` exposes the task collection and `complete`, `reopen`, `reschedule` and `unschedule`; until #100 it maps `EventsStore` through the mock, then it becomes a `withEntityCollection` store over a `TasksService`. Cross-store read model `core/state/views/agenda.view.ts` merging tasks, events and Thing dates into day groups with the ordering rules above; pure ordering and grouping helpers in `app/utils/agenda.util.ts` with Node unit tests.
 4. **Task card.** `components/task-card/` (`bt-task-card`): primary action (check/uncheck or type icon), title with critical flag, time line, follow-up button and overflow menu built on `bt-menu`. Tinted completed state. Styles from `styles/CHEATSHEET.md` tokens; add a warning text class if missing.
 5. **Tasks page.** Connected timeline with day points, Today/Tomorrow with empty states, collapsible Upcoming with month headings and **Load more**, loading skeleton and inline `bt-error-message` with Retry.
 6. **Reschedule sheet.** `features/tasks/reschedule-sheet/` on `bt-sheet`: date input and interval number plus unit select. Reuses `date.util.ts` helpers.
