@@ -1,12 +1,15 @@
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { expandSection, openProfile } from '../../core/app-icons';
+import { clearFilter, expandSection, openProfile } from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
 import { mockChatDraft } from '../../core/mocks/tasks.mock';
 import { EventsStore } from '../../core/state/events.store';
 import { TasksStore } from '../../core/state/tasks.store';
+import { ThingsStore } from '../../core/state/things.store';
 import { agendaView, loadAgenda } from '../../core/state/views/agenda.view';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { IconButton } from '../../components/icon-button/icon-button';
@@ -33,7 +36,7 @@ import { TasksSkeleton } from './tasks-skeleton/tasks-skeleton';
     FollowUpDialog,
     TermPipe,
   ],
-  viewProviders: [provideIcons({ expandSection, openProfile })],
+  viewProviders: [provideIcons({ clearFilter, expandSection, openProfile })],
   templateUrl: './tasks.page.html',
   styleUrl: './tasks.page.scss',
 })
@@ -43,8 +46,21 @@ export class TasksPage {
   private router = inject(Router);
   private collections = loadAgenda();
 
+  private things = inject(ThingsStore);
+
+  readonly thingId = toSignal(
+    inject(ActivatedRoute).queryParamMap.pipe(map((params) => params.get('thingId'))),
+    { initialValue: null },
+  );
+
+  readonly thing = computed(() => {
+    const id = this.thingId();
+
+    return id ? (this.things.entityMap()[id] ?? null) : null;
+  });
+
   readonly now = signal(new Date());
-  readonly agenda = agendaView(this.now);
+  readonly agenda = agendaView(this.now, this.thingId);
   readonly loaded = this.collections.loaded;
   readonly error = this.collections.error;
 

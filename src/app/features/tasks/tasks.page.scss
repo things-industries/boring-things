@@ -25,6 +25,23 @@ $point-column: tokens.space(7);
   }
 }
 
+.tasks-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: tokens.space(2);
+  margin: 0;
+  padding: tokens.space(1) tokens.space(1) tokens.space(1) tokens.space(4);
+  border-radius: tokens.radius(pill);
+  background: tokens.color('white');
+  color: tokens.color(primary-muted);
+
+  strong {
+    color: tokens.color(primary);
+    font-weight: typography.weight(medium);
+  }
+}
+
 .tasks-error {
   display: flex;
   flex-direction: column;

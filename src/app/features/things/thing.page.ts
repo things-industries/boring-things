@@ -54,7 +54,6 @@ import {
 } from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
 import { AttachmentsService } from '../../core/data/attachments.service';
-import { mockEventRecurrence } from '../../core/mocks/event-recurrence.mock';
 import { mockIssueKinds } from '../../core/mocks/issue-kind.mock';
 import { CONFIG } from '../../core/runtime-config';
 import { errorCode } from '../../utils/error.util';
@@ -63,6 +62,7 @@ import { AttachmentsStore } from '../../core/state/attachments.store';
 import { CategoriesStore } from '../../core/state/categories.store';
 import { ConversationsStore } from '../../core/state/conversations.store';
 import { EventsStore } from '../../core/state/events.store';
+import { TasksStore } from '../../core/state/tasks.store';
 import { IssuesStore } from '../../core/state/issues.store';
 import { PurchasablesStore } from '../../core/state/purchasables.store';
 import { TagsStore } from '../../core/state/tags.store';
@@ -178,6 +178,7 @@ export class ThingPage {
   private tagsStore = inject(TagsStore);
   private issues = inject(IssuesStore);
   private events = inject(EventsStore);
+  private tasks = inject(TasksStore);
   private attachments = inject(AttachmentsStore);
   private purchasablesStore = inject(PurchasablesStore);
   private conversations = inject(ConversationsStore);
@@ -257,9 +258,7 @@ export class ThingPage {
   );
 
   readonly suggested = computed(() =>
-    this.thingEvents()
-      .filter((event) => event.status === 'SUGGESTED')
-      .map(mockEventRecurrence),
+    (this.tasks.tasksByThing()[this.id()] ?? []).filter((task) => task.status === 'SUGGESTED'),
   );
 
   readonly purchasables = computed(
@@ -363,8 +362,9 @@ export class ThingPage {
     void this.issues.resolve(id);
   }
 
+  /** Completes a task, which may create its next occurrence, or an appointment. */
   complete(id: string) {
-    void this.events.complete(id);
+    void (this.tasks.entityMap()[id] ? this.tasks.complete(id) : this.events.complete(id));
   }
 
   schedule() {

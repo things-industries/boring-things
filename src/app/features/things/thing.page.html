@@ -237,9 +237,9 @@
           <div class="thing-column">
             <section class="thing-section">
               <bt-section-header title="Upcoming tasks">
-                <button type="button" class="button-link" disabled>
-                  See all<span class="visually-hidden"> tasks (coming soon)</span>
-                </button>
+                <a class="button-link" routerLink="/tasks" [queryParams]="{ thingId: id() }"
+                  >See all<span class="visually-hidden"> tasks</span></a
+                >
               </bt-section-header>
               <div class="thing-events">
                 @for (event of scheduled(); track event.id) {

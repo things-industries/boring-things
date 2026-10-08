@@ -8,6 +8,21 @@
     [label]="'profile' | term"
   ></a>
 </header>
+@if (thing(); as thing) {
+  <p class="tasks-filter">
+    <span
+      >Showing <strong>{{ thing.name }}</strong></span
+    >
+    <a
+      btIconButton
+      variant="plain"
+      size="sm"
+      icon="clearFilter"
+      routerLink="/tasks"
+      label="Show all Things"
+    ></a>
+  </p>
+}
 @if (error()) {
   <div class="tasks-error">
     <bt-error-message [code]="error()" />

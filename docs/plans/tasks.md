@@ -91,7 +91,7 @@ Each stage is one commit, with `pnpm format` and `CI=true pnpm check` passing.
 5. **Tasks page.** Connected timeline with day points, Today/Tomorrow with empty states, collapsible Upcoming with month headings and **Load more**, loading skeleton and inline `bt-error-message` with Retry.
 6. **Reschedule dialog.** `features/tasks/reschedule-dialog/` on `bt-dialog`: date input, and an interval number plus unit select with a Does not repeat option.
 7. **Follow-ups and Ask.** `CHAT` follow-up and **Ask** navigate to `/things/:id/chat` and start a conversation with the task context (mocked as a first user message until `taskId` is accepted). `UPDATE_FIELD` dialog on `bt-dialog`: date fields patch the Thing value through `ThingsStore.update`; document fields upload through the existing attachment flow and link to the Thing.
-8. **Thing detail.** **Upcoming tasks** and **Suggested tasks** read `TasksStore`; their **See all** links go to `/tasks?thingId=…`, and the page filters to that Thing with a clear-filter control. Remove `event-recurrence.mock.ts` once nothing uses it.
+8. **Thing detail.** **Suggested tasks** read `TasksStore`, and completing an upcoming task goes through it so recurring tasks get their next occurrence. **Upcoming tasks › See all** goes to `/tasks?thingId=…`, which filters the page to that Thing with a clear-filter control. **Suggested tasks › See all** stays disabled: the Tasks page lists scheduled work only.
 9. **Docs and tests.** Update `README.md`, `PRODUCT.md` Timeline section, `src/AGENTS.md` if structure changed. Playwright journey: open Tasks, complete and uncheck a task, reschedule, delete back to suggested, expand Upcoming and load more, answer a follow-up. Screenshots at phone and desktop widths.
 
 ## Related issues

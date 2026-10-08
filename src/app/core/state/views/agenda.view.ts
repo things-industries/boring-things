@@ -22,28 +22,30 @@ export function loadAgenda() {
   return collections;
 }
 
-/** Tasks, appointments and Thing dates in Today, Tomorrow and later days. */
-export function agendaView(now: Signal<Date>): Signal<Agenda> {
+/** Tasks, appointments and Thing dates in Today, Tomorrow and later days, for one Thing if given. */
+export function agendaView(now: Signal<Date>, thingId: Signal<string | null>): Signal<Agenda> {
   const tasks = inject(TasksStore);
   const events = inject(EventsStore);
   const things = inject(ThingsStore);
 
   return computed(() => {
-    const thingMap = things.entityMap();
-    const thingDates = mockThingDates(things.entities());
+    const only = thingId();
+    const shown = things.entities().filter((thing) => !only || thing.id === only);
+    const names = Object.fromEntries(shown.map((thing) => [thing.id, thing.name]));
+    const thingDates = mockThingDates(shown);
 
     return buildAgenda(
       {
         tasks: tasks
           .entities()
-          .filter((task) => thingMap[task.thingId])
+          .filter((task) => task.thingId in names)
           .map((task) => mockDeadline(task, thingDates)),
         events: events
           .entities()
-          .filter((event) => !isTaskEvent(event) && thingMap[event.thingId])
+          .filter((event) => !isTaskEvent(event) && event.thingId in names)
           .map(mockAppointment),
         thingDates,
-        thingNames: Object.fromEntries(things.entities().map((thing) => [thing.id, thing.name])),
+        thingNames: names,
       },
       now(),
     );
