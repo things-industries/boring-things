@@ -1,0 +1,28 @@
+@use 'tokens';
+
+.reschedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
+}
+
+.reschedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+}
+
+.reschedule-repeat {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: tokens.space(3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  legend {
+    grid-column: 1 / -1;
+    margin-bottom: tokens.space(2);
+    padding: 0;
+  }
+}

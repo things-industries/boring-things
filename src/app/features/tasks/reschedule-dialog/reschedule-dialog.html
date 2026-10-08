@@ -1,0 +1,51 @@
+<bt-dialog title="Reschedule task" [open]="!!task()" (closed)="close()">
+  <form [id]="formId" class="reschedule-form" (ngSubmit)="save()">
+    <label class="reschedule-field reschedule-date"
+      >Date
+      <input
+        name="date"
+        type="date"
+        required
+        [ngModel]="date()"
+        (ngModelChange)="date.set($event)"
+      />
+    </label>
+    <fieldset class="reschedule-repeat">
+      <legend>Repeats</legend>
+      <label class="reschedule-field"
+        >Every
+        <input
+          name="interval"
+          type="number"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          [disabled]="!unit()"
+          [ngModel]="interval()"
+          (ngModelChange)="interval.set($event)"
+        />
+      </label>
+      <label class="reschedule-field"
+        >Unit
+        <select name="unit" [ngModel]="unit()" (ngModelChange)="unit.set($event)">
+          <option value="">Does not repeat</option>
+          <option value="DAY">{{ interval() === 1 ? 'Day' : 'Days' }}</option>
+          <option value="WEEK">{{ interval() === 1 ? 'Week' : 'Weeks' }}</option>
+          <option value="MONTH">{{ interval() === 1 ? 'Month' : 'Months' }}</option>
+          <option value="YEAR">{{ interval() === 1 ? 'Year' : 'Years' }}</option>
+        </select>
+      </label>
+    </fieldset>
+  </form>
+  <div dialogActions>
+    <button type="button" class="button-secondary button-sm" (click)="close()">Cancel</button>
+    <button
+      type="submit"
+      [attr.form]="formId"
+      class="button-primary button-sm"
+      [disabled]="!date() || (!!unit() && !(interval() >= 1))"
+    >
+      Save
+    </button>
+  </div>
+</bt-dialog>

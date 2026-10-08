@@ -73,6 +73,7 @@
     </section>
   </div>
 }
+<bt-reschedule-dialog [task]="rescheduling()" (closed)="rescheduling.set(null)" />
 
 <ng-template #items let-items>
   @if (items.length) {
@@ -84,6 +85,7 @@
             [now]="now()"
             (toggled)="toggle(item)"
             (removed)="remove(item)"
+            (rescheduled)="rescheduling.set(item.type === 'TASK' ? item.task : null)"
           />
         </li>
       }

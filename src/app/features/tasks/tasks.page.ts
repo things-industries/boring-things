@@ -10,8 +10,9 @@ import { agendaView, loadAgenda } from '../../core/state/views/agenda.view';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { IconButton } from '../../components/icon-button/icon-button';
 import { TaskCard } from '../../components/task-card/task-card';
-import type { AgendaItem } from '../../interfaces/task.interface';
+import type { AgendaItem, Task } from '../../interfaces/task.interface';
 import { TermPipe } from '../../pipes/term.pipe';
+import { RescheduleDialog } from './reschedule-dialog/reschedule-dialog';
 import { TasksSkeleton } from './tasks-skeleton/tasks-skeleton';
 
 @Component({
@@ -25,6 +26,7 @@ import { TasksSkeleton } from './tasks-skeleton/tasks-skeleton';
     IconButton,
     TaskCard,
     TasksSkeleton,
+    RescheduleDialog,
     TermPipe,
   ],
   viewProviders: [provideIcons({ expandSection, openProfile })],
@@ -42,6 +44,7 @@ export class TasksPage {
   readonly error = this.collections.error;
 
   readonly upcomingOpen = signal(false);
+  readonly rescheduling = signal<Task | null>(null);
   private readonly upcomingShown = signal<number>(APP_CONFIG.upcomingDayPage);
   readonly upcoming = computed(() => this.agenda().upcoming.slice(0, this.upcomingShown()));
   readonly hasMore = computed(() => this.agenda().upcoming.length > this.upcomingShown());
