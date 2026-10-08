@@ -9,8 +9,8 @@ import {
   navHomeActive,
   navThings,
   navThingsActive,
-  navTimeline,
-  navTimelineActive,
+  navTasks,
+  navTasksActive,
 } from '../../core/app-icons';
 import { TermPipe } from '../../pipes/term.pipe';
 @Component({
@@ -25,8 +25,8 @@ import { TermPipe } from '../../pipes/term.pipe';
       navHomeActive,
       navThings,
       navThingsActive,
-      navTimeline,
-      navTimelineActive,
+      navTasks,
+      navTasksActive,
     }),
   ],
   templateUrl: './bottom-nav.html',

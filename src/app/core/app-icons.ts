@@ -10,7 +10,6 @@ import {
   remixBox3Fill,
   remixBox3Line,
   remixCalendarEventLine,
-  remixCalendarFill,
   remixCalendarLine,
   remixChat3Fill,
   remixChat3Line,
@@ -45,6 +44,8 @@ import {
   remixEyeLine,
   remixEyeOffLine,
   remixText,
+  remixTaskFill,
+  remixTaskLine,
   remixTimeLine,
   remixToolsLine,
   remixCameraLine,
@@ -129,8 +130,8 @@ export const navHome = remixHome5Line;
 export const navHomeActive = remixHome5Fill;
 export const navThings = remixBox3Line;
 export const navThingsActive = remixBox3Fill;
-export const navTimeline = remixCalendarLine;
-export const navTimelineActive = remixCalendarFill;
+export const navTasks = remixTaskLine;
+export const navTasksActive = remixTaskFill;
 export const navAsk = remixChat3Line;
 export const navAskActive = remixChat3Fill;
 export const openProfile = remixAccountCircleLine;

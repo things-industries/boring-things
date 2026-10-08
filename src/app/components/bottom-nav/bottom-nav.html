@@ -26,13 +26,13 @@
   </a>
   <a
     class="bottom-nav-item"
-    routerLink="/timeline"
+    routerLink="/tasks"
     routerLinkActive="active"
     ariaCurrentWhenActive="page"
-    #timeline="routerLinkActive"
+    #tasks="routerLinkActive"
   >
-    <ng-icon [name]="timeline.isActive ? 'navTimelineActive' : 'navTimeline'" aria-hidden="true" />
-    <span>{{ 'timeline' | term }}</span>
+    <ng-icon [name]="tasks.isActive ? 'navTasksActive' : 'navTasks'" aria-hidden="true" />
+    <span>{{ 'tasks' | term }}</span>
   </a>
   <a
     class="bottom-nav-item"

@@ -76,11 +76,11 @@ export const routes: Routes = [
     loadComponent: chatPage,
   },
   {
-    path: 'timeline',
-    title: APP_TERMS.timeline,
+    path: 'tasks',
+    title: APP_TERMS.tasks,
     canActivate: [authenticated],
     data: { bottomNav: true },
-    loadComponent: () => import('./features/timeline/timeline.page').then((m) => m.TimelinePage),
+    loadComponent: () => import('./features/tasks/tasks.page').then((m) => m.TasksPage),
   },
   {
     path: 'profile',

@@ -6,7 +6,7 @@ export const APP_TERMS = {
   addThing: 'Add a Thing',
   login: 'Sign in',
   assistant: 'Assistant',
-  timeline: 'Timeline',
+  tasks: 'Tasks',
   profile: 'Profile',
 } as const;
 /** Toast leads naming the action that failed. */
