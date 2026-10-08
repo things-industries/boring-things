@@ -100,7 +100,7 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 | #8    | Backend  | 3     | Closed |
 | #9    | Backend  | 3     | Open   |
 | #10   | Backend  | 3     | Open   |
-| #11   | Backend  | 5     | Open   |
+| #11   | Backend  | 5     | Closed |
 | #12   | Backend  | 5     | Closed |
 | #13   | Backend  | 5     | Open   |
 | #14   | Backend  | 7     | Open   |
@@ -108,7 +108,7 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 | #16   | Frontend | 2     | Open   |
 | #17   | Frontend | 2     | Open   |
 | #18   | Frontend | 3     | Open   |
-| #19   | Frontend | 1, 5  | Open   |
+| #19   | Frontend | 1, 5  | Closed |
 | #20   | Frontend | 5     | Open   |
 | #21   | Frontend | 7     | Open   |
 | #22   | Frontend | 7     | Open   |

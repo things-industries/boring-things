@@ -140,6 +140,8 @@ test('a Thing image shows no fallback while it loads and shows at once when reop
   await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(hero.locator('img')).toBeVisible();
   expect(requests).toBe(1);
+  // Reopening the Thing fetches it again through the route while the test ends.
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
@@ -254,7 +256,9 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
 });
 
-test('a suggested task is scheduled and completed', async ({ page }) => {
+test('a suggested task is scheduled, and completing it schedules the next one', async ({
+  page,
+}) => {
   const url = await createThing(page, `Task dryer ${Date.now()}`);
   const thingId = url.split('/').pop()!;
   const eventId = crypto.randomUUID();
@@ -274,6 +278,8 @@ test('a suggested task is scheduled and completed', async ({ page }) => {
   };
 
   await page.route(/\/api\/events(\?|$)/, async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+
     const response = await route.fetch();
     const body = await response.json();
 
@@ -298,8 +304,11 @@ test('a suggested task is scheduled and completed', async ({ page }) => {
 
   await expect(card).toContainText('Due 4 Mar 2099');
   await card.getByRole('button', { name: 'Mark complete: Clean the lint filter' }).click();
-  await expect(card).toHaveCount(0);
-  await expect(page.getByText('Nothing scheduled.')).toBeVisible();
+  // Completing a recurring task schedules its next occurrence.
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText('Due 18 Mar 2099');
+  // The new event changes the Thing, which reloads events while the test ends.
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('import steps show while discovering, then the sheet slides up once', async ({ page }) => {

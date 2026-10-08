@@ -151,7 +151,7 @@ I expect Boring Things to:
 
 ### Screens / journeys
 
-Main nav offers Things, Timeline, Assistant and Insights options.  We open on the Things view by default.
+Main nav offers Things, Tasks, Assistant and Insights options.  We open on the Things view by default.
 
 See the `UI Inspiration` folder for ideas for specific components
 
@@ -179,18 +179,19 @@ See the `UI Inspiration` folder for ideas for specific components
         - Accessory/consumable offers
         - Cost analysis (purchase cost, recurring costs, payment frequency)
         - Related things
-        - Upcoming events (link to timeline)
+        - Upcoming events (link to Tasks)
         - Recommended tasks
         - Start chat UI
     - **Thing editor**:
         - Ability to add/remove any of the user-editable parts of a Thing
-- **Timeline**:
-    - **Main timeline view**
-        - Search accepts keywords, filters for Thing name, date range, etc
-        - Each event shows date, name of event, thing. Events can have a calendar date without a time, or a scheduled instant. Recurrence is outside the current scope.
-    - **Event view**
-        - Date, name, details
-        - Links to any related Things
+- **Tasks**:
+    - **Main tasks view**
+        - Today and Tomorrow are always visible; Upcoming expands to later days.
+        - Items are tasks (things the owner does), events (appointments such as a tradesperson visit) and Thing events (deadline dates on a Thing, such as a warranty end).
+        - Each item shows its title, a check control when it can be done, and a time line: overdue status, a countdown to a deadline, a recurrence interval or a time of day. Critical tasks are flagged.
+        - Each day lists events first, then tasks by importance (critical, important, recommended, nice to have). Overdue tasks sit at the bottom of Today.
+        - Item actions: Ask (chat with the item as context), Reschedule (date and interval), Go to Thing and Delete (returns the task to the Thing's suggestions).
+        - A completed task or event may have a follow-up: a chat with defined context, or a question that updates a Thing detail or adds a document.
 - **Assistant**:
     - **List of previous chats**
     - **Conversation view**

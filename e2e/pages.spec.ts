@@ -85,13 +85,15 @@ test.describe('signed out', () => {
   });
 });
 
-for (const path of ['/', '/things', '/things/new', '/chat']) {
+for (const path of ['/', '/things', '/things/new', '/tasks', '/chat']) {
   test(`${path} fits the viewport width`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator('main h1')).toBeVisible();
     // Measure the loaded page, not its skeleton.
     await expect(
-      page.locator('[class*="skeleton"], bt-all-things-skeleton, bt-home-skeleton'),
+      page.locator(
+        '[class*="skeleton"], bt-all-things-skeleton, bt-home-skeleton, bt-tasks-skeleton',
+      ),
     ).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     expect(await noHorizontalOverflow(page)).toBe(true);
