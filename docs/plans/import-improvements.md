@@ -1,248 +1,224 @@
-# Attachment extraction and Thing processing
+# Attachment transcription and Thing processing
 
 Status: planned.
 
-This plan defines reusable attachment interpretation, owner-scoped Import orchestration and shared public reference attachments. Preserve sources, sensitivity, provenance, per-set values, owner edits and retry checkpoints throughout. The [import guide](../setup/imports.md) documents current behaviour; [backend conventions](../../server/AGENTS.md#ai-imports-and-assistant-work) describe implementation boundaries.
+This plan defines reusable Attachment transcription, owner-scoped Import processing and shared public reference Attachments. The [import guide](../setup/imports.md) describes current behaviour. The [backend conventions](../../server/AGENTS.md#ai-imports-and-assistant-work) describe implementation boundaries. Preserve source evidence, sensitivity, fieldset context, owner edits and retry checkpoints.
 
-Keep attachment interpretation reusable and let one persisted Import orchestrate matching/mapping, Discovery, resource processing and Enrichment. These are shared application operations executed by the existing runner. Checkpoint each Thing and stage independently so bulk work progresses without waiting for unrelated decisions.
+One persisted Import orchestrates Thing identification, fieldset selection, field mapping and Enrichment. Enrichment includes Discovery, resource processing and Recommendation. The Import records progress for each Thing and stage so one unresolved candidate does not stop other work.
 
 ## Ownership and terminology
 
-| Concept          | Owned data and responsibility                                                                                                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Attachment       | Original content, metadata, reusable transcription and one current, replaceable extraction property containing Thing Candidates and bare facts.                                                 |
-| Extraction       | A process whose status, completion date, coverage and output belong to the attachment. Distinguish skipped, completed with no evidence, partial and failed extraction.                          |
-| Thing Candidate  | A name, category, terms and source-supported facts describing a possible Thing. Stored within attachment extraction; assign a server-generated UUID.                                            |
-| Fact             | A source-supported label/value with sensitivity and attachment/page/quote provenance. Belongs to a Thing Candidate or directly to the attachment as a bare fact.                                |
-| Import           | An owner-scoped workflow with bounded input references, optional single Thing context, matching decisions and per-Thing checkpoints for mapping, Discovery, resource processing and Enrichment. |
-| Thing            | The owned record receiving evidence, linked attachments, suggested tasks and purchasables. Workflow progress is projected from its Imports.                                                     |
-| Thing Attachment | The persisted relationship linking a Thing to an attachment.                                                                                                                                    |
-| Thing Field      | A value belonging to a Thing, with field definition and fieldset context where applicable, sensitivity and source provenance.                                                                   |
-| Field Definition | A registry definition reusable across fieldsets and as a standalone field. Custom Thing fields retain their own definition data.                                                                |
-| Fieldset         | A registry group of field definitions selected for a Thing. Values retain their fieldset context.                                                                                               |
-| Discovery        | An application operation that finds resources, reuses accessible reference attachments and saves discovered attachments for processing in the same Import.                                      |
-| Enrichment       | An application operation that suggests tasks and purchasables after Discovery and resource processing finish for that Thing.                                                                    |
+| Concept          | Owned data and responsibility                                                                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Attachment       | Original file or text, metadata, reusable transcription, summary, optional source-wide terms and processing status. Owner uploads are private. A saved public resource is also an Attachment and has a source URL. |
+| Transcription    | The Attachment's page-labelled readable content and image descriptions. It records coverage, source version and completion status.                                                                                 |
+| Import           | An owner-scoped workflow with bounded Attachment references, optional Thing context, open or targeted extraction, candidate decisions, per-Thing terms and stage checkpoints.                                      |
+| Thing Candidate  | A possible Thing identified by an open Import. It has a name, category, candidate-specific terms and identifiers with Attachment and passage references. Its ID is generated by the server.                        |
+| Thing            | The owner's record receiving fields, linked Attachments, suggested tasks and purchasables.                                                                                                                         |
+| Thing Attachment | The persisted relationship linking a Thing to an Attachment.                                                                                                                                                       |
+| Thing Field      | A value belonging to a Thing, with field definition and fieldset context where applicable, sensitivity and source provenance.                                                                                      |
+| Field Definition | A registry definition reusable across fieldsets and as a standalone field. Custom Thing fields retain their own definition data.                                                                                   |
+| Fieldset         | A registry group of field definitions selected for a Thing. Values retain their fieldset context.                                                                                                                  |
+| Enrichment       | Import stages that run Discovery, resource processing and Recommendation for a Thing.                                                                                                                              |
+| Discovery        | An Import operation that finds applicable public resources, reuses or saves them as Attachments, and adds them to the current Thing's processing.                                                                  |
+| Recommendation   | Import operations that suggest management tasks and purchasables after applicable resources have been processed.                                                                                                   |
 
-Attachment extraction output/status belong to the attachment. The Import owns orchestration, matching decisions, attachment references and stage checkpoints as properties. Discovery and Enrichment require no separate entities, scheduling records or child Imports. Thing results remain owned by the Thing. Keep persistence sufficient for restart/retry without introducing process-run history.
+An Attachment owns source-wide transcription, summary and optional terms. An Import owns interpretations that depend on its group of sources or its Thing context. Open extraction stores Thing Candidates on the Import. Targeted extraction stores relevance, applicability and Thing-specific terms on the Import. Mapping writes justified values and citations to the Thing. Field values are extracted after Thing resolution and fieldset selection.
 
-An attachment submission supplies one or more inputs. Direct Thing creation and manual Discovery/Enrichment create an Import with that Thing context and zero initial attachments. Zero inputs require a Thing context. Store the requested operations explicitly: attachment updates normally run mapping/mining; new Thing creation runs Discovery and Enrichment after mapping; manual requests can run Discovery plus Enrichment or Enrichment alone.
+A saved public resource is an Attachment with a source URL and verified public provenance. An uploaded Attachment has no source URL. Shared access depends on verified public origin and an authorised Thing link, not on the URL alone. The same transcription, targeted extraction and mapping operations process uploads and resources.
 
-Plan application terminology as `ThingCandidate` and `thingCandidates`. Current code uses `ExtractedThing`/`extractedThings` and provider/persistence data uses `candidates`; migrate consistently during implementation. Give candidates and bare facts server-generated UUIDs; candidate facts may use local IDs qualified by candidate UUID. Preserve source attachment/page/quote references.
+An Attachment submission supplies one or more inputs and creates Import intent for their group or specified Thing. Direct Thing creation and manual Discovery or Recommendation create a zero-input Import with that Thing context. Zero inputs require Thing context. Record requested operations: an Attachment update normally runs targeted extraction, fieldset selection and mapping; a new Thing also runs Discovery and Recommendation; manual requests may run Discovery with Recommendation or Recommendation alone.
 
-Thing Attachment records association. Import decisions record which evidence contributed to which Thing and whether mapping completed. Expose authorised candidate matches from those properties. One reference candidate can support several Things; matching decisions remain owner-scoped. Several candidates or bare-fact attachments can contribute to one Thing.
-
-The Import's bounded attachment list records each attachment ID and consumed extraction date. Apply access, deletion-reference and freshness checks to these properties. Commit created Thing IDs with decisions so retries reuse them. Enable Discovery and Enrichment for newly created Things, after their initial mapping finishes. Persist these requested stages with creation so retries retain the workflow scope.
+Plan application terminology as `ThingCandidate` and `thingCandidates`. Current code uses `ExtractedThing` and `extractedThings`, while provider and persistence data use `candidates`; migrate these together with the workflow. Identifiers remain strings, including leading zeroes. Candidate IDs are server-generated UUIDs. Attachments, pages and quotes identify the evidence for candidate identity and Thing fields.
 
 ## Entity relationships
 
-This diagram includes persisted entities and logical Thing Candidate/Fact components of attachment properties. Extraction and process state remain properties. Each Fact belongs to either an attachment directly or a Thing Candidate. Registry-backed Thing fields reference definitions; standalone fields have no fieldset and custom fields have no registry definition. Field definitions can appear in several fieldsets.
+This diagram shows persisted entities and logical properties. Transcription, candidates, decisions and checkpoints are properties of their owning records. A Thing Candidate can cite several Attachments in one Import. A Thing Field retains source references after an Import completes.
 
 ```mermaid
 erDiagram
     ATTACHMENT {
         uuid id
-        json extraction
-        datetime extractedAt
+        text transcription
+        text summary
+        json terms
+        text sourceUrl
     }
     IMPORT {
         uuid id
         json attachments
         uuid thingContextId
+        json candidates
         json decisions
         json checkpoints
     }
     THING {
         uuid id
     }
-    ATTACHMENT ||--o{ THING_CANDIDATE : "contains in extraction"
-    ATTACHMENT |o--o{ FACT : "contains bare facts"
-    THING_CANDIDATE |o--o{ FACT : "contains grouped facts"
-    IMPORT }o..o{ ATTACHMENT : "references inputs in property"
-    THING |o..o{ IMPORT : "supplies optional context"
-    IMPORT }o..o{ THING : "maps evidence through decisions"
-    IMPORT }o..o{ THING_CANDIDATE : "resolves candidates"
-    IMPORT }o..o{ FACT : "maps facts"
+    IMPORT ||--o{ THING_CANDIDATE : "contains in candidates"
+    THING_CANDIDATE }o..o{ ATTACHMENT : "cites passages"
+    IMPORT }o..o{ ATTACHMENT : "references sources"
+    THING |o..o{ IMPORT : "supplies context"
+    IMPORT }o..o{ THING : "processes through decisions"
     THING ||--o{ THING_ATTACHMENT : has
     ATTACHMENT ||--o{ THING_ATTACHMENT : "is linked through"
     THING ||--o{ THING_FIELD : has
     FIELD_DEFINITION |o--o{ THING_FIELD : defines
     FIELD_SET |o--o{ THING_FIELD : "provides value context"
     FIELD_SET }o--o{ FIELD_DEFINITION : includes
-    FACT }o..o{ THING_FIELD : "supports values through provenance"
+    ATTACHMENT }o..o{ THING_FIELD : "supports through provenance"
 ```
 
-Fact provenance retained on Thing fields survives replacement of attachment extraction. The Fact relationship represents source evidence; historical Fact records need no foreign-key lifetime.
+The Import's Attachment list records each source ID and consumed transcription version. Access, deletion-reference and freshness checks use these properties. Created Thing IDs and committed field values survive retries. Replacing transcription invalidates unfinished candidate, targeted extraction and mapping checkpoints that consumed the earlier version. Reassess affected evidence while preserving committed Thing IDs, owner edits and Attachment/page/quote provenance.
 
 ## Process flow
 
-Owner uploads create Import intent for their group or specified Thing. Prepare readable content and extract candidates/facts for owned uploads, including uploads already linked to a Thing. Unowned public references use transcription and targeted mining. Each resolved Thing follows its requested stages independently within the same Import.
+Owner uploads create an open Import for their group or an Import restricted to one Thing. Discovery adds verified public resource Attachments to the same Import with the Thing already known. Each Thing proceeds through its requested stages independently.
 
 ```mermaid
 flowchart TD
-    Unlinked["Create n owner attachments"] --> General["Queue general Import for the group"]
-    Linked["Create owner attachment linked to a Thing"] --> Restricted["Queue Import restricted to that Thing"]
-    General --> Prepare["Prepare or reuse transcription and metadata"]
-    Restricted --> Prepare
-    Prepare --> Owner{"Attachment has an owner?"}
-    Owner -->|"Yes"| Extract["Extract or reuse candidates and bare facts"]
-    Owner -->|"No"| Skip["Skip general fact extraction"]
-    Extract --> Aggregate["Aggregate attachment candidates and facts"]
-    Skip --> Aggregate
-    Direct["Create Thing directly"] --> ContextJob["Queue Import with Thing context and zero inputs; enable Discovery and Enrichment"]
-    ContextJob --> Aggregate
-    Manual["Manual Discovery or Enrichment request"] --> Requested["Queue zero-input Import with Thing context and requested stages"]
-    Requested --> Aggregate
-    Aggregate --> Context{"Specified Thing context?"}
-    Context -->|"Yes"| Target["Use that Thing; creation disabled"]
-    Context -->|"No"| Resolve["Match candidates against owned Things and Things created in this Import"]
-    Resolve -->|"Existing instance"| Target
-    Resolve -->|"New instance"| Create["Create Thing; enable Discovery and Enrichment"]
-    Resolve -->|"Ambiguous"| Review["Await owner decision; other Things continue"]
-    Review --> Resolve
-    Resolve -->|"No resolvable Thing"| NoTarget["Complete without a Thing; retain evidence"]
-    Create --> Target
-    Target --> Map["Associate facts, select fieldsets, map values and mine remaining gaps"]
-    Map --> DiscoverGate{"Discovery requested for this Thing?"}
-    DiscoverGate -->|"Yes"| Discover["Discovery: find applicable resources"]
-    DiscoverGate -->|"No"| EnrichGate{"Enrichment requested?"}
-    Discover --> Available{"Applicable unowned attachment available?"}
-    Available -->|"Yes"| Reuse["Reuse and link attachment"]
-    Available -->|"No; resource found"| Save["Save unowned attachment and link it"]
-    Reuse --> Resources["Prepare resources and mine gaps using shared functions in this Import"]
-    Save --> Resources
-    Discover -->|"No applicable resources"| EnrichGate
-    Resources --> EnrichGate
-    EnrichGate -->|"Yes"| Enrich["Enrichment: suggest tasks and purchasables using updated data"]
-    EnrichGate -->|"No"| Complete["Complete this Thing's workflow"]
-    Enrich --> Complete
+    Upload["Upload one or more owner Attachments"] --> Prepare["Prepare or reuse each Attachment transcription, summary and terms"]
+    Prepare --> Context{"Thing context supplied?"}
+    Context -->|"No"| Open["Open extraction: identify candidates across the group"]
+    Open --> Resolve["Match candidates to owned Things or create Things"]
+    Resolve -->|"Unambiguous"| Target["Process one resolved Thing"]
+    Resolve -->|"Needs owner decision"| Review["Record review required; continue other candidates"]
+    Resolve -->|"No candidate"| NoTarget["Retain sources; finish without a Thing"]
+    Context -->|"Yes"| Target
+    Direct["Direct Thing creation or manual request"] --> Target
+    Target --> Assess["Targeted extraction: assess relevance and Thing-specific terms"]
+    Assess --> Sets["Select additional fieldsets"]
+    Sets --> Map["Search source passages and map eligible fields"]
+    Map --> DiscoverGate{"Discovery requested?"}
+    DiscoverGate -->|"Yes"| Discover["Find and verify applicable resources"]
+    Discover --> Resource["Reuse or save resource Attachments"]
+    Resource --> PrepareResource["Transcribe resources if needed"]
+    PrepareResource --> ResourceAssess["Targeted extraction for the same Thing"]
+    ResourceAssess --> ResourceSets["Reconsider fieldsets"]
+    ResourceSets --> ResourceMap["Map eligible fields from resource passages"]
+    ResourceMap --> RecommendGate{"Recommendation requested?"}
+    Discover -->|"No resource"| RecommendGate
+    DiscoverGate -->|"No"| RecommendGate
+    RecommendGate -->|"Yes"| Recommend["Suggest tasks and purchasables"]
+    RecommendGate -->|"No"| Complete["Complete this Thing"]
+    Recommend --> Complete
 ```
 
-Discovery can find several resources; finish the bounded resource-processing stage before Enrichment. Resource attachments are recorded in this Import's checkpoints and use shared applicability, mapping/mining and provenance functions. They stay within the existing Thing context and cannot create Things or schedule another Discovery cycle. Optional Discovery/resource failures add warnings and allow Enrichment to use committed evidence. Work awaiting decisions about other Things does not block this Thing's stages.
+Resource processing is bounded and does not schedule another Discovery cycle. An applicable resource may add a fieldset before its fields are searched. Recommendation uses values committed after resource processing. Optional Discovery, resource and Recommendation failures add warnings and allow later stages to use available evidence. Work awaiting an owner decision about one candidate does not stop other Things.
 
 ## Use cases
 
-The Research column describes the Discovery operation. Mapping preserves owner edits, explicit clears, sensitivity and source provenance; it fills eligible empty fields, retains useful custom facts and mines remaining gaps. Research processes discovered resources within the same Import before Enrichment runs.
+| Source and context                                | Identification and Thing selection                                                                               | Thing-specific processing                                                                               | Follow-up                                                                |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Unlinked source identifies one new Thing          | Open extraction creates one candidate; create a Thing when no owned instance matches.                            | Assess relevant passages, select fieldsets and map eligible fields.                                     | Discover resources, process them, then recommend tasks and purchasables. |
+| Unlinked source identifies an owned Thing         | Match the candidate using instance evidence.                                                                     | Assess evidence for that Thing and fill eligible gaps.                                                  | Discovery and Recommendation run when requested.                         |
+| Grouped sources describe one Thing                | Combine transcriptions for open extraction; keep identifiers and terms on that candidate with source references. | Use relevant passages from every source, including a supporting document with no identifier of its own. | Newly created Things continue through Discovery and Recommendation.      |
+| Sources describe several Things                   | Create candidate-specific identifiers, terms and source references; resolve each candidate independently.        | Assess and map passages for each resolved Thing without mixing their evidence.                          | Each new Thing proceeds when its own mapping finishes.                   |
+| Source has no identifiable Thing                  | Record an empty open-extraction result; retain its transcription and summary.                                    | A later Thing-context Import can use the source.                                                        | No Thing is created from unidentified material.                          |
+| Owner adds a relevant source from Thing detail    | Use the specified Thing as the sole target.                                                                      | Check relevance, select additional fieldsets and map eligible fields.                                   | Later stages run when requested.                                         |
+| Owner adds a source concerning other Things       | Keep the link to the specified Thing and report relevance; retain the source for a later open Import.            | Apply only evidence relevant to the specified Thing.                                                    | No additional Thing is created in the restricted Import.                 |
+| Warranty document has little identity information | Use the specified Thing or a Thing resolved from other sources in the group.                                     | Add an applicable warranty fieldset and fill eligible fields with citations.                            | Later stages run when requested.                                         |
+| Direct Thing creation                             | Use the new Thing in a zero-input Import.                                                                        | Preserve initial fieldsets and values.                                                                  | Discover resources, process them, then recommend tasks and purchasables. |
+| Discovered or reused public manual                | Use the current Thing; verify model, variant, region and document edition.                                       | Reconsider fieldsets and map eligible public fields from cited passages.                                | Continue Recommendation in the same Import.                              |
 
-| Source and context                                                 | Extraction                                                                           | Thing selection                                                                    | Fieldset selection                                                                       | Mapping                                                                                     | Research                                                                            | Enrichment                                                                                 |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1.1.1 Unlinked source; one unknown Thing                           | Transcribe; extract one candidate and any bare facts.                                | Search owned Things; create one Thing when no instance matches.                    | Select applicable fieldsets from candidate and bare-fact evidence.                       | Apply facts to the new Thing; mine remaining gaps.                                          | Discover or reuse public resources; link them and mine eligible gaps.               | After resource processing, suggest tasks and purchasables from updated public data.        |
-| 1.1.2 Unlinked source; one known Thing                             | Transcribe; extract one candidate and any bare facts.                                | Match the owned instance; retain ambiguous matches for owner decision.             | Consider additional fieldsets using existing Thing context and incoming facts.           | Add missing values and useful custom facts to the matched Thing; mine gaps.                 | Not scheduled automatically for an existing Thing.                                  | Not scheduled automatically; available by manual request.                                  |
-| 1.2.1 Unlinked source; several unknown Things                      | Transcribe; extract distinct candidates and bare facts.                              | Resolve candidates together; create one Thing per identified instance.             | Select applicable fieldsets independently for each new Thing.                            | Associate facts with each Thing; map and mine each independently.                           | Run for each new Thing after its initial mapping; process resources in this Import. | Run independently for each Thing after its resources are processed.                        |
-| 1.2.2 Unlinked source; several known Things                        | Transcribe; extract distinct candidates and bare facts.                              | Match each owned instance; ambiguous candidates await decisions independently.     | Consider additional fieldsets for each matched Thing using its context and facts.        | Map relevant evidence into each Thing; retain unresolved bare facts on the attachment.      | Not scheduled automatically for matched existing Things.                            | Not scheduled automatically; available by manual request.                                  |
-| 1.2.3 Unlinked source; known and unknown Things                    | Transcribe; extract distinct candidates and bare facts.                              | Match owned instances and create remaining Things; reuse decisions across retries. | Select sets for new Things; consider additional sets for existing Things.                | Map and mine relevant evidence independently for each resolved Thing.                       | Run automatically for newly created Things only.                                    | Run for new Things after resource processing; existing Things require a manual request.    |
-| 1.3 Unlinked source; no candidates or resolvable Thing             | Transcribe; retain any bare facts or a completed empty result.                       | No target can be resolved without candidates or Thing context; create no Thing.    | Skip because there is no target Thing.                                                   | Skip; retain attachment evidence for later contextual use.                                  | Skip because there is no target Thing.                                              | Skip because there is no target Thing.                                                     |
-| 2.1 Added from Thing detail; relevant evidence                     | Transcribe; extract candidates and bare facts even though the upload is linked.      | Use the specified Thing as the sole target; creation is disabled.                  | Consider additional fieldsets from incoming facts and existing Thing context.            | Map relevant facts and mine remaining gaps in the specified Thing.                          | Not scheduled automatically by attachment addition.                                 | Not scheduled automatically; available by manual request.                                  |
-| 2.2 Added from Thing detail; relevant evidence plus other Things   | Transcribe; retain all candidates and bare facts.                                    | Use only the specified Thing; retain other candidates for later general review.    | Consider additional fieldsets using evidence relevant to the specified Thing.            | Apply only relevant facts; other candidate evidence remains on the attachment.              | Not scheduled automatically by attachment addition.                                 | Not scheduled automatically; available by manual request.                                  |
-| 2.3 Added from Thing detail; unrelated evidence                    | Transcribe; retain source-supported candidates and bare facts.                       | Keep the specified Thing context and link; report a relevance warning.             | Leave the Thing's selected fieldsets unchanged.                                          | Leave fields unchanged; retain evidence on the attachment.                                  | Not scheduled automatically by attachment addition.                                 | Not scheduled automatically; available by manual request.                                  |
-| Supporting document with insufficient identity, such as a warranty | Transcribe; extract bare facts even when there are zero candidates.                  | Use the specified Thing context as the sole target.                                | Add applicable fieldsets, such as extended warranty, using bare facts and Thing context. | Populate relevant empty fields and useful custom facts; mine remaining gaps.                | Not scheduled automatically for the existing Thing.                                 | Not scheduled automatically; available by manual request.                                  |
-| One Import with several attachments describing the same Thing      | Transcribe each input; extract or reuse its candidates and bare facts.               | Resolve one instance across the group; match or create one Thing.                  | Use combined evidence and existing context to select or add fieldsets.                   | Apply grouped bare facts using the resolved Thing context; preserve every source reference. | Run only if this Import creates the Thing or Research was explicitly requested.     | Run after resources for a new Thing, or when explicitly requested.                         |
-| Create a Thing directly                                            | No input attachment extraction; queue a zero-input Import with Thing context.        | Use the newly created Thing; no further creation is needed.                        | Keep fieldsets selected during direct creation.                                          | Keep initial values; later discovered resources can fill eligible gaps.                     | Discover or reuse applicable resources using the initial public Thing data.         | Suggest tasks and purchasables after resource processing completes.                        |
-| Unowned reference discovered or reused during Research             | Prepare or reuse transcription and metadata; skip general candidate/fact extraction. | Use the current Thing; process the resource within its existing Import.            | Use selected fieldsets to identify eligible empty-field targets.                         | Mine applicable gaps with page/quote evidence; images need no field mapping.                | Continue the current resource-processing stage without scheduling another search.   | Wait until bounded resource processing finishes, then use the updated data and references. |
+A family manual establishes applicability to product models; its model list alone does not establish ownership of separate Things. Bulk receipts distinguish items and quantities. Two owned units of the same model can be separate instances.
 
-A family manual describes product applicability; its model list alone is insufficient evidence of separately owned Things. Bulk receipts distinguish independent items and quantities and filter incidental purchases. Two units of the same model can be separate instances.
+## Attachment transcription
 
-## Extraction and targeted mining
+Turn each allowed source format into page-labelled text. Read plain text and embedded PDF text locally. Use vision or OCR for images and scanned pages as needed. Describe relevant visual content in English and transcribe visible text while preserving approximate layout, reading order, table relationships and references to the original page or image region. Keep the original file for later visual checks and reprocessing.
 
-Separate readable-content preparation from AI extraction. Plain text and embedded PDF text can be read without AI. Images and scanned PDFs may require vision or OCR; retain original content and page references for visual evidence. Cache useful transcription on attachments; assistant queries can use readable content directly.
+The saved transcription contains English passages and omits repeated translations. Record language and page coverage, including pages omitted because they contain no English text. An Attachment with no usable English content has an insufficient-language outcome; the original remains available. Source summaries and optional terms describe the Attachment as a whole. They may mention several Things, so candidate and Thing-specific terms belong to the Import.
 
-Owned user-uploaded supported attachments extract Thing Candidates and bare facts, including uploads from Thing detail. Bare facts are facts whose Thing cannot be identified from that attachment alone. Extraction remains independent of its first linked Thing. A completed extraction can contain zero candidates and several bare facts, or no useful evidence.
+Store transcription, summary, terms, content version, completion date and status on the Attachment. Distinguish completed with no relevant content, partial coverage, skipped and failed processing. Preserve source metadata edits and requests that clear metadata values. Assistant questions may read the transcription directly. Model choice for vision and summaries depends on measured accuracy, latency and cost.
 
-Unowned reference attachments skip general candidate/bare-fact extraction. Prepare readable content and metadata, then mine applicable empty-field targets using the existing bounded document extraction capability and shared validation/provenance rules. Discovery calls these functions within the same Import and saves per-resource/per-field checkpoints. Metadata and applicability can be established during mining without enumerating every manual fact. Existing owned uploads reused as references can supply their saved facts.
+## Import extraction and Thing selection
 
-Ownership selects the default extraction strategy; processing limits and targeted reading also apply to large owner uploads. Preserve original content and source quotes while preferring English sections and excluding translated repetitions from working input. An unowned reference submitted to a general Import without resolvable candidates or Thing context reports insufficient identity. Automatic candidate-extraction fallback for that case is deferred.
+Open extraction examines the transcriptions, summaries and source-wide terms of an Import's bounded Attachment group. It returns possible Things with category, name, candidate-specific terms and identifiers such as manufacturer, model, serial, account or policy number. Each identifier states its kind, string value and source passage. Extract only identity evidence at this stage. Product lists in manuals establish document applicability; they do not establish ownership of separate Things. A large source can be searched by page or section so the same full document does not enter every later model request.
 
-Each attachment retains one replaceable extraction property and `extractedAt`. The Import attachment list records the date actually consumed. Before continuing or committing candidate/bare-fact work, check freshness; replacement invalidates unfinished decisions/checkpoints referencing old evidence IDs. Preserve allocated Thing IDs, committed values and attachment/page/quote provenance while reassessing evidence. Historical extraction payload retention is optional. Targeted mining records consumed content and completed field batches in Import checkpoints.
+With no Thing context, match candidates against the owner's Things and Things already created in this Import. Match an owned instance only when identity evidence justifies that match; manufacturer and model alone establish product compatibility. Commit each creation and candidate decision with its Thing ID so retries reuse the same record. A candidate with no existing match can create a Thing. A candidate with ambiguous matching enters a per-candidate review-required state. The first delivery stores that state and candidate summary as a stub: it provides no owner resolution action yet. Other candidates continue. A later delivery adds candidate resolution and bulk review.
 
-Repeated requests and unlink/relink reuse eligible completed processing. Unsupported media or unavailable AI configuration still create an associated Import outcome describing skipped processing and preserve the attachment/link. Every new upload belongs to a general or Thing-specific Import submission.
+Targeted extraction runs when a Thing context is supplied and after each open candidate resolves to a Thing. It assesses which passages concern that Thing, checks available identifiers and document scope, and produces a Thing-specific summary and terms. A manual can apply through a verified model family even when it lacks the instance serial number. Conflicting model, variant, region or edition evidence blocks field updates from that source. A restricted Import never creates another Thing. If the linked upload is unrelated, retain the link and report the relevance outcome.
 
-## Import resolution and mapping
+Store targeted assessments and consumed transcription versions on the Import. When a group contains several Things, associate each source passage only with Things justified by its content and context. Retain unassigned passages in the Attachment transcription for later review. Successful empty, insufficient coverage and failed outcomes remain distinct.
 
-1. Validate inputs, record the bounded attachment list and optional single Thing context, and schedule required extraction and the queued Import. Persist this intent with attachment creation; wake the runner after commit.
-2. Wait for the group's required extraction to reach a usable or terminal outcome, then aggregate candidates and bare facts. Preserve extraction failures as per-attachment outcomes; process available evidence and expose retry eligibility.
-3. A specified Thing context is the sole target and disables creation, including when every attachment has zero candidates. Assess evidence relevance to that Thing. Unrelated data leaves its fields unchanged.
-4. With no context, match candidates against owned Things and Things being created within the same Import. Evidence describing the same instance contributes to one Thing. Manufacturer/model equality establishes compatibility; automatic owned-instance matching requires instance evidence.
-5. When grouped attachments resolve to one Thing, use that Thing as context for bare facts from the other attachments. Grouping supplies the assumed relationship; evidence checks still prevent unrelated or conflicting facts being applied silently. With several resolved Things, associate bare facts using their content and candidate evidence. Retain unresolved bare facts on their attachments. With zero candidates and no context, complete without creating a Thing from unidentified scraps.
-6. Store candidate/fact decisions, created Thing IDs and mapping checkpoints as Import properties; persist Thing Attachment links with related writes. Recheck ownership, scope, Thing existence and extraction freshness before applying evidence.
-7. Select applicable fieldsets from existing Thing context plus incoming evidence, then map progressively. Retain per-set values, standalone/custom fields, sensitivity, conflicts, owner edits and explicit clears. Research-document mining fills eligible gaps through the same validation and provenance path.
-8. Continue each newly created Thing through Discovery, resource processing and Enrichment after initial mapping. Existing-Thing attachment updates finish after mapping/mining unless additional stages were explicitly requested. Zero-input, Thing-context workflows skip attachment stages. Keep requested stages and completed work in the same Import checkpoints.
+## Fieldset selection and mapping
 
-Per-candidate decisions and per-Thing mapping expose completed, awaiting decision, dismissed, cancelled and failed work. Bare-fact and targeted-mining progress are available with zero candidates. Owners can open Things as data arrives and cancel unfinished processing. Cancellation prevents later commits while preserving committed records and values. Other candidates from restricted Imports can be reviewed through a later general Import. Successful empty processing remains distinct from skipped extraction, insufficient coverage and failure.
+For each resolved Thing, use its category, existing fields, candidate or targeted terms, relevant Attachment summaries and source passages to find applicable registry fieldsets. Add eligible fieldsets that the owner has not removed. Check again after processing a newly discovered resource; its content may establish another applicable fieldset.
 
-## Discovery and Enrichment in the Import workflow
+Search relevant source passages for the Thing's eligible empty fields in bounded batches. Inspect the field definition, value type, units and fieldset context before proposing a value. Validate the Attachment/page/quote reference, schema, sensitivity, Thing scope and any model or document variant before committing. Preserve owner edits and requests that clear a value. Check the current Thing under a lock when committing because its fields or selected sets may have changed during processing. Report material conflicts with existing values for review.
 
-Discovery uses non-instance-specific public Thing fields to find relevant documents and images. Search accessible unowned reference attachments before external retrieval and validate applicability. Save verified public resources as unowned attachments, linking them through Thing Attachment. Preserve owner image choices, removed links and reference provenance.
+Use the selected fieldsets first, then eligible standalone registry definitions, then a bounded search for useful information outside the registry. Useful findings may become custom Thing fields with source citations or inform later registry work. Incidental content stays in the transcription. Public resources fill only eligible non-instance-specific fields; owner uploads may justify instance-specific fields. Do not send private identifiers or raw owner sources to public research.
 
-Call shared attachment preparation, fact application and targeted gap-mining functions directly for these resources. Record attachment IDs, consumed evidence and completed batches in the existing Import. Process them only against the existing Thing; resource creation joins the current workflow. User-uploaded attachments still create or join an Import submission. Persist attachment creation/linking with the corresponding workflow checkpoint to recover interrupted work.
+Track field targets as unsearched, found, searched without enough evidence, skipped or failed. Save per-Thing, per-source and per-field-batch checkpoints, including the consumed transcription version and current field definitions. A retry rechecks owner changes and resumes unfinished work without repeating completed paid requests.
 
-After Discovery and bounded resource processing reach terminal outcomes, Enrichment uses updated public fields and applicable reference content/URLs to suggest tasks and purchasables. Preserve citation, compatibility, deduplication, dismissal and owner-edit rules. Optional retrieval/model failures add warnings while allowing later stages to use available results. Database and core blob-persistence failures remain fatal to the operation that failed.
+## Discovery and Recommendation
 
-One Import owns the requested stages, usage, warnings and per-Thing/per-resource checkpoints. Resume unfinished stages after retry/restart; completed extraction, allocation, mapping, resources and suggestions are reused. Keep work bounded and yield between runnable Thing stages as needed; orchestration requires no dependency graph of child Imports. Serialise conflicting updates to the same Thing and recheck current values under locks before committing.
+Discovery uses populated public, non-instance-specific Thing fields to find relevant documents and images for the category and product or service. Search stored public resources before external retrieval. Verify provenance and applicability, including model family, variant, region, language and document edition. Save or reuse applicable resources as unowned Attachments, link them to the Thing and record the link and resource checkpoint together.
 
-Direct Thing creation schedules a zero-input, Thing-context Import with Discovery and Enrichment enabled. Manual Discovery schedules that scope for an existing Thing; manual Enrichment requests suggestions only. Newly created Things in a general Import get the same stages in their current workflow. One Thing's partial failure or pending decision preserves other Things' progress. SSE projects Import stages onto Thing progress.
+Transcribe each applicable document or reuse its transcription. Run targeted extraction, fieldset selection and mapping for the same Thing inside the current Import. Search its content for eligible gaps using bounded page or section retrieval. Record resource and field-batch checkpoints. Images can become a main photograph when the owner has left that choice unset; they need no field mapping unless their content carries relevant evidence.
 
-## Unowned reference attachments
+Recommendation starts after the bounded resource work reaches a terminal outcome. Use current Thing values, applicable resource content and URLs, bounded web search and separately approved specialised APIs where useful. Suggest cited maintenance or administration tasks and purchasables with observed purchase links and compatibility evidence. Preserve existing suggestions, dismissals and owner edits. Optional failures keep completed fields and other recommendations.
 
-Use attachments for verified public reference documents and images. Store discovered resources as attachments with nullable ownership and link the same attachment to Things belonging to different owners. User-uploaded sources retain their owner; shared eligibility requires verified public provenance and relevance.
+Direct Thing creation schedules a zero-input Thing-context Import with Discovery and Recommendation enabled. Existing-Thing Attachment updates normally finish after mapping. Manual Discovery and Recommendation requests specify their stages. One Import owns usage, warnings and per-Thing/per-resource checkpoints. The existing runner executes these operations; no child Import or separate scheduler is required.
 
-Record source URL, content hash, document type, publisher, applicability evidence, language and version on the attachment. Search accessible unowned attachments before external retrieval. Verify applicability against the new Thing, including model variants, region, language and document revision. Deduplicate verified public content and preserve metadata and citations. Shared transcription and optional candidate/bare-fact extraction can be reused. Targeted evidence, matching decisions, mapping and owner edits remain scoped to each owner and Thing.
+## Shared public reference Attachments
 
-Example: a data-plate photo creates an oven Thing; discovery saves its public manual as an unowned attachment and links it. Another owner's receipt creates the same oven model; discovery finds and validates the saved manual, then links that attachment to the new Thing and enriches its missing fields.
+Store verified public documents and images as Attachments with nullable ownership and a source URL. Link one shared Attachment to Things belonging to different owners. Record content hash, document type, publisher, language and edition on the Attachment. Store applicability to each Thing with the owner-scoped link or Import checkpoint. Deduplicate verified public content and reuse its transcription; Thing-specific assessments, field values, choices and edits remain owner-scoped.
 
-Access and lifecycle:
+- Authorise private uploads by ownership. Authorise shared resources through permitted Discovery/reuse access or an owned Thing link.
+- Filter Attachment Thing associations in detail, list, Import and stream responses to the authenticated owner's Things. Shared metadata contains public evidence only.
+- Owner actions can unlink a public resource from their Things. Shared content and metadata updates are system-managed; owner-specific display preferences require owner-scoped storage.
+- Deleting a Thing, link or account preserves a shared Attachment while another reference uses it. Garbage collection checks live links, Imports, citations and image references.
+- Migrate Attachment ownership constraints, link ownership, access helpers, discovery persistence and blob lifetime checks together. Existing private Attachments remain private.
 
-- Keep blob access authenticated. Authorise owner uploads by ownership and unowned references through permitted Discovery/reuse access or an owned Thing link.
-- Filter attachment `thingIds` and all related Thing projections to the authenticated owner's Things, including detail, list, import and stream responses. Shared metadata contains public resource evidence only.
-- Owner actions can unlink an unowned attachment from their own Things. Shared content and metadata updates are system-managed; owner-specific display preferences require owner-scoped storage.
-- Deleting one Thing, link or account preserves references used elsewhere. Garbage collection checks all live links, jobs, citations and image references before removing an attachment or blob. Define retention for unlinked reusable public references.
-- Migrate attachment ownership constraints, link ownership, access helpers, discovery persistence and blob lifetime checks together. Existing private attachments remain private; reuse across owners begins with resources verified for shared use.
-
-Acceptance: the oven scenario reuses one attachment; both owners receive only their own associated Thing IDs; one owner's unlink/deletion preserves the other's access; private uploads remain isolated; shared references retain applicability evidence and authenticated access.
+Acceptance: a data-plate photo creates an oven Thing; Discovery finds and verifies its manual, saves it as a shared Attachment and fills eligible gaps. A second owner's Thing can reuse that manual. Each owner sees only their own linked Thing IDs, and one owner's unlink does not remove the other's access.
 
 ## Proposed HTTP contract
 
 Author changes in `openapi.json` during implementation and regenerate `shared/api.ts`.
 
-| Operation                                                 | Purpose                                                                                                                                                                     |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/imports`                                       | Import submission/review with bounded inputs, optional single Thing context and requested stages. Zero inputs require Thing context; return 202 with `importId` and status. |
-| `POST /api/attachments/{attachmentId}:import`             | Single-attachment reprocessing/review entry point using the same Import model.                                                                                              |
-| `PUT /api/attachments/{id}/things/{thingId}`              | Retain the link route and response contract; automatically schedule supported processing restricted to that Thing with creation disabled.                                   |
-| `GET /api/imports/{id}`                                   | Return persisted progress, candidate decisions, Thing IDs, targeted-processing results, warnings, errors and usage.                                                         |
-| `GET /api/imports/{id}/stream`                            | Authenticated, revisioned progress across input attachments and Things, including progress before creation.                                                                 |
-| `GET /api/things/{thingId}/stream`                        | Retain progressive Thing updates; expose mapping/mining, Discovery and Enrichment stages from the associated Import workflow.                                               |
-| `POST /api/imports/{id}:retry`                            | Resume eligible failures using current evidence, saved Thing allocations and valid checkpoints.                                                                             |
-| `POST /api/imports/{id}/candidates/{candidateId}:resolve` | Proposed owner decision to match, create or dismiss a candidate, validated against the Import scope.                                                                        |
-| `POST /api/imports/{id}/candidates/{candidateId}:cancel`  | Proposed cancellation of unfinished candidate processing; preserve committed results.                                                                                       |
-| `POST /api/things/{thingId}:enrich`                       | Proposed manual suggestion refresh using available Thing data and references.                                                                                               |
+| Operation                                     | Purpose                                                                                                                                                        |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/imports`                           | Submit bounded Attachment inputs, optional single Thing context and requested stages. Zero inputs require Thing context; return 202 with Import ID and status. |
+| `POST /api/attachments/{attachmentId}:import` | Reprocess one Attachment through an open or Thing-context Import.                                                                                              |
+| `PUT /api/attachments/{id}/things/{thingId}`  | Retain the link response contract; schedule processing restricted to that Thing.                                                                               |
+| `GET /api/imports/{id}`                       | Return status, candidate summaries and review-required stubs, Thing IDs, targeted outcomes, warnings, errors and usage.                                        |
+| `GET /api/imports/{id}/stream`                | Authenticated, revisioned progress before and after Thing creation.                                                                                            |
+| `GET /api/things/{thingId}/stream`            | Project the associated Import stages onto progressive Thing updates.                                                                                           |
+| `POST /api/imports/{id}:retry`                | Resume eligible work using valid transcription versions, saved Thing allocations and checkpoints.                                                              |
+| `POST /api/things/{thingId}:enrich`           | Refresh recommendations using current Thing data and applicable references.                                                                                    |
 
-Attachment upload accepts grouped general intent or one Thing context and creates the associated queued Import as part of the submission. Update `POST /api/attachments` and grouped-upload contract handling together; new attachments always carry Import intent. Add proposed `POST /api/things/{thingId}:research` for a Thing-context Import performing Discovery, resource processing and Enrichment. Initially accept one attachment per request if needed while storing a bounded reference list that supports several. Validate every supplied attachment and Thing against the authenticated owner/access rules. Streams omit raw extraction and private source content. Repeated requests reuse existing eligible work. Reuse existing contract components where their revised meanings fit.
+Attachment upload accepts grouped open intent or one Thing context and creates queued Import intent as part of the submission. Add a Thing-context Discovery request for manual research. Validate every Attachment and Thing against owner and resource access rules. Streams omit private transcription and raw source content. Repeated requests reuse eligible completed work.
+
+Candidate match/create/dismiss endpoints, bulk decisions and cancellation are deferred. The first delivery returns a review-required candidate stub with its possible matches and no resolution action. Preserve the source and the status until owner resolution is implemented. Existing `POST /api/imports/{id}:confirm` remains available for legacy waiting jobs until those jobs have a recovery path.
 
 ## Migration and delivery
 
 Deliver in reviewable increments:
 
-1. Introduce attachment-owned transcription/extraction with candidates and bare facts, evidence IDs, bounded Import input properties and matching/mapping checkpoints. Include nullable attachment ownership, owner-scoped Thing Attachment links, authenticated reference access and filtered Thing associations in the persistence migration. Create queued Import intent with every upload.
-2. Add automatic restricted processing on links, grouped bare-fact resolution and targeted document mining. Preserve repeated-link/retry behaviour and the link response contract.
-3. Add Discovery, resource processing and Enrichment as operations with persisted checkpoints in the same Import; support zero-input Thing-context workflows for direct creation/manual requests. Deliver grouped matching, bulk decisions and cancellation with upload and pasted-text entry points together.
+1. Add Attachment-owned transcription, summary, optional terms, status and source-version tracking. Migrate readable content from stored Import extraction where feasible while retaining original files and committed field citations. Create queued Import intent with every owner upload.
+2. Add Import-owned open candidates, per-candidate terms and identifiers, Thing-context targeted extraction, fieldset selection and bounded field mapping. Support grouped sources and per-Thing checkpoints. Persist review-required candidates as stubs; defer owner resolution actions. Keep the link route response contract and schedule restricted processing on links.
+3. Add shared public resource Attachments, Discovery, resource processing and Recommendation within the same Import. Support zero-input Thing-context workflows for direct creation and manual requests. Add candidate resolution, bulk review and cancellation in a later delivery.
 
-Replace import-wide `AWAITING_SELECTION` and confirmation payloads with candidate decisions. Migrate stored extraction, candidate references, allocations and jobs together. Recover waiting jobs under the recorded matching scope; preserve results and owner edits. Remove obsolete placeholders only after proving they are untouched and unreferenced. Retire `POST /api/things:import` with its callers in the coordinated release.
+Migrate stored extraction, candidate references, allocations and jobs together. Recover legacy waiting jobs through the existing confirmation route until replacement owner decisions are available. Preserve created Thing IDs, committed values, source citations and owner edits. Retire `POST /api/things:import` with its callers in a coordinated release.
 
-Release processing locks on terminal outcomes and while waiting for decisions. Reconnect and restart restore persisted progress. Source removal, unlinking and Thing deletion retain reference checks and prevent queued work repopulating removed relationships.
+Release processing locks on terminal outcomes and while waiting for owner decisions. Reconnect and restart restore persisted progress. Source removal, unlinking and Thing deletion retain reference checks and prevent queued work from restoring removed relationships.
 
-Acceptance: all use cases have integration coverage; multi-attachment evidence creates one Thing per identified instance across retries; restricted Imports never create Things; warranty facts can add fieldsets without a candidate; unowned manuals support targeted mining with general extraction skipped; replacing extraction invalidates unfinished checkpoints while preserving allocated Things and committed provenance; new Things progress through Discovery, resource mining and Enrichment within one Import; Enrichment sees committed resource data; optional failures retain warnings without repeating completed paid work.
+Acceptance: grouped Attachments identify one instance across sources; candidate terms and identifiers stay with their candidate; restricted Imports create no Things; ambiguous candidates remain review-required while other Things progress; a warranty can add a fieldset without identifying a new Thing; a public manual can add a fieldset and fill eligible gaps; replacing transcription invalidates unfinished work while preserving committed fields; resource processing finishes before Recommendation; optional failures retain warnings without repeating completed paid work.
 
 Issue scope:
 
-- [#54](https://github.com/things-industries/boring-things/issues/54): automatic restricted processing on attachment links and discovered documents.
-- [#55](https://github.com/things-industries/boring-things/issues/55): remove the import-wide selection stall and migrate waiting jobs; align issue wording with general review and restricted Imports.
-- [#56](https://github.com/things-industries/boring-things/issues/56): additional Thing Candidate review through general Imports.
-- [#46](https://github.com/things-industries/boring-things/issues/46): bulk allocation, filtering, progress, navigation and cancellation.
+- [#54](https://github.com/things-industries/boring-things/issues/54): automatic restricted processing on Attachment links and discovered documents.
+- [#55](https://github.com/things-industries/boring-things/issues/55): migrate import-wide selection waiting and preserve legacy waiting-job recovery.
+- [#56](https://github.com/things-industries/boring-things/issues/56): later candidate review and resolution.
+- [#46](https://github.com/things-industries/boring-things/issues/46): later bulk allocation, progress, navigation and cancellation.
 
 ## Validation
 
-- Cover the use-case matrix, extraction/transcription, consumed extraction dates, checkpoint invalidation, multi-attachment matching, restricted creation, owner scope, idempotent linking, fieldset additions, provenance, partial failures, candidate decisions and bulk cancellation.
-- Verify workflow stage ordering and recovery, zero-input Thing context, resource processing within the same Import, migrations, reconnect and restart. Browser coverage includes progress before creation and navigation between Things.
-- Verify shared attachment access, filtered Thing associations, public applicability, private-source isolation, deletion/reference lifetimes and evidence reuse across owners. Include the oven-manual reuse scenario.
+- Cover transcription status and language coverage, image and table layout, source-version checks, grouped identity, candidate-specific terms, identifiers with leading zeroes, matching, review-required stubs, restricted processing and fieldset additions.
+- Verify passage retrieval, value citations, conflict handling, owner edits, requests that clear values, standalone/custom fields, sensitivity, partial failures and idempotent retries. Use a multi-Thing source to check that evidence stays with its Thing.
+- Verify workflow stage ordering, zero-input context, resource processing in the same Import, restart recovery and progress streams. Browser coverage includes progress before creation and navigation between Things.
+- Verify shared Attachment access, filtered Thing associations, public applicability, private-source isolation, deletion lifetimes and evidence reuse across owners. Include the oven-manual example.
 - Follow [repository validation](../../README.md#validation). Maintain [product requirements](../requirements/product/PRODUCT.md) and the [import guide](../setup/imports.md) as behaviour is delivered.
 
-Quality, latency, cost and provider experiments are defined in the [import latency and provider evaluation plan](import-provider-evaluations.md).
+Quality, latency, cost and provider measurements are recorded in [import evaluations](../requirements/research/import-evaluations.md).
