@@ -140,3 +140,11 @@ export async function mockLoadThingDetails(things: {
       .map((thing) => things.loadOne(thing.id)),
   );
 }
+
+/**
+ * Opening message for a chat about an agenda item. Until `ConversationInput` accepts a task or
+ * event, Ask and chat follow-ups start a new Thing chat with this text in the composer.
+ */
+export function mockChatDraft(title: string, followUp: boolean): string {
+  return followUp ? `Update on “${title}”: ` : `About “${title}”: `;
+}

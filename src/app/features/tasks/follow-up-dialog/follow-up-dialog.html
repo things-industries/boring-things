@@ -1,0 +1,45 @@
+@let followUp = request()?.followUp;
+<bt-dialog [title]="followUp?.prompt ?? ''" [open]="!!followUp" (closed)="close()">
+  <form [id]="formId" class="follow-up-form" (ngSubmit)="save()">
+    @if (followUp?.type === 'ADD_DOCUMENT') {
+      <div class="follow-up-file">
+        <button type="button" class="button-secondary button-sm" (click)="picker.click()">
+          Choose document
+        </button>
+        <input
+          #picker
+          hidden
+          type="file"
+          aria-label="Choose a document"
+          (change)="chooseFile($event)"
+        />
+        <span class="text-primary-muted">{{ file()?.name ?? 'No document chosen' }}</span>
+      </div>
+    } @else if (target(); as target) {
+      <label class="follow-up-field"
+        >{{ target.field.name }}
+        <input
+          name="value"
+          required
+          [type]="target.field.uiHint === 'DATE' ? 'date' : 'text'"
+          [ngModel]="draft()"
+          (ngModelChange)="draft.set($event)"
+        />
+      </label>
+    } @else {
+      <p class="text-primary-muted">This detail is no longer on the Thing.</p>
+    }
+  </form>
+  <div dialogActions>
+    <button type="button" class="button-secondary button-sm" (click)="close()">Cancel</button>
+    <button
+      type="submit"
+      [attr.form]="formId"
+      class="button-primary button-sm"
+      [disabled]="!ready() || busy() || (followUp?.type === 'UPDATE_FIELD' && !target())"
+      [attr.aria-busy]="busy()"
+    >
+      {{ followUp?.type === 'ADD_DOCUMENT' ? 'Upload' : 'Save' }}
+    </button>
+  </div>
+</bt-dialog>

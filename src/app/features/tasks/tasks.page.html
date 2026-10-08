@@ -73,6 +73,7 @@
     </section>
   </div>
 }
+<bt-follow-up-dialog [request]="answering()" (closed)="answering.set(null)" />
 <bt-reschedule-dialog [task]="rescheduling()" (closed)="rescheduling.set(null)" />
 
 <ng-template #items let-items>
@@ -85,6 +86,8 @@
             [now]="now()"
             (toggled)="toggle(item)"
             (removed)="remove(item)"
+            (asked)="ask(item)"
+            (followedUp)="answer(item, $event)"
             (rescheduled)="rescheduling.set(item.type === 'TASK' ? item.task : null)"
           />
         </li>

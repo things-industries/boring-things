@@ -97,7 +97,10 @@ export class ChatPage {
   private destroyed = false;
 
   readonly config = inject(CONFIG);
-  readonly thingId = inject(ActivatedRoute).snapshot.paramMap.get('id');
+  private readonly snapshot = inject(ActivatedRoute).snapshot;
+  readonly thingId = this.snapshot.paramMap.get('id');
+  /** Opening message from the tasks mock (#100); with it, the Thing chat starts a new conversation. */
+  private readonly draft = this.snapshot.queryParamMap.get('draft');
   readonly id = signal<string | null>(null);
   readonly starting = signal(false);
   readonly error = signal<UiErrorCode | null>(null);
@@ -191,9 +194,16 @@ export class ChatPage {
 
   /**
    * Resumes the Thing's current conversation, straight away when the Thing page preloaded it, or
-   * starts a new one for global chat.
+   * starts a new one for global chat. A `draft` starts a new Thing conversation with it in the
+   * composer.
    */
   start() {
+    if (this.draft && this.thingId) {
+      this.text.set(this.draft);
+      void this.open(() => this.conversations.create(this.thingId));
+      return;
+    }
+
     const loaded = this.thingId ? this.conversations.current(this.thingId) : null;
 
     if (loaded && this.config.chatEnabled) {

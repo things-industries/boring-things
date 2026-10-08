@@ -18,7 +18,7 @@ import {
   taskOverdue,
 } from '../../core/app-icons';
 import type { AgendaItem, FollowUp } from '../../interfaces/task.interface';
-import { timeLine } from '../../utils/agenda.util';
+import { itemTitle, timeLine } from '../../utils/agenda.util';
 import { Menu } from '../menu/menu';
 import { MenuItem } from '../menu/menu-item';
 
@@ -65,12 +65,7 @@ export class TaskCard {
   readonly rescheduled = output<void>();
   readonly removed = output<void>();
 
-  readonly title = computed(() => {
-    const item = this.item();
-
-    if (item.type === 'TASK') return item.task.title;
-    return item.type === 'EVENT' ? item.event.title : item.thingDate.label;
-  });
+  readonly title = computed(() => itemTitle(this.item()));
 
   readonly followUp = computed(() => {
     const item = this.item();

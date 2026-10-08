@@ -128,7 +128,8 @@ function rank(item: AgendaItem): number {
   return item.type === 'TASK' ? priorityRank[item.task.priority] + 1 : 0;
 }
 
-function title(item: AgendaItem): string {
+/** An item's own title; a Thing date's is its field label. */
+export function itemTitle(item: AgendaItem): string {
   if (item.type === 'TASK') return item.task.title;
   if (item.type === 'EVENT') return item.event.title;
   return item.thingDate.label;
@@ -152,7 +153,7 @@ export function compareItems(a: AgendaItem, b: AgendaItem): number {
     ga - group(b) ||
     (ga === 0 ? startTime(a) - startTime(b) : rank(a) - rank(b)) ||
     (ga === 2 ? dueDay(a).localeCompare(dueDay(b)) : 0) ||
-    title(a).localeCompare(title(b))
+    itemTitle(a).localeCompare(itemTitle(b))
   );
 }
 
