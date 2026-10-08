@@ -1,4 +1,5 @@
 import { addDays, parseISO } from 'date-fns';
+import type { EventRecurrence } from '../interfaces/event.interface';
 import type {
   Agenda,
   AgendaDay,
@@ -8,7 +9,7 @@ import type {
   TaskPriority,
   ThingDate,
 } from '../interfaces/task.interface';
-import { dayKey } from './date.util';
+import { dayKey, daysUntil } from './date.util';
 
 export const priorityRank: Record<TaskPriority, number> = {
   CRITICAL: 0,
@@ -176,4 +177,38 @@ export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
     .map(([date, items]) => ({ date, items }));
 
   return { today: days.get(today) ?? [], tomorrow: days.get(tomorrow) ?? [], upcoming };
+}
+
+/** What an agenda item's meta line shows; the template chooses the copy. */
+export type TimeLine =
+  | { type: 'overdue'; days: number }
+  | { type: 'countdown'; days: number; date: string }
+  | { type: 'interval'; recurrence: EventRecurrence }
+  | { type: 'time'; start: string; end: string | null }
+  | null;
+
+/**
+ * Overdue days for an open overdue item; otherwise a deadline countdown or interval for a task, and
+ * the time of a timed event.
+ */
+export function timeLine(item: AgendaItem, now = new Date()): TimeLine {
+  if (item.type === 'TASK') {
+    const { task } = item;
+
+    if (item.overdue && task.status !== 'COMPLETED')
+      return { type: 'overdue', days: -daysUntil(task.deadlineOn ?? task.scheduledOn!, now) };
+    if (task.deadlineOn)
+      return { type: 'countdown', days: daysUntil(task.deadlineOn, now), date: task.deadlineOn };
+    return task.recurrence ? { type: 'interval', recurrence: task.recurrence } : null;
+  }
+
+  if (item.type === 'EVENT') {
+    const { event } = item;
+
+    if (item.overdue && event.status !== 'COMPLETED')
+      return { type: 'overdue', days: -daysUntil(event.startsAt ?? event.startsOn!, now) };
+    return event.startsAt ? { type: 'time', start: event.startsAt, end: event.endsAt } : null;
+  }
+
+  return null;
 }

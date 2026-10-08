@@ -93,6 +93,10 @@ import {
   remixGasStationLine,
   remixListOrdered2,
   remixCheckboxCircleLine,
+  remixCheckboxBlankCircleLine,
+  remixCheckboxCircleFill,
+  remixFlagFill,
+  remixArrowDownSLine,
   remixSparkling2Line,
   remixSearchEyeLine,
   remixHammerLine,
@@ -197,6 +201,22 @@ export const taskRepair = remixHammerLine;
 export const taskReplacement = remixSwapLine;
 export const taskService = remixToolsLine;
 export const taskOther = remixCalendarCheckLine;
+
+// Tasks
+export const taskOpen = remixCheckboxBlankCircleLine;
+export const taskDone = remixCheckboxCircleFill;
+export const taskCritical = remixFlagFill;
+export const taskOverdue = remixTimeLine;
+export const agendaEvent = remixCalendarCheckLine;
+export const agendaThingDate = remixCalendarEventLine;
+export const followUpChat = remixChat3Fill;
+export const followUpField = remixPencilLine;
+export const followUpDocument = remixUploadLine;
+export const askAboutTask = remixChat3Line;
+export const rescheduleTask = remixCalendarLine;
+export const goToThing = remixBox3Line;
+export const deleteTask = remixDeleteBinLine;
+export const expandSection = remixArrowDownSLine;
 
 // Chat
 export const attachToMessage = remixAttachment2;

@@ -1,0 +1,95 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+
+:host {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(3);
+  padding: tokens.space(3);
+  border-radius: tokens.radius(card);
+  background: tokens.color('white');
+
+  &.done {
+    background: tokens.color(primary-subtle);
+  }
+}
+
+.task-card-check,
+.task-card-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: tokens.size(control-sm);
+  height: tokens.size(control-sm);
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(md);
+}
+
+.task-card-check {
+  padding: 0;
+  border: 0;
+  border-radius: tokens.radius(pill);
+  background: none;
+  cursor: pointer;
+
+  &[aria-checked='true'] {
+    color: tokens.color(accent);
+  }
+}
+
+.task-card-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: tokens.space(1);
+  min-width: 0;
+}
+
+.task-card-title {
+  @include typography.role(body);
+  margin: 0;
+  color: tokens.color(primary);
+  overflow-wrap: anywhere;
+}
+
+.task-card-flag {
+  margin-inline-start: tokens.space(1);
+  color: tokens.color(danger);
+  vertical-align: middle;
+  @include mixins.icon-size(sm);
+}
+
+.task-card-meta {
+  @include typography.role(caption);
+  display: flex;
+  align-items: center;
+  gap: tokens.space(1);
+  margin: 0;
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
+
+  &.overdue {
+    font-weight: typography.weight(medium);
+    color: tokens.color(warning);
+  }
+}
+
+.task-card-follow-up {
+  @include typography.role(caption);
+  display: inline-flex;
+  align-items: center;
+  gap: tokens.space(1);
+  padding: tokens.space(1) tokens.space(2);
+  border: 0;
+  border-radius: tokens.radius(tile);
+  background: tokens.color(primary);
+  color: tokens.color(accent-muted);
+  cursor: pointer;
+  @include mixins.icon-size(sm);
+}
+
+.task-card-menu {
+  flex: none;
+}
