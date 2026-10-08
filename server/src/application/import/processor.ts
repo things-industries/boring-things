@@ -85,7 +85,7 @@ export class ImportProcessor {
     };
 
     try {
-      await importsDb.markImportStarted(this.pool, job);
+      if (!(await importsDb.markImportStarted(this.pool, job))) return;
 
       if (!job.extraction) {
         await this.status(job, 'EXTRACTING');
@@ -94,6 +94,7 @@ export class ImportProcessor {
           job.ownerId,
           job.attachmentId,
         );
+        await attachmentsDb.setTranscriptionStatus(this.pool, job.ownerId, file.id, 'PROCESSING');
         const chunks: Buffer[] = [];
 
         for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
@@ -104,7 +105,17 @@ export class ImportProcessor {
         const categories = await registryDb.listCategoryIds(this.pool);
         const extraction = validateExtraction(
           await awaitWithSignal(
-            this.ai!.extract({ ...file, content: Buffer.concat(chunks) }, categories, context),
+            this.ai!.extract(
+              {
+                ...file,
+                content: Buffer.concat(chunks),
+                ...(file.transcriptionStatus === 'COMPLETE' && file.transcription
+                  ? { text: file.transcription }
+                  : {}),
+              },
+              categories,
+              context,
+            ),
             signal,
           ),
           categories,
@@ -117,6 +128,14 @@ export class ImportProcessor {
           file.pageCount ?? (await pdfPageCount(Buffer.concat(chunks), file.mediaType, signal));
         signal.throwIfAborted();
         await database.transaction(this.pool, async (db) => {
+          if (file.transcriptionCompletedAt === null)
+            await attachmentsDb.saveTranscription(db, job.ownerId, file.id, {
+              text:
+                extraction.transcriptionStatus === 'INSUFFICIENT_LANGUAGE' ? '' : extraction.text,
+              summary: extraction.summary ?? null,
+              terms: extraction.terms ?? [],
+              status: extraction.transcriptionStatus ?? 'EMPTY',
+            });
           await importsDb.saveExtraction(db, job, extraction);
           if (extraction.metadata || pageCount !== null)
             await updateAttachmentMetadata(
@@ -133,6 +152,10 @@ export class ImportProcessor {
         });
         this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
         job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+      }
+
+      if (job.extraction?.extractedThings.length === 0) {
+        throw new Error('no_thing_identified');
       }
 
       if (!job.selection) {
@@ -195,6 +218,12 @@ export class ImportProcessor {
 
       await this.status(job, 'COMPLETE');
     } catch (error) {
+      await attachmentsDb.setTranscriptionStatus(
+        this.pool,
+        job.ownerId,
+        job.attachmentId,
+        'FAILED',
+      );
       const hasResults =
         (await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id)).resultThingIds
           .length > 0;
@@ -202,9 +231,11 @@ export class ImportProcessor {
         ? 'interrupted'
         : signal.aborted
           ? 'timeout'
-          : error instanceof Error && error.message === 'tool_limit'
-            ? 'tool_limit'
-            : 'import_failed';
+          : error instanceof Error && error.message === 'no_thing_identified'
+            ? 'no_thing_identified'
+            : error instanceof Error && error.message === 'tool_limit'
+              ? 'tool_limit'
+              : 'import_failed';
       await this.status(job, hasResults ? 'INCOMPLETE' : 'FAILED', code);
     } finally {
       await record({});

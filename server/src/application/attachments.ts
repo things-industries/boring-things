@@ -21,18 +21,21 @@ export async function uploadAttachment(
   blobs: BlobStorage,
   owner: string,
   file: UploadedFile,
+  thingId?: string,
 ) {
   const key = await blobs.put(file.buffer);
   try {
-    return attachmentsDb.publicAttachment(
-      await attachmentsDb.insertAttachment(pool, owner, {
+    return await database.transaction(pool, async (db) => {
+      const attachment = await attachmentsDb.insertAttachment(db, owner, {
         filename: file.filename,
         mediaType: file.type,
         byteSize: file.buffer.length,
         storageKey: key,
         pageCount: await pdfPageCount(file.buffer, file.type),
-      }),
-    );
+      });
+      const accepted = await importsDb.createImport(db, owner, attachment.id, thingId);
+      return { ...attachmentsDb.publicAttachment(attachment), import: accepted };
+    });
   } catch (error) {
     await blobs.remove(key).catch(() => {});
     throw error;

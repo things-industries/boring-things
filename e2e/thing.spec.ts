@@ -72,15 +72,17 @@ test('image attachments show thumbnails in the attachments list and library', as
     attachment('00000000-0000-4000-8000-0000000000b3', 'manual.pdf', 'application/pdf', [thingId]),
     attachment('00000000-0000-4000-8000-0000000000b4', 'spare.png', 'image/png', []),
   ];
+  const contentRequests: string[] = [];
 
   await page.route(/\/api\/attachments(\?|$)/, (route) =>
     route.fulfill({ json: { items: files, nextCursor: null } }),
   );
-  await page.route('**/api/attachments/*/content', (route) =>
-    route.request().url().includes('0000000000b2')
+  await page.route('**/api/attachments/*/content', (route) => {
+    contentRequests.push(route.request().url());
+    return route.request().url().includes('0000000000b2')
       ? route.fulfill({ contentType: 'image/png', body: 'not an image' })
-      : route.fulfill({ contentType: 'image/png', body: png }),
-  );
+      : route.fulfill({ contentType: 'image/png', body: png });
+  });
   await page.reload();
 
   const row = (name: string) => page.locator('bt-list-row').filter({ hasText: name });
@@ -90,9 +92,11 @@ test('image attachments show thumbnails in the attachments list and library', as
   await expect(row('broken.png').locator('bt-attachment-thumbnail bt-icon-badge')).toBeVisible();
   await expect(row('manual.pdf').locator('bt-attachment-thumbnail')).toHaveCount(0);
   await expect(row('manual.pdf').locator('bt-icon-badge')).toBeVisible();
+  expect(contentRequests.some((url) => url.includes('0000000000b4'))).toBe(false);
 
   await page.getByRole('button', { name: 'Add an attachment' }).click();
   await expect(row('spare.png').locator('bt-attachment-thumbnail img')).toBeVisible();
+  expect(contentRequests.filter((url) => url.includes('0000000000b4'))).toHaveLength(1);
 });
 
 test('a Thing image shows no fallback while it loads and shows at once when reopened', async ({

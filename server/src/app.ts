@@ -151,6 +151,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         blobs,
         config,
         events,
+        runner,
       });
       await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
       await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });

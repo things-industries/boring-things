@@ -23,6 +23,22 @@
           "type": "string",
           "description": "Source transcription preserving labels, identifiers and surrounding context; empty when supplied text is retained directly."
         },
+        "summary": {
+          "type": ["string", "null"],
+          "description": "Short source-wide description of the document's content; null when the content cannot be read.",
+          "maxLength": 2000
+        },
+        "terms": {
+          "type": "array",
+          "description": "Source-wide search terms without private identifiers, with at most 20 terms of at most 200 characters each.",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "transcriptionStatus": {
+          "type": "string",
+          "description": "Outcome of reading English content: complete, partly readable, no readable content, or insufficient English content.",
+          "enum": ["COMPLETE", "EMPTY", "PARTIAL", "INSUFFICIENT_LANGUAGE"]
+        },
         "candidates": {
           "type": "array",
           "description": "Up to four distinct Things that can be identified in the source, with facts grouped by the thing they describe.  Identifying one thing in the source is typical.",
@@ -97,7 +113,7 @@
           }
         }
       },
-      "required": ["metadata", "text", "candidates"]
+      "required": ["metadata", "text", "summary", "terms", "transcriptionStatus", "candidates"]
     },
     "selection": {
       "description": "Data fieldsets that are applicable to the thing",

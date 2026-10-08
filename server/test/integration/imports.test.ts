@@ -93,7 +93,7 @@ async function start(source: string, thingId?: string) {
   const boundary = 'import-boundary';
   const file = await app.inject({
     method: 'POST',
-    url: '/api/attachments',
+    url: '/api/attachments' + (thingId ? `?thingId=${thingId}` : ''),
     headers: {
       authorization: 'Bearer alice',
       'content-type': 'multipart/form-data; boundary=' + boundary,
@@ -101,12 +101,7 @@ async function start(source: string, thingId?: string) {
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="source.txt"\r\nContent-Type: text/plain\r\n\r\n${source}\r\n--${boundary}--\r\n`,
   });
   assert.equal(file.statusCode, 201, file.body);
-  const response = await request('POST', '/things:import', {
-    attachmentId: file.json().id,
-    ...(thingId ? { thingId } : {}),
-  });
-  assert.equal(response.statusCode, 202, response.body);
-  return response.json<Schema['ImportAccepted']>();
+  return file.json<Schema['Attachment']>().import!;
 }
 async function wait(
   id: string,
@@ -122,12 +117,75 @@ async function wait(
   } while (Date.now() < deadline);
   throw new Error('Import timed out');
 }
+test('upload rejects foreign Thing context without retaining a file or Import', async () => {
+  const foreign = await create({}, 'bob');
+  const beforeFiles = await readdir(directory);
+  const [{ count: beforeImports }] = await database.rows<{ count: string }>(
+    pool,
+    'select count(*) from bt.imports',
+  );
+  const boundary = 'foreign-context';
+  const response = await app.inject({
+    method: 'POST',
+    url: `/api/attachments?thingId=${foreign.id}`,
+    headers: {
+      authorization: 'Bearer alice',
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
+    payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="source.txt"\r\nContent-Type: text/plain\r\n\r\nneff\r\n--${boundary}--\r\n`,
+  });
+  assert.equal(response.statusCode, 404);
+  const [{ count: afterImports }] = await database.rows<{ count: string }>(
+    pool,
+    'select count(*) from bt.imports',
+  );
+  assert.equal(afterImports, beforeImports);
+  assert.deepEqual(await readdir(directory), beforeFiles);
+});
+test('a source without a Thing retains its transcription for later processing', async () => {
+  const accepted = await start('no-thing');
+  const job = await wait(accepted.importId);
+  assert.equal(job.status, 'FAILED');
+  assert.equal(job.error, 'no_thing_identified');
+  assert.deepEqual(job.thingIds, []);
+  const [source] = await database.rows<{ transcription: string; transcriptionStatus: string }>(
+    pool,
+    'select transcription,transcription_status from bt.attachments where id=$1',
+    [job.attachmentId],
+  );
+  assert.equal(source.transcription, 'no-thing');
+  assert.equal(source.transcriptionStatus, 'COMPLETE');
+});
+test('a source without readable English retains its original and records the outcome', async () => {
+  const accepted = await start('non-english');
+  const job = await wait(accepted.importId);
+  assert.equal(job.status, 'FAILED');
+  const [source] = await database.rows<{
+    transcription: string;
+    transcriptionStatus: string;
+  }>(pool, 'select transcription,transcription_status from bt.attachments where id=$1', [
+    job.attachmentId,
+  ]);
+  assert.equal(source.transcription, '');
+  assert.equal(source.transcriptionStatus, 'INSUFFICIENT_LANGUAGE');
+  assert.equal(
+    (await request('GET', `/attachments/${job.attachmentId}/content`)).body,
+    'non-english',
+  );
+});
 test('PDF uploads derive page counts and extraction preserves metadata edits and clears across retries', async () => {
   const pdf = await PDFDocument.create();
   pdf.addPage();
   pdf.addPage();
   const bytes = Buffer.from(await pdf.save());
   const boundary = 'metadata-boundary';
+  ai.metadata = {
+    title: 'Imported manual',
+    documentType: 'MANUAL',
+    publisher: 'Maker',
+    documentDate: null,
+  };
+  ai.failOnce = true;
   const uploaded = await app.inject({
     method: 'POST',
     url: '/api/attachments',
@@ -146,19 +204,26 @@ test('PDF uploads derive page counts and extraction preserves metadata edits and
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
   assert.equal(file.pageCount, 2);
+  assert.equal(file.import?.status, 'QUEUED');
   const path = `/attachments/${file.id}`;
   try {
-    ai.metadata = {
-      title: 'Imported manual',
-      documentType: 'MANUAL',
-      publisher: 'Maker',
-      documentDate: null,
-    };
-    ai.failOnce = true;
-    const started = (await request('POST', '/things:import', { attachmentId: file.id })).json<
-      Schema['ImportAccepted']
-    >();
+    const started = file.import!;
     assert.equal((await wait(started.importId)).status, 'INCOMPLETE');
+    const [transcription] = await database.rows<{
+      transcription: string;
+      transcriptionSummary: string;
+      transcriptionTerms: string[];
+      transcriptionStatus: string;
+    }>(
+      pool,
+      `select transcription,transcription_summary,transcription_terms,transcription_status
+        from bt.attachments where id=$1`,
+      [file.id],
+    );
+    assert.equal(transcription.transcription, 'neff');
+    assert.equal(transcription.transcriptionSummary, 'Source for neff');
+    assert.deepEqual(transcription.transcriptionTerms, ['source']);
+    assert.equal(transcription.transcriptionStatus, 'COMPLETE');
     const extracted = (await request('GET', path)).json<Schema['Attachment']>();
     assert.equal(extracted.title, 'Imported manual');
     assert.deepEqual(extracted.metadataSources.publisher, {
@@ -198,6 +263,12 @@ test('camera imports retain the uploaded filename and persist a descriptive disp
   const { createCanvas } = await import('@napi-rs/canvas');
   const bytes = await createCanvas(10, 10).encode('png');
   const boundary = 'camera-boundary';
+  ai.metadata = {
+    title: 'Data plate photo',
+    documentType: null,
+    publisher: null,
+    documentDate: null,
+  };
   const uploaded = await app.inject({
     method: 'POST',
     url: '/api/attachments',
@@ -216,15 +287,7 @@ test('camera imports retain the uploaded filename and persist a descriptive disp
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
   try {
-    ai.metadata = {
-      title: 'Data plate photo',
-      documentType: null,
-      publisher: null,
-      documentDate: null,
-    };
-    const accepted = (await request('POST', '/things:import', { attachmentId: file.id })).json<
-      Schema['ImportAccepted']
-    >();
+    const accepted = file.import!;
     assert.equal((await wait(accepted.importId)).status, 'COMPLETE');
     const saved = (await request('GET', `/attachments/${file.id}`)).json<Schema['Attachment']>();
     assert.equal(saved.filename, 'IMG_1234.png');

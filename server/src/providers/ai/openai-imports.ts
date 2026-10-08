@@ -227,6 +227,9 @@ export class OpenAiImports implements ImportAi {
     return {
       text: text ?? extracted.text,
       metadata: extracted.metadata,
+      summary: extracted.summary,
+      terms: extracted.terms,
+      transcriptionStatus: extracted.transcriptionStatus,
       extractedThings: extracted.candidates,
     };
   }

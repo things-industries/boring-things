@@ -40,7 +40,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - List endpoints return accessible records matching all supplied filters. Missing or inaccessible filter targets return empty lists. Invalid filter values return validation errors. Pagination reapplies ownership and filters on every page; offset cursors can shift when records change.
 - Category and field-set registry; mandatory dependencies, separate set-scoped values, inline edits and empty-field prompts.
 - Manual Thing creation/deletion, category correction, pins, tags and custom fields.
-- Top-level uploads, downloads, attachment metadata APIs, shared links and Thing images. Unlinking retains the file. Referenced files cannot be deleted.
+- Top-level uploads, downloads, attachment metadata APIs, shared links and Thing images. Each owner upload queues processing; a Thing ID restricts that work to the linked Thing. Unlinking retains the file. Referenced files cannot be deleted.
 - Issue/Event endpoints, purchasable reads, and active multi-message chat with cited resource cards, streamed answers and persisted retry recovery.
 - Issue cards support optional freeform `statusText` and date-only `dueDate`, including a local-calendar countdown. Omitted patch fields are preserved; `null` clears them.
 - Events can use a date-only `startsOn` or an instant `startsAt`. Scheduling requires one; switching formats requires clearing the other. Event lists order by schedule, then ID, and accept `timeZone` (default UTC) for date-only ordering and inclusive date-range filtering. Date-only events remain upcoming throughout their local day.
@@ -55,7 +55,7 @@ Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`, apply `pnpm db:migrate`, and 
 
 The **Add a thing** screen offers Camera, Photos, Files and Text tiles: take or choose a photo, upload a supported file, or paste text on its own step. The manual form is at `/things/new/manual`; Add a thing has no entry to it yet. Without AI configuration the tiles are disabled. The source is stored privately, sent to OpenAI, and linked to an immediate skeleton Thing. An indeterminate progress bar above the Thing shows the current import stage, with reduced-motion support. Multiple detected Things pause for selection (`POST /api/imports/{id}:confirm`); each can create a Thing or add details to an owned record. The client has no selection step. Selected sets appear with empty fields before validated value groups arrive. Facts map to selected-set fields, standalone registry fields or useful custom fields; information without established practical value is discarded. Fact decisions and selected sets are saved as checkpoints so retries process unfinished batches. The original source and extracted content remain stored. Review extracted values.
 
-On an existing Thing, **Add details from a source** starts another import. Uploading under **Attachments** stores and links the file without extracting details (#54). Existing user values are preserved.
+On an existing Thing, **Add details from a source** queues a restricted import. Uploading under **Attachments** also stores, links and queues restricted processing. Existing user values are preserved.
 
 - Registry search uses bounded Postgres text/identifier queries, includes mandatory dependencies and one hop of alongside suggestions. The model receives search results, never a whole-registry prompt.
 - Mapping accepts retrieved IDs, validates category, field membership and schemas, and preserves user values and clears. Records are read-only during processing. Retries reuse persisted targets and discovery results.
@@ -65,7 +65,7 @@ On an existing Thing, **Add details from a source** starts another import. Uploa
 - Authenticated fetch SSE delivers masked snapshots after commits. Navigation/logout aborts the stream; reconnect fetches persisted state with a refreshed token. Streams renew within 55 seconds and use revision ordering.
 - One in-process runner consumes persisted jobs. Restart marks interrupted work failed and retryable; queued work resumes. Run one API process per database. This is not a distributed queue.
 - Limits: 10 candidates per source, 100 facts per candidate, 1,000,000 characters of extracted text; value groups contain up to 20 facts. Sources remain subject to the configured upload limit. Oversized/invalid extraction fails without deleting the source.
-- `GET /api/imports/{id}` reports status, candidates, results, sanitized errors and cumulative model/token/tool/elapsed-time metrics. Full extraction is retained in `bt.imports.extraction`, omitted from ordinary API/SSE responses because it can contain secrets.
+- `GET /api/imports/{id}` reports status, candidates, results, sanitized errors and cumulative model/token/tool/elapsed-time metrics. Source-wide transcription, summary, terms and status are stored on the Attachment. Candidate extraction remains private on the Import; existing Import text remains for retry compatibility. Raw content is omitted from ordinary API/SSE responses because it can contain secrets.
 
 ## Assistant
 

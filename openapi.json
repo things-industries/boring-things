@@ -907,8 +907,13 @@
       "post": {
         "operationId": "uploadAttachment",
         "summary": "Upload attachment",
-        "description": "Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.",
+        "description": "Uploads one file and queues its Import in the same transaction. An optional Thing ID restricts processing to that Thing. The response includes the queued Import. File size, media type and content must satisfy the limits returned by getConfig.",
         "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/attachmentThingId"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3392,7 +3397,7 @@
       },
       "Attachment": {
         "type": "object",
-        "description": "File metadata, document properties and IDs of linked Things.",
+        "description": "File metadata, document properties and IDs of linked Things. Upload responses also include the queued Import.",
         "required": [
           "id",
           "filename",
@@ -3474,6 +3479,9 @@
           },
           "metadataSources": {
             "$ref": "#/components/schemas/AttachmentMetadataSources"
+          },
+          "import": {
+            "$ref": "#/components/schemas/ImportAccepted"
           }
         },
         "additionalProperties": false
@@ -4913,6 +4921,15 @@
           "format": "uuid"
         },
         "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
+      },
+      "attachmentThingId": {
+        "name": "thingId",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Owned Thing that receives this Attachment. Processing is restricted to this Thing."
       },
       "thingIdPath": {
         "name": "thingId",

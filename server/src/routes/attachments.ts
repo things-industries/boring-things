@@ -16,17 +16,19 @@ import type { BlobStorage } from '../providers/blobs/index.js';
 import type { EnvConfig } from '../config.js';
 import type { ApplicationEvents } from '../application/events.js';
 import * as database from '../db/connection.js';
+import type { JobRunner } from '../application/jobs/runner.js';
 
 interface Options {
   db: pg.Pool;
   blobs: BlobStorage;
   config: EnvConfig;
   events: ApplicationEvents;
+  runner: JobRunner;
 }
 
 const attachmentRoutes: FastifyPluginAsync<Options> = async (
   app,
-  { db, blobs, config, events },
+  { db, blobs, config, events, runner },
 ) => {
   route(app, 'GET', '/api/attachments', (req) =>
     attachmentsDb.listAttachments(db, req.ownerId, req.query),
@@ -71,8 +73,9 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
     }
 
     ensure(file, 'Choose a file');
-    const result = await uploadAttachment(db, blobs, req.ownerId, file);
+    const result = await uploadAttachment(db, blobs, req.ownerId, file, req.query.thingId);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    runner.wake();
     return reply.code(201).send(result);
   });
   route(app, 'GET', '/api/attachments/{id}', async (req) =>

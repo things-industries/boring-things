@@ -25,6 +25,11 @@ const output = (data: unknown) => ({
     },
   ],
 });
+const sourceDetails = {
+  summary: 'Synthetic source',
+  terms: [],
+  transcriptionStatus: 'COMPLETE',
+};
 
 test('PDF source text uses one request, retains original pages and skips model transcription', async (t) => {
   const pdf = await PDFDocument.create();
@@ -43,7 +48,9 @@ test('PDF source text uses one request, retains original pages and skips model t
     assert.match(body.input[0].content[0].text, /ignore translated repetitions/);
     const subject = structuredClone(extractedThings.neff);
     subject.facts = [{ ...subject.facts[0], page: 26 }];
-    return jsonResponse(output({ text: '', metadata: null, candidates: [subject] }));
+    return jsonResponse(
+      output({ ...sourceDetails, text: '', metadata: null, candidates: [subject] }),
+    );
   });
   const result = await new OpenAiImports('test-key', 'fixture').extract(
     {
@@ -66,6 +73,7 @@ test('camera source extraction requests and returns a descriptive attachment tit
     assert.equal(body.input[0].content[1].type, 'input_image');
     return jsonResponse(
       output({
+        ...sourceDetails,
         text: 'Manufacturer label',
         metadata: {
           title: 'Data plate photo',
@@ -165,7 +173,12 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
     assert.equal(body.tools, undefined);
     assert.equal(body.text.format.type, 'json_schema');
     return jsonResponse(
-      output({ text: 'Synthetic source', metadata: null, candidates: [subjects[request++]] }),
+      output({
+        ...sourceDetails,
+        text: 'Synthetic source',
+        metadata: null,
+        candidates: [subjects[request++]],
+      }),
     );
   });
   const ai = new OpenAiImports('test-key', 'fixture');
@@ -508,6 +521,7 @@ test('AI attachment metadata validates calendar dates without unknown-format war
   t.mock.method(globalThis, 'fetch', async () =>
     jsonResponse(
       output({
+        ...sourceDetails,
         text: '',
         metadata: { title: null, documentType: null, publisher: null, documentDate },
         candidates: [extractedThings.neff],

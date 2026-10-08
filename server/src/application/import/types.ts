@@ -30,6 +30,9 @@ export interface Extraction {
   text: string;
   extractedThings: ExtractedThing[];
   metadata?: Schema['AttachmentPatch'] | null;
+  summary?: string | null;
+  terms?: string[];
+  transcriptionStatus?: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
 }
 
 export interface Source {

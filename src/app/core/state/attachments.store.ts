@@ -34,7 +34,7 @@ export const AttachmentsStore = signalStore(
   })),
 
   withMethods((store) => ({
-    /** Uploads a file and links it to a Thing when given. The server computes the result. */
+    /** Uploads a file with open or Thing-specific Import intent. */
     async upload(file: File, thingId?: string) {
       if (file.size > store._config.maxUploadBytes) {
         store._toasts.error('uploadFile', 'too-large');
@@ -42,14 +42,13 @@ export const AttachmentsStore = signalStore(
       }
 
       const result = await store.mutate('uploadFile', [], async () => {
-        const attachment = await store._service.upload(file);
-
-        if (!thingId || attachment.thingIds.includes(thingId)) return attachment;
-        await store._service.link(attachment.id, thingId);
-        return { ...attachment, thingIds: [...attachment.thingIds, thingId] };
+        return store._service.upload(file, thingId);
       });
 
-      if (result.ok) store.setConfirmed(result.value.id, result.value);
+      if (result.ok) {
+        const { import: _queued, ...attachment } = result.value;
+        store.setConfirmed(attachment.id, attachment);
+      }
       return result;
     },
 

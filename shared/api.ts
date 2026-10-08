@@ -294,7 +294,7 @@ export interface paths {
         put?: never;
         /**
          * Upload attachment
-         * @description Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.
+         * @description Uploads one file and queues its Import in the same transaction. An optional Thing ID restricts processing to that Thing. The response includes the queued Import. File size, media type and content must satisfy the limits returned by getConfig.
          */
         post: operations["uploadAttachment"];
         delete?: never;
@@ -1006,7 +1006,7 @@ export interface components {
         RevealResult: {
             value: components["schemas"]["NullableValue"];
         };
-        /** @description File metadata, document properties and IDs of linked Things. */
+        /** @description File metadata, document properties and IDs of linked Things. Upload responses also include the queued Import. */
         Attachment: {
             /** Format: uuid */
             id: string;
@@ -1031,6 +1031,7 @@ export interface components {
             /** @description PDF page count derived from the file. Null for non-PDF, unparsed, malformed or encrypted files. */
             readonly pageCount: number | null;
             metadataSources: components["schemas"]["AttachmentMetadataSources"];
+            import?: components["schemas"]["ImportAccepted"];
         };
         /** @description Problem associated with a Thing, including status, due date and resolution time. */
         Issue: {
@@ -1619,6 +1620,8 @@ export interface components {
         resourceId: string;
         /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
         thingId: string;
+        /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+        attachmentThingId: string;
         /** @description Thing id. */
         thingIdPath: string;
     };
@@ -2189,7 +2192,10 @@ export interface operations {
     };
     uploadAttachment: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+                thingId?: components["parameters"]["attachmentThingId"];
+            };
             header?: never;
             path?: never;
             cookie?: never;

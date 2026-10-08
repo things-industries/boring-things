@@ -80,23 +80,6 @@ export const ThingsStore = signalStore(
       store.disconnected()[id] !== value &&
       patchState(store, { disconnected: { ...store.disconnected(), [id]: value } });
 
-    /**
-     * Starts an import from an uploaded attachment, enriching `thingId` when given. Resolves once
-     * the Thing the import fills has loaded.
-     */
-    async function extract(attachmentId: string, thingId?: string) {
-      const result = await store.mutate('importThing', [], () =>
-        store._imports.start({ attachmentId, ...(thingId && { thingId }) }),
-      );
-
-      if (result.ok)
-        await Promise.all([
-          store.loadOne(result.value.thingId),
-          store._attachments.loadOne(attachmentId),
-        ]);
-      return result;
-    }
-
     return {
       create(input: Schema['ThingCreate']) {
         const now = new Date().toISOString();
@@ -234,10 +217,12 @@ export const ThingsStore = signalStore(
           return { ok: false, code: 'too-large' };
         }
 
-        const upload = await store._attachments.upload(file);
+        const upload = await store._attachments.upload(file, thingId);
 
         if (!upload.ok) return upload;
-        return extract(upload.value.id, thingId);
+        const accepted = upload.value.import!;
+        await store.loadOne(accepted.thingId);
+        return { ok: true, value: accepted };
       },
 
       async retryImport(id: string) {

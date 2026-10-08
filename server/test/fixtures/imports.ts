@@ -74,11 +74,16 @@ export class FixtureAi implements ImportAi {
     const name = source.mediaType === 'text/plain' ? source.content.toString() : 'neff';
     if (name === 'bad') throw new Error('synthetic extraction failure');
     const chosen =
-      name === 'two'
-        ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
-        : [extractedThings[name] ?? extractedThings.neff];
+      name === 'no-thing' || name === 'non-english'
+        ? []
+        : name === 'two'
+          ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
+          : [extractedThings[name] ?? extractedThings.neff];
     return structuredClone({
       text: name,
+      summary: `Source for ${name}`,
+      terms: ['source'],
+      transcriptionStatus: name === 'non-english' ? 'INSUFFICIENT_LANGUAGE' : 'COMPLETE',
       extractedThings: chosen,
       ...(this.metadata ? { metadata: this.metadata } : {}),
     });

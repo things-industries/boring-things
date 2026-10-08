@@ -134,9 +134,34 @@ export async function findThingImport(db: Database, owner: string, id: string) {
   return job ? projectImport(decodeImport(job)) : null;
 }
 
-export async function assertThingEditable(db: Database, owner: string, id: string) {
+export async function assertThingEditable(
+  db: Database,
+  owner: string,
+  id: string,
+  options: { allowQueued?: boolean } = {},
+) {
   const job = await findThingImport(db, owner, id);
-  ensure(!job || !activeStatuses.includes(job.status), 'Thing is processing an import', 'CONFLICT');
+  ensure(
+    !job ||
+      !activeStatuses.includes(job.status) ||
+      (options.allowQueued && job.status === 'QUEUED'),
+    'Thing is processing an import',
+    'CONFLICT',
+  );
+}
+
+// Drops work that has not started when its target Thing is removed.
+export async function removeQueuedThingImports(
+  db: Database,
+  owner: string,
+  thingId: string,
+): Promise<void> {
+  await database.execute(
+    db,
+    `delete from bt.imports where owner_id=$1 and status='QUEUED' and started_at is null
+      and (target_thing_id=$2 or skeleton_id=$2)`,
+    [owner, thingId],
+  );
 }
 
 export async function touchImportThings(db: Database, job: ImportRow) {
@@ -184,33 +209,73 @@ export async function startImport(
       'Attachment not found',
       'NOT_FOUND',
     );
-    let thingId = target;
-
-    if (thingId) {
-      await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
-      await assertThingEditable(db, owner, thingId);
-    } else {
-      const [thing] = await database.rows<{ id: string }>(
-        db,
-        "insert into bt.things(owner_id,category_id,name,data) values($1,'other','Importing…',$2) returning id",
-        [owner, JSON.stringify(emptyData())],
+    const [active] = await database.rows<ImportRow>(
+      db,
+      `select id,target_thing_id,skeleton_id,status from bt.imports
+       where attachment_id=$1 and owner_id=$2 and status=any($3::text[])
+       order by created_at desc limit 1`,
+      [attachment, owner, activeStatuses],
+    );
+    if (active) {
+      ensure(
+        target ? active.targetThingId === target : active.skeletonId !== null,
+        'Attachment already has an active Import',
+        'CONFLICT',
       );
-      thingId = thing.id;
+      return {
+        importId: active.id,
+        thingId: active.targetThingId!,
+        status: active.status,
+      };
     }
-
-    await database.execute(
-      db,
-      'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
-      [thingId, attachment, owner],
-    );
-    const [job] = await database.rows<StoredImportRow>(
-      db,
-      "insert into bt.imports(owner_id,attachment_id,target_thing_id,skeleton_id,status) values($1,$2,$3,$4,'QUEUED') returning *",
-      [owner, attachment, thingId, target ? null : thingId],
-    );
-    await thingsDb.bumpThing(db, owner, thingId);
-    return { importId: job.id, thingId, status: 'QUEUED' as const };
+    return createImport(db, owner, attachment, target);
   });
+}
+
+// Creates the Import and its current-runner target in the caller's transaction.
+export async function createImport(
+  db: Database,
+  owner: string,
+  attachment: string,
+  target?: string,
+) {
+  ensure(
+    (
+      await database.execute(
+        db,
+        'select id from bt.attachments where id=$1 and owner_id=$2 for update',
+        [attachment, owner],
+      )
+    ).rowCount,
+    'Attachment not found',
+    'NOT_FOUND',
+  );
+  let thingId = target;
+
+  if (thingId) {
+    await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    await assertThingEditable(db, owner, thingId);
+  } else {
+    const [thing] = await database.rows<{ id: string }>(
+      db,
+      "insert into bt.things(owner_id,category_id,name,data) values($1,'other','Importing…',$2) returning id",
+      [owner, JSON.stringify(emptyData())],
+    );
+    thingId = thing.id;
+  }
+
+  await database.execute(
+    db,
+    'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
+    [thingId, attachment, owner],
+  );
+  const [job] = await database.rows<StoredImportRow>(
+    db,
+    "insert into bt.imports(owner_id,attachment_id,target_thing_id,skeleton_id,status) values($1,$2,$3,$4,'QUEUED') returning *",
+    [owner, attachment, thingId, target ? null : thingId],
+  );
+  await thingsDb.bumpThing(db, owner, thingId);
+  return { importId: job.id, thingId, status: 'QUEUED' as const };
 }
 
 export async function allocateTargets(
@@ -381,12 +446,13 @@ export async function recordImportUsage(db: Database, job: ImportRow, usage: Usa
     job.ownerId,
   ]);
 }
-export async function markImportStarted(db: Database, job: ImportRow): Promise<void> {
-  await database.execute(
+export async function markImportStarted(db: Database, job: ImportRow): Promise<boolean> {
+  const result = await database.execute(
     db,
-    'update bt.imports set started_at=now(),finished_at=null,error=null where id=$1 and owner_id=$2',
+    "update bt.imports set status='EXTRACTING',started_at=now(),finished_at=null,error=null where id=$1 and owner_id=$2 and status='QUEUED'",
     [job.id, job.ownerId],
   );
+  return !!result.rowCount;
 }
 export async function saveExtraction(
   db: Database,

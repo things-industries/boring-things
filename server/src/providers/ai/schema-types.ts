@@ -27,6 +27,15 @@ export interface components {
             } | null;
             /** @description Source transcription preserving labels, identifiers and surrounding context; empty when supplied text is retained directly. */
             text: string;
+            /** @description Short source-wide description of the document's content; null when the content cannot be read. */
+            summary: string | null;
+            /** @description Source-wide search terms without private identifiers, with at most 20 terms of at most 200 characters each. */
+            terms: string[];
+            /**
+             * @description Outcome of reading English content: complete, partly readable, no readable content, or insufficient English content.
+             * @enum {string}
+             */
+            transcriptionStatus: "COMPLETE" | "EMPTY" | "PARTIAL" | "INSUFFICIENT_LANGUAGE";
             /** @description Up to four distinct Things that can be identified in the source, with facts grouped by the thing they describe.  Identifying one thing in the source is typical. */
             candidates: {
                 /** @description Generated identifier unique within this extraction. */
