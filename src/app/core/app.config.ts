@@ -5,6 +5,8 @@ export const APP_CONFIG = {
   apiPageSize: 100,
   activityLimit: 3,
   recentThingLimit: 3,
+  /** Upcoming days the Tasks page reveals at a time. */
+  upcomingDayPage: 10,
   newThingDays: 7,
   downloadUrlLifetimeMs: 1000,
   toastMs: 6000,

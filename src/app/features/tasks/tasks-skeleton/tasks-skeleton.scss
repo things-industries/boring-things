@@ -1,0 +1,47 @@
+@use 'tokens';
+@use 'mixins';
+
+.tasks-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+  padding-inline-start: tokens.space(7);
+}
+
+.skeleton-heading {
+  @include mixins.skeleton-line;
+  width: 30%;
+  margin-block: tokens.space(4) tokens.space(1);
+}
+
+.skeleton-card {
+  display: flex;
+  align-items: center;
+  gap: tokens.space(3);
+  padding: tokens.space(3);
+  border-radius: tokens.radius(card);
+  background: tokens.color('white');
+}
+
+.skeleton-check {
+  @include mixins.skeleton-circle(control-sm);
+}
+
+.skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: tokens.space(2);
+
+  span {
+    @include mixins.skeleton-line;
+
+    &:first-child {
+      width: 60%;
+    }
+
+    &:last-child {
+      width: 35%;
+    }
+  }
+}

@@ -1,6 +1,92 @@
-<bt-placeholder-page [title]="'tasks' | term" icon="navTasks">
-  <h2>Coming soon</h2>
-  <p class="text-primary-muted">
-    Upcoming tasks, renewals and deadlines across your Things will appear here.
-  </p>
-</bt-placeholder-page>
+<header class="tasks-header">
+  <h1>{{ 'tasks' | term }}</h1>
+  <a
+    btIconButton
+    variant="plain"
+    icon="openProfile"
+    routerLink="/profile"
+    [label]="'profile' | term"
+  ></a>
+</header>
+@if (error()) {
+  <div class="tasks-error">
+    <bt-error-message [code]="error()" />
+    <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+  </div>
+}
+@if (!loaded()) {
+  <bt-tasks-skeleton />
+} @else {
+  @let days = agenda();
+  <div class="tasks-timeline">
+    <section class="tasks-day" aria-labelledby="tasks-today">
+      <h2 id="tasks-today" class="tasks-day-heading current">Today</h2>
+      <ng-container
+        [ngTemplateOutlet]="items"
+        [ngTemplateOutletContext]="{ $implicit: days.today }"
+      />
+      @if (!days.today.length) {
+        <p class="tasks-empty">Nothing to do today.</p>
+      }
+    </section>
+    <section class="tasks-day" aria-labelledby="tasks-tomorrow">
+      <h2 id="tasks-tomorrow" class="tasks-day-heading">Tomorrow</h2>
+      <ng-container
+        [ngTemplateOutlet]="items"
+        [ngTemplateOutletContext]="{ $implicit: days.tomorrow }"
+      />
+      @if (!days.tomorrow.length) {
+        <p class="tasks-empty">Nothing planned for tomorrow.</p>
+      }
+    </section>
+    <section class="tasks-upcoming" aria-labelledby="tasks-upcoming">
+      <h2 class="tasks-upcoming-heading">
+        <button
+          id="tasks-upcoming"
+          type="button"
+          [attr.aria-expanded]="upcomingOpen()"
+          aria-controls="tasks-upcoming-days"
+          (click)="upcomingOpen.set(!upcomingOpen())"
+        >
+          Upcoming
+          <ng-icon name="expandSection" aria-hidden="true" />
+        </button>
+      </h2>
+      <div id="tasks-upcoming-days" [hidden]="!upcomingOpen()">
+        @for (day of upcoming(); track day.date) {
+          <section class="tasks-day" [attr.aria-label]="day.date | date: 'EEEE d MMMM'">
+            <h3 class="tasks-day-heading date">{{ day.date | date: 'd MMM' }}</h3>
+            <ng-container
+              [ngTemplateOutlet]="items"
+              [ngTemplateOutletContext]="{ $implicit: day.items }"
+            />
+          </section>
+        } @empty {
+          <p class="tasks-empty">Nothing else is scheduled.</p>
+        }
+        @if (hasMore()) {
+          <button type="button" class="button-secondary button-sm tasks-more" (click)="showMore()">
+            Load more
+          </button>
+        }
+      </div>
+    </section>
+  </div>
+}
+
+<ng-template #items let-items>
+  @if (items.length) {
+    <ul class="tasks-list">
+      @for (item of items; track item.key) {
+        <li>
+          <bt-task-card
+            [item]="item"
+            [now]="now()"
+            (toggled)="toggle(item)"
+            (removed)="remove(item)"
+          />
+        </li>
+      }
+    </ul>
+  }
+</ng-template>

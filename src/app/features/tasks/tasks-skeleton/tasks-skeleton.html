@@ -1,0 +1,12 @@
+<div class="tasks-skeleton" aria-hidden="true">
+  @for (cards of days; track $index) {
+    <div class="skeleton-heading"></div>
+    @for (card of cards; track card) {
+      <div class="skeleton-card">
+        <div class="skeleton-check"></div>
+        <div class="skeleton-lines"><span></span><span></span></div>
+      </div>
+    }
+  }
+</div>
+<span class="visually-hidden" role="status">Loading your tasks…</span>
