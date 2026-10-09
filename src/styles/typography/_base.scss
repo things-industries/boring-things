@@ -25,12 +25,14 @@ p {
   color: tokens.color(primary-muted);
   margin: 10px 0;
 }
+// remove if unused
 .eyebrow {
   @include typography.role(eyebrow);
   letter-spacing: 1.5px;
   color: tokens.color(text-eyebrow);
   text-transform: uppercase;
 }
+// remove if unused
 small.hint-text {
   display: block;
   color: tokens.color(primary-muted);
@@ -42,6 +44,7 @@ small.hint-text {
   h1 {
     font-size: 34px;
   }
+  // remove if unused
   .eyebrow {
     font-size: 9px;
   }
