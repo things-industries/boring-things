@@ -104,6 +104,7 @@ Activities are ongoing or scheduled work the owner manages, including suggested 
 ### Thing fields
 
 - Fields capture durable attributes and contractual terms. Upcoming event dates belong to a separate event primitive. Transient observations, account balances and physical-item locations are outside the field registry.
+- Each category has a base field set. Sets for identifiable subtypes carry their distinct fields; shared traits and functions compose across types. Manufacturer groups share proprietary identifier sets where their markings have the same meaning.
 - Documents belong to attachments.
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
 - Store physical dimensions as separate width, height, length and depth measurements, as applicable.

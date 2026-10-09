@@ -36,7 +36,7 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       owner,
       'fieldset-fixture',
     ]);
-    for (const id of ['appliances', 'vehicles', 'memberships', 'insurance', 'other'])
+    for (const id of ['appliances', 'devices', 'vehicles', 'memberships', 'insurance', 'other'])
       await pool.query(
         "insert into bt.categories(id,name,description,icon,sort_order) values($1,$1,'','',0)",
         [id],
@@ -170,6 +170,156 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       'utf8',
     );
     await pool.query(rename);
+    await pool.query(
+      await readFile(new URL('20261004123600_research_field_metadata.sql', directory), 'utf8'),
+    );
+    async function addCurrent(name: string, category: string, data: Partial<ThingData>) {
+      const id = randomUUID();
+      ids.set(name, id);
+      await pool.query(
+        'insert into bt.things(id,owner_id,category_id,name,data) values($1,$2,$3,$4,$5)',
+        [id, owner, category, name, JSON.stringify({ ...emptyData(), ...data })],
+      );
+    }
+    await addCurrent('grouped', 'appliances', {
+      setIds: [
+        'appliances.appliance',
+        'appliances.serial',
+        'appliances.bosch',
+        'appliances.neff',
+        'appliances.recess',
+        'appliances.refrigeration',
+        'appliances.cooling',
+        'appliances.refrigerant',
+        'appliances.waterFilter',
+        'appliances.descaling',
+      ],
+      values: {
+        'appliances.serial': { 'common.serialNumber': stored('00042') },
+        'appliances.bosch': { 'appliances.zNumber': stored('007') },
+        'appliances.neff': {
+          'appliances.zNumber': { ...stored('009'), origin: 'USER' },
+        },
+        'appliances.recess': { 'appliances.requiredRecessWidth': stored('600 mm') },
+        'appliances.refrigeration': { 'appliances.fridgeCapacity': stored('300 L') },
+        'appliances.cooling': { 'appliances.coolingOutput': stored('3.5 kW') },
+        'appliances.refrigerant': { 'appliances.refrigerant': stored('R32') },
+        'appliances.waterFilter': { 'appliances.waterFilterModel': stored('Filter-1') },
+        'appliances.descaling': { 'appliances.descalingInterval': stored('Monthly') },
+      },
+      pins: [
+        { fieldSetId: 'appliances.bosch', fieldId: 'appliances.zNumber' },
+        { fieldSetId: 'appliances.neff', fieldId: 'appliances.zNumber' },
+        { fieldSetId: 'appliances.recess', fieldId: 'appliances.requiredRecessWidth' },
+      ],
+      userEdited: ['appliances.neff:appliances.zNumber', 'pins'],
+    });
+    await addCurrent('clears', 'appliances', {
+      setIds: ['appliances.appliance'],
+      userEdited: [
+        'set:appliances.serial',
+        'set:appliances.recess',
+        'set:appliances.waterFilter',
+        'set:appliances.descaling',
+      ],
+    });
+    await addCurrent('camera', 'devices', {
+      setIds: ['devices.device', 'devices.camera'],
+      values: {
+        'devices.camera': {
+          'devices.lensMount': stored('E mount'),
+          'devices.recordingStorage': stored('Local SD card'),
+        },
+      },
+      pins: [{ fieldSetId: 'devices.camera', fieldId: 'devices.recordingStorage' }],
+    });
+    await addCurrent('vehicleService', 'vehicles', {
+      setIds: ['vehicles.vehicle', 'vehicles.distanceMaintenance'],
+      values: {
+        'vehicles.distanceMaintenance': {
+          'vehicles.serviceMileageInterval': stored('12,000 miles'),
+        },
+      },
+    });
+    const attachment = randomUUID();
+    const importId = randomUUID();
+    await pool.query(
+      "insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key) values($1,$2,'synthetic.txt','text/plain',0,$3)",
+      [attachment, owner, 'registry-migration-fixture'],
+    );
+    await pool.query(
+      "insert into bt.imports(id,owner_id,attachment_id,status,extraction) values($1,$2,$3,'MAPPING',$4)",
+      [
+        importId,
+        owner,
+        attachment,
+        JSON.stringify({
+          text: '',
+          candidates: [
+            {
+              id: 'candidate-1',
+              name: 'Example appliance',
+              categoryId: 'appliances',
+              terms: [],
+              facts: [],
+              mapping: {
+                setIds: ['appliances.neff', 'appliances.cooling', 'appliances.refrigerant'],
+                batches: [
+                  {
+                    values: [
+                      { fieldSetId: 'appliances.neff', fieldId: 'appliances.zNumber' },
+                      { fieldSetId: 'appliances.cooling', fieldId: 'appliances.coolingOutput' },
+                      { fieldSetId: 'appliances.refrigerant', fieldId: 'appliances.refrigerant' },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              id: 'candidate-2',
+              name: 'Example camera',
+              categoryId: 'devices',
+              terms: [],
+              facts: [],
+              mapping: {
+                setIds: ['devices.camera'],
+                batches: [
+                  {
+                    values: [{ fieldSetId: 'devices.camera', fieldId: 'devices.recordingStorage' }],
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ],
+    );
+    await pool.query(
+      'insert into bt.import_targets(import_id,candidate_id,thing_id,owner_id,is_new,discovery) values($1,$2,$3,$4,false,$5)',
+      [
+        importId,
+        'candidate-1',
+        ids.get('grouped'),
+        owner,
+        JSON.stringify({
+          documentBatches: [
+            {
+              attachmentId: attachment,
+              targetKeys: [
+                'appliances.neff:appliances.zNumber',
+                'appliances.cooling:appliances.coolingOutput',
+              ],
+            },
+          ],
+        }),
+      ],
+    );
+    const groupMigration = await readFile(
+      new URL('20261008183042_field_registry_groups.sql', directory),
+      'utf8',
+    );
+    await pool.query(groupMigration);
+    await database.transaction(pool, registrySeedDb.seedRegistry);
     const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
     async function get(name: string) {
       const row = (
@@ -183,15 +333,17 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
         patchData(
           row.data,
           {},
-          name === 'vehicle'
+          ['vehicle', 'vehicleService'].includes(name)
             ? 'vehicles'
-            : name === 'insurance'
-              ? 'insurance'
-              : ['museum', 'removed', 'empty'].includes(name)
-                ? 'memberships'
-                : name === 'untouched'
-                  ? 'other'
-                  : 'appliances',
+            : name === 'camera'
+              ? 'devices'
+              : name === 'insurance'
+                ? 'insurance'
+                : ['museum', 'removed', 'empty'].includes(name)
+                  ? 'memberships'
+                  : name === 'untouched'
+                    ? 'other'
+                    : 'appliances',
           registry,
         ),
       );
@@ -204,18 +356,96 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       return row;
     }
     const appliance = (await get('appliance')).data;
+    assert.deepEqual(appliance.values['appliances.bsh']['appliances.zNumber'], stored('007'));
     assert.deepEqual(
       appliance.values['appliances.ownership']['common.acquiredOn'],
       stored('2022-03-12'),
     );
     assert.deepEqual(appliance.values['appliances.ownership']['common.seller'], stored(''));
-    assert.equal(appliance.values['appliances.warranty']['common.warrantyEnds'], undefined);
+    assert.equal(appliance.values['appliances.warranty']?.['common.warrantyEnds'], undefined);
     assert.ok(appliance.userEdited!.includes('appliances.warranty:common.warrantyEnds'));
     assert.deepEqual(appliance.standalone['common.acquiredOn'], stored('2020-01-01'));
     assert.equal(appliance.customFields[0].value, '2030-01-01');
     assert.deepEqual(appliance.pins, [
       { fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn' },
       { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds' },
+    ]);
+    const grouped = (await get('grouped')).data;
+    assert.equal(grouped.values['appliances.appliance']['common.serialNumber'].value, '00042');
+    assert.equal(grouped.values['appliances.bsh']['appliances.zNumber'].value, '009');
+    assert.equal(
+      grouped.values['appliances.installation']['appliances.requiredRecessWidth'].value,
+      '600 mm',
+    );
+    assert.equal(grouped.values['appliances.fridge']['appliances.fridgeCapacity'].value, '300 L');
+    assert.equal(
+      grouped.values['appliances.spaceCooling']['appliances.coolingOutput'].value,
+      '3.5 kW',
+    );
+    assert.equal(grouped.values['appliances.cooling']['appliances.refrigerant'].value, 'R32');
+    assert.equal(
+      grouped.values['appliances.consumables']['appliances.waterFilterModel'].value,
+      'Filter-1',
+    );
+    assert.equal(
+      grouped.values['appliances.cleaning']['appliances.descalingInterval'].value,
+      'Monthly',
+    );
+    const conflictingMarking = grouped.customFields.find((field) => field.value === '007')!;
+    assert.equal(conflictingMarking.label, 'Bosch identifiers: Z-number (Z-Nr)');
+    assert.deepEqual(conflictingMarking.sourceRefs, stored('').sourceRefs);
+    assert.ok(grouped.pins.some((pin) => pin.customFieldId === conflictingMarking.id));
+    assert.ok(grouped.userEdited!.includes('appliances.bsh:appliances.zNumber'));
+    const clears = (await get('clears')).data;
+    for (const key of [
+      'appliances.appliance:common.serialNumber',
+      'appliances.installation:appliances.requiredRecessWidth',
+      'appliances.installation:appliances.requiredRecessHeight',
+      'appliances.installation:appliances.requiredRecessDepth',
+      'appliances.consumables:appliances.waterFilterModel',
+      'appliances.cleaning:appliances.descalingInterval',
+    ])
+      assert.ok(clears.userEdited!.includes(key), key);
+    const camera = (await get('camera')).data;
+    assert.equal(camera.values['devices.camera']['devices.lensMount'].value, 'E mount');
+    assert.equal(
+      camera.values['devices.recording']['devices.recordingStorage'].value,
+      'Local SD card',
+    );
+    assert.ok(camera.pins.some((pin) => pin.fieldSetId === 'devices.recording'));
+    const checkpoints = (
+      await pool.query<{
+        extraction: {
+          candidates: {
+            mapping: { setIds: string[]; batches: { values: { fieldSetId: string }[] }[] };
+          }[];
+        };
+      }>('select extraction from bt.imports where id=$1', [importId])
+    ).rows[0].extraction.candidates;
+    const checkpoint = checkpoints[0].mapping;
+    assert.deepEqual(checkpoint.setIds, [
+      'appliances.bsh',
+      'appliances.spaceCooling',
+      'appliances.cooling',
+    ]);
+    assert.deepEqual(
+      checkpoint.batches[0].values.map((value) => value.fieldSetId),
+      ['appliances.bsh', 'appliances.spaceCooling', 'appliances.cooling'],
+    );
+    assert.deepEqual(checkpoints[1].mapping.setIds, ['devices.camera', 'devices.recording']);
+    assert.deepEqual(
+      checkpoints[1].mapping.batches[0].values.map((value) => value.fieldSetId),
+      ['devices.recording'],
+    );
+    const target = (
+      await pool.query<{ discovery: { documentBatches: { targetKeys: string[] }[] } }>(
+        'select discovery from bt.import_targets where import_id=$1 and candidate_id=$2',
+        [importId, 'candidate-1'],
+      )
+    ).rows[0].discovery;
+    assert.deepEqual(target.documentBatches[0].targetKeys, [
+      'appliances.bsh:appliances.zNumber',
+      'appliances.spaceCooling:appliances.coolingOutput',
     ]);
     const vehicle = (await get('vehicle')).data;
     assert.deepEqual(
@@ -297,25 +527,18 @@ test('fieldset migration preserves scoped values, clears, secrets, conflicts and
       sets: (await pool.query('select * from bt.field_sets order by id')).rows,
       things: (await pool.query('select * from bt.things order by id')).rows,
     });
-    await pool.query(
-      await readFile(new URL('20261004123600_research_field_metadata.sql', directory), 'utf8'),
-    );
     const migrated = await snapshot();
     assert.equal(migrated.fields.length, 413);
-    assert.equal(migrated.sets.length, 165);
+    assert.equal(migrated.sets.length, 160);
     await database.transaction(pool, registrySeedDb.seedRegistry);
     assert.deepEqual(
       await snapshot(),
       migrated,
       'Seed must match the SQL catalogue and preserve owned data',
     );
-    await pool.query(sql);
-    await pool.query(rename);
-    assert.deepEqual(
-      await snapshot(),
-      migrated,
-      'Migration must not duplicate values or increment revisions again',
-    );
+    await pool.query(groupMigration);
+    await database.transaction(pool, registrySeedDb.seedRegistry);
+    assert.deepEqual(await snapshot(), migrated, 'Repeat migration and seed preserve owned data');
   } finally {
     await pool.end();
     await admin.query(`drop database if exists ${databaseName} with (force)`);

@@ -183,7 +183,7 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
 test('SDK mapping supplies minimal Thing and field context and retains tool history within each batch', async (t) => {
   let request = 0;
   const turns: Parameters<AiTurnCompleted>[0][] = [];
-  const selectedSets = registrySeedDb.sets.filter((set) => set.id === 'appliances.neff');
+  const selectedSets = registrySeedDb.sets.filter((set) => set.id === 'appliances.bsh');
   const fieldResults = { results: [] };
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
@@ -266,7 +266,7 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
     return jsonResponse(
       output(
         round === 0
-          ? { setIds: ['appliances.neff'] }
+          ? { setIds: ['appliances.bsh'] }
           : {
               values: [],
               customFactIds: [extractedThings.neff.facts[round - 1].id],
@@ -285,7 +285,7 @@ test('SDK mapping supplies minimal Thing and field context and retains tool hist
     (entry) => turns.push(entry),
   ).importAi!;
   const selection = await ai.selectFieldSets(extractedThings.neff, tools, context());
-  assert.deepEqual(selection, { setIds: ['appliances.neff'] });
+  assert.deepEqual(selection, { setIds: ['appliances.bsh'] });
   for (const fact of extractedThings.neff.facts)
     assert.deepEqual(
       await ai.mapFacts(extractedThings.neff, [fact], selectedSets, tools, context()),
