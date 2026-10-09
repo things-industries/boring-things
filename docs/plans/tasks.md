@@ -27,12 +27,12 @@ Replaces the Timeline placeholder with the Tasks screen from Figma ([Tasks frame
 - Critical tasks show the flag after the title. Other priorities show no marker.
 - The overflow menu offers **Ask** (chat with task context), **Reschedule**, **Go to Thing** and **Delete task**. Thing events offer **Ask** and **Go to Thing** only.
 - When a completed item has a follow-up, a button appears under the title (Figma "How did it go?"). A `CHAT` follow-up opens the Thing chat with the task context. An `UPDATE_FIELD` follow-up opens a dialog with the question and an input for the target field. An `ADD_DOCUMENT` follow-up opens a dialog with the question and a file picker; the upload is linked to the Thing.
-- **Reschedule** opens a dialog with the next due date and a dropdown, **Does not repeat** or **Repeats**. Repeats reveals a sentence, "Every [number] [days/weeks/months/years]", on one baseline; clicking the number selects it.
+- **Reschedule** opens a dialog titled with the task's name, with the next due date and a dropdown, **Does not repeat** or **Repeats**. Repeats reveals a sentence, "Every [number] [days/weeks/months/years]", with every control the same height; clicking the number selects it. A note under it says the next one is added that long after the day the task is completed, or after its due date when it is finished early.
 - Adding a suggested task (Thing page, the Thing's suggestions page or a chat card) schedules it straight away; the backend chooses the day, and the owner can reschedule it.
 
 ### Other screens
 
-- **Thing tasks** (`/things/:id/tasks`, from the Thing page's **Upcoming tasks › See all**): the same agenda for one Thing, with Upcoming expanded and no **Go to Thing**. It links to the Thing's suggestions when there are any.
+- **Thing tasks** (`/things/:id/tasks`, from the Thing page's **Upcoming tasks › See all**): the same agenda for one Thing, with every later day shown (no Upcoming toggle or paging) and no **Go to Thing**. It links to the Thing's suggestions when there are any.
 - **Suggested tasks** (`/things/:id/suggestions`, from **Suggested tasks › See all**): the Thing's suggestions by priority, each tagged Critical, Important, Recommended or Nice to have, with an Add button.
 - **Thing page**: **Upcoming tasks** shows the next three agenda items as Tasks cards, with the day in the meta line ("Today", "Tomorrow", "Fri 16 Oct") in place of day headings; the card actions work as on Tasks. **Suggested tasks** shows the top three by priority, tagged.
 - **Home**: **Today** is a read-only summary linking to Tasks: how many items are left today, how many are overdue, and the first three titles. Nothing is checked off from Home.

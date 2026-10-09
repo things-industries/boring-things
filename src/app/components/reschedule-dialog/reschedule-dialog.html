@@ -1,4 +1,8 @@
-<bt-dialog title="Reschedule task" [open]="!!task()" (closed)="close()">
+<bt-dialog
+  [title]="'Reschedule “' + (task()?.title ?? '') + '”'"
+  [open]="!!task()"
+  (closed)="close()"
+>
   <form [id]="formId" class="reschedule-form" (ngSubmit)="save()">
     <label class="reschedule-field"
       >Next due date
@@ -43,6 +47,24 @@
           <option value="YEAR">{{ interval() === 1 ? 'year' : 'years' }}</option>
         </select>
       </fieldset>
+      <p class="reschedule-note">
+        Completing it adds the next one {{ interval() }}
+        @switch (unit()) {
+          @case ('DAY') {
+            {{ interval() === 1 ? 'day' : 'days' }}
+          }
+          @case ('WEEK') {
+            {{ interval() === 1 ? 'week' : 'weeks' }}
+          }
+          @case ('MONTH') {
+            {{ interval() === 1 ? 'month' : 'months' }}
+          }
+          @case ('YEAR') {
+            {{ interval() === 1 ? 'year' : 'years' }}
+          }
+        }
+        later, counted from the day you complete it, or from its due date if you finish early.
+      </p>
     }
   </form>
   <div dialogActions>

@@ -17,7 +17,7 @@
     } @else if (!loaded()) {
       <bt-agenda-skeleton />
     } @else {
-      <bt-agenda [agenda]="agenda()" [now]="now()" [inThing]="true" [expanded]="true" />
+      <bt-agenda [agenda]="agenda()" [now]="now()" [inThing]="true" [collapsible]="false" />
       @if (suggestions()) {
         <a
           class="button-secondary button-sm thing-tasks-suggested"

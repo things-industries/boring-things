@@ -191,7 +191,7 @@ See the `UI Inspiration` folder for ideas for specific components
         - Each item shows its title, a check control when it can be done, and a time line: overdue status, a countdown to a deadline, a recurrence interval or a time of day. Critical tasks are flagged.
         - Each day lists events first, then tasks by importance (critical, important, recommended, nice to have). Overdue tasks sit at the bottom of Today.
         - Item actions: Ask (chat with the item as context), Reschedule (next due date, and whether and how often it repeats), Go to Thing and Delete (returns the task to the Thing's suggestions).
-    - **Thing tasks view**: the same view for one Thing, with Upcoming expanded.
+    - **Thing tasks view**: the same view for one Thing, showing every later day without an Upcoming toggle.
     - **Suggested tasks view**: one Thing's suggestions by priority, tagged with their priority, each with an Add action.
         - A completed task or event may have a follow-up: a chat with defined context, or a question that updates a Thing detail or adds a document.
 - **Assistant**:

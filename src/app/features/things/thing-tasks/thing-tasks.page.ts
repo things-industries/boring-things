@@ -10,7 +10,7 @@ import { ScrollContainer } from '../../../components/scroll-container/scroll-con
 import { TopBar } from '../../../components/top-bar/top-bar';
 import { routeThing } from '../thing-loader';
 
-/** One Thing's tasks, appointments and dates by day, with Upcoming open. */
+/** One Thing's tasks, appointments and dates by day, with every later day shown. */
 @Component({
   selector: 'bt-thing-tasks',
   imports: [RouterLink, Agenda, AgendaSkeleton, ErrorMessage, ScrollContainer, TopBar],

@@ -1,9 +1,17 @@
 @use 'tokens';
+@use 'typography';
 
 .reschedule-form {
   display: flex;
   flex-direction: column;
   gap: tokens.space(4);
+}
+
+// Every control is one height, so the "Every" sentence lines up.
+.reschedule-form :is(input, select) {
+  height: tokens.size(control-md);
+  margin-top: 0;
+  padding-block: 0;
 }
 
 .reschedule-field {
@@ -32,4 +40,10 @@
   select {
     width: auto;
   }
+}
+
+.reschedule-note {
+  @include typography.role(caption);
+  margin: 0;
+  color: tokens.color(primary-muted);
 }

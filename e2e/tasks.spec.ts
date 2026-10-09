@@ -98,16 +98,13 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
 
   await check.click();
   await expect(check).toHaveAttribute('aria-checked', 'true');
-  // A Thing's tasks page opens with Upcoming expanded.
-  await expect(page.getByRole('button', { name: 'Upcoming' })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
+  // A Thing's tasks page shows every later day, with no Upcoming toggle.
+  await expect(page.getByRole('button', { name: 'Upcoming' })).toHaveCount(0);
 
   const next = format(addMonths(new Date(), 12), 'd MMM');
-  const upcoming = page.locator('.agenda-upcoming-days');
+  const upcoming = page.locator('section', { has: page.getByRole('heading', { name: next }) });
 
-  await expect(upcoming.getByRole('heading', { name: next })).toBeVisible();
+  await expect(upcoming).toBeVisible();
   await expect(upcoming.locator('bt-task-card', { hasText: 'Oil the hinges' })).toHaveCount(1);
   await check.click();
   await expect(check).toHaveAttribute('aria-checked', 'false');
@@ -116,6 +113,7 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   // Rescheduling moves the task and sets its interval.
   await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
   await page.getByRole('menuitem', { name: 'Reschedule' }).click();
+  await expect(page.getByRole('dialog', { name: 'Reschedule “Descale the kettle”' })).toBeVisible();
   await page.getByLabel('Next due date').fill(day(1));
 
   const repeats = page.getByRole('combobox', { name: 'Repeats' });
@@ -129,6 +127,9 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   await number.click();
   await page.keyboard.type('2');
   await expect(number).toHaveValue('2');
+  await expect(page.getByRole('dialog')).toContainText(
+    'Completing it adds the next one 2 months later',
+  );
   await page.getByLabel('Unit').selectOption('WEEK');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(tomorrow.locator('bt-task-card', { hasText: 'Descale the kettle' })).toContainText(
