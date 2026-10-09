@@ -46,6 +46,7 @@
   #photos
   hidden
   type="file"
+  multiple
   aria-label="Choose a photo"
   accept="image/jpeg,image/png,image/webp"
   (change)="file($event)"
@@ -54,6 +55,7 @@
   #files
   hidden
   type="file"
+  multiple
   aria-label="Choose a file"
   [accept]="config.supportedMediaTypes.join(',')"
   (change)="file($event)"

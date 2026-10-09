@@ -101,12 +101,41 @@ async function start(source: string, thingId?: string) {
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="source.txt"\r\nContent-Type: text/plain\r\n\r\n${source}\r\n--${boundary}--\r\n`,
   });
   assert.equal(file.statusCode, 201, file.body);
-  return file.json<Schema['Attachment']>().import!;
+  const uploaded = file.json<Schema['Attachment']>();
+  return submit([uploaded.id], thingId);
 }
-async function wait(
-  id: string,
-  states = ['COMPLETE', 'INCOMPLETE', 'FAILED', 'AWAITING_SELECTION'],
-) {
+async function submit(attachmentIds: string[], thingId?: string) {
+  const accepted = await request('POST', '/imports', {
+    attachmentIds,
+    ...(thingId ? { thingId } : {}),
+  });
+  assert.equal(accepted.statusCode, 202, accepted.body);
+  const submitted = accepted.json<Schema['ImportAccepted']>();
+  if (thingId) return { ...submitted, thingId };
+  const deadline = Date.now() + 10000;
+  do {
+    const job = (await request('GET', `/imports/${submitted.importId}`)).json<Schema['Import']>();
+    if (job.thingIds[0] || ['COMPLETE', 'FAILED', 'REVIEW_REQUIRED'].includes(job.status))
+      return { ...submitted, thingId: job.thingIds[0] ?? '' };
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  } while (Date.now() < deadline);
+  throw new Error('Import allocation timed out');
+}
+async function uploadOnly(source: string, owner = 'alice') {
+  const boundary = 'grouped-boundary';
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/attachments',
+    headers: {
+      authorization: 'Bearer ' + owner,
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
+    payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="source.txt"\r\nContent-Type: text/plain\r\n\r\n${source}\r\n--${boundary}--\r\n`,
+  });
+  assert.equal(response.statusCode, 201, response.body);
+  return response.json<Schema['Attachment']>();
+}
+async function wait(id: string, states = ['COMPLETE', 'INCOMPLETE', 'FAILED', 'REVIEW_REQUIRED']) {
   const deadline = Date.now() + 10000;
   do {
     const response = await request('GET', `/imports/${id}`);
@@ -117,6 +146,104 @@ async function wait(
   } while (Date.now() < deadline);
   throw new Error('Import timed out');
 }
+test('multi-source Import waits for independent transcription and links both relevant sources to one Thing', async () => {
+  const first = await uploadOnly('neff');
+  const second = await uploadOnly('warranty');
+  const [{ count }] = await database.rows<{ count: string }>(
+    pool,
+    'select count(*) from bt.imports where attachment_id=any($1::uuid[])',
+    [[first.id, second.id]],
+  );
+  assert.equal(Number(count), 0);
+  const response = await request('POST', '/imports', { attachmentIds: [first.id, second.id] });
+  assert.equal(response.statusCode, 202, response.body);
+  const accepted = response.json<Schema['ImportAccepted']>();
+  assert.equal(accepted.thingId, null);
+  const job = await wait(accepted.importId);
+  assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
+  assert.deepEqual(job.attachmentIds, [first.id, second.id]);
+  assert.equal(job.thingIds.length, 1);
+  const thing = (await request('GET', `/things/${job.thingIds[0]}`)).json<Schema['Thing']>();
+  assert.ok(thing.attachmentIds.includes(first.id));
+  assert.ok(thing.attachmentIds.includes(second.id));
+});
+
+test('restricted multi-source Import applies relevant sources only and creates no Thing', async () => {
+  const thing = await create({ categoryId: 'appliances' });
+  const relevant = await uploadOnly('neff');
+  const unrelated = await uploadOnly('policy');
+  const response = await request('POST', '/imports', {
+    attachmentIds: [relevant.id, unrelated.id],
+    thingId: thing.id,
+  });
+  assert.equal(response.statusCode, 202, response.body);
+  const job = await wait(response.json<Schema['ImportAccepted']>().importId);
+  assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
+  assert.deepEqual(job.thingIds, [thing.id]);
+  const current = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.ok(current.attachmentIds.includes(relevant.id));
+  assert.ok(!current.attachmentIds.includes(unrelated.id));
+});
+
+test('multi-source Import keeps two Things and their source evidence separate', async () => {
+  const applianceSource = await uploadOnly('neff');
+  const policySource = await uploadOnly('policy');
+  const response = await request('POST', '/imports', {
+    attachmentIds: [applianceSource.id, policySource.id],
+  });
+  assert.equal(response.statusCode, 202, response.body);
+  const job = await wait(response.json<Schema['ImportAccepted']>().importId);
+  assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
+  assert.equal(job.thingIds.length, 2);
+  const things = await Promise.all(
+    job.thingIds.map(async (id) => (await request('GET', `/things/${id}`)).json<Schema['Thing']>()),
+  );
+  const appliance = things.find((thing) => thing.categoryId === 'appliances');
+  const policy = things.find((thing) => thing.categoryId === 'insurance');
+  assert.ok(appliance);
+  assert.ok(policy);
+  assert.deepEqual(appliance.attachmentIds, [applianceSource.id]);
+  assert.deepEqual(policy.attachmentIds, [policySource.id]);
+});
+
+test("multi-source Import rejects another owner's Attachment without saving an Import", async () => {
+  const owned = await uploadOnly('neff');
+  const foreign = await uploadOnly('policy', 'bob');
+  const response = await request('POST', '/imports', {
+    attachmentIds: [owned.id, foreign.id],
+  });
+  assert.equal(response.statusCode, 404);
+  const [{ count }] = await database.rows<{ count: string }>(
+    pool,
+    'select count(*) from bt.import_sources where attachment_id=any($1::uuid[])',
+    [[owned.id, foreign.id]],
+  );
+  assert.equal(Number(count), 0);
+});
+
+test('model-only match remains review required without holding the existing Thing', async () => {
+  const thing = await create({ categoryId: 'appliances' });
+  await pool.query(
+    `update bt.things set data=jsonb_set(data,'{standalone,common.model}',
+      '{"value":"X1","origin":"USER","sourceRefs":[]}'::jsonb,true) where id=$1`,
+    [thing.id],
+  );
+  const file = await uploadOnly('model-only X1');
+  const response = await request('POST', '/imports', { attachmentIds: [file.id] });
+  assert.equal(response.statusCode, 202, response.body);
+  const job = await wait(response.json<Schema['ImportAccepted']>().importId, [
+    'REVIEW_REQUIRED',
+    'FAILED',
+  ]);
+  assert.equal(job.status, 'REVIEW_REQUIRED', JSON.stringify(job));
+  assert.deepEqual(job.thingIds, []);
+  assert.equal(job.candidates[0].reviewRequired, true);
+  assert.deepEqual(job.candidates[0].possibleMatches, [thing.id]);
+  assert.equal(
+    (await request('PATCH', `/things/${thing.id}`, { description: 'Owner edit' })).statusCode,
+    200,
+  );
+});
 test('upload rejects foreign Thing context without retaining a file or Import', async () => {
   const foreign = await create({}, 'bob');
   const beforeFiles = await readdir(directory);
@@ -145,8 +272,8 @@ test('upload rejects foreign Thing context without retaining a file or Import', 
 test('a source without a Thing retains its transcription for later processing', async () => {
   const accepted = await start('no-thing');
   const job = await wait(accepted.importId);
-  assert.equal(job.status, 'FAILED');
-  assert.equal(job.error, 'no_thing_identified');
+  assert.equal(job.status, 'COMPLETE');
+  assert.equal(job.error, null);
   assert.deepEqual(job.thingIds, []);
   const [source] = await database.rows<{ transcription: string; transcriptionStatus: string }>(
     pool,
@@ -159,7 +286,7 @@ test('a source without a Thing retains its transcription for later processing', 
 test('a source without readable English retains its original and records the outcome', async () => {
   const accepted = await start('non-english');
   const job = await wait(accepted.importId);
-  assert.equal(job.status, 'FAILED');
+  assert.equal(job.status, 'COMPLETE');
   const [source] = await database.rows<{
     transcription: string;
     transcriptionStatus: string;
@@ -204,10 +331,9 @@ test('PDF uploads derive page counts and extraction preserves metadata edits and
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
   assert.equal(file.pageCount, 2);
-  assert.equal(file.import?.status, 'QUEUED');
+  const started = await submit([file.id]);
   const path = `/attachments/${file.id}`;
   try {
-    const started = file.import!;
     assert.equal((await wait(started.importId)).status, 'INCOMPLETE');
     const [transcription] = await database.rows<{
       transcription: string;
@@ -222,7 +348,7 @@ test('PDF uploads derive page counts and extraction preserves metadata edits and
     );
     assert.equal(transcription.transcription, 'neff');
     assert.equal(transcription.transcriptionSummary, 'Source for neff');
-    assert.deepEqual(transcription.transcriptionTerms, ['source']);
+    assert.deepEqual(transcription.transcriptionTerms, ['neff']);
     assert.equal(transcription.transcriptionStatus, 'COMPLETE');
     const extracted = (await request('GET', path)).json<Schema['Attachment']>();
     assert.equal(extracted.title, 'Imported manual');
@@ -242,15 +368,13 @@ test('PDF uploads derive page counts and extraction preserves metadata edits and
       documentType: 'OTHER',
       documentDate: '2022-03-12',
     };
-    const second = (
-      await request('POST', '/things:import', { attachmentId: file.id, thingId: started.thingId })
-    ).json<Schema['ImportAccepted']>();
+    const second = await submit([file.id], started.thingId);
     assert.equal((await wait(second.importId)).status, 'COMPLETE');
     const saved = (await request('GET', path)).json<Schema['Attachment']>();
     assert.equal(saved.title, 'My manual');
     assert.equal(saved.publisher, null);
     assert.equal(saved.documentType, 'MANUAL');
-    assert.equal(saved.documentDate, '2022-03-12');
+    assert.equal(saved.documentDate, null);
     assert.equal(saved.metadataSources.publisher?.origin, 'USER');
     assert.equal(saved.pageCount, 2);
     assert.deepEqual((await request('GET', `${path}/content`)).rawPayload, bytes);
@@ -287,7 +411,7 @@ test('camera imports retain the uploaded filename and persist a descriptive disp
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
   try {
-    const accepted = file.import!;
+    const accepted = await submit([file.id]);
     assert.equal((await wait(accepted.importId)).status, 'COMPLETE');
     const saved = (await request('GET', `/attachments/${file.id}`)).json<Schema['Attachment']>();
     assert.equal(saved.filename, 'IMG_1234.png');
@@ -298,7 +422,7 @@ test('camera imports retain the uploaded filename and persist a descriptive disp
   }
 });
 
-test('immediate skeleton, progressive empty sets, source retention, string IDs and unknown fields', async () => {
+test('resolved Thing shows progressive empty sets, source retention, string IDs and unknown fields', async () => {
   let release!: () => void;
   ai.pause = new Promise((resolve) => {
     release = resolve;
@@ -340,7 +464,7 @@ test('immediate skeleton, progressive empty sets, source retention, string IDs a
   assert.equal(
     (await pool.query('select extraction from bt.imports where id=$1', [job.id])).rows[0].extraction
       .text,
-    'neff',
+    '',
   );
   assert.equal(job.usage.toolCalls[0].name, 'search_field_sets');
   assert.equal(job.usage.inputTokens, 100);
@@ -377,33 +501,6 @@ test('van inclusion and independent buildings/contents values', async () => {
     }
   }
 });
-test('multiple candidates require confirmation and reuse one shared attachment', async () => {
-  const accepted = await start('two'),
-    job = await wait(accepted.importId);
-  assert.equal(job.status, 'AWAITING_SELECTION');
-  assert.equal(job.thingIds.length, 0);
-  const response = await request('POST', `/imports/${job.id}:confirm`, {
-    selections: job.candidates.map((c) => ({
-      candidateId: c.id,
-      targetThingId: null,
-    })),
-  });
-  assert.equal(response.statusCode, 200, response.body);
-  const done = await wait(job.id);
-  assert.equal(done.status, 'COMPLETE', JSON.stringify(done));
-  assert.equal(done.thingIds[0], accepted.thingId);
-  assert.equal(done.thingIds.length, 2);
-  for (const id of done.thingIds)
-    assert.ok(
-      (await request('GET', `/things/${id}`))
-        .json<Schema['Thing']>()
-        .attachmentIds.includes(job.attachmentId),
-    );
-  assert.equal(
-    (await request('POST', `/imports/${job.id}:confirm`, { selections: [] })).statusCode,
-    422,
-  );
-});
 test('failed mapping retry reuses targets, preserves user edits and has no duplicate facts', async () => {
   ai.failOnce = true;
   const accepted = await start('neff'),
@@ -435,10 +532,10 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   assert.equal((await request('POST', `/imports/${failed.id}:retry`)).statusCode, 409);
 });
 test('application fact batches have separate tool budgets, reject out-of-batch values and retry saved extraction', async (t) => {
-  const originalExtract = ai.extract.bind(ai);
+  const originalTarget = ai.extractTargetFacts.bind(ai);
   const originalSelect = ai.selectFieldSets.bind(ai);
   const originalMap = ai.mapFacts.bind(ai);
-  let extractions = 0;
+  let targetExtractions = 0;
   const batches: number[] = [];
   let invalidBatch = true;
   t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
@@ -447,22 +544,25 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
       await tools.searchFieldSets(subject.categoryId, subject.terms);
     return originalSelect(...args);
   });
-  t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
-    extractions++;
-    const extraction = await originalExtract(...args);
-    const subject = extraction.extractedThings[0];
-    subject.facts.push(
-      ...Array.from({ length: 19 }, (_, i) => ({
-        ...subject.facts[1],
-        id: `fact-${i + 3}`,
-        label: `Installer reference ${i + 3}`,
-      })),
-    );
-    return extraction;
-  });
+  t.mock.method(
+    ai,
+    'extractTargetFacts',
+    async (...args: Parameters<typeof ai.extractTargetFacts>) => {
+      targetExtractions++;
+      const assessments = await originalTarget(...args);
+      assessments[0].facts.push(
+        ...Array.from({ length: 19 }, (_, i) => ({
+          ...assessments[0].facts[1],
+          id: `fact-${i + 3}`,
+          label: `Installer reference ${i + 3}`,
+        })),
+      );
+      return assessments;
+    },
+  );
   t.mock.method(ai, 'mapFacts', async (...args: Parameters<typeof ai.mapFacts>) => {
     const [subject, facts, selectedSets, tools] = args;
-    assert.equal(subject.name, 'Neff hob');
+    assert.equal(subject.name, 'Neff oven');
     assert.equal(subject.facts.length, 21);
     assert.deepEqual(
       selectedSets.map((set) => set.id),
@@ -509,26 +609,30 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
   const completed = await wait(accepted.importId);
   assert.equal(completed.status, 'COMPLETE', JSON.stringify(completed));
   assert.deepEqual(completed.thingIds, [accepted.thingId]);
-  assert.equal(extractions, 1);
+  assert.equal(targetExtractions, 1);
   assert.deepEqual(batches, [20, 1, 1]);
 });
 test('fact decisions and Thing values roll back together, then retry preserves selection and source', async (t) => {
-  const extract = ai.extract.bind(ai),
+  const extractTargetFacts = ai.extractTargetFacts.bind(ai),
     select = ai.selectFieldSets.bind(ai),
     map = ai.mapFacts.bind(ai);
   let selections = 0;
-  t.mock.method(ai, 'extract', async (...args: Parameters<typeof ai.extract>) => {
-    const result = await extract(...args);
-    result.extractedThings[0].facts.push({
-      id: 'fact-3',
-      label: 'Additional label marking',
-      value: 'V/C',
-      quote: 'V/C',
-      page: null,
-      sensitive: false,
-    });
-    return result;
-  });
+  t.mock.method(
+    ai,
+    'extractTargetFacts',
+    async (...args: Parameters<typeof ai.extractTargetFacts>) => {
+      const result = await extractTargetFacts(...args);
+      result[0].facts.push({
+        id: 'fact-3',
+        label: 'Additional label marking',
+        value: 'V/C',
+        quote: args[0][0].text,
+        page: null,
+        sensitive: false,
+      });
+      return result;
+    },
+  );
   t.mock.method(ai, 'selectFieldSets', async (...args: Parameters<typeof ai.selectFieldSets>) => {
     selections++;
     return select(...args);
@@ -589,22 +693,6 @@ test('arbitrary model IDs never enter storage and tool exhaustion preserves part
   assert.ok(thing.fieldSets.length);
   assert.equal(thing.customFields.length, 0);
   ai.exhaustTools = false;
-});
-test('all-existing confirmation removes untouched skeleton and redirects to selected target', async () => {
-  const existing = await create({
-    categoryId: 'appliances',
-    name: 'Existing hob',
-  });
-  const accepted = await start('two'),
-    job = await wait(accepted.importId);
-  const response = await request('POST', `/imports/${job.id}:confirm`, {
-    selections: [{ candidateId: job.candidates[0].id, targetThingId: existing.id }],
-  });
-  assert.equal(response.statusCode, 200, response.body);
-  assert.equal(response.json().thingId, existing.id);
-  assert.equal((await wait(job.id)).status, 'COMPLETE');
-  assert.equal((await request('GET', `/things/${accepted.thingId}`)).statusCode, 404);
-  assert.equal((await request('GET', `/things/${existing.id}`)).json().name, 'Existing hob');
 });
 test('SSE reconnect sends persisted snapshots, updates after commit and masks sensitive fields', async () => {
   const thing = await create({
@@ -1628,7 +1716,7 @@ test('task writes and completion checkpoint roll back together on persistence fa
   await pool.query(
     "alter table bt.events add constraint suggestion_rollback_test check (title <> 'Rollback suggestion')",
   );
-  let accepted: Schema['ImportAccepted'];
+  let accepted: Awaited<ReturnType<typeof start>>;
   try {
     accepted = await start('neff');
     const failed = await wait(accepted.importId);

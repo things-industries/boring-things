@@ -49,7 +49,7 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 
 ## Attachments
 
-- Attachments are top-level owner-scoped resources and can link to multiple Things of the same owner. Every owner upload creates a queued Import in the same database transaction. An upload with Thing context links and restricts processing to that Thing. Unlinking retains the attachment; deletion is rejected while referenced.
+- Attachments are top-level owner-scoped resources and can link to multiple Things of the same owner. Upload starts Attachment-owned transcription. `POST /api/imports` cites uploaded Attachments in one grouped Import and waits for their transcription outcomes. An Import with Thing context restricts processing to that Thing. Unlinking retains the attachment; deletion is rejected while referenced.
 - Attachments store source-wide transcription, summary, terms and status. Readable content is private; Imports retain candidates and current retry checkpoints.
 - Attachment metadata patches merge under a row lock and refresh every linked Thing. Preserve USER provenance for requests that clear metadata values; source extraction fills missing, unedited metadata; discovered PDF content can replace automated metadata. Page counts are derived from PDF bytes and are read-only.
 - A Thing image must be a linked image attachment. Private uploads stay behind authenticated API downloads and the blob adapter; never copy them into `public/`.

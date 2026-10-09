@@ -155,7 +155,7 @@ export function applyFactMapping(
       origin: 'IMPORT',
       sourceRefs: [
         {
-          attachmentId,
+          attachmentId: fact.attachmentId ?? attachmentId,
           ...(fact.page ? { page: fact.page } : {}),
           ...(fact.quote ? { quote: fact.quote } : {}),
         },

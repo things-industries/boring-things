@@ -15,6 +15,31 @@ export interface Fact {
   quote: string;
   page: number | null;
   sensitive: boolean;
+  attachmentId?: string;
+}
+
+export interface ImportIdentifier {
+  kind: string;
+  value: string;
+  attachmentId: string;
+  page: number | null;
+  quote: string;
+}
+
+export interface ImportSourceText {
+  attachmentId: string;
+  filename: string;
+  text: string;
+  summary: string | null;
+  terms: string[];
+}
+
+export interface SourceTranscription {
+  text: string;
+  summary: string | null;
+  terms: string[];
+  status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
+  metadata: Schema['AttachmentPatch'] | null;
 }
 
 export interface ExtractedThing {
@@ -22,6 +47,19 @@ export interface ExtractedThing {
   name: string;
   categoryId: string;
   terms: string[];
+  identifiers?: ImportIdentifier[];
+  sourceRefs?: { attachmentId: string; page: number | null; quote: string }[];
+  reviewRequired?: boolean;
+  possibleMatches?: string[];
+  targeted?: boolean;
+  relevantAttachmentIds?: string[];
+  linksCommitted?: boolean;
+  assessments?: {
+    attachmentId: string;
+    relevant: boolean;
+    summary: string | null;
+    terms: string[];
+  }[];
   facts: Fact[];
   mapping?: { setIds: string[]; batches: FactMapping[] };
 }
@@ -147,6 +185,25 @@ export interface DocumentExtraction {
 }
 
 export interface ImportAi {
+  transcribe?(source: Source, context: AiContext): Promise<SourceTranscription>;
+  identifyCandidates?(
+    sources: ImportSourceText[],
+    categories: string[],
+    context: AiContext,
+  ): Promise<Omit<ExtractedThing, 'id' | 'facts'>[]>;
+  extractTargetFacts?(
+    sources: ImportSourceText[],
+    thing: Pick<ExtractedThing, 'name' | 'categoryId' | 'terms' | 'identifiers'>,
+    context: AiContext,
+  ): Promise<
+    {
+      attachmentId: string;
+      relevant: boolean;
+      summary: string | null;
+      terms: string[];
+      facts: Fact[];
+    }[]
+  >;
   extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
   selectFieldSets(
     extractedThing: ExtractedThing,
@@ -183,11 +240,10 @@ export interface ImportAi {
   ): Promise<PurchasableSuggestions>;
 }
 
-// Awaiting selection still locks the Thing until the owner confirms which candidates to import.
 export const activeStatuses = [
   'QUEUED',
+  'WAITING_FOR_TRANSCRIPTION',
   'EXTRACTING',
-  'AWAITING_SELECTION',
   'MAPPING',
   'DISCOVERING',
 ];

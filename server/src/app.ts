@@ -28,6 +28,7 @@ import { Assistant } from './application/conversations/assistant.js';
 import { createAi } from './providers/ai/index.js';
 import type { ChatAi } from './application/conversations/types.js';
 import type { ImportAi } from './application/import/types.js';
+import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
 import { ApplicationEvents } from './application/events.js';
 
@@ -105,7 +106,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
       app.log.error(failure, 'Assistant response failed'),
     );
     const runner = new JobRunner(
-      [assistant, new ImportProcessor(dbPool, registry, blobs, importAi, config, events)],
+      [
+        assistant,
+        new AttachmentTranscriptionProcessor(dbPool, blobs, importAi, config, events),
+        new ImportProcessor(dbPool, registry, blobs, importAi, config, events),
+      ],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
       jobLeaseDb.jobLease(dbPool, () => {
         // Stop immediately: another instance may recover jobs after this session loses its lock.
@@ -152,6 +157,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         config,
         events,
         runner,
+        importEnabled: !!importAi,
       });
       await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
       await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });

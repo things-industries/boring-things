@@ -33,8 +33,15 @@ export async function uploadAttachment(
         storageKey: key,
         pageCount: await pdfPageCount(file.buffer, file.type),
       });
-      const accepted = await importsDb.createImport(db, owner, attachment.id, thingId);
-      return { ...attachmentsDb.publicAttachment(attachment), import: accepted };
+      if (thingId) {
+        await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+        await importsDb.assertThingEditable(db, owner, thingId);
+        await attachmentsDb.linkAttachment(db, owner, attachment.id, thingId, true);
+        await thingsDb.bumpThing(db, owner, thingId);
+      }
+      return attachmentsDb.publicAttachment(
+        await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, attachment.id),
+      );
     });
   } catch (error) {
     await blobs.remove(key).catch(() => {});
@@ -104,12 +111,20 @@ export async function setAttachmentLink(
   id: string,
   thingId: string,
   linked: boolean,
+  importEnabled = true,
 ): Promise<void> {
   await database.transaction(pool, async (db) => {
     await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
     await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
     await importsDb.assertThingEditable(db, owner, thingId);
+    const existing = await database.execute(
+      db,
+      'select 1 from bt.thing_attachments where thing_id=$1 and attachment_id=$2 and owner_id=$3',
+      [thingId, id, owner],
+    );
     await attachmentsDb.linkAttachment(db, owner, id, thingId, linked);
-    await thingsDb.bumpThing(db, owner, thingId);
+    if (linked && !existing.rowCount && importEnabled)
+      await importsDb.createImportInTransaction(db, owner, [id], thingId);
+    else await thingsDb.bumpThing(db, owner, thingId);
   });
 }

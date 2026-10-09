@@ -32,6 +32,23 @@ test('Add a Thing offers file, photo and text imports', async ({ page }) => {
   await expect(page).toHaveURL(/\/things\/new$/);
 });
 
+test('selected files become one Import after both uploads', async ({ page }) => {
+  await page.goto('/things/new');
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Files', exact: true }).click();
+  await (
+    await chooser
+  ).setFiles([
+    { name: 'plate.txt', mimeType: 'text/plain', buffer: Buffer.from('neff') },
+    { name: 'warranty.txt', mimeType: 'text/plain', buffer: Buffer.from('warranty') },
+  ]);
+  await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+  await expect(page.getByText('Import complete.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Source 1:' })).toContainText('ready');
+  await expect(page.getByRole('listitem').filter({ hasText: 'Source 2:' })).toContainText('ready');
+  await expect(page.getByRole('link', { name: 'View Thing 1', exact: true })).toBeVisible();
+});
+
 test('a manually created Thing shows in the Things list without a reload', async ({ page }) => {
   const name = `Manual hob ${Date.now()}`;
 

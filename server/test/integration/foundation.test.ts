@@ -65,6 +65,7 @@ before(async () => {
       blobDirectory: directory,
       sampleDataEnabled: true,
       maxUploadBytes: 64,
+      openaiApiKey: '',
     },
     verifyIdentity,
   });
@@ -410,8 +411,7 @@ test('shared attachments, authorized downloads, unlinking and retained-import de
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
   assert.equal(
-    (await request('PATCH', `/things/${file.import!.thingId}`, { description: 'Owner note' }))
-      .statusCode,
+    (await request('PATCH', `/things/${a.id}`, { description: 'Owner note' })).statusCode,
     200,
   );
   for (const thing of [a, b])
@@ -431,7 +431,6 @@ test('shared attachments, authorized downloads, unlinking and retained-import de
   assert.equal((await request('DELETE', `/things/${a.id}`)).statusCode, 204);
   assert.equal((await request('GET', `/attachments/${file.id}/content`)).body, 'manual');
   assert.equal((await request('DELETE', `/attachments/${file.id}/things/${b.id}`)).statusCode, 204);
-  assert.equal((await request('DELETE', `/things/${file.import!.thingId}`)).statusCode, 204);
   const owner = (await request('GET', '/profile')).json().id;
   await pool.query("insert into bt.imports(owner_id,attachment_id,status) values($1,$2,'FAILED')", [
     owner,

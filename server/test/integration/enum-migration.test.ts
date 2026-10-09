@@ -142,6 +142,7 @@ test('enum and chat migrations preserve values, receipts, defaults and in-flight
       ),
       { code: '23514' },
     );
+    await pool.query("update bt.imports set status='COMPLETE' where id=$1", [importId]);
     for (const file of files.filter((file) => file > '20260930000000_domain_enums.sql'))
       await pool.query(await readFile(new URL(file, directory), 'utf8'));
     const messages = (

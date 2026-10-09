@@ -24,11 +24,12 @@ interface Options {
   config: EnvConfig;
   events: ApplicationEvents;
   runner: JobRunner;
+  importEnabled: boolean;
 }
 
 const attachmentRoutes: FastifyPluginAsync<Options> = async (
   app,
-  { db, blobs, config, events, runner },
+  { db, blobs, config, events, runner, importEnabled },
 ) => {
   route(app, 'GET', '/api/attachments', (req) =>
     attachmentsDb.listAttachments(db, req.ownerId, req.query),
@@ -113,8 +114,16 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   });
   for (const method of ['PUT', 'DELETE'] as const)
     route(app, method, '/api/attachments/{id}/things/{thingId}', async (req, reply) => {
-      await setAttachmentLink(db, req.ownerId, req.params.id, req.params.thingId, method === 'PUT');
+      await setAttachmentLink(
+        db,
+        req.ownerId,
+        req.params.id,
+        req.params.thingId,
+        method === 'PUT',
+        importEnabled,
+      );
       events.publish({ type: 'data.changed', ownerId: req.ownerId });
+      if (method === 'PUT' && importEnabled) runner.wake();
       return reply.code(204).send();
     });
 };

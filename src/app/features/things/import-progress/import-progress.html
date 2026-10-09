@@ -13,6 +13,12 @@
         <span noticeDetail>Saved details are available to review.</span>
       </bt-notice>
     }
+    @case ('REVIEW_REQUIRED') {
+      <bt-notice tone="warning" icon="setupNotice">
+        Some possible Things need your review.
+        <span noticeDetail>Their sources have been kept.</span>
+      </bt-notice>
+    }
     @case ('COMPLETE') {}
     @default {
       <bt-notice [busy]="true">

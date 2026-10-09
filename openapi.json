@@ -907,7 +907,7 @@
       "post": {
         "operationId": "uploadAttachment",
         "summary": "Upload attachment",
-        "description": "Uploads one file and queues its Import in the same transaction. An optional Thing ID restricts processing to that Thing. The response includes the queued Import. File size, media type and content must satisfy the limits returned by getConfig.",
+        "description": "Uploads one file and queues Attachment transcription. An optional Thing ID links it to that Thing. Create an Import separately to process one or more uploaded Attachments together. File size, media type and content must satisfy the limits returned by getConfig.",
         "tags": ["Attachments"],
         "parameters": [
           {
@@ -1162,7 +1162,7 @@
       "put": {
         "operationId": "linkAttachment",
         "summary": "Link attachment",
-        "description": "Links an attachment to a Thing. Repeating an existing link succeeds. Returns 409 while the Thing has an active import.",
+        "description": "Links an Attachment and schedules a restricted Import when the link is new. Repeating an existing link succeeds. Returns 409 while the Thing has an active Import.",
         "tags": ["Attachments"],
         "parameters": [
           {
@@ -1944,58 +1944,37 @@
         ]
       }
     },
-    "/api/things:import": {
+    "/api/imports": {
       "post": {
-        "operationId": "startImport",
-        "summary": "Start import",
-        "description": "Queues document processing for an uploaded attachment and links it to the target Thing. Omitting thingId creates a placeholder Thing. Returns 409 if the target already has an active import.",
+        "operationId": "createImport",
+        "summary": "Create an Import from uploaded Attachments",
+        "description": "References one to ten owned Attachments. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.",
         "tags": ["Imports"],
-        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportStart"
-              }
+              "schema": { "$ref": "#/components/schemas/ImportSubmission" }
             }
           }
         },
         "responses": {
           "202": {
-            "description": "Success",
+            "description": "Accepted",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImportAccepted"
-                }
+                "schema": { "$ref": "#/components/schemas/ImportAccepted" }
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/InvalidInput"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/InvalidInput" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "security": [{ "bearerAuth": [] }]
       }
     },
     "/api/imports/{id}": {
@@ -2043,62 +2022,25 @@
         ]
       }
     },
-    "/api/imports/{id}:confirm": {
-      "post": {
-        "operationId": "confirmImport",
-        "summary": "Confirm import",
-        "description": "Selects detected Things to import and resumes processing. Each selection can update an existing Thing or create one. Returns 409 unless the import is awaiting selection.",
+    "/api/imports/{id}/stream": {
+      "get": {
+        "operationId": "streamImport",
+        "summary": "Stream Import progress",
+        "description": "Streams owner-scoped revisioned Import snapshots, including progress before any Thing exists.",
         "tags": ["Imports"],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/resourceId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportConfirmation"
-              }
-            }
-          }
-        },
+        "parameters": [{ "$ref": "#/components/parameters/resourceId" }],
         "responses": {
           "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Import"
-                }
-              }
-            }
+            "description": "Import snapshots; event: import.snapshot; id: revision.",
+            "content": { "text/event-stream": { "schema": { "type": "string" } } }
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/InvalidInput"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/InvalidInput" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "security": [{ "bearerAuth": [] }]
       }
     },
     "/api/imports/{id}:retry": {
@@ -3113,6 +3055,9 @@
             "required": [
               "id",
               "attachmentId",
+              "attachmentIds",
+              "revision",
+              "sources",
               "thingId",
               "status",
               "candidates",
@@ -3128,6 +3073,15 @@
               "attachmentId": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "attachmentIds": {
+                "type": "array",
+                "items": { "type": "string", "format": "uuid" }
+              },
+              "revision": { "type": "integer", "minimum": 1 },
+              "sources": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ImportSourceStatus" }
               },
               "thingId": {
                 "type": ["string", "null"],
@@ -3397,7 +3351,7 @@
       },
       "Attachment": {
         "type": "object",
-        "description": "File metadata, document properties and IDs of linked Things. Upload responses also include the queued Import.",
+        "description": "File metadata, document properties and IDs of linked Things. Transcription starts after upload.",
         "required": [
           "id",
           "filename",
@@ -3479,9 +3433,6 @@
           },
           "metadataSources": {
             "$ref": "#/components/schemas/AttachmentMetadataSources"
-          },
-          "import": {
-            "$ref": "#/components/schemas/ImportAccepted"
           }
         },
         "additionalProperties": false
@@ -4132,9 +4083,30 @@
             "type": "string",
             "maxLength": 200,
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "reviewRequired": {
+            "type": "boolean",
+            "description": "Owner resolution is required before this candidate can receive fields."
+          },
+          "possibleMatches": {
+            "type": "array",
+            "description": "Owned Thing IDs with ambiguous instance evidence.",
+            "items": { "type": "string", "format": "uuid" }
           }
         },
         "additionalProperties": false
+      },
+      "ImportSourceStatus": {
+        "type": "object",
+        "description": "Transcription progress of an Attachment cited by an Import.",
+        "required": ["attachmentId", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "attachmentId": { "type": "string", "format": "uuid" },
+          "status": {
+            "$ref": "#/components/schemas/AttachmentTranscriptionStatusEnum"
+          }
+        }
       },
       "ImportUsage": {
         "type": "object",
@@ -4202,6 +4174,9 @@
         "required": [
           "id",
           "attachmentId",
+          "attachmentIds",
+          "revision",
+          "sources",
           "thingId",
           "status",
           "candidates",
@@ -4217,6 +4192,21 @@
           "attachmentId": {
             "type": "string",
             "format": "uuid"
+          },
+          "attachmentIds": {
+            "type": "array",
+            "description": "Uploaded Attachments cited by this Import, in submission order.",
+            "items": { "type": "string", "format": "uuid" }
+          },
+          "revision": {
+            "type": "integer",
+            "description": "Persisted revision for progress streams.",
+            "minimum": 1
+          },
+          "sources": {
+            "type": "array",
+            "description": "Current transcription outcomes for referenced Attachments.",
+            "items": { "$ref": "#/components/schemas/ImportSourceStatus" }
           },
           "thingId": {
             "type": ["string", "null"],
@@ -4254,67 +4244,37 @@
         },
         "additionalProperties": false
       },
-      "ImportStart": {
+      "ImportSubmission": {
         "type": "object",
-        "description": "Attachment to process and an optional existing Thing to update.",
-        "required": ["attachmentId"],
+        "description": "Owned uploaded Attachments to process together, with optional sole Thing context.",
+        "additionalProperties": false,
+        "required": ["attachmentIds"],
         "properties": {
-          "attachmentId": {
-            "type": "string",
-            "format": "uuid"
+          "attachmentIds": {
+            "type": "array",
+            "description": "One to ten distinct owned Attachment IDs in source order.",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": { "type": "string", "format": "uuid" }
           },
           "thingId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Owned Thing receiving relevant evidence; omitted for open identification."
           }
-        },
-        "additionalProperties": false
+        }
       },
       "ImportAccepted": {
         "type": "object",
-        "description": "Queued import ID, target Thing ID and initial status.",
+        "description": "Accepted Import with optional Thing context.",
         "required": ["importId", "thingId", "status"],
+        "additionalProperties": false,
         "properties": {
-          "importId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "thingId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "$ref": "#/components/schemas/ImportStatusEnum"
-          }
-        },
-        "additionalProperties": false
-      },
-      "ImportConfirmation": {
-        "type": "object",
-        "description": "Detected candidates selected for import. Each targetThingId identifies an existing Thing or is null to create one.",
-        "required": ["selections"],
-        "properties": {
-          "selections": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["candidateId", "targetThingId"],
-              "properties": {
-                "candidateId": {
-                  "type": "string"
-                },
-                "targetThingId": {
-                  "type": ["string", "null"],
-                  "format": "uuid"
-                }
-              },
-              "additionalProperties": false
-            },
-            "minItems": 1,
-            "maxItems": 10
-          }
-        },
-        "additionalProperties": false
+          "importId": { "type": "string", "format": "uuid" },
+          "thingId": { "type": ["string", "null"], "format": "uuid" },
+          "status": { "$ref": "#/components/schemas/ImportStatusEnum" }
+        }
       },
       "ResourceCard": {
         "description": "Reference to a Thing, field, attachment, issue, event or product suggestion. Availability indicates whether the referenced record can still be accessed.",
@@ -4726,13 +4686,28 @@
         "description": "Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.",
         "enum": [
           "QUEUED",
+          "WAITING_FOR_TRANSCRIPTION",
           "EXTRACTING",
-          "AWAITING_SELECTION",
           "MAPPING",
           "DISCOVERING",
+          "REVIEW_REQUIRED",
           "COMPLETE",
           "INCOMPLETE",
           "FAILED"
+        ]
+      },
+      "AttachmentTranscriptionStatusEnum": {
+        "type": "string",
+        "description": "Readable-content preparation state of an Attachment.",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "COMPLETE",
+          "EMPTY",
+          "PARTIAL",
+          "SKIPPED",
+          "FAILED",
+          "INSUFFICIENT_LANGUAGE"
         ]
       },
       "MessageRoleEnum": {

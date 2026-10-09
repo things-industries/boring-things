@@ -102,6 +102,31 @@ export async function saveTranscription(
   );
 }
 
+// Claims one persisted upload for the shared runner.
+export async function claimPendingTranscription(
+  db: Database,
+): Promise<{ file: AttachmentRow; ownerId: string } | undefined> {
+  const [row] = await database.rows<{ id: string; ownerId: string }>(
+    db,
+    `select a.id,a.owner_id from bt.attachments a where a.transcription_status='PENDING'
+     order by a.created_at,a.id limit 1 for update of a skip locked`,
+  );
+  if (!row) return undefined;
+  await database.execute(
+    db,
+    "update bt.attachments set transcription_status='PROCESSING' where id=$1 and owner_id=$2",
+    [row.id, row.ownerId],
+  );
+  return { file: await getOwnedAttachmentOrThrow(db, row.ownerId, row.id), ownerId: row.ownerId };
+}
+
+export async function recoverTranscriptions(db: Database): Promise<void> {
+  await database.execute(
+    db,
+    "update bt.attachments set transcription_status='PENDING' where transcription_status='PROCESSING' and transcription_completed_at is null",
+  );
+}
+
 // Records failures only when the current source has no completed transcription.
 export async function setTranscriptionStatus(
   db: Database,
@@ -145,6 +170,11 @@ export async function deleteAttachment(
 ): Promise<void> {
   ensure(
     file.thingIds.length === 0 &&
+      !(
+        await database.execute(db, 'select 1 from bt.import_sources where attachment_id=$1', [
+          file.id,
+        ])
+      ).rowCount &&
       !(await database.execute(db, 'select 1 from bt.imports where attachment_id=$1', [file.id]))
         .rowCount,
     'Attachment is still referenced',

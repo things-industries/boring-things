@@ -1,0 +1,98 @@
+<bt-top-bar back="/" />
+<bt-scroll-container>
+  <main class="import-page">
+    <h1>Import progress</h1>
+    @if (loading() && !job()) {
+      <bt-notice [busy]="true">Loading import…</bt-notice>
+    } @else if (error() && !job()) {
+      <bt-notice tone="warning">The import could not be loaded.</bt-notice>
+      <button class="button-secondary" type="button" (click)="load()">Retry</button>
+    } @else if (job(); as current) {
+      @switch (current.status) {
+        @case ('WAITING_FOR_TRANSCRIPTION') {
+          <bt-notice [busy]="true">Reading {{ current.attachmentIds.length }} source(s)…</bt-notice>
+        }
+        @case ('REVIEW_REQUIRED') {
+          <bt-notice tone="warning"
+            >Some possible Things need your review. Their sources have been kept.</bt-notice
+          >
+        }
+        @case ('FAILED') {
+          <bt-notice tone="warning"
+            >The import could not finish. Your sources have been kept.</bt-notice
+          >
+        }
+        @case ('INCOMPLETE') {
+          <bt-notice tone="warning"
+            >Some processing could not finish. Saved details are available.</bt-notice
+          >
+        }
+        @case ('COMPLETE') {
+          <bt-notice>Import complete.</bt-notice>
+        }
+        @default {
+          <bt-notice [busy]="true">Processing your sources…</bt-notice>
+        }
+      }
+      @if (current.sources.length) {
+        <h2>Sources</h2>
+        <ul>
+          @for (source of current.sources; track source.attachmentId; let index = $index) {
+            <li>
+              Source {{ index + 1 }}:
+              @switch (source.status) {
+                @case ('PENDING') {
+                  waiting to be read
+                }
+                @case ('PROCESSING') {
+                  being read
+                }
+                @case ('COMPLETE') {
+                  ready
+                }
+                @case ('PARTIAL') {
+                  partly readable
+                }
+                @case ('EMPTY') {
+                  no readable content
+                }
+                @case ('INSUFFICIENT_LANGUAGE') {
+                  no usable English content
+                }
+                @case ('FAILED') {
+                  could not be read
+                }
+                @case ('SKIPPED') {
+                  skipped
+                }
+              }
+            </li>
+          }
+        </ul>
+      }
+      @if (current.thingIds.length) {
+        <h2>Things</h2>
+        <ul>
+          @for (thingId of current.thingIds; track thingId; let index = $index) {
+            <li>
+              <a [routerLink]="['/things', thingId]">View Thing {{ index + 1 }}</a>
+            </li>
+          }
+        </ul>
+      }
+      @if (reviewCandidates().length) {
+        <h2>Needs review</h2>
+        <ul>
+          @for (candidate of reviewCandidates(); track candidate.id) {
+            <li>{{ candidate.name }}</li>
+          }
+        </ul>
+      }
+      @if (current.status === 'FAILED' || current.status === 'INCOMPLETE') {
+        <button class="button-secondary" type="button" [disabled]="busy()" (click)="retry()">
+          Retry import
+        </button>
+      }
+    }
+  </main>
+</bt-scroll-container>

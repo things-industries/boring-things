@@ -1,5 +1,6 @@
 import * as attachmentsDb from '../../db/entities/attachments.js';
 import * as registryDb from '../../db/entities/registry.js';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Runs persisted import and assistant jobs in one process, coordinating bounded AI work,
@@ -12,9 +13,16 @@ import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type { ApplicationEvents } from '../events.js';
-import type { AiContext, ExtractedThing, ImportAi, RegistryTools, Usage } from './types.js';
+import type {
+  AiContext,
+  ExtractedThing,
+  ImportAi,
+  ImportSourceText,
+  RegistryTools,
+  Usage,
+} from './types.js';
 import { blankUsage } from './types.js';
-import { applyFactMapping, applySelectedSets, validateExtraction } from './mapping.js';
+import { applyFactMapping, applySelectedSets } from './mapping.js';
 import { searchFieldSets, searchFields } from '../registry/search.js';
 import { ensure } from '../errors.js';
 import * as database from '../../db/connection.js';
@@ -27,8 +35,9 @@ import { publicFields } from '../public-fields.js';
 import * as activityDb from '../../db/entities/activity.js';
 import * as purchasablesDb from '../../db/entities/purchasables.js';
 import type { TaskSuggestions, PurchasableSuggestions } from './types.js';
-import { updateAttachmentMetadata } from '../attachments.js';
-import { pdfPageCount } from '../../lib/pdf.js';
+import { schemaValidator } from '../../contracts/schemas.js';
+
+const validValue = schemaValidator('Value');
 
 export class ImportProcessor {
   constructor(
@@ -58,7 +67,7 @@ export class ImportProcessor {
   }
 
   private async run(initial: ImportRow, shutdown: AbortSignal) {
-    let job = initial;
+    const job = initial;
     const started = Date.now();
     const usage: Usage = job.usage ?? blankUsage(this.config.openaiModel);
     const previousElapsed = usage.elapsedMs;
@@ -87,143 +96,8 @@ export class ImportProcessor {
     try {
       if (!(await importsDb.markImportStarted(this.pool, job))) return;
 
-      if (!job.extraction) {
-        await this.status(job, 'EXTRACTING');
-        const file = await attachmentsDb.getOwnedAttachmentOrThrow(
-          this.pool,
-          job.ownerId,
-          job.attachmentId,
-        );
-        await attachmentsDb.setTranscriptionStatus(this.pool, job.ownerId, file.id, 'PROCESSING');
-        const chunks: Buffer[] = [];
-
-        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
-          signal.throwIfAborted();
-          chunks.push(Buffer.from(chunk));
-        }
-
-        const categories = await registryDb.listCategoryIds(this.pool);
-        const extraction = validateExtraction(
-          await awaitWithSignal(
-            this.ai!.extract(
-              {
-                ...file,
-                content: Buffer.concat(chunks),
-                ...(file.transcriptionStatus === 'COMPLETE' && file.transcription
-                  ? { text: file.transcription }
-                  : {}),
-              },
-              categories,
-              context,
-            ),
-            signal,
-          ),
-          categories,
-        );
-        signal.throwIfAborted();
-        // Preserve the literal text input too, even if the model omitted part of it.
-        if (file.mediaType === 'text/plain')
-          extraction.text = Buffer.concat(chunks).toString('utf8');
-        const pageCount =
-          file.pageCount ?? (await pdfPageCount(Buffer.concat(chunks), file.mediaType, signal));
-        signal.throwIfAborted();
-        await database.transaction(this.pool, async (db) => {
-          if (file.transcriptionCompletedAt === null)
-            await attachmentsDb.saveTranscription(db, job.ownerId, file.id, {
-              text:
-                extraction.transcriptionStatus === 'INSUFFICIENT_LANGUAGE' ? '' : extraction.text,
-              summary: extraction.summary ?? null,
-              terms: extraction.terms ?? [],
-              status: extraction.transcriptionStatus ?? 'EMPTY',
-            });
-          await importsDb.saveExtraction(db, job, extraction);
-          if (extraction.metadata || pageCount !== null)
-            await updateAttachmentMetadata(
-              db,
-              job.ownerId,
-              file.id,
-              extraction.metadata ?? { title: null },
-              {
-                origin: 'IMPORT',
-                sourceRefs: [{ attachmentId: file.id }],
-              },
-              pageCount,
-            );
-        });
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-        job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
-      }
-
-      if (job.extraction?.extractedThings.length === 0) {
-        throw new Error('no_thing_identified');
-      }
-
-      if (!job.selection) {
-        if (job.extraction!.extractedThings.length > 1) {
-          await this.status(job, 'AWAITING_SELECTION');
-          return;
-        }
-
-        await database.transaction(this.pool, async (db) => {
-          const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
-            lock: true,
-          });
-          await importsDb.allocateTargets(db, current, [
-            {
-              candidateId: current.extraction!.extractedThings[0].id,
-              targetThingId: current.skeletonId ? null : current.targetThingId,
-            },
-          ]);
-        });
-        job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
-      }
-
-      const selected = await importsDb.listImportTargets(this.pool, job);
-      ensure(selected.length === job.selection!.length, 'Import target no longer exists');
-
-      for (const target of selected) {
-        const subject = job.extraction!.extractedThings.find((c) => c.id === target.candidateId)!;
-
-        if (!target.mapped) {
-          await this.status(job, 'MAPPING');
-          await this.map(job, target, subject, context);
-        }
-      }
-
-      // Discovery has its own budget, after all extracted data is usable.
-      for (const target of await importsDb.listImportTargets(this.pool, job)) {
-        if (target.discovered) continue;
-        await this.status(job, 'DISCOVERING');
-        await researchThing(
-          this.pool,
-          this.registry,
-          this.blobs,
-          this.ai!,
-          this.events,
-          job,
-          target,
-          { signal: shutdown, record },
-          {
-            maxBytes: this.config.maxUploadBytes,
-            searchCalls: this.config.discoverySearchCalls,
-            timeoutMs: this.config.discoveryTimeoutMs,
-          },
-        );
-      }
-
-      for (const target of await importsDb.listImportTargets(this.pool, job)) {
-        await this.status(job, 'DISCOVERING');
-        await this.researchSuggestions(job, target, { signal: shutdown, record });
-      }
-
-      await this.status(job, 'COMPLETE');
+      await this.runImport(job, context, shutdown, record);
     } catch (error) {
-      await attachmentsDb.setTranscriptionStatus(
-        this.pool,
-        job.ownerId,
-        job.attachmentId,
-        'FAILED',
-      );
       const hasResults =
         (await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id)).resultThingIds
           .length > 0;
@@ -233,14 +107,261 @@ export class ImportProcessor {
           ? 'timeout'
           : error instanceof Error && error.message === 'no_thing_identified'
             ? 'no_thing_identified'
-            : error instanceof Error && error.message === 'tool_limit'
-              ? 'tool_limit'
-              : 'import_failed';
+            : error instanceof Error && error.message === 'no_readable_sources'
+              ? 'no_readable_sources'
+              : error instanceof Error && error.message === 'tool_limit'
+                ? 'tool_limit'
+                : 'import_failed';
       await this.status(job, hasResults ? 'INCOMPLETE' : 'FAILED', code);
     } finally {
       await record({});
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     }
+  }
+
+  private async runImport(
+    initial: ImportRow,
+    context: AiContext,
+    shutdown: AbortSignal,
+    record: AiContext['record'],
+  ) {
+    let job = initial;
+    const sources = await importsDb.listImportSources(this.pool, job);
+    const usable = sources.filter(
+      (file) =>
+        ['COMPLETE', 'PARTIAL'].includes(file.transcriptionStatus) && !!file.transcription?.trim(),
+    );
+    if (!usable.length && !(job.extraction && job.candidatesAllocated)) {
+      if (sources.some((file) => file.transcriptionStatus === 'FAILED'))
+        throw new Error('no_readable_sources');
+      await this.status(job, 'COMPLETE');
+      return;
+    }
+    const sourceTexts: ImportSourceText[] = usable.map((file) => ({
+      attachmentId: file.id,
+      filename: file.filename,
+      text: file.transcription!,
+      summary: file.transcriptionSummary,
+      terms: file.transcriptionTerms,
+    }));
+    const byId = new Map(sourceTexts.map((source) => [source.attachmentId, source]));
+    if (!job.extraction) {
+      await this.status(job, 'EXTRACTING');
+      if (job.targetThingId) {
+        await database.transaction(this.pool, async (db) => {
+          const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
+            lock: true,
+          });
+          await importsDb.allocateTarget(db, current);
+        });
+      } else {
+        ensure(this.ai?.identifyCandidates, 'Open extraction is unavailable');
+        const categories = await registryDb.listCategoryIds(this.pool);
+        const proposed = await awaitWithSignal(
+          this.ai.identifyCandidates(sourceTexts, categories, context),
+          context.signal,
+        );
+        ensure(Array.isArray(proposed) && proposed.length <= 10, 'Invalid candidates');
+        const candidates: ExtractedThing[] = proposed.map((entry) => {
+          ensure(
+            entry.name?.trim() &&
+              entry.name.length <= 200 &&
+              categories.includes(entry.categoryId) &&
+              Array.isArray(entry.terms) &&
+              entry.terms.length <= 20 &&
+              entry.terms.every((term) => typeof term === 'string' && term.length <= 200) &&
+              Array.isArray(entry.identifiers) &&
+              Array.isArray(entry.sourceRefs),
+            'Invalid candidate identity',
+          );
+          for (const evidence of [...entry.identifiers, ...entry.sourceRefs]) {
+            const source = byId.get(evidence.attachmentId);
+            ensure(
+              source &&
+                typeof evidence.quote === 'string' &&
+                evidence.quote.length <= 2000 &&
+                source.text.includes(evidence.quote) &&
+                (evidence.page === null || (Number.isInteger(evidence.page) && evidence.page > 0)),
+              'Invalid candidate source evidence',
+            );
+          }
+          for (const identifier of entry.identifiers)
+            ensure(
+              typeof identifier.kind === 'string' &&
+                typeof identifier.value === 'string' &&
+                identifier.value.length > 0,
+              'Invalid candidate identifier',
+            );
+          return { ...entry, id: randomUUID(), facts: [] };
+        });
+        context.signal.throwIfAborted();
+        await database.transaction(this.pool, async (db) => {
+          const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
+            lock: true,
+          });
+          await importsDb.saveExtraction(db, current, { text: '', extractedThings: candidates });
+        });
+      }
+      job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+    }
+
+    if (!job.candidatesAllocated) {
+      await database.transaction(this.pool, async (db) => {
+        const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
+          lock: true,
+        });
+        await importsDb.allocateCandidates(db, current, current.extraction!.extractedThings);
+      });
+      job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+    }
+
+    for (const target of await importsDb.listImportTargets(this.pool, job)) {
+      let candidate = job.extraction!.extractedThings.find(
+        (entry) => entry.id === target.candidateId,
+      )!;
+      if (!candidate.targeted) {
+        ensure(this.ai?.extractTargetFacts, 'Targeted extraction is unavailable');
+        const assessed = await awaitWithSignal(
+          this.ai.extractTargetFacts(sourceTexts, candidate, context),
+          context.signal,
+        );
+        ensure(
+          assessed.length === sourceTexts.length &&
+            new Set(assessed.map((entry) => entry.attachmentId)).size === assessed.length,
+          'Incomplete source assessment',
+        );
+        const facts: ExtractedThing['facts'] = [];
+        for (const assessment of assessed) {
+          const source = byId.get(assessment.attachmentId);
+          ensure(
+            source &&
+              Array.isArray(assessment.facts) &&
+              (assessment.summary === null ||
+                (typeof assessment.summary === 'string' && assessment.summary.length <= 2000)) &&
+              Array.isArray(assessment.terms) &&
+              assessment.terms.length <= 20 &&
+              assessment.terms.every((term) => typeof term === 'string' && term.length <= 200),
+            'Invalid source assessment',
+          );
+          ensure(assessment.relevant || assessment.facts.length === 0, 'Unrelated source facts');
+          for (const fact of assessment.facts) {
+            ensure(
+              typeof fact.label === 'string' &&
+                fact.label.length > 0 &&
+                fact.label.length <= 200 &&
+                validValue(fact.value) &&
+                typeof fact.quote === 'string' &&
+                fact.quote.length <= 2000 &&
+                source.text.includes(fact.quote) &&
+                typeof fact.sensitive === 'boolean' &&
+                (fact.page === null || (Number.isInteger(fact.page) && fact.page > 0)),
+              'Invalid targeted fact',
+            );
+            facts.push({
+              ...fact,
+              id: `fact-${facts.length + 1}`,
+              attachmentId: source.attachmentId,
+            });
+          }
+        }
+        ensure(facts.length <= 200, 'Too many targeted facts');
+        const relevantIds = assessed
+          .filter((entry) => entry.relevant)
+          .map((entry) => entry.attachmentId);
+        context.signal.throwIfAborted();
+        await database.transaction(this.pool, async (db) => {
+          const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
+            lock: true,
+          });
+          const extraction = current.extraction!;
+          await importsDb.saveExtraction(db, current, {
+            ...extraction,
+            extractedThings: extraction.extractedThings.map((entry) =>
+              entry.id === candidate.id
+                ? {
+                    ...entry,
+                    targeted: true,
+                    facts,
+                    relevantAttachmentIds: relevantIds,
+                    terms: [
+                      ...new Set([
+                        ...entry.terms,
+                        ...assessed.filter((item) => item.relevant).flatMap((item) => item.terms),
+                        ...sourceTexts
+                          .filter((source) => relevantIds.includes(source.attachmentId))
+                          .flatMap((source) => source.terms),
+                        ...entry.name.split(/\s+/).filter((term) => term.length >= 3),
+                      ]),
+                    ].slice(0, 20),
+                    assessments: assessed.map(({ attachmentId, relevant, summary, terms }) => ({
+                      attachmentId,
+                      relevant,
+                      summary,
+                      terms,
+                    })),
+                  }
+                : entry,
+            ),
+          });
+        });
+        job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+        candidate = job.extraction!.extractedThings.find(
+          (entry) => entry.id === target.candidateId,
+        )!;
+      }
+      if (!candidate.linksCommitted) {
+        await database.transaction(this.pool, async (db) => {
+          const current = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id, {
+            lock: true,
+          });
+          for (const attachmentId of candidate.relevantAttachmentIds ?? [])
+            await attachmentsDb.linkAttachment(db, job.ownerId, attachmentId, target.thingId, true);
+          await importsDb.saveExtraction(db, current, {
+            ...current.extraction!,
+            extractedThings: current.extraction!.extractedThings.map((entry) =>
+              entry.id === candidate.id ? { ...entry, linksCommitted: true } : entry,
+            ),
+          });
+          await thingsDb.bumpThing(db, job.ownerId, target.thingId);
+        });
+        job = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+        candidate = job.extraction!.extractedThings.find(
+          (entry) => entry.id === target.candidateId,
+        )!;
+      }
+      if (!target.mapped) {
+        await this.status(job, 'MAPPING');
+        await this.map(job, target, candidate, context);
+      }
+    }
+
+    for (const target of await importsDb.listImportTargets(this.pool, job)) {
+      if (target.discovered) continue;
+      await this.status(job, 'DISCOVERING');
+      await researchThing(
+        this.pool,
+        this.registry,
+        this.blobs,
+        this.ai!,
+        this.events,
+        job,
+        target,
+        { signal: shutdown, record },
+        {
+          maxBytes: this.config.maxUploadBytes,
+          searchCalls: this.config.discoverySearchCalls,
+          timeoutMs: this.config.discoveryTimeoutMs,
+        },
+      );
+    }
+    for (const target of await importsDb.listImportTargets(this.pool, job))
+      await this.researchSuggestions(job, target, { signal: shutdown, record });
+    await this.status(
+      job,
+      job.extraction!.extractedThings.some((candidate) => candidate.reviewRequired)
+        ? 'REVIEW_REQUIRED'
+        : 'COMPLETE',
+    );
   }
 
   private async researchSuggestions(job: ImportRow, target: ImportDestination, context: AiContext) {

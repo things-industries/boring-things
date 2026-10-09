@@ -111,9 +111,9 @@ try {
   assert.equal(upload.statusCode, 201, upload.body);
   const start = await app.inject({
     method: 'POST',
-    url: '/api/things:import',
+    url: '/api/imports',
     headers,
-    payload: { attachmentId: upload.json().id },
+    payload: { attachmentIds: [upload.json().id] },
   });
   assert.equal(start.statusCode, 202, start.body);
   const accepted = start.json<Schema['ImportAccepted']>();
@@ -132,21 +132,7 @@ try {
       console.log({ status: job!.status, elapsedMs: job!.usage.elapsedMs });
       previous = job!.status;
     }
-    if (job!.status === 'AWAITING_SELECTION') {
-      assert.equal(job!.candidates.length, 3);
-      const confirm: { statusCode: number; body: string } = await app.inject({
-        method: 'POST',
-        url: `/api/imports/${job!.id}:confirm`,
-        headers,
-        payload: {
-          selections: job!.candidates.map((c) => ({
-            candidateId: c.id,
-            targetThingId: null,
-          })),
-        },
-      });
-      assert.equal(confirm.statusCode, 200, confirm.body);
-    } else if (['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(job!.status)) break;
+    if (['COMPLETE', 'INCOMPLETE', 'FAILED', 'REVIEW_REQUIRED'].includes(job!.status)) break;
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   const things = await Promise.all(

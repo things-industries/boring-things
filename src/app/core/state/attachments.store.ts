@@ -34,7 +34,7 @@ export const AttachmentsStore = signalStore(
   })),
 
   withMethods((store) => ({
-    /** Uploads a file with open or Thing-specific Import intent. */
+    /** Uploads a file and starts its independent transcription. */
     async upload(file: File, thingId?: string) {
       if (file.size > store._config.maxUploadBytes) {
         store._toasts.error('uploadFile', 'too-large');
@@ -46,8 +46,7 @@ export const AttachmentsStore = signalStore(
       });
 
       if (result.ok) {
-        const { import: _queued, ...attachment } = result.value;
-        store.setConfirmed(attachment.id, attachment);
+        store.setConfirmed(result.value.id, result.value);
       }
       return result;
     },

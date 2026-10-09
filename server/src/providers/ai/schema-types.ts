@@ -6,6 +6,108 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Readable content and metadata of one Attachment. */
+        Transcription: {
+            /** @description Page-labelled English transcription and relevant visual descriptions. */
+            text: string;
+            /** @description Source-wide summary, or null when unreadable. */
+            summary: string | null;
+            /** @description Source-wide terms without private identifiers. */
+            terms: string[];
+            /**
+             * @description Outcome of reading the source.
+             * @enum {string}
+             */
+            status: "COMPLETE" | "EMPTY" | "PARTIAL" | "INSUFFICIENT_LANGUAGE";
+            /** @description Source display metadata. */
+            metadata: {
+                /** @description Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
+                title: string | null;
+                /**
+                 * @description Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown.
+                 * @enum {string|null}
+                 */
+                documentType: "MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER" | null;
+                /** @description Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars). */
+                publisher: string | null;
+                /**
+                 * Format: date
+                 * @description Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date.
+                 */
+                documentDate: string | null;
+            } | null;
+        };
+        /** @description Possible Things identified from a group of transcribed Attachments. */
+        OpenCandidates: {
+            /** @description Up to ten owned Thing instances evidenced by the source group. Manuals and product lists alone do not establish ownership. */
+            candidates: {
+                /** @description Short name without individual identifiers. */
+                name: string;
+                /** @description Category ID copied from the supplied category list. */
+                categoryId: string;
+                /** @description Terms specific to this candidate. */
+                terms: string[];
+                /** @description Identity attributes supported by a passage, retaining leading zeroes. */
+                identifiers: {
+                    /** @description Identifier kind such as serial, policy, account or model. */
+                    kind: string;
+                    /** @description Identifier copied as text, including leading zeroes. */
+                    value: string;
+                    /** @description ID of the source containing the identifier. */
+                    attachmentId: string;
+                    /** @description One-based source page, or null when unavailable. */
+                    page: number | null;
+                    /** @description Source passage supporting this identifier. */
+                    quote: string;
+                }[];
+                /** @description Passages identifying this candidate. */
+                sourceRefs: {
+                    /** @description Source Attachment ID. */
+                    attachmentId: string;
+                    /** @description One-based source page, or null when unavailable. */
+                    page: number | null;
+                    /** @description Passage supporting this candidate. */
+                    quote: string;
+                }[];
+            }[];
+        };
+        /** @description Relevance and source-supported facts for one resolved Thing. */
+        TargetedFacts: {
+            /** @description One assessment for each supplied Attachment. */
+            sources: {
+                /** @description ID of the assessed Attachment. */
+                attachmentId: string;
+                /** @description Whether the source applies to this Thing. */
+                relevant: boolean;
+                /** @description Thing-specific source summary, or null when irrelevant. */
+                summary: string | null;
+                /** @description Thing-specific terms from relevant passages. */
+                terms: string[];
+                /** @description Up to 100 facts supported by relevant source passages. */
+                facts: {
+                    /** @description Identifier unique among this source's facts. */
+                    id: string;
+                    /** @description Attribute label. */
+                    label: string;
+                    /** @description Source-supported value. */
+                    value: string | number | boolean | {
+                        /** @description Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero. */
+                        amountMinor: number;
+                        /**
+                         * @description ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent.
+                         * @enum {string}
+                         */
+                        currency: "GBP" | "EUR" | "USD";
+                    };
+                    /** @description Supporting source passage. */
+                    quote: string;
+                    /** @description One-based source page, or null when unavailable. */
+                    page: number | null;
+                    /** @description Whether the value is a secret requiring masking. */
+                    sensitive: boolean;
+                }[];
+            }[];
+        };
         /** @description Transcription, document metadata and source-supported Things extracted from the uploaded material. */
         Extraction: {
             /** @description Display metadata for the uploaded source, including a descriptive title for photographs and notes. */

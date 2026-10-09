@@ -1,6 +1,6 @@
 # Attachment transcription and Thing processing
 
-Status: Attachment transcription and upload Import intent implemented; later stages planned.
+Status: Attachment transcription and Import processing implemented on this branch; shared public resources and owner candidate resolution remain planned.
 
 This plan defines reusable Attachment transcription, owner-scoped Import processing and shared public reference Attachments. The [import guide](../setup/imports.md) describes current behaviour. The [backend conventions](../../server/AGENTS.md#ai-imports-and-assistant-work) describe implementation boundaries. Preserve source evidence, sensitivity, fieldset context, owner edits and retry checkpoints.
 
@@ -27,7 +27,7 @@ An Attachment owns source-wide transcription, summary and optional terms. An Imp
 
 A saved public resource is an Attachment with a source URL and verified public provenance. An uploaded Attachment has no source URL. Shared access depends on verified public origin and an authorised Thing link, not on the URL alone. The same transcription, targeted extraction and mapping operations process uploads and resources.
 
-An Attachment submission supplies one or more inputs and creates Import intent for their group or specified Thing. Direct Thing creation creates a zero-input Import with that Thing context. Zero inputs require Thing context. Every resolved Thing proceeds through fieldset selection and eligible mapping, including conditional API lookups, then Enrichment. Discovery and Recommendation run automatically for new and existing Things.
+The frontend uploads each Attachment independently, then creates one Import citing one to ten Attachment IDs and optionally one Thing ID. Each Attachment starts transcription after upload. The Import waits for every cited transcription to finish, then interprets the sources as a group. Direct Thing creation will create a zero-input Import with that Thing context in stage 3. Every resolved Thing proceeds through fieldset selection and mapping, then the current Discovery and Recommendation operations.
 
 Plan application terminology as `ThingCandidate` and `thingCandidates`. Current code uses `ExtractedThing` and `extractedThings`, while provider and persistence data use `candidates`; migrate these together with the workflow. Identifiers remain strings, including leading zeroes. Candidate IDs are server-generated UUIDs. Attachments, pages and quotes identify the evidence for candidate identity and Thing fields.
 
@@ -73,12 +73,15 @@ The Import's Attachment list records each source ID. Access and deletion-referen
 
 ## Process flow
 
-Owner uploads create an open Import for their group or an Import restricted to one Thing. Discovery adds verified public resource Attachments to the same Import with the Thing already known. Each resolved Thing proceeds through its stages independently.
+Owner uploads start Attachment transcription. The frontend then creates an open Import for the group or an Import restricted to one Thing. The Import waits for transcription outcomes before processing the group. Discovery will add verified public resource Attachments to the same Import with the Thing already known in stage 3. Each resolved Thing proceeds through its stages independently.
 
 ```mermaid
 flowchart TD
-    Upload["Upload one or more owner Attachments"] --> Prepare["Prepare or reuse each Attachment transcription, summary and terms"]
-    Prepare --> Context{"Thing context supplied?"}
+    Upload["Upload one or more owner Attachments"] --> Prepare["Start each Attachment transcription"]
+    Upload --> Submit["Create one Import citing Attachment IDs"]
+    Prepare --> Wait["Wait for every cited transcription outcome"]
+    Submit --> Wait
+    Wait --> Context{"Thing context supplied?"}
     Context -->|"No"| Open["Open extraction: identify candidates across the group"]
     Open --> Resolve["Match candidates to owned Things or create Things"]
     Resolve -->|"Unambiguous"| Target["Process one resolved Thing"]
@@ -184,29 +187,29 @@ Acceptance: a data-plate photo creates an oven Thing; Discovery finds and verifi
 
 Author changes in `openapi.json` during implementation and regenerate `shared/api.ts`.
 
-| Operation                                     | Purpose                                                                                                                                                     |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/imports`                           | Submit bounded Attachment inputs and optional single Thing context, including zero-input refreshes of an owned Thing; return 202 with Import ID and status. |
-| `POST /api/attachments/{attachmentId}:import` | Reprocess one Attachment through an open or Thing-context Import.                                                                                           |
-| `PUT /api/attachments/{id}/things/{thingId}`  | Retain the link response contract; schedule processing restricted to that Thing.                                                                            |
-| `GET /api/imports/{id}`                       | Return status, candidate summaries and review-required stubs, Thing IDs, targeted outcomes, warnings, errors and usage.                                     |
-| `GET /api/imports/{id}/stream`                | Authenticated, revisioned progress before and after Thing creation.                                                                                         |
-| `GET /api/things/{thingId}/stream`            | Project the associated Import stages onto progressive Thing updates.                                                                                        |
-| `POST /api/imports/{id}:retry`                | Resume eligible work using saved Thing allocations and checkpoints.                                                                                         |
+| Operation                                     | Purpose                                                                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/imports`                           | Cite one to ten uploaded Attachment IDs and optional single Thing context; return 202 with Import ID and waiting status. |
+| `POST /api/attachments/{attachmentId}:import` | Reprocess one Attachment through an open or Thing-context Import.                                                        |
+| `PUT /api/attachments/{id}/things/{thingId}`  | Retain the link response contract; schedule processing restricted to that Thing.                                         |
+| `GET /api/imports/{id}`                       | Return status, candidate summaries and review-required stubs, Thing IDs, targeted outcomes, warnings, errors and usage.  |
+| `GET /api/imports/{id}/stream`                | Authenticated, revisioned progress before and after Thing creation.                                                      |
+| `GET /api/things/{thingId}/stream`            | Project the associated Import stages onto progressive Thing updates.                                                     |
+| `POST /api/imports/{id}:retry`                | Resume eligible work using saved Thing allocations and checkpoints.                                                      |
 
-Attachment upload accepts grouped open intent or one Thing context and creates queued Import intent as part of the submission. Validate every Attachment and Thing against owner and resource access rules. Streams omit private transcription and raw source content. Repeated requests reuse eligible completed work.
+Attachment upload stores the source and starts its transcription. The frontend creates the Import after all uploads finish. Validate every Attachment and Thing against owner and resource access rules. Streams omit private transcription and raw source content. Repeated requests reuse eligible completed work.
 
-Candidate match/create/dismiss endpoints, bulk decisions and cancellation are deferred. The first delivery returns a review-required candidate stub with its possible matches and no resolution action. Preserve the source and the status until owner resolution is implemented. Existing `POST /api/imports/{id}:confirm` remains available for legacy waiting jobs until those jobs have a recovery path.
+Candidate match/create/dismiss endpoints, bulk decisions and cancellation are deferred. The first delivery returns a review-required candidate stub with its possible matches and no resolution action. Preserve the source and the status until owner resolution is implemented.
 
 ## Migration and delivery
 
 Deliver in reviewable increments:
 
-1. Implemented: Attachment-owned transcription, summary, optional terms and status. Readable content from stored Import extraction is copied where available; original files and committed field citations remain. Every owner upload creates queued Import intent. The current extraction request still identifies candidates and facts together, and existing Imports retain their stored text for retry compatibility.
-2. Add Import-owned open candidates, per-candidate terms and identifiers, Thing-context targeted extraction, fieldset selection and bounded field mapping. Support grouped sources and per-Thing checkpoints. Persist review-required candidates as stubs; defer owner resolution actions. Keep the link route response contract and schedule restricted processing on links.
+1. Implemented: Attachment-owned transcription, summary, optional terms and status. Readable content from stored Import extraction is copied where available; original files and committed field citations remain.
+2. Implemented on this branch: Import-owned open candidates, per-candidate terms and identifiers, Thing-context targeted extraction, fieldset selection and bounded field mapping. The frontend creates one Import citing uploaded Attachments. Imports wait for transcription and retain per-Thing checkpoints. Review-required candidates remain stubs without owner resolution actions. Linking an existing Attachment schedules restricted processing while retaining the link route response contract.
 3. Add shared public resource Attachments, Discovery, resource processing and Recommendation within the same Import. Support zero-input Thing-context workflows for direct creation and owner refreshes. Add candidate resolution, bulk review and cancellation in a later delivery. Evaluate specialised API providers separately before adding eligible lookups to mapping.
 
-Migrate stored extraction, candidate references, allocations and jobs together. Recover legacy waiting jobs through the existing confirmation route until replacement owner decisions are available. Preserve created Thing IDs, committed values, source citations and owner edits. Retire `POST /api/things:import` with its callers in a coordinated release.
+The migration requires existing Imports to be complete. It retains their candidate, target, value, source and research checkpoints so completed history remains readable and eligible warning retries can use the current processor. Preserve created Thing IDs, committed values, source citations and owner edits.
 
 Release processing locks on terminal outcomes and while waiting for owner decisions. Reconnect and restart restore persisted progress. Source removal, unlinking and Thing deletion retain reference checks and prevent queued work from restoring removed relationships.
 
@@ -215,7 +218,7 @@ Acceptance: grouped Attachments identify one instance across sources; candidate 
 Issue scope:
 
 - [#54](https://github.com/things-industries/boring-things/issues/54): automatic restricted processing on Attachment links and discovered documents.
-- [#55](https://github.com/things-industries/boring-things/issues/55): migrate import-wide selection waiting and preserve legacy waiting-job recovery.
+- [#55](https://github.com/things-industries/boring-things/issues/55): candidate decisions and owner review.
 - [#56](https://github.com/things-industries/boring-things/issues/56): later candidate review and resolution.
 - [#46](https://github.com/things-industries/boring-things/issues/46): later bulk allocation, progress, navigation and cancellation.
 

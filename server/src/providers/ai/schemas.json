@@ -3,6 +3,199 @@
   "$comment": "Defines structured import and research outputs and strict registry/chat tool arguments. Generates schema-types.ts and supplies provider and application validation.",
   "description": "OpenAI structured outputs and strict function parameters. Application validation remains authoritative.",
   "$defs": {
+    "transcription": {
+      "description": "Readable content and metadata of one Attachment.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Page-labelled English transcription and relevant visual descriptions."
+        },
+        "summary": {
+          "type": ["string", "null"],
+          "description": "Source-wide summary, or null when unreadable.",
+          "maxLength": 2000
+        },
+        "terms": {
+          "type": "array",
+          "description": "Source-wide terms without private identifiers.",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "status": {
+          "type": "string",
+          "description": "Outcome of reading the source.",
+          "enum": ["COMPLETE", "EMPTY", "PARTIAL", "INSUFFICIENT_LANGUAGE"]
+        },
+        "metadata": {
+          "description": "Source display metadata.",
+          "anyOf": [{ "$ref": "#/$defs/attachmentMetadata" }, { "type": "null" }]
+        }
+      },
+      "required": ["text", "summary", "terms", "status", "metadata"]
+    },
+    "openCandidates": {
+      "description": "Possible Things identified from a group of transcribed Attachments.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "description": "Up to ten owned Thing instances evidenced by the source group. Manuals and product lists alone do not establish ownership.",
+          "maxItems": 10,
+          "items": {
+            "description": "One possible Thing with identity evidence only.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Short name without individual identifiers.",
+                "maxLength": 200
+              },
+              "categoryId": {
+                "type": "string",
+                "description": "Category ID copied from the supplied category list."
+              },
+              "terms": {
+                "type": "array",
+                "description": "Terms specific to this candidate.",
+                "maxItems": 20,
+                "items": { "type": "string", "maxLength": 200 }
+              },
+              "identifiers": {
+                "type": "array",
+                "description": "Identity attributes supported by a passage, retaining leading zeroes.",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "description": "Identifier kind such as serial, policy, account or model."
+                    },
+                    "value": {
+                      "type": "string",
+                      "description": "Identifier copied as text, including leading zeroes."
+                    },
+                    "attachmentId": {
+                      "type": "string",
+                      "description": "ID of the source containing the identifier."
+                    },
+                    "page": {
+                      "type": ["integer", "null"],
+                      "description": "One-based source page, or null when unavailable."
+                    },
+                    "quote": {
+                      "type": "string",
+                      "description": "Source passage supporting this identifier.",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": ["kind", "value", "attachmentId", "page", "quote"]
+                }
+              },
+              "sourceRefs": {
+                "type": "array",
+                "description": "Passages identifying this candidate.",
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "attachmentId": { "type": "string", "description": "Source Attachment ID." },
+                    "page": {
+                      "type": ["integer", "null"],
+                      "description": "One-based source page, or null when unavailable."
+                    },
+                    "quote": {
+                      "type": "string",
+                      "description": "Passage supporting this candidate.",
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": ["attachmentId", "page", "quote"]
+                }
+              }
+            },
+            "required": ["name", "categoryId", "terms", "identifiers", "sourceRefs"]
+          }
+        }
+      },
+      "required": ["candidates"]
+    },
+    "targetedFacts": {
+      "description": "Relevance and source-supported facts for one resolved Thing.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "description": "One assessment for each supplied Attachment.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "attachmentId": { "type": "string", "description": "ID of the assessed Attachment." },
+              "relevant": {
+                "type": "boolean",
+                "description": "Whether the source applies to this Thing."
+              },
+              "summary": {
+                "type": ["string", "null"],
+                "description": "Thing-specific source summary, or null when irrelevant.",
+                "maxLength": 2000
+              },
+              "terms": {
+                "type": "array",
+                "description": "Thing-specific terms from relevant passages.",
+                "maxItems": 20,
+                "items": { "type": "string", "maxLength": 200 }
+              },
+              "facts": {
+                "type": "array",
+                "description": "Up to 100 facts supported by relevant source passages.",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Identifier unique among this source's facts."
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "Attribute label.",
+                      "maxLength": 200
+                    },
+                    "value": { "$ref": "#/$defs/value", "description": "Source-supported value." },
+                    "quote": {
+                      "type": "string",
+                      "description": "Supporting source passage.",
+                      "maxLength": 2000
+                    },
+                    "page": {
+                      "type": ["integer", "null"],
+                      "description": "One-based source page, or null when unavailable."
+                    },
+                    "sensitive": {
+                      "type": "boolean",
+                      "description": "Whether the value is a secret requiring masking."
+                    }
+                  },
+                  "required": ["id", "label", "value", "quote", "page", "sensitive"]
+                }
+              }
+            },
+            "required": ["attachmentId", "relevant", "summary", "terms", "facts"]
+          }
+        }
+      },
+      "required": ["sources"]
+    },
     "extraction": {
       "type": "object",
       "description": "Transcription, document metadata and source-supported Things extracted from the uploaded material.",
