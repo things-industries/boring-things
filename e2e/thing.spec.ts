@@ -174,6 +174,8 @@ test('All details deletes a value after confirmation', async ({ page }) => {
   await page.goto('/things/new/text');
   await page.getByRole('textbox', { name: 'Text to import' }).fill('van');
   await page.getByRole('button', { name: 'Import text' }).click();
+  await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'View Thing 1' }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('link', { name: 'See all details' }).click();
 
@@ -217,6 +219,8 @@ test('choosing a detail copies its label and value', async ({ page }) => {
   await page.goto('/things/new/text');
   await page.getByRole('textbox', { name: 'Text to import' }).fill('van');
   await page.getByRole('button', { name: 'Import text' }).click();
+  await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'View Thing 1' }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('button', { name: 'Copy Payload (kg)' }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Payload (kg): 1200');
