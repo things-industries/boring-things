@@ -53,10 +53,10 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     const hob = await add(
       'Kitchen hob',
       'appliances',
-      ['appliances.neff'],
+      ['appliances.bsh'],
       [
         v('appliances.appliance', 'common.manufacturer', 'Neff'),
-        v('appliances.neff', 'appliances.zNumber', '00015'),
+        v('appliances.bsh', 'appliances.zNumber', '00015'),
       ],
     );
     await add(

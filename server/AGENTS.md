@@ -37,6 +37,9 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 ## Registry and field invariants
 
 - Categories own field sets. Field definitions may be reused across sets and categories. Registry IDs are stable authored IDs; custom fields do not create global definitions.
+- Give category-wide sets the eligibility `All things`. Describe other eligibility as a short statement that can be checked against a source summary. Put field-specific mapping guidance in field descriptions.
+- Give an identifiable subtype its own set when it has distinct fields. Compose shared functions and traits across subtypes; combine related trait fields into meaningful sections.
+- Use one manufacturer group set for proprietary identifiers shared by its brands. Name the set with recognisable brands and retain brand and marking search terms.
 - `includes` are mandatory dependencies; `considerAlongside` are suggestions. Validate references and reject inclusion cycles.
 - Each Thing has at most one occurrence of a set. Address values by `(fieldSetId, fieldId)`; standalone fields have no set. Reusing a definition must not merge values across sets.
 - Validate against the supported schema subset in the application. Preserve identifiers as strings. Money uses integer `amountMinor` plus currency; the current currencies use two decimal places.

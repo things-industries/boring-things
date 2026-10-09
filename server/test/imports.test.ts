@@ -15,17 +15,17 @@ import {
 import { patchData } from '../src/application/thing-data.js';
 const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 const candidate = extractedThings.neff;
-const allowedSets = new Set(['appliances.neff', 'appliances.appliance']);
+const allowedSets = new Set(['appliances.bsh', 'appliances.appliance']);
 const allowedFields = new Set(['appliances.zNumber']);
 const job = '3d65f18e-1a6e-487e-841f-f1e5f76f1b9a',
   attachment = '387e356c-3b0b-4f57-9b48-9e8061dac87a';
 const select = () =>
-  applySelectedSets(emptyData(), ['appliances.neff'], 'appliances', registry, allowedSets);
+  applySelectedSets(emptyData(), ['appliances.bsh'], 'appliances', registry, allowedSets);
 const mapped: FactMapping = {
   values: [
     {
       factId: 'fact-1',
-      fieldSetId: 'appliances.neff',
+      fieldSetId: 'appliances.bsh',
       fieldId: 'appliances.zNumber',
       value: '0015',
       pin: true,
@@ -48,7 +48,7 @@ test('mapping rejects unreturned IDs, incompatible sets, wrong membership and nu
   ])
     assert.throws(() => map(data, { ...mapped, values: [entry] }));
   assert.throws(() =>
-    applySelectedSets(data, ['appliances.neff'], 'insurance', registry, allowedSets),
+    applySelectedSets(data, ['appliances.bsh'], 'insurance', registry, allowedSets),
   );
   assert.throws(() => applySelectedSets(data, ['invented'], 'appliances', registry, allowedSets));
   assert.deepEqual(data, select());
@@ -115,7 +115,7 @@ test('useful custom facts retain evidence while unexplained markings are discard
   assert.deepEqual(data.customFields[0].sourceRefs, [
     { attachmentId: attachment, quote: candidate.facts[1].quote },
   ]);
-  assert.equal(data.values['appliances.neff']['appliances.zNumber'].value, '0015');
+  assert.equal(data.values['appliances.bsh']['appliances.zNumber'].value, '0015');
 });
 
 test('cleared user values and removed custom facts remain cleared on retry', () => {
@@ -123,26 +123,26 @@ test('cleared user values and removed custom facts remain cleared on retry', () 
   const data = patchData(
     map(),
     {
-      values: [{ fieldSetId: 'appliances.neff', fieldId: 'appliances.zNumber', value: null }],
+      values: [{ fieldSetId: 'appliances.bsh', fieldId: 'appliances.zNumber', value: null }],
       removeCustomFieldIds: [unknownId],
     },
     'appliances',
     registry,
   );
   const retried = map(data);
-  assert.equal(retried.values['appliances.neff']['appliances.zNumber'], undefined);
+  assert.equal(retried.values['appliances.bsh']['appliances.zNumber'], undefined);
   assert.ok(!retried.customFields.some((field) => field.id === unknownId));
 });
 
 test('conflicting mapped evidence is retained without overwriting owner values', () => {
   const data = map();
-  data.values['appliances.neff']['appliances.zNumber'] = {
+  data.values['appliances.bsh']['appliances.zNumber'] = {
     value: '0099',
     origin: 'USER',
     sourceRefs: [],
   };
   const result = map(data);
-  assert.equal(result.values['appliances.neff']['appliances.zNumber'].value, '0099');
+  assert.equal(result.values['appliances.bsh']['appliances.zNumber'].value, '0099');
   assert.ok(result.customFields.some((field) => field.value === '0015'));
 });
 
@@ -176,7 +176,7 @@ test('sensitive facts cannot map to an unmasked definition and research only rec
   sensitive.facts[0].sensitive = true;
   assert.throws(() => map(select(), mapped, sensitive));
   const data = select();
-  data.values['appliances.neff'] = {
+  data.values['appliances.bsh'] = {
     'appliances.zNumber': { value: 'private-serial', origin: 'USER', sourceRefs: [] },
     'appliances.eNumber': { value: 'MODEL/01', origin: 'USER', sourceRefs: [] },
   };
@@ -262,7 +262,7 @@ test('historical extraction fixtures preserve identifiers and independent set va
     };
   });
   const hob = results.find((result) => result.candidate.categoryId === 'appliances')!.data;
-  assert.equal(hob.values['appliances.neff']['appliances.zNumber'].value, '0015');
+  assert.equal(hob.values['appliances.bsh']['appliances.zNumber'].value, '0015');
   assert.ok(hob.customFields.some((field) => field.value === 'ABC-12'));
   const van = results.find((result) => result.candidate.categoryId === 'vehicles')!.data;
   assert.ok(van.setIds.includes('vehicles.van') && van.setIds.includes('vehicles.vehicle'));

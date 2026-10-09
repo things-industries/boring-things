@@ -55,7 +55,7 @@ export const extractedThings: Record<string, ExtractedThing> = {
   },
 };
 const sets: Record<string, string[]> = {
-  appliances: ['appliances.neff'],
+  appliances: ['appliances.bsh'],
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
 };
@@ -108,7 +108,7 @@ export class FixtureAi implements ImportAi {
         ? [
             {
               factId: 'fact-1',
-              fieldSetId: 'appliances.neff',
+              fieldSetId: 'appliances.bsh',
               fieldId: 'appliances.zNumber',
               value: '0015',
               pin: true,

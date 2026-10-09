@@ -83,7 +83,7 @@ async function setup(owner = 'alice') {
       {
         name: 'Chat Thing',
         categoryId: 'appliances',
-        addFieldSetIds: ['appliances.neff'],
+        addFieldSetIds: ['appliances.bsh'],
       },
       owner,
     )
