@@ -19,8 +19,8 @@
       </select>
     </label>
     @if (repeats()) {
-      <fieldset class="reschedule-group">
-        <legend>Repeat every</legend>
+      <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-every'">
+        <span class="reschedule-legend" [id]="formId + '-every'">Repeat every</span>
         <div class="reschedule-interval">
           <input
             name="interval"
@@ -42,13 +42,13 @@
             (ngModelChange)="unit.set($event)"
           >
             @for (option of units; track option) {
-              <option [value]="option">{{ unitOption(option) }}</option>
+              <option [ngValue]="option">{{ unitOption(option) }}</option>
             }
           </select>
         </div>
-      </fieldset>
-      <fieldset class="reschedule-group">
-        <legend>Schedule next task from</legend>
+      </div>
+      <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-from'">
+        <span class="reschedule-legend" [id]="formId + '-from'">Schedule next task from</span>
         <div class="reschedule-options">
           <label class="check-label reschedule-option">
             <input
@@ -79,7 +79,7 @@
               : 'its scheduled due date, even if you finish early or late.'
           }}
         </p>
-      </fieldset>
+      </div>
     }
   </form>
   <div dialogActions>

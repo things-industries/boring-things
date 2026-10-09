@@ -21,6 +21,11 @@
   padding-block: 0;
 }
 
+// iOS puts a date's value at the top of the field; a full-height line centres it.
+.reschedule-form input[type='date'] {
+  line-height: calc(#{tokens.size(control-md)} - 2px);
+}
+
 .reschedule-field {
   display: flex;
   flex-direction: column;
@@ -29,15 +34,17 @@
 }
 
 .reschedule-group {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+}
 
-  legend {
-    margin-bottom: tokens.space(1);
-    padding: 0;
-  }
+// Groups are divs, not fieldsets: iOS briefly pads the bottom of a fieldset added while a select
+// is focused. Their names match the field labels.
+.reschedule-legend {
+  font-size: 12px;
+  font-weight: 550;
+  color: tokens.color(text-label);
 }
 
 .reschedule-interval {

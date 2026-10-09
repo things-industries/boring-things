@@ -1,4 +1,5 @@
 @use 'tokens';
+@use 'typography';
 @use 'mixins';
 button,
 input,
@@ -26,8 +27,19 @@ textarea {
   border-radius: 7px;
   padding: 11px tokens.space(3);
   color: tokens.color(text-input);
+  // Fields sit inside labels, whose weight `font: inherit` would otherwise pass on.
+  font-weight: typography.weight(regular);
   min-width: 0;
   @include mixins.touch-field-text;
+}
+// iOS gives date fields an intrinsic width wider than their label, and centres the value.
+input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type='date']::-webkit-date-and-time-value {
+  min-height: 1.45em;
+  text-align: start;
 }
 label > input,
 label > select,

@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, inject, input, linkedSignal, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TasksStore } from '../../core/state/tasks.store';
 import { Dialog } from '../dialog/dialog';
@@ -22,26 +22,18 @@ export class RescheduleDialog {
   private tasks = inject(TasksStore);
   readonly task = input<Task | null>(null);
   readonly closed = output<void>();
-  readonly date = signal('');
-  readonly repeats = signal(false);
-  readonly interval = signal(1);
-  readonly unit = signal<EventRecurrence['unit']>('MONTH');
-  readonly from = signal<TaskRecurrence['from']>('COMPLETION');
+  // Each opening sets `task`, which resets the form to the task's schedule.
+  readonly date = linkedSignal(() => this.task()?.scheduledOn ?? dayKey(new Date()));
+  readonly repeats = linkedSignal(() => !!this.task()?.recurrence);
+  readonly interval = linkedSignal(() => this.task()?.recurrence?.interval ?? 1);
+  readonly unit = linkedSignal<EventRecurrence['unit']>(
+    () => this.task()?.recurrence?.unit ?? 'MONTH',
+  );
+  readonly from = linkedSignal<TaskRecurrence['from']>(
+    () => this.task()?.recurrence?.from ?? 'COMPLETION',
+  );
   readonly units: EventRecurrence['unit'][] = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
   readonly formId = `reschedule-task-${nextId++}`;
-
-  constructor() {
-    effect(() => {
-      const task = this.task();
-
-      if (!task) return;
-      this.date.set(task.scheduledOn ?? dayKey(new Date()));
-      this.repeats.set(!!task.recurrence);
-      this.interval.set(task.recurrence?.interval ?? 1);
-      this.unit.set(task.recurrence?.unit ?? 'MONTH');
-      this.from.set(task.recurrence?.from ?? 'COMPLETION');
-    });
-  }
 
   /** The unit's name, plural unless the interval is one. */
   unitName(unit: EventRecurrence['unit']) {

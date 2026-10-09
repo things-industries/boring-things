@@ -67,7 +67,7 @@ Contract, using existing component names where they exist:
   "kind": "OTHER", // CLEANING | INSPECTION | REPAIR | REPLACEMENT | SERVICE | OTHER (from #11)
   "scheduledOn": "2026-10-08", // day the task sits in the list; null while SUGGESTED
   "deadlineOn": "2026-10-18", // optional hard deadline
-  "recurrence": { "interval": 12, "unit": "MONTH" }, // DAY | WEEK | MONTH | YEAR, nullable
+  "recurrence": { "interval": 12, "unit": "MONTH", "from": "COMPLETION" }, // unit DAY | WEEK | MONTH | YEAR; from COMPLETION | DUE_DATE; nullable
   "followUp": {
     "type": "UPDATE_FIELD", // CHAT | UPDATE_FIELD | ADD_DOCUMENT, nullable
     "prompt": "When does the new policy end?",
@@ -80,7 +80,7 @@ Contract, using existing component names where they exist:
 }
 ```
 
-- Completing a recurring task stores `completedAt` and creates the next occurrence with `scheduledOn` set to the interval after the later of `scheduledOn` and the completion date. Reopening it (status back to `SCHEDULED`) deletes that generated occurrence if it is still unchanged. The response returns both tasks.
+- Completing a recurring task stores `completedAt` and creates the next occurrence with `scheduledOn` set to the interval after the completion date when `recurrence.from` is `COMPLETION`, or after the completed task's `scheduledOn` when it is `DUE_DATE`. Reopening it (status back to `SCHEDULED`) deletes that generated occurrence if it is still unchanged. The response returns both tasks.
 - Editing the schedule patches `scheduledOn` and `recurrence`, which carries `from`: `COMPLETION` or `DUE_DATE`.
 - Scheduling a suggested task patches `status: SCHEDULED` without `scheduledOn`; the server chooses the day.
 - `Event` gains `endsAt` (nullable date-time, for "14:00–16:00") and the same nullable `followUp`. An Event with a follow-up accepts `status: COMPLETED`.
