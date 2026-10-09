@@ -43,7 +43,7 @@ export async function writeThing(
   return database.transaction(pool, async (db) => {
     // Lock the stored Thing before merging a patch so concurrent writes cannot replace each other with stale data.
     let thing = id ? await thingsDb.getOwnedThingOrThrow(db, owner, id, { lock: true }) : undefined;
-    if (thing) await importsDb.assertThingEditable(db, owner, thing.id);
+    if (thing) await importsDb.assertThingEditable(db, owner, thing.id, { allowQueued: true });
     const category = input.categoryId ?? thing?.categoryId;
     ensure(category && (await registryDb.categoryExists(db, category)), 'Unknown category');
     ensure((input.name ?? thing?.name)?.trim(), 'Name cannot be blank');

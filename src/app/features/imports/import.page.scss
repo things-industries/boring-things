@@ -1,0 +1,12 @@
+@use 'tokens';
+@use 'mixins';
+
+:host {
+  @include mixins.viewport-page;
+}
+
+.import-page {
+  display: grid;
+  gap: tokens.space(4);
+  padding: tokens.space(4);
+}

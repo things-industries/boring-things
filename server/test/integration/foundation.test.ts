@@ -65,6 +65,7 @@ before(async () => {
       blobDirectory: directory,
       sampleDataEnabled: true,
       maxUploadBytes: 64,
+      openaiApiKey: '',
     },
     verifyIdentity,
   });
@@ -409,6 +410,10 @@ test('shared attachments, authorized downloads, unlinking and retained-import de
   const uploaded = await upload();
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
+  assert.equal(
+    (await request('PATCH', `/things/${a.id}`, { description: 'Owner note' })).statusCode,
+    200,
+  );
   for (const thing of [a, b])
     assert.equal(
       (await request('PUT', `/attachments/${file.id}/things/${thing.id}`)).statusCode,

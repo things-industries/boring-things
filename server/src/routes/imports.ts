@@ -1,7 +1,7 @@
-import { confirmImport, retryImport } from '../application/import/commands.js';
+import { retryImport } from '../application/import/commands.js';
 import { sseHeaders, type ServerSentEvents } from '../http/sse.js';
 /**
- * Registers import submission, confirmation and retry endpoints, plus revisioned Thing snapshot
+ * Registers Import submission and retry endpoints, plus revisioned Thing snapshot
  * streams.
  */
 
@@ -30,18 +30,17 @@ const importRoutes: FastifyPluginAsync<Options> = async (
   app,
   { pool, registry, runner, events, enabled, sse },
 ) => {
-  route(app, 'POST', '/api/things:import', async (req, reply) => {
+  route(app, 'POST', '/api/imports', async (req, reply) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
-    const accepted = await importsDb.startImport(
+    const accepted = await importsDb.createImport(
       pool,
       req.ownerId,
-      req.body.attachmentId,
+      req.body.attachmentIds,
       req.body.thingId,
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
-    reply.code(202);
     runner.wake();
-    return accepted;
+    return reply.code(202).send(accepted);
   });
 
   route(app, 'GET', '/api/imports/{id}', async (req) =>
@@ -50,13 +49,23 @@ const importRoutes: FastifyPluginAsync<Options> = async (
     ),
   );
 
-  route(app, 'POST', '/api/imports/{id}:confirm', async (req) => {
-    ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
-    const result = await confirmImport(pool, req.ownerId, req.params.id, req.body.selections);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
-    runner.wake();
-    return result;
+  route(app, 'GET', '/api/imports/{id}/stream', async (req, reply) => {
+    await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id);
+    return reply
+      .headers(sseHeaders)
+      .code(200)
+      .send(
+        sse.stream(events.subscribe({ ownerId: req.ownerId }), {
+          event: 'import.snapshot',
+          snapshot: async () =>
+            importsDb.projectImport(
+              await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id),
+            ),
+          revision: (snapshot) => snapshot.revision,
+        }),
+      );
   });
+
   route(app, 'POST', '/api/imports/{id}:retry', async (req) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
     const result = await retryImport(pool, req.ownerId, req.params.id);

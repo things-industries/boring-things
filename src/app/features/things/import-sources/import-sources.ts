@@ -35,28 +35,28 @@ export class ImportSources {
 
   file(event: Event) {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = Array.from(input.files ?? []);
 
     input.value = '';
-    if (file) void this.start(file);
+    if (files.length) void this.start(files);
   }
 
   paste() {
     if (this.text().trim())
-      void this.start(new File([this.text()], 'pasted-text.txt', { type: 'text/plain' }));
+      void this.start([new File([this.text()], 'pasted-text.txt', { type: 'text/plain' })]);
   }
 
-  private async start(file: File) {
+  private async start(files: File[]) {
     if (this.busy()) return;
     this.busy.set(true);
 
     const thingId = this.thingId();
-    const result = await this.things.startImport(file, thingId);
+    const result = await this.things.startImport(files, thingId);
 
     this.busy.set(false);
     if (!result.ok) return;
     this.started.emit();
     if (result.value.thingId !== thingId)
-      await this.router.navigate(['/things', result.value.thingId]);
+      await this.router.navigate(['/imports', result.value.importId]);
   }
 }

@@ -2,6 +2,7 @@ import type {
   ExtractedThing,
   Extraction,
   ImportAi,
+  ImportSourceText,
   Fact,
   FactMapping,
   Source,
@@ -70,15 +71,140 @@ export class FixtureAi implements ImportAi {
   arbitraryId = false;
   exhaustTools = false;
   pause?: Promise<void>;
+
+  async transcribe(source: Source) {
+    const text = source.mediaType === 'text/plain' ? source.content.toString('utf8') : 'neff';
+    return {
+      text,
+      summary: `Source for ${text}`,
+      terms: text.toLowerCase().includes('neff')
+        ? ['neff']
+        : text.includes('warranty')
+          ? ['warranty']
+          : ['source'],
+      status: (text === 'non-english' ? 'INSUFFICIENT_LANGUAGE' : 'COMPLETE') as
+        'COMPLETE' | 'INSUFFICIENT_LANGUAGE',
+      metadata: this.metadata ?? null,
+    };
+  }
+
+  async identifyCandidates(sources: ImportSourceText[], _categories: string[]) {
+    const make = (name: string, categoryId: string, source: ImportSourceText) => ({
+      name,
+      categoryId,
+      terms: [name.toLowerCase()],
+      identifiers: [],
+      sourceRefs: [{ attachmentId: source.attachmentId, page: null, quote: source.text }],
+    });
+    const neff = sources.find((source) => /neff|^two$/.test(source.text.toLowerCase()));
+    const policy = sources.find((source) => /policy|^two$/.test(source.text.toLowerCase()));
+    const van = sources.find((source) => source.text.toLowerCase().includes('van'));
+    const model = sources.find((source) => source.text.includes('model-only'));
+    return [
+      ...(neff ? [make('Neff oven', 'appliances', neff)] : []),
+      ...(policy ? [make('Policy', 'insurance', policy)] : []),
+      ...(van ? [make('Cargo van', 'vehicles', van)] : []),
+      ...(model
+        ? [
+            {
+              ...make('Model X1 oven', 'appliances', model),
+              identifiers: [
+                {
+                  kind: 'model',
+                  value: 'X1',
+                  attachmentId: model.attachmentId,
+                  page: null,
+                  quote: model.text,
+                },
+              ],
+            },
+          ]
+        : []),
+    ];
+  }
+
+  async extractTargetFacts(
+    sources: ImportSourceText[],
+    thing: Pick<ExtractedThing, 'categoryId'>,
+  ): Promise<Awaited<ReturnType<NonNullable<ImportAi['extractTargetFacts']>>>> {
+    return sources.map((source) => ({
+      attachmentId: source.attachmentId,
+      relevant:
+        thing.categoryId === 'appliances'
+          ? /neff|warranty|^two$/.test(source.text.toLowerCase())
+          : thing.categoryId === 'vehicles'
+            ? source.text.toLowerCase().includes('van')
+            : /policy|^two$/.test(source.text.toLowerCase()),
+      summary: source.summary,
+      terms: source.terms,
+      facts:
+        thing.categoryId === 'appliances' && /neff|^two$/.test(source.text.toLowerCase())
+          ? [
+              {
+                id: 'fact-1',
+                label: 'Z-Nr',
+                value: '0015',
+                quote: source.text,
+                page: null,
+                sensitive: false,
+              },
+              {
+                id: 'fact-2',
+                label: 'Installer reference',
+                value: 'ABC-12',
+                quote: source.text,
+                page: null,
+                sensitive: false,
+              },
+            ]
+          : thing.categoryId === 'vehicles' && source.text.toLowerCase().includes('van')
+            ? [
+                {
+                  id: 'fact-1',
+                  label: 'Load capacity',
+                  value: 1200,
+                  quote: source.text,
+                  page: null,
+                  sensitive: false,
+                },
+              ]
+            : thing.categoryId === 'insurance' && /policy|^two$/.test(source.text.toLowerCase())
+              ? [
+                  {
+                    id: 'fact-1',
+                    label: 'Buildings sum',
+                    value: { amountMinor: 40000000, currency: 'GBP' as const },
+                    quote: source.text,
+                    page: null,
+                    sensitive: false,
+                  },
+                  {
+                    id: 'fact-2',
+                    label: 'Contents sum',
+                    value: { amountMinor: 5000000, currency: 'GBP' as const },
+                    quote: source.text,
+                    page: null,
+                    sensitive: false,
+                  },
+                ]
+              : [],
+    }));
+  }
+
   async extract(source: Source): Promise<Extraction> {
     const name = source.mediaType === 'text/plain' ? source.content.toString() : 'neff';
     if (name === 'bad') throw new Error('synthetic extraction failure');
     const chosen =
-      name === 'two'
-        ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
-        : [extractedThings[name] ?? extractedThings.neff];
+      name === 'no-thing' || name === 'non-english'
+        ? []
+        : name === 'two'
+          ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
+          : [extractedThings[name] ?? extractedThings.neff];
     return structuredClone({
       text: name,
+      summary: `Source for ${name}`,
+      terms: ['source'],
+      transcriptionStatus: name === 'non-english' ? 'INSUFFICIENT_LANGUAGE' : 'COMPLETE',
       extractedThings: chosen,
       ...(this.metadata ? { metadata: this.metadata } : {}),
     });

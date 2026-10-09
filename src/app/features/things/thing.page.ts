@@ -427,7 +427,7 @@ export class ThingPage {
     const file = input.files?.[0];
 
     input.value = '';
-    if (file) void this.attachments.upload(file, this.id());
+    if (file) void this.things.startImport(file, this.id());
   }
 
   async download(file: Schema['Attachment']) {

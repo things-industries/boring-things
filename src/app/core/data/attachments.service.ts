@@ -15,9 +15,10 @@ export class AttachmentsService {
     return this.client.GET('/api/attachments/{id}', { params: { path: { id } } }).then(apiData);
   }
 
-  upload(file: File) {
+  upload(file: File, thingId?: string) {
     return this.client
       .POST('/api/attachments', {
+        params: { query: { thingId } },
         body: { file },
 
         bodySerializer(body) {

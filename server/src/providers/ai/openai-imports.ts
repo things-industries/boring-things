@@ -26,6 +26,7 @@ import type {
   FactMapping,
   RegistryTools,
   Source,
+  ImportSourceText,
   ReferenceDocument,
   EmptyResearchField,
   DocumentExtraction,
@@ -49,6 +50,18 @@ const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
 const functions = schemas.registryTools as Tool[];
 type Outputs = components['schemas'];
+
+function boundedSources(sources: ImportSourceText[], terms: string[] = []): ImportSourceText[] {
+  return sources.map((source) => {
+    if (source.text.length <= 12_000) return source;
+    const excerpts = [source.text.slice(0, 4_000)];
+    for (const term of terms.filter((value) => value.length >= 3).slice(0, 8)) {
+      const at = source.text.toLowerCase().indexOf(term.toLowerCase());
+      if (at >= 0) excerpts.push(source.text.slice(Math.max(0, at - 500), at + 1_500));
+    }
+    return { ...source, text: excerpts.join('\n[Later source excerpt]\n').slice(0, 12_000) };
+  });
+}
 
 export class OpenAiImports implements ImportAi {
   private client: OpenAI;
@@ -227,8 +240,64 @@ export class OpenAiImports implements ImportAi {
     return {
       text: text ?? extracted.text,
       metadata: extracted.metadata,
+      summary: extracted.summary,
+      terms: extracted.terms,
+      transcriptionStatus: extracted.transcriptionStatus,
       extractedThings: extracted.candidates,
     };
+  }
+
+  async transcribe(source: Source, context: AiContext) {
+    const { content, text } = await this.sourceInput(source, context.signal);
+    const output = await this.requestStructuredOutput<Outputs['Transcription']>(
+      [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: prompts.transcribeSourcePrompt(text !== undefined) },
+            content,
+          ],
+        },
+      ],
+      schemas.$defs.transcription,
+      context,
+      'attachment_transcription',
+    );
+    return { ...output, text: text ?? output.text };
+  }
+
+  async identifyCandidates(sources: ImportSourceText[], categories: string[], context: AiContext) {
+    const output = await this.requestStructuredOutput<Outputs['OpenCandidates']>(
+      [
+        {
+          role: 'user',
+          content: prompts.identifyCandidatesPrompt(boundedSources(sources), categories),
+        },
+      ],
+      schemas.$defs.openCandidates,
+      context,
+      'open_candidates',
+    );
+    return output.candidates;
+  }
+
+  async extractTargetFacts(
+    sources: ImportSourceText[],
+    thing: Pick<ExtractedThing, 'name' | 'categoryId' | 'terms' | 'identifiers'>,
+    context: AiContext,
+  ) {
+    const output = await this.requestStructuredOutput<Outputs['TargetedFacts']>(
+      [
+        {
+          role: 'user',
+          content: prompts.extractTargetFactsPrompt(boundedSources(sources, thing.terms), thing),
+        },
+      ],
+      schemas.$defs.targetedFacts,
+      context,
+      'targeted_facts',
+    );
+    return output.sources;
   }
 
   async selectFieldSets(

@@ -84,7 +84,7 @@ A store feature, `withOptimisticEntities`, runs every mutation through pure func
 | `POST /conversations`                        | Insert an empty conversation                                                                                |
 | `POST /conversations/{id}/messages`          | Append the user message as pending. The assistant reply arrives on the stream                               |
 
-The server computes the result of these operations, so they are not optimistic. They show an in-progress state and report failures in a toast: attachment upload, `things:import`, import confirm and retry, `reveal-field` and `profile:seed-samples`.
+The server computes the result of these operations, so they are not optimistic. They show an in-progress state and report failures in a toast: attachment upload, Import creation and retry, `reveal-field` and `profile:seed-samples`.
 
 ## Toasts
 

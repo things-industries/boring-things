@@ -12,6 +12,11 @@ import { page, pageResult } from '../../application/pagination.js';
 export type AttachmentRow = Omit<Schema['Attachment'], 'pageCount'> & {
   storageKey: string;
   pageCount: number | null;
+  transcription: string | null;
+  transcriptionSummary: string | null;
+  transcriptionTerms: string[];
+  transcriptionStatus: string;
+  transcriptionCompletedAt: string | null;
 };
 export type AttachmentQuery = RouteTypes<'/api/attachments', 'get'>['Querystring'];
 export interface AttachmentInput {
@@ -31,14 +36,22 @@ export async function getOwnedAttachmentOrThrow(
 ): Promise<AttachmentRow> {
   const [file] = await database.rows<AttachmentRow>(
     db,
-    `select ${columns},a.storage_key from bt.attachments a where id=$1 and owner_id=$2 ${options.lock ? 'for update' : ''}`,
+    `select ${columns},a.storage_key,a.transcription,a.transcription_summary,a.transcription_terms,a.transcription_status,a.transcription_completed_at from bt.attachments a where id=$1 and owner_id=$2 ${options.lock ? 'for update' : ''}`,
     [id, owner],
   );
   ensure(file, 'Attachment not found', 'NOT_FOUND');
   return file;
 }
 export function publicAttachment(file: AttachmentRow): Schema['Attachment'] {
-  const { storageKey: _key, ...metadata } = file;
+  const {
+    storageKey: _key,
+    transcription: _transcription,
+    transcriptionSummary: _summary,
+    transcriptionTerms: _terms,
+    transcriptionStatus: _status,
+    transcriptionCompletedAt: _completedAt,
+    ...metadata
+  } = file;
   return metadata;
 }
 export async function listAttachments(
@@ -68,6 +81,67 @@ export async function insertAttachment(
   );
   return getOwnedAttachmentOrThrow(db, owner, row.id);
 }
+
+// Saves source-wide readable content for the immutable uploaded Attachment.
+export async function saveTranscription(
+  db: Database,
+  owner: string,
+  id: string,
+  input: {
+    text: string;
+    summary: string | null;
+    terms: string[];
+    status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
+  },
+): Promise<void> {
+  await database.execute(
+    db,
+    `update bt.attachments set transcription=$1,transcription_summary=$2,transcription_terms=$3,
+      transcription_status=$4,transcription_completed_at=now() where id=$5 and owner_id=$6`,
+    [input.text, input.summary, JSON.stringify(input.terms), input.status, id, owner],
+  );
+}
+
+// Claims one persisted upload for the shared runner.
+export async function claimPendingTranscription(
+  db: Database,
+): Promise<{ file: AttachmentRow; ownerId: string } | undefined> {
+  const [row] = await database.rows<{ id: string; ownerId: string }>(
+    db,
+    `select a.id,a.owner_id from bt.attachments a where a.transcription_status='PENDING'
+     order by a.created_at,a.id limit 1 for update of a skip locked`,
+  );
+  if (!row) return undefined;
+  await database.execute(
+    db,
+    "update bt.attachments set transcription_status='PROCESSING' where id=$1 and owner_id=$2",
+    [row.id, row.ownerId],
+  );
+  return { file: await getOwnedAttachmentOrThrow(db, row.ownerId, row.id), ownerId: row.ownerId };
+}
+
+export async function recoverTranscriptions(db: Database): Promise<void> {
+  await database.execute(
+    db,
+    "update bt.attachments set transcription_status='PENDING' where transcription_status='PROCESSING' and transcription_completed_at is null",
+  );
+}
+
+// Records failures only when the current source has no completed transcription.
+export async function setTranscriptionStatus(
+  db: Database,
+  owner: string,
+  id: string,
+  status: 'PROCESSING' | 'FAILED',
+): Promise<void> {
+  await database.execute(
+    db,
+    `update bt.attachments set transcription_status=$1
+     where id=$2 and owner_id=$3 and transcription_completed_at is null
+       and transcription_status in ('PENDING','PROCESSING','FAILED')`,
+    [status, id, owner],
+  );
+}
 export async function saveAttachmentMetadata(
   db: Database,
   owner: string,
@@ -96,6 +170,11 @@ export async function deleteAttachment(
 ): Promise<void> {
   ensure(
     file.thingIds.length === 0 &&
+      !(
+        await database.execute(db, 'select 1 from bt.import_sources where attachment_id=$1', [
+          file.id,
+        ])
+      ).rowCount &&
       !(await database.execute(db, 'select 1 from bt.imports where attachment_id=$1', [file.id]))
         .rowCount,
     'Attachment is still referenced',

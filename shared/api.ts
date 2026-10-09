@@ -294,7 +294,7 @@ export interface paths {
         put?: never;
         /**
          * Upload attachment
-         * @description Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.
+         * @description Uploads one file and queues Attachment transcription. An optional Thing ID links it to that Thing. Create an Import separately to process one or more uploaded Attachments together. File size, media type and content must satisfy the limits returned by getConfig.
          */
         post: operations["uploadAttachment"];
         delete?: never;
@@ -361,7 +361,7 @@ export interface paths {
         get?: never;
         /**
          * Link attachment
-         * @description Links an attachment to a Thing. Repeating an existing link succeeds. Returns 409 while the Thing has an active import.
+         * @description Links an Attachment and schedules a restricted Import when the link is new. Repeating an existing link succeeds. Returns 409 while the Thing has an active Import.
          */
         put: operations["linkAttachment"];
         post?: never;
@@ -555,7 +555,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/things:import": {
+    "/api/imports": {
         parameters: {
             query?: never;
             header?: never;
@@ -565,10 +565,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start import
-         * @description Queues document processing for an uploaded attachment and links it to the target Thing. Omitting thingId creates a placeholder Thing. Returns 409 if the target already has an active import.
+         * Create an Import from uploaded Attachments
+         * @description References one to ten owned Attachments. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.
          */
-        post: operations["startImport"];
+        post: operations["createImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -595,20 +595,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/imports/{id}:confirm": {
+    "/api/imports/{id}/stream": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Confirm import
-         * @description Selects detected Things to import and resumes processing. Each selection can update an existing Thing or create one. Returns 409 unless the import is awaiting selection.
+         * Stream Import progress
+         * @description Streams owner-scoped revisioned Import snapshots, including progress before any Thing exists.
          */
-        post: operations["confirmImport"];
+        get: operations["streamImport"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -931,6 +931,9 @@ export interface components {
                 id: string;
                 /** Format: uuid */
                 attachmentId: string;
+                attachmentIds: string[];
+                revision: number;
+                sources: components["schemas"]["ImportSourceStatus"][];
                 /** Format: uuid */
                 thingId: string | null;
                 status: components["schemas"]["ImportStatusEnum"];
@@ -1006,7 +1009,7 @@ export interface components {
         RevealResult: {
             value: components["schemas"]["NullableValue"];
         };
-        /** @description File metadata, document properties and IDs of linked Things. */
+        /** @description File metadata, document properties and IDs of linked Things. Transcription starts after upload. */
         Attachment: {
             /** Format: uuid */
             id: string;
@@ -1274,6 +1277,16 @@ export interface components {
             id: string;
             name: string;
             categoryId: string;
+            /** @description Owner resolution is required before this candidate can receive fields. */
+            reviewRequired?: boolean;
+            /** @description Owned Thing IDs with ambiguous instance evidence. */
+            possibleMatches?: string[];
+        };
+        /** @description Transcription progress of an Attachment cited by an Import. */
+        ImportSourceStatus: {
+            /** Format: uuid */
+            attachmentId: string;
+            status: components["schemas"]["AttachmentTranscriptionStatusEnum"];
         };
         /** @description AI model, token counts, elapsed time and tool results for a processing attempt. */
         ImportUsage: {
@@ -1296,6 +1309,12 @@ export interface components {
             id: string;
             /** Format: uuid */
             attachmentId: string;
+            /** @description Uploaded Attachments cited by this Import, in submission order. */
+            attachmentIds: string[];
+            /** @description Persisted revision for progress streams. */
+            revision: number;
+            /** @description Current transcription outcomes for referenced Attachments. */
+            sources: components["schemas"]["ImportSourceStatus"][];
             /** Format: uuid */
             thingId: string | null;
             status: components["schemas"]["ImportStatusEnum"];
@@ -1306,28 +1325,23 @@ export interface components {
             /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
             warnings?: components["schemas"]["ImportWarning"][];
         };
-        /** @description Attachment to process and an optional existing Thing to update. */
-        ImportStart: {
-            /** Format: uuid */
-            attachmentId: string;
-            /** Format: uuid */
+        /** @description Owned uploaded Attachments to process together, with optional sole Thing context. */
+        ImportSubmission: {
+            /** @description One to ten distinct owned Attachment IDs in source order. */
+            attachmentIds: string[];
+            /**
+             * Format: uuid
+             * @description Owned Thing receiving relevant evidence; omitted for open identification.
+             */
             thingId?: string;
         };
-        /** @description Queued import ID, target Thing ID and initial status. */
+        /** @description Accepted Import with optional Thing context. */
         ImportAccepted: {
             /** Format: uuid */
             importId: string;
             /** Format: uuid */
-            thingId: string;
+            thingId: string | null;
             status: components["schemas"]["ImportStatusEnum"];
-        };
-        /** @description Detected candidates selected for import. Each targetThingId identifies an existing Thing or is null to create one. */
-        ImportConfirmation: {
-            selections: {
-                candidateId: string;
-                /** Format: uuid */
-                targetThingId: string | null;
-            }[];
         };
         /** @description Reference to a Thing, field, attachment, issue, event or product suggestion. Availability indicates whether the referenced record can still be accessed. */
         ResourceCard: {
@@ -1498,7 +1512,12 @@ export interface components {
          * @description Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.
          * @enum {string}
          */
-        ImportStatusEnum: "QUEUED" | "EXTRACTING" | "AWAITING_SELECTION" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED";
+        ImportStatusEnum: "QUEUED" | "WAITING_FOR_TRANSCRIPTION" | "EXTRACTING" | "MAPPING" | "DISCOVERING" | "REVIEW_REQUIRED" | "COMPLETE" | "INCOMPLETE" | "FAILED";
+        /**
+         * @description Readable-content preparation state of an Attachment.
+         * @enum {string}
+         */
+        AttachmentTranscriptionStatusEnum: "PENDING" | "PROCESSING" | "COMPLETE" | "EMPTY" | "PARTIAL" | "SKIPPED" | "FAILED" | "INSUFFICIENT_LANGUAGE";
         /**
          * @description Whether a message was written by the user or the assistant.
          * @enum {string}
@@ -1619,6 +1638,8 @@ export interface components {
         resourceId: string;
         /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
         thingId: string;
+        /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+        attachmentThingId: string;
         /** @description Thing id. */
         thingIdPath: string;
     };
@@ -2189,7 +2210,10 @@ export interface operations {
     };
     uploadAttachment: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+                thingId?: components["parameters"]["attachmentThingId"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2801,7 +2825,7 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    startImport: {
+    createImport: {
         parameters: {
             query?: never;
             header?: never;
@@ -2810,11 +2834,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ImportStart"];
+                "application/json": components["schemas"]["ImportSubmission"];
             };
         };
         responses: {
-            /** @description Success */
+            /** @description Accepted */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -2859,7 +2883,7 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    confirmImport: {
+    streamImport: {
         parameters: {
             query?: never;
             header?: never;
@@ -2869,24 +2893,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ImportConfirmation"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Import snapshots; event: import.snapshot; id: revision. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Import"];
+                    "text/event-stream": string;
                 };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];

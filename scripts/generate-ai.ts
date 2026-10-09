@@ -14,6 +14,9 @@ const generatedTypes = astToString(
       paths: {},
       components: {
         schemas: {
+          Transcription: schemas.$defs.transcription,
+          OpenCandidates: schemas.$defs.openCandidates,
+          TargetedFacts: schemas.$defs.targetedFacts,
           Extraction: schemas.$defs.extraction,
           Selection: schemas.$defs.selection,
           Mapping: schemas.$defs.mapping,

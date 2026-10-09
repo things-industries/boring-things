@@ -26,7 +26,7 @@ Inputs: [Technology](../requirements/technology/TECHNOLOGY.md), [Milestones](../
 - One occurrence of a field set per Thing. A field's value is scoped by its set; standalone values have no set. No additional domain concept for scope.
 - Sets drive UI sections. All fields in a selected set appear, including empty fields. Eligibility prose guides selection; no certainty ratings or selection-explanation UI.
 - Prefer relevant specialist sets through descriptions and prompts. Defer substitution rules and generic/specialist conflict resolution. Never merge different definitions merely because labels match.
-- Preserve source files and extracted content before mapping. Several detected Things require user confirmation; a source attachment may belong to several Things.
+- Preserve source files and extracted content before mapping. Several detected Things can be resolved within one Import; a source attachment may belong to several Things.
 - Tags provide user-defined filing now. Sharing through tags follows later; the scaffold is owner-only.
 - Purchasables cover consumables, accessories and upgrades linked to a Thing. Start with outbound merchant links; checkout and repair booking follow later.
 - Include bounded discovery of manuals/model information, suggested maintenance, and purchasables during import or chat. Retain source links; unsupported details remain absent.
@@ -45,7 +45,8 @@ Use UUIDs for owned records and stable text IDs for seeded registry records. Add
 | `things`            | `id`, `owner_id`, `category_id`, `name`, `description`, `data jsonb`, `revision bigint` for stream ordering                                                                                                                                  |
 | `attachments`       | `id`, `owner_id`, `filename`, `media_type`, `byte_size`, `storage_key`, `source_url` nullable, `title`, `document_type`, `publisher`, `document_date`, `page_count`, `metadata_sources jsonb`                                                |
 | `thing_attachments` | `thing_id`, `attachment_id`; composite primary key                                                                                                                                                                                           |
-| `imports`           | `id`, `owner_id`, `attachment_id`, `target_thing_id` nullable, `status`, `extraction jsonb`, `selection jsonb`, `result_thing_ids uuid[]`, `error`, `usage jsonb`, `started_at`, `finished_at`                                               |
+| `imports`           | `id`, `owner_id`, `attachment_id`, `target_thing_id` nullable, `status`, `extraction jsonb`, `result_thing_ids uuid[]`, `error`, `usage jsonb`, `started_at`, `finished_at`                                                                  |
+| `import_sources`    | `import_id`, `attachment_id`, `owner_id`, `position`; one to ten cited Attachments per Import                                                                                                                                                |
 | `tags`              | `id`, `owner_id`, `name`; unique per owner                                                                                                                                                                                                   |
 | `thing_tags`        | `thing_id`, `tag_id`; composite primary key                                                                                                                                                                                                  |
 | `issues`            | `id`, `owner_id`, `thing_id`, `title`, `description`, `status` (OPEN/RESOLVED), `resolved_at` nullable                                                                                                                                       |
@@ -109,29 +110,28 @@ Use structured responses, stable prompts and batched searches. Record model, inp
 
 Author `openapi.json` first. All routes use `/api` and authenticated owner scope. Lists accept `limit` and `cursor`; registry endpoints are read-only. Invalid references/values return 422; invalid import-state actions return 409. Limits on file size and supported media types are configured and reflected in the UI.
 
-| Route                                                                                                           | Operation                                                                                    |
-| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `GET /profile`                                                                                                  | Current user; create the local user on first authenticated access                            |
-| `GET /categories`                                                                                               | Static categories and current user's Thing counts                                            |
-| `GET /field-sets?categoryId=&q=`; `GET /field-sets/{id}`                                                        | Registry search/detail, including relation IDs and field definitions                         |
-| `GET /fields?q=`; `GET /fields/{id}`                                                                            | Individual definition search/detail                                                          |
-| `GET /things?categoryId=&tagId=&q=`; `POST /things`                                                             | List or create from literal data                                                             |
-| `GET /things/{id}`; `PATCH /things/{id}`; `DELETE /things/{id}`                                                 | Expanded detail; edit basics, tags, pins and changed values; delete                          |
-| `GET /things/{thingId}/stream`                                                                                  | SSE snapshots of progressive Thing state and related record IDs                              |
-| `POST /things:import`                                                                                           | `{attachmentId, thingId?}`; create/use skeleton and return 202 with `importId` and `thingId` |
-| `GET /imports/{id}`                                                                                             | Status, candidate selection request, results or error                                        |
-| `POST /imports/{id}:confirm`                                                                                    | Submit accepted candidates and optional existing target Thing IDs                            |
-| `POST /imports/{id}:retry`                                                                                      | Retry a failed/incomplete import without duplicating results                                 |
-| `GET /attachments?thingId=`; `POST /attachments`                                                                | List or upload a top-level source; upload returns its ID                                     |
-| `GET /attachments/{id}`; `PATCH /attachments/{id}`; `GET /attachments/{id}/content`; `DELETE /attachments/{id}` | Read/edit metadata, authorized download, delete if unreferenced                              |
-| `PUT /attachments/{id}/things/{thingId}`; `DELETE /attachments/{id}/things/{thingId}`                           | Idempotently link/unlink; retain other Thing links                                           |
-| `GET /tags`; `POST /tags`; `PATCH /tags/{id}`; `DELETE /tags/{id}`                                              | User-defined filing tags; deletion removes associations                                      |
-| `GET /issues?thingId=&status=`; `POST /issues`; `GET /issues/{id}`; `PATCH /issues/{id}`                        | Open/list/update/resolve issues                                                              |
-| `GET /events?thingId=&status=&from=&to=`; `POST /events`; `GET /events/{id}`; `PATCH /events/{id}`              | Suggestions, upcoming/past events, scheduling and completion                                 |
-| `GET /purchasables?thingId=&kind=`; `GET /purchasables/{id}`                                                    | Cited consumable/accessory/upgrade suggestions populated by discovery                        |
-| `POST /conversations`; `GET /conversations/{id}`                                                                | Start a chat with optional `thingId`; fetch the active conversation                          |
-| `POST /conversations/{id}/messages`                                                                             | `{text, requestId}`; enqueue a response, return 202; reuse request ID for retry              |
-| `GET /conversations/{id}/stream`                                                                                | SSE active-conversation snapshot, text deltas, cards, completion/error                       |
+| Route                                                                                                           | Operation                                                                               |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET /profile`                                                                                                  | Current user; create the local user on first authenticated access                       |
+| `GET /categories`                                                                                               | Static categories and current user's Thing counts                                       |
+| `GET /field-sets?categoryId=&q=`; `GET /field-sets/{id}`                                                        | Registry search/detail, including relation IDs and field definitions                    |
+| `GET /fields?q=`; `GET /fields/{id}`                                                                            | Individual definition search/detail                                                     |
+| `GET /things?categoryId=&tagId=&q=`; `POST /things`                                                             | List or create from literal data                                                        |
+| `GET /things/{id}`; `PATCH /things/{id}`; `DELETE /things/{id}`                                                 | Expanded detail; edit basics, tags, pins and changed values; delete                     |
+| `GET /things/{thingId}/stream`                                                                                  | SSE snapshots of progressive Thing state and related record IDs                         |
+| `POST /imports`                                                                                                 | `{attachmentIds, thingId?}`; create an Import and return 202 with `importId` and status |
+| `GET /imports/{id}`                                                                                             | Status, candidate summaries, results or error                                           |
+| `POST /imports/{id}:retry`                                                                                      | Retry a failed/incomplete import without duplicating results                            |
+| `GET /attachments?thingId=`; `POST /attachments`                                                                | List or upload a top-level source; upload returns its ID                                |
+| `GET /attachments/{id}`; `PATCH /attachments/{id}`; `GET /attachments/{id}/content`; `DELETE /attachments/{id}` | Read/edit metadata, authorized download, delete if unreferenced                         |
+| `PUT /attachments/{id}/things/{thingId}`; `DELETE /attachments/{id}/things/{thingId}`                           | Idempotently link/unlink; retain other Thing links                                      |
+| `GET /tags`; `POST /tags`; `PATCH /tags/{id}`; `DELETE /tags/{id}`                                              | User-defined filing tags; deletion removes associations                                 |
+| `GET /issues?thingId=&status=`; `POST /issues`; `GET /issues/{id}`; `PATCH /issues/{id}`                        | Open/list/update/resolve issues                                                         |
+| `GET /events?thingId=&status=&from=&to=`; `POST /events`; `GET /events/{id}`; `PATCH /events/{id}`              | Suggestions, upcoming/past events, scheduling and completion                            |
+| `GET /purchasables?thingId=&kind=`; `GET /purchasables/{id}`                                                    | Cited consumable/accessory/upgrade suggestions populated by discovery                   |
+| `POST /conversations`; `GET /conversations/{id}`                                                                | Start a chat with optional `thingId`; fetch the active conversation                     |
+| `POST /conversations/{id}/messages`                                                                             | `{text, requestId}`; enqueue a response, return 202; reuse request ID for retry         |
+| `GET /conversations/{id}/stream`                                                                                | SSE active-conversation snapshot, text deltas, cards, completion/error                  |
 
 PATCH field updates use `(fieldSetId, fieldId)`; `fieldSetId: null` means standalone. `value: null` clears a value. Undefined fields use their local ID. Selected sets can be added/removed by ID; included sets cannot be removed while required. Preserve populated fields from removed sets as labelled undefined fields for the POC; richer remapping is deferred. Category correction clears incompatible set assignments using the same preservation rule.
 

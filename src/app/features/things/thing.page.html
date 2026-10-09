@@ -576,53 +576,55 @@
     </div>
   </bt-dialog>
 
-  <bt-dialog title="Add a file" [open]="dialog() === 'link'" (closed)="closeDialog()">
-    <label class="button-secondary thing-upload"
-      ><ng-icon name="uploadFile" aria-hidden="true" />Upload a file<input
-        type="file"
-        class="visually-hidden"
-        [accept]="config.supportedMediaTypes.join(',')"
-        (change)="upload($event); closeDialog()"
-    /></label>
-    <p class="thing-empty">
-      PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB
-    </p>
-    @if (library().length) {
-      <h3 class="thing-dialog-heading">From your library</h3>
-      <div>
-        @for (file of library(); track file.id) {
-          @let badge = attachmentBadge(file);
-          @let name = file.title ?? file.filename;
-          @let image = file.mediaType.startsWith('image/');
-          <bt-list-row [title]="name" [icon]="image ? null : badge.icon" [tone]="badge.tone">
-            @if (image) {
-              <bt-attachment-thumbnail rowLeading [attachment]="file" />
-            }
-            <span rowSubtitle>{{ attachmentFormat(file.mediaType) }}</span>
-            @if (!file.thingIds.length) {
+  @if (dialog() === 'link') {
+    <bt-dialog title="Add a file" [open]="true" (closed)="closeDialog()">
+      <label class="button-secondary thing-upload"
+        ><ng-icon name="uploadFile" aria-hidden="true" />Upload a file<input
+          type="file"
+          class="visually-hidden"
+          [accept]="config.supportedMediaTypes.join(',')"
+          (change)="upload($event); closeDialog()"
+      /></label>
+      <p class="thing-empty">
+        PDF, JPG, PNG, WebP or text · up to {{ config.maxUploadBytes / 1048576 }} MB
+      </p>
+      @if (library().length) {
+        <h3 class="thing-dialog-heading">From your library</h3>
+        <div>
+          @for (file of library(); track file.id) {
+            @let badge = attachmentBadge(file);
+            @let name = file.title ?? file.filename;
+            @let image = file.mediaType.startsWith('image/');
+            <bt-list-row [title]="name" [icon]="image ? null : badge.icon" [tone]="badge.tone">
+              @if (image) {
+                <bt-attachment-thumbnail rowLeading [attachment]="file" />
+              }
+              <span rowSubtitle>{{ attachmentFormat(file.mediaType) }}</span>
+              @if (!file.thingIds.length) {
+                <button
+                  rowTrailing
+                  type="button"
+                  btIconButton
+                  variant="plain"
+                  icon="deleteItem"
+                  [label]="'Delete ' + name"
+                  (click)="open('deleteFile', file.id)"
+                ></button>
+              }
               <button
                 rowTrailing
                 type="button"
-                btIconButton
-                variant="plain"
-                icon="deleteItem"
-                [label]="'Delete ' + name"
-                (click)="open('deleteFile', file.id)"
-              ></button>
-            }
-            <button
-              rowTrailing
-              type="button"
-              class="button-secondary button-sm"
-              (click)="link(file.id)"
-            >
-              Link<span class="visually-hidden"> {{ name }}</span>
-            </button>
-          </bt-list-row>
-        }
-      </div>
-    }
-  </bt-dialog>
+                class="button-secondary button-sm"
+                (click)="link(file.id)"
+              >
+                Link<span class="visually-hidden"> {{ name }}</span>
+              </button>
+            </bt-list-row>
+          }
+        </div>
+      }
+    </bt-dialog>
+  }
 
   <bt-dialog title="Delete this file?" [open]="dialog() === 'deleteFile'" (closed)="closeDialog()">
     <p class="thing-dialog-copy">The file is removed from your library.</p>

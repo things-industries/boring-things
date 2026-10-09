@@ -80,23 +80,6 @@ export const ThingsStore = signalStore(
       store.disconnected()[id] !== value &&
       patchState(store, { disconnected: { ...store.disconnected(), [id]: value } });
 
-    /**
-     * Starts an import from an uploaded attachment, enriching `thingId` when given. Resolves once
-     * the Thing the import fills has loaded.
-     */
-    async function extract(attachmentId: string, thingId?: string) {
-      const result = await store.mutate('importThing', [], () =>
-        store._imports.start({ attachmentId, ...(thingId && { thingId }) }),
-      );
-
-      if (result.ok)
-        await Promise.all([
-          store.loadOne(result.value.thingId),
-          store._attachments.loadOne(attachmentId),
-        ]);
-      return result;
-    }
-
     return {
       create(input: Schema['ThingCreate']) {
         const now = new Date().toISOString();
@@ -221,23 +204,31 @@ export const ThingsStore = signalStore(
         });
       },
 
-      /**
-       * Uploads a source and starts an import, enriching `thingId` when given. Resolves once the
-       * Thing the import fills has loaded.
-       */
+      /** Uploads sources, then creates one Import that cites the resulting Attachments. */
       async startImport(
-        file: File,
+        files: File | File[],
         thingId?: string,
       ): Promise<MutationResult<Schema['ImportAccepted']>> {
-        if (file.size > store._config.maxUploadBytes) {
-          store._toasts.error('importThing', 'too-large');
-          return { ok: false, code: 'too-large' };
+        const selected = Array.isArray(files) ? files : [files];
+        if (!selected.length || selected.length > 10) {
+          store._toasts.error('importThing', 'invalid-value');
+          return { ok: false, code: 'invalid-value' };
         }
-
-        const upload = await store._attachments.upload(file);
-
-        if (!upload.ok) return upload;
-        return extract(upload.value.id, thingId);
+        const attachmentIds: string[] = [];
+        for (const file of selected) {
+          if (file.size > store._config.maxUploadBytes) {
+            store._toasts.error('importThing', 'too-large');
+            return { ok: false, code: 'too-large' };
+          }
+          const upload = await store._attachments.upload(file);
+          if (!upload.ok) return upload;
+          attachmentIds.push(upload.value.id);
+        }
+        const result = await store.mutate('importThing', [], () =>
+          store._imports.create({ attachmentIds, ...(thingId ? { thingId } : {}) }),
+        );
+        if (result.ok && result.value.thingId) await store.loadOne(result.value.thingId);
+        return result;
       },
 
       async retryImport(id: string) {

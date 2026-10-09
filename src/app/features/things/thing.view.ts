@@ -4,7 +4,13 @@ import { timeLeft, timeSince } from '../../utils/date.util';
 import { fieldIcon } from '../../utils/field-icon.util';
 import { fieldAnchor } from '../../utils/sections.util';
 
-const ACTIVE_IMPORT = ['QUEUED', 'EXTRACTING', 'MAPPING', 'DISCOVERING', 'AWAITING_SELECTION'];
+const ACTIVE_IMPORT = [
+  'QUEUED',
+  'WAITING_FOR_TRANSCRIPTION',
+  'EXTRACTING',
+  'MAPPING',
+  'DISCOVERING',
+];
 
 export function activeImport(job: Schema['Import'] | null | undefined): boolean {
   return !!job && ACTIVE_IMPORT.includes(job.status);
@@ -15,8 +21,8 @@ export const IMPORT_STEP_COUNT = 3;
 
 const IMPORT_STEPS: Partial<Record<Schema['ImportStatusEnum'], number>> = {
   QUEUED: 0,
+  WAITING_FOR_TRANSCRIPTION: 0,
   EXTRACTING: 0,
-  AWAITING_SELECTION: 1,
   MAPPING: 1,
   DISCOVERING: 2,
 };

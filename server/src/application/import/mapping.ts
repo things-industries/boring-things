@@ -20,14 +20,29 @@ export function validateExtraction(input: Extraction, categories: string[]): Ext
       typeof input.text === 'string' &&
       input.text.length <= maxDocumentTextLength &&
       Array.isArray(input.extractedThings) &&
-      input.extractedThings.length > 0 &&
       input.extractedThings.length <= 10,
     'Invalid extraction',
+  );
+  ensure(
+    (input.summary == null ||
+      (typeof input.summary === 'string' && input.summary.length <= 2000)) &&
+      (input.terms === undefined ||
+        (Array.isArray(input.terms) &&
+          input.terms.length <= 20 &&
+          input.terms.every((term) => typeof term === 'string' && term.length <= 200))) &&
+      (input.transcriptionStatus === undefined ||
+        ['COMPLETE', 'EMPTY', 'PARTIAL', 'INSUFFICIENT_LANGUAGE'].includes(
+          input.transcriptionStatus,
+        )),
+    'Invalid source transcription',
   );
 
   return {
     text: input.text,
     ...(input.metadata ? { metadata: validateAttachmentMetadata(input.metadata) } : {}),
+    summary: input.summary ?? null,
+    terms: input.terms ?? [],
+    transcriptionStatus: input.transcriptionStatus ?? (input.text.trim() ? 'COMPLETE' : 'EMPTY'),
     extractedThings: input.extractedThings.map((c, i) => {
       ensure(
         typeof c.name === 'string' &&
@@ -140,7 +155,7 @@ export function applyFactMapping(
       origin: 'IMPORT',
       sourceRefs: [
         {
-          attachmentId,
+          attachmentId: fact.attachmentId ?? attachmentId,
           ...(fact.page ? { page: fact.page } : {}),
           ...(fact.quote ? { quote: fact.quote } : {}),
         },

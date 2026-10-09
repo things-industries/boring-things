@@ -206,9 +206,8 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     for (const label of ['Camera', 'Photos', 'Files']) {
       const button = page.getByRole('button', { name: label, exact: true });
       await expect(button).toBeVisible();
-      await button.focus();
       const chooser = page.waitForEvent('filechooser');
-      await page.keyboard.press('Enter');
+      await button.click();
       await chooser;
     }
     await expect(page.getByRole('link', { name: 'Text', exact: true })).toBeVisible();
@@ -340,6 +339,9 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await page.getByRole('link', { name: 'Text', exact: true }).click();
     await page.getByLabel('Text to import', { exact: true }).fill('neff');
     await page.getByRole('button', { name: 'Import text', exact: true }).click();
+    await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+    await expect(page.getByText('Import complete.', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'View Thing 1', exact: true }).click();
     await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
     await expect(progress).toHaveCount(0);
     await page.getByRole('link', { name: 'See all details', exact: true }).click();
