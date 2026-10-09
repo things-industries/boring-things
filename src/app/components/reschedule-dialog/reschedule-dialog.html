@@ -10,16 +10,19 @@
         (ngModelChange)="date.set($event)"
       />
     </label>
-    <label class="reschedule-field"
-      >Repeats
-      <select name="repeats" [ngModel]="repeats()" (ngModelChange)="repeats.set($event)">
-        <option [ngValue]="false">Once</option>
-        <option [ngValue]="true">Repeats</option>
-      </select>
-    </label>
+    <select
+      name="repeats"
+      aria-label="Repeats"
+      [ngModel]="repeats()"
+      (ngModelChange)="repeats.set($event)"
+    >
+      <option [ngValue]="false">Does not repeat</option>
+      <option [ngValue]="true">Repeats</option>
+    </select>
     @if (repeats()) {
       <fieldset class="reschedule-interval">
-        <legend>Every</legend>
+        <legend class="visually-hidden">How often</legend>
+        <span aria-hidden="true">Every</span>
         <input
           name="interval"
           type="number"
@@ -30,6 +33,8 @@
           aria-label="Number"
           [ngModel]="interval()"
           (ngModelChange)="interval.set($event)"
+          (focus)="selectAll($event)"
+          (click)="selectAll($event)"
         />
         <select name="unit" aria-label="Unit" [ngModel]="unit()" (ngModelChange)="unit.set($event)">
           <option value="DAY">{{ interval() === 1 ? 'day' : 'days' }}</option>

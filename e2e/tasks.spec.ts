@@ -80,8 +80,8 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
     event(id, 'Engineer visit', { startsAt: tomorrowAt.toISOString() }),
   ]);
 
-  await page.goto(`/tasks?thingId=${thingId}`);
-  await expect(page.getByText(/^Showing/)).toContainText('Tasks kettle');
+  await page.goto(`/things/${thingId}/tasks`);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Tasks kettle');
 
   const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today' }) });
   const tomorrow = page.locator('section', {
@@ -98,10 +98,14 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
 
   await check.click();
   await expect(check).toHaveAttribute('aria-checked', 'true');
-  await page.getByRole('button', { name: 'Upcoming' }).click();
+  // A Thing's tasks page opens with Upcoming expanded.
+  await expect(page.getByRole('button', { name: 'Upcoming' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
 
   const next = format(addMonths(new Date(), 12), 'd MMM');
-  const upcoming = page.locator('#tasks-upcoming-days');
+  const upcoming = page.locator('.agenda-upcoming-days');
 
   await expect(upcoming.getByRole('heading', { name: next })).toBeVisible();
   await expect(upcoming.locator('bt-task-card', { hasText: 'Oil the hinges' })).toHaveCount(1);
@@ -113,8 +117,18 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
   await page.getByRole('menuitem', { name: 'Reschedule' }).click();
   await page.getByLabel('Next due date').fill(day(1));
-  await page.getByLabel('Repeats').selectOption({ label: 'Repeats' });
-  await page.getByLabel('Number').fill('2');
+
+  const repeats = page.getByRole('combobox', { name: 'Repeats' });
+
+  await expect(repeats.locator('option:checked')).toHaveText('Does not repeat');
+  await repeats.selectOption({ label: 'Repeats' });
+
+  // Clicking the number selects it, so typing replaces it.
+  const number = page.getByLabel('Number');
+
+  await number.click();
+  await page.keyboard.type('2');
+  await expect(number).toHaveValue('2');
   await page.getByLabel('Unit').selectOption('WEEK');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(tomorrow.locator('bt-task-card', { hasText: 'Descale the kettle' })).toContainText(
@@ -134,15 +148,68 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
 test('Tasks always shows Today and Tomorrow, and Upcoming expands', async ({ page }) => {
   const thingId = await withEvents(page, () => []);
 
-  await page.goto(`/tasks?thingId=${thingId}`);
+  await page.goto(`/things/${thingId}/tasks`);
   await expect(page.getByText('Nothing to do today.')).toBeVisible();
   await expect(page.getByText('Nothing planned for tomorrow.')).toBeVisible();
+  await expect(page.getByText('Nothing else is scheduled.')).toBeVisible();
+
+  await page.goto('/tasks');
 
   const upcoming = page.getByRole('button', { name: 'Upcoming' });
 
   await expect(upcoming).toHaveAttribute('aria-expanded', 'false');
   await upcoming.click();
-  await expect(page.getByText('Nothing else is scheduled.')).toBeVisible();
-  await page.getByRole('link', { name: 'Show all Things' }).click();
+  await expect(upcoming).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('A Thing previews its next tasks and suggestions, and lists suggestions by priority', async ({
+  page,
+}) => {
+  const thingId = await withEvents(page, (id) => [
+    event(id, 'Descale the kettle', { startsOn: day(2) }),
+    event(id, 'Polish the lid', { status: 'SUGGESTED' }),
+    event(id, 'Check the smoke alarm', { status: 'SUGGESTED' }),
+    event(id, 'Renew the service plan', { status: 'SUGGESTED' }),
+    event(id, 'Wipe the base', { status: 'SUGGESTED' }),
+  ]);
+
+  await page.reload();
+
+  // Upcoming tasks use the Tasks cards, with the day in place of a day heading.
+  await expect(card(page, 'Descale the kettle')).toContainText(
+    format(addDays(new Date(), 2), 'EEE d MMM'),
+  );
+  await expect(page.locator('bt-suggested-task')).toHaveText([
+    /Check the smoke alarm\s*Critical/,
+    /Renew the service plan\s*Important/,
+    /Wipe the base\s*Recommended/,
+  ]);
+  await page.getByRole('link', { name: 'See all tasks' }).click();
+  await expect(page).toHaveURL(new RegExp(`/things/${thingId}/tasks$`));
+  await expect(card(page, 'Descale the kettle')).toBeVisible();
+
+  await page.goto(`/things/${thingId}`);
+  await page.getByRole('link', { name: 'See all suggested tasks' }).click();
+  await expect(page).toHaveURL(new RegExp(`/things/${thingId}/suggestions$`));
+  await expect(page.locator('bt-suggested-task')).toHaveText([
+    /Check the smoke alarm\s*Critical/,
+    /Renew the service plan\s*Important/,
+    /Wipe the base\s*Recommended/,
+    /Polish the lid\s*Nice to have/,
+  ]);
+  await page.getByRole('button', { name: 'Add to tasks: Wipe the base' }).click();
+  await expect(page.locator('bt-suggested-task')).toHaveCount(3);
+});
+
+test('Home summarises today and opens Tasks', async ({ page }) => {
+  await withEvents(page, (id) => [event(id, 'Descale the kettle', { startsOn: day(-1) })]);
+  await page.goto('/');
+
+  const summary = page.locator('a.home-today');
+
+  await expect(summary).toContainText('Descale the kettle');
+  await expect(summary).toContainText(/\d+ overdue/);
+  await expect(summary.getByRole('checkbox')).toHaveCount(0);
+  await summary.click();
   await expect(page).toHaveURL(/\/tasks$/);
 });

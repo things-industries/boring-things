@@ -1,10 +1,10 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AttachmentsStore } from '../../../core/state/attachments.store';
-import { ThingsStore } from '../../../core/state/things.store';
-import { Dialog } from '../../../components/dialog/dialog';
-import type { FollowUp } from '../../../interfaces/task.interface';
-import { fieldValue } from '../../../utils/field.util';
+import { AttachmentsStore } from '../../core/state/attachments.store';
+import { ThingsStore } from '../../core/state/things.store';
+import { Dialog } from '../dialog/dialog';
+import type { FollowUp } from '../../interfaces/task.interface';
+import { fieldValue } from '../../utils/field.util';
 
 /** A field or document follow-up waiting for an answer. */
 export interface FollowUpRequest {

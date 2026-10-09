@@ -7,6 +7,7 @@ export const APP_TERMS = {
   login: 'Sign in',
   assistant: 'Assistant',
   tasks: 'Tasks',
+  suggestedTasks: 'Suggested tasks',
   profile: 'Profile',
 } as const;
 /** Toast leads naming the action that failed. */

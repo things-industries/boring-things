@@ -1,0 +1,14 @@
+@use 'tokens';
+
+:host {
+  display: block;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

@@ -27,8 +27,15 @@ Replaces the Timeline placeholder with the Tasks screen from Figma ([Tasks frame
 - Critical tasks show the flag after the title. Other priorities show no marker.
 - The overflow menu offers **Ask** (chat with task context), **Reschedule**, **Go to Thing** and **Delete task**. Thing events offer **Ask** and **Go to Thing** only.
 - When a completed item has a follow-up, a button appears under the title (Figma "How did it go?"). A `CHAT` follow-up opens the Thing chat with the task context. An `UPDATE_FIELD` follow-up opens a dialog with the question and an input for the target field. An `ADD_DOCUMENT` follow-up opens a dialog with the question and a file picker; the upload is linked to the Thing.
-- **Reschedule** opens a dialog with the next due date and whether the task repeats: Once, or Repeats every number of days, weeks, months or years.
-- Adding a suggested task (Thing page or a chat card) schedules it straight away; the backend chooses the day, and the owner can reschedule it.
+- **Reschedule** opens a dialog with the next due date and a dropdown, **Does not repeat** or **Repeats**. Repeats reveals a sentence, "Every [number] [days/weeks/months/years]", on one baseline; clicking the number selects it.
+- Adding a suggested task (Thing page, the Thing's suggestions page or a chat card) schedules it straight away; the backend chooses the day, and the owner can reschedule it.
+
+### Other screens
+
+- **Thing tasks** (`/things/:id/tasks`, from the Thing page's **Upcoming tasks › See all**): the same agenda for one Thing, with Upcoming expanded and no **Go to Thing**. It links to the Thing's suggestions when there are any.
+- **Suggested tasks** (`/things/:id/suggestions`, from **Suggested tasks › See all**): the Thing's suggestions by priority, each tagged Critical, Important, Recommended or Nice to have, with an Add button.
+- **Thing page**: **Upcoming tasks** shows the next three agenda items as Tasks cards, with the day in the meta line ("Today", "Tomorrow", "Fri 16 Oct") in place of day headings; the card actions work as on Tasks. **Suggested tasks** shows the top three by priority, tagged.
+- **Home**: **Today** is a read-only summary linking to Tasks: how many items are left today, how many are overdue, and the first three titles. Nothing is checked off from Home.
 
 ### Layout and order
 
@@ -91,9 +98,9 @@ Each stage is one commit, with `pnpm format` and `CI=true pnpm check` passing.
 3. **State.** `TasksStore` in `core/state/` exposes the task collection and `complete`, `reopen`, `reschedule` and `unschedule`; until #100 it maps `EventsStore` through the mock, then it becomes a `withEntityCollection` store over a `TasksService`. Cross-store read model `core/state/views/agenda.view.ts` merging tasks, events and Thing dates into day groups with the ordering rules above; pure ordering and grouping helpers in `app/utils/agenda.util.ts` with Node unit tests.
 4. **Task card.** `components/task-card/` (`bt-task-card`): primary action (check/uncheck or type icon), title with critical flag, time line, follow-up button and overflow menu built on `bt-menu`. Tinted completed state. Styles from `styles/CHEATSHEET.md` tokens; add a warning text class if missing.
 5. **Tasks page.** Connected timeline with day points, Today/Tomorrow with empty states, collapsible Upcoming with month headings and **Load more**, loading skeleton and inline `bt-error-message` with Retry.
-6. **Reschedule dialog.** `features/tasks/reschedule-dialog/` on `bt-dialog`: **Next due date**, and **Repeats** (Once or Repeats); Repeats reveals **Every** with a number and a days, weeks, months or years select.
+6. **Reschedule dialog.** `components/reschedule-dialog/` on `bt-dialog`: **Next due date**, and a **Does not repeat** / **Repeats** dropdown; Repeats reveals "Every" with a number and a days, weeks, months or years select. The agenda (`components/agenda/`), card list and its `TaskActions` (`components/task-list/`) and the dialogs (`components/task-dialogs/`) are shared by Tasks, Thing tasks and the Thing page.
 7. **Follow-ups and Ask.** `CHAT` follow-up and **Ask** navigate to `/things/:id/chat` and start a conversation with the task context (mocked as a first user message until `taskId` is accepted). `UPDATE_FIELD` dialog on `bt-dialog`: date fields patch the Thing value through `ThingsStore.update`; document fields upload through the existing attachment flow and link to the Thing.
-8. **Thing detail.** **Suggested tasks** read `TasksStore`, and completing an upcoming task goes through it so recurring tasks get their next occurrence. **Upcoming tasks › See all** goes to `/tasks?thingId=…`, which filters the page to that Thing with a clear-filter control. **Suggested tasks › See all** stays disabled: the Tasks page lists scheduled work only.
+8. **Thing detail.** **Upcoming tasks** previews the Thing's agenda with Tasks cards and links to `/things/:id/tasks`. **Suggested tasks** read `TasksStore`, sorted and tagged by priority (`bt-suggested-task`, `bt-priority-tag`), and link to `/things/:id/suggestions`. Home's **Today** summarises today's agenda and links to `/tasks`.
 9. **Docs and tests.** Update `README.md`, `PRODUCT.md` Timeline section, `src/AGENTS.md` if structure changed. Playwright journey: open Tasks, complete and uncheck a task, reschedule, delete back to suggested, expand Upcoming and load more, answer a follow-up. Screenshots at phone and desktop widths.
 
 ## Related issues

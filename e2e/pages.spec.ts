@@ -4,16 +4,18 @@ import { test, expect } from './fixtures.js';
 const noHorizontalOverflow = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-test('Home shows attention, upcoming, recent Things and categories', async ({ page }) => {
+test('Home shows attention, today, recent Things and categories', async ({ page }) => {
   await page.goto('/');
   await expect(
     page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ }),
   ).toBeVisible();
   await expect(page.locator('bt-home-skeleton')).toHaveCount(0);
-  for (const name of ['Needs attention', 'Upcoming', 'Frequent & recent', 'Categories'])
+  for (const name of ['Needs attention', 'Today', 'Frequent & recent', 'Categories'])
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'One ring heats unevenly' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Review home cover' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /(to do|Nothing to do|All done for) today/ }),
+  ).toHaveAttribute('href', '/tasks');
   await expect(page.locator('bt-thing-row')).toHaveCount(3);
   await page.getByRole('link', { name: /^Vehicles · \d+$/ }).click();
   await expect(page).toHaveURL(/\/things\?categoryId=vehicles$/);
@@ -92,7 +94,7 @@ for (const path of ['/', '/things', '/things/new', '/tasks', '/chat']) {
     // Measure the loaded page, not its skeleton.
     await expect(
       page.locator(
-        '[class*="skeleton"], bt-all-things-skeleton, bt-home-skeleton, bt-tasks-skeleton',
+        '[class*="skeleton"], bt-all-things-skeleton, bt-home-skeleton, bt-agenda-skeleton',
       ),
     ).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);

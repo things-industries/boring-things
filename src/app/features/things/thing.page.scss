@@ -101,12 +101,6 @@
 .thing-copy {
   font-weight: typography.weight(regular);
 }
-.thing-events {
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(2);
-  padding-top: tokens.space(1);
-}
 .thing-missing {
   margin-inline: calc(-1 * tokens.space(2));
   padding-inline: tokens.space(2);
@@ -173,4 +167,7 @@
     outline: 2px solid tokens.color(primary);
     outline-offset: 2px;
   }
+}
+bt-task-list {
+  --task-card-background: #{tokens.color(secondary-subtle)};
 }

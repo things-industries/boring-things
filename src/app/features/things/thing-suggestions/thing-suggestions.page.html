@@ -1,0 +1,27 @@
+<bt-top-bar title="Suggested tasks" [back]="['/things', id()]" backLabel="Back to thing" />
+<bt-scroll-container>
+  @if (error()) {
+    <div class="suggestions-error">
+      <bt-error-message [code]="error()" />
+      <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+    </div>
+  } @else if (missing()) {
+    <p class="suggestions-empty">
+      This thing is unavailable. <a class="button-link" routerLink="/">Go home</a>
+    </p>
+  } @else if (!loaded()) {
+    <bt-row-skeleton [rows]="4" />
+    <span class="visually-hidden" role="status">Loading suggested tasks…</span>
+  } @else {
+    <ul class="suggestions-list">
+      @for (task of suggested(); track task.id) {
+        <li><bt-suggested-task [task]="task" (added)="add(task.id)" /></li>
+      } @empty {
+        <li class="suggestions-empty">
+          No suggestions left.
+          <a class="button-link" [routerLink]="['/things', id(), 'tasks']">See tasks</a>
+        </li>
+      }
+    </ul>
+  }
+</bt-scroll-container>

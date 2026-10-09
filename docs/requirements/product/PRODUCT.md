@@ -162,7 +162,7 @@ See the `UI Inspiration` folder for ideas for specific components
         - Active issues power Needs attention. Each issue may include freeform status text and a calendar due date; the UI shows a countdown when a date is present.
         - Frequent and recent Things use access count and last-viewed time recorded on user page opens. Background and assistant reads do not count.
         - Thing card subtitles use category names. New means created less than seven days ago.
-        - Upcoming events (next 7 days)
+        - Today: a summary of today's tasks (left, overdue, the first few) that opens Tasks; nothing is checked off from Home
         - Categories of thing with number of things in each
         - Insights
         - Chat UI
@@ -179,8 +179,8 @@ See the `UI Inspiration` folder for ideas for specific components
         - Accessory/consumable offers
         - Cost analysis (purchase cost, recurring costs, payment frequency)
         - Related things
-        - Upcoming events (link to Tasks)
-        - Recommended tasks
+        - Upcoming tasks, as on Tasks, with a link to the Thing's own tasks page
+        - Suggested tasks by priority, tagged with their priority, with a link to all of the Thing's suggestions
         - Start chat UI
     - **Thing editor**:
         - Ability to add/remove any of the user-editable parts of a Thing
@@ -190,7 +190,9 @@ See the `UI Inspiration` folder for ideas for specific components
         - Items are tasks (things the owner does), events (appointments such as a tradesperson visit) and Thing events (deadline dates on a Thing, such as a warranty end).
         - Each item shows its title, a check control when it can be done, and a time line: overdue status, a countdown to a deadline, a recurrence interval or a time of day. Critical tasks are flagged.
         - Each day lists events first, then tasks by importance (critical, important, recommended, nice to have). Overdue tasks sit at the bottom of Today.
-        - Item actions: Ask (chat with the item as context), Reschedule (date and interval), Go to Thing and Delete (returns the task to the Thing's suggestions).
+        - Item actions: Ask (chat with the item as context), Reschedule (next due date, and whether and how often it repeats), Go to Thing and Delete (returns the task to the Thing's suggestions).
+    - **Thing tasks view**: the same view for one Thing, with Upcoming expanded.
+    - **Suggested tasks view**: one Thing's suggestions by priority, tagged with their priority, each with an Add action.
         - A completed task or event may have a follow-up: a chat with defined context, or a question that updates a Thing detail or adds a document.
 - **Assistant**:
     - **List of previous chats**

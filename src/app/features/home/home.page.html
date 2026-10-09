@@ -83,30 +83,70 @@
     </bt-card-group>
   </section>
   <section class="home-section">
-    <bt-section-header title="Upcoming">
+    <bt-section-header title="Today">
       <a class="button-link" routerLink="/tasks">View {{ 'tasks' | term }}</a>
     </bt-section-header>
-    @if (upcoming(); as event) {
-      <bt-event-card
-        [title]="event.title"
-        [date]="event.startsOn ?? event.startsAt"
-        [link]="['/things', event.thingId]"
-      >
-        <span rowSubtitle>
-          {{ event.thingName }} · {{ event.startsOn ?? event.startsAt ?? '' | relativeTime }}
-          @if (event.isSample) {
-            · Sample
-          }
-        </span>
-      </bt-event-card>
+    @let summary = today();
+    @if (!summary.total && todayFailed()) {
+      <bt-card-group><p class="home-empty">Couldn't load today's tasks.</p></bt-card-group>
     } @else {
-      <bt-card-group>
-        @if (upcomingFailed()) {
-          <p class="home-empty">Couldn't load upcoming events.</p>
-        } @else {
-          <p class="home-empty">Nothing scheduled.</p>
+      <a class="home-today" routerLink="/tasks">
+        <span class="home-today-heading">
+          <span class="home-today-count">
+            @if (!summary.total) {
+              Nothing to do today
+            } @else if (!summary.left) {
+              All done for today
+            } @else {
+              {{ summary.left }} to do today
+            }
+          </span>
+          @if (summary.overdue) {
+            <span class="home-today-overdue">
+              <ng-icon name="taskOverdue" aria-hidden="true" />{{ summary.overdue }} overdue
+            </span>
+          }
+          <ng-icon class="home-today-chevron" name="openRow" aria-hidden="true" />
+        </span>
+        @if (summary.shown.length) {
+          <ul class="home-today-items">
+            @for (item of summary.shown; track item.key) {
+              @let done = isDone(item);
+              <li [class.done]="done">
+                <ng-icon
+                  aria-hidden="true"
+                  [name]="
+                    item.type === 'TASK'
+                      ? done
+                        ? 'taskDone'
+                        : 'taskOpen'
+                      : item.type === 'EVENT'
+                        ? 'agendaEvent'
+                        : 'agendaThingDate'
+                  "
+                />
+                <span class="home-today-title">
+                  @if (item.type === 'THING_DATE') {
+                    {{ item.thingName }} {{ item.thingDate.label.toLowerCase() }}
+                  } @else {
+                    {{ itemTitle(item) }}
+                  }
+                </span>
+                @if (done) {
+                  <span class="visually-hidden">(done)</span>
+                }
+                @if (item.type === 'TASK' && item.task.priority === 'CRITICAL') {
+                  <ng-icon class="home-today-flag" name="taskCritical" aria-hidden="true" />
+                  <span class="visually-hidden">(critical)</span>
+                }
+              </li>
+            }
+          </ul>
         }
-      </bt-card-group>
+        @if (summary.more) {
+          <span class="home-today-more">and {{ summary.more }} more</span>
+        }
+      </a>
     }
   </section>
   <section class="home-section">

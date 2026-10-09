@@ -64,6 +64,22 @@ export const routes: Routes = [
       import('./features/things/thing-details/thing-details.page').then((m) => m.ThingDetailsPage),
   },
   {
+    path: 'things/:id/tasks',
+    title: APP_TERMS.tasks,
+    canActivate: [authenticated],
+    loadComponent: () =>
+      import('./features/things/thing-tasks/thing-tasks.page').then((m) => m.ThingTasksPage),
+  },
+  {
+    path: 'things/:id/suggestions',
+    title: APP_TERMS.suggestedTasks,
+    canActivate: [authenticated],
+    loadComponent: () =>
+      import('./features/things/thing-suggestions/thing-suggestions.page').then(
+        (m) => m.ThingSuggestionsPage,
+      ),
+  },
+  {
     path: 'things/:id/chat',
     title: APP_TERMS.assistant,
     canActivate: [authenticated],

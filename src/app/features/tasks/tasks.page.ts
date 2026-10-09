@@ -1,112 +1,31 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { map } from 'rxjs';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { clearFilter, expandSection, openProfile } from '../../core/app-icons';
-import { APP_CONFIG } from '../../core/app.config';
-import { mockChatDraft } from '../../core/mocks/tasks.mock';
-import { EventsStore } from '../../core/state/events.store';
-import { TasksStore } from '../../core/state/tasks.store';
-import { ThingsStore } from '../../core/state/things.store';
+import { Component, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { provideIcons } from '@ng-icons/core';
+import { openProfile } from '../../core/app-icons';
 import { agendaView, loadAgenda } from '../../core/state/views/agenda.view';
+import { Agenda } from '../../components/agenda/agenda';
+import { AgendaSkeleton } from '../../components/agenda-skeleton/agenda-skeleton';
 import { ErrorMessage } from '../../components/error-message/error-message';
 import { IconButton } from '../../components/icon-button/icon-button';
-import { TaskCard } from '../../components/task-card/task-card';
-import type { AgendaItem, FollowUp, Task } from '../../interfaces/task.interface';
 import { TermPipe } from '../../pipes/term.pipe';
-import { itemTitle } from '../../utils/agenda.util';
-import { FollowUpDialog, type FollowUpRequest } from './follow-up-dialog/follow-up-dialog';
-import { RescheduleDialog } from './reschedule-dialog/reschedule-dialog';
-import { TasksSkeleton } from './tasks-skeleton/tasks-skeleton';
 
+/** Every Thing's tasks, appointments and dates by day. */
 @Component({
   selector: 'bt-tasks',
-  imports: [
-    DatePipe,
-    NgTemplateOutlet,
-    RouterLink,
-    NgIcon,
-    ErrorMessage,
-    IconButton,
-    TaskCard,
-    TasksSkeleton,
-    RescheduleDialog,
-    FollowUpDialog,
-    TermPipe,
-  ],
-  viewProviders: [provideIcons({ clearFilter, expandSection, openProfile })],
+  imports: [RouterLink, Agenda, AgendaSkeleton, ErrorMessage, IconButton, TermPipe],
+  viewProviders: [provideIcons({ openProfile })],
   templateUrl: './tasks.page.html',
   styleUrl: './tasks.page.scss',
 })
 export class TasksPage {
-  private tasks = inject(TasksStore);
-  private events = inject(EventsStore);
-  private router = inject(Router);
   private collections = loadAgenda();
 
-  private things = inject(ThingsStore);
-
-  readonly thingId = toSignal(
-    inject(ActivatedRoute).queryParamMap.pipe(map((params) => params.get('thingId'))),
-    { initialValue: null },
-  );
-
-  readonly thing = computed(() => {
-    const id = this.thingId();
-
-    return id ? (this.things.entityMap()[id] ?? null) : null;
-  });
-
   readonly now = signal(new Date());
-  readonly agenda = agendaView(this.now, this.thingId);
+  readonly agenda = agendaView(this.now);
   readonly loaded = this.collections.loaded;
   readonly error = this.collections.error;
 
-  readonly upcomingOpen = signal(false);
-  readonly rescheduling = signal<Task | null>(null);
-  readonly answering = signal<FollowUpRequest | null>(null);
-  private readonly upcomingShown = signal<number>(APP_CONFIG.upcomingDayPage);
-  readonly upcoming = computed(() => this.agenda().upcoming.slice(0, this.upcomingShown()));
-  readonly hasMore = computed(() => this.agenda().upcoming.length > this.upcomingShown());
-
   retry() {
     this.collections.retry();
-  }
-
-  showMore() {
-    this.upcomingShown.update((shown) => shown + APP_CONFIG.upcomingDayPage);
-  }
-
-  /** Checks an item off, or reopens it. */
-  toggle(item: AgendaItem) {
-    if (item.type === 'TASK') {
-      const { id, status } = item.task;
-
-      void (status === 'COMPLETED' ? this.tasks.reopen(id) : this.tasks.complete(id));
-    } else if (item.type === 'EVENT') {
-      const { id, status } = item.event;
-
-      void (status === 'COMPLETED'
-        ? this.events.update(id, { status: 'SCHEDULED' })
-        : this.events.complete(id));
-    }
-  }
-
-  /** Opens a new Thing chat about the item. */
-  ask(item: AgendaItem, followUp = false) {
-    void this.router.navigate(['/things', item.thingId, 'chat'], {
-      queryParams: { draft: mockChatDraft(itemTitle(item), followUp) },
-    });
-  }
-
-  answer(item: AgendaItem, followUp: FollowUp) {
-    if (followUp.type === 'CHAT') this.ask(item, true);
-    else this.answering.set({ thingId: item.thingId, followUp });
-  }
-
-  remove(item: AgendaItem) {
-    if (item.type === 'TASK') void this.tasks.unschedule(item.task.id);
   }
 }

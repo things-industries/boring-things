@@ -1,0 +1,31 @@
+@let t = task();
+<bt-list-row [title]="t.title" [icon]="badge().icon" [tone]="badge().tone">
+  <span rowSubtitle class="suggested-task-meta">
+    <bt-priority-tag [priority]="t.priority" />
+    @if (t.recurrence; as recurrence) {
+      @let unit = recurrence.unit.toLowerCase();
+      <span>
+        @if (recurrence.interval === 1) {
+          Once a {{ unit }}
+        } @else {
+          Once every {{ recurrence.interval }} {{ unit }}s
+        }
+      </span>
+    }
+    @if (t.isSample) {
+      <span>Sample</span>
+    }
+    @if (t.sourceRefs[0]?.url; as url) {
+      <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
+    }
+  </span>
+  <button
+    rowTrailing
+    type="button"
+    btIconButton
+    variant="accent"
+    icon="scheduleTask"
+    [label]="'Add to tasks: ' + t.title"
+    (click)="added.emit()"
+  ></button>
+</bt-list-row>

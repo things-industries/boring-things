@@ -47,6 +47,8 @@ interface AgendaEntry {
   /** Unique across item types. */
   key: string;
   thingId: string;
+  /** Local calendar date the item sits on, `yyyy-MM-dd`; overdue items sit on today. */
+  day: string;
   overdue: boolean;
 }
 

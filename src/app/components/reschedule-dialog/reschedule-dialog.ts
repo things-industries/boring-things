@@ -1,10 +1,10 @@
 import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TasksStore } from '../../../core/state/tasks.store';
-import { Dialog } from '../../../components/dialog/dialog';
-import type { EventRecurrence } from '../../../interfaces/event.interface';
-import type { Task } from '../../../interfaces/task.interface';
-import { dayKey } from '../../../utils/date.util';
+import { TasksStore } from '../../core/state/tasks.store';
+import { Dialog } from '../dialog/dialog';
+import type { EventRecurrence } from '../../interfaces/event.interface';
+import type { Task } from '../../interfaces/task.interface';
+import { dayKey } from '../../utils/date.util';
 
 let nextId = 0;
 
@@ -35,6 +35,11 @@ export class RescheduleDialog {
       this.interval.set(task.recurrence?.interval ?? 1);
       this.unit.set(task.recurrence?.unit ?? 'MONTH');
     });
+  }
+
+  /** Selects the number so typing replaces it. */
+  selectAll(event: Event) {
+    (event.target as HTMLInputElement).select();
   }
 
   close() {

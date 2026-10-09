@@ -1,0 +1,49 @@
+@let days = agenda();
+<div class="agenda-timeline">
+  <section class="agenda-day" [attr.aria-labelledby]="id + '-today'">
+    <h2 [id]="id + '-today'" class="agenda-day-heading current">Today</h2>
+    @if (days.today.length) {
+      <bt-task-list [items]="days.today" [now]="now()" [inThing]="inThing()" />
+    } @else {
+      <p class="agenda-empty">Nothing to do today.</p>
+    }
+  </section>
+  <section class="agenda-day" [attr.aria-labelledby]="id + '-tomorrow'">
+    <h2 [id]="id + '-tomorrow'" class="agenda-day-heading">Tomorrow</h2>
+    @if (days.tomorrow.length) {
+      <bt-task-list [items]="days.tomorrow" [now]="now()" [inThing]="inThing()" />
+    } @else {
+      <p class="agenda-empty">Nothing planned for tomorrow.</p>
+    }
+  </section>
+  <section class="agenda-upcoming" [attr.aria-labelledby]="id + '-upcoming'">
+    <h2 class="agenda-upcoming-heading">
+      <button
+        [id]="id + '-upcoming'"
+        type="button"
+        [attr.aria-expanded]="upcomingOpen()"
+        [attr.aria-controls]="id + '-upcoming-days'"
+        (click)="upcomingOpen.set(!upcomingOpen())"
+      >
+        Upcoming
+        <ng-icon name="expandSection" aria-hidden="true" />
+      </button>
+    </h2>
+    <div [id]="id + '-upcoming-days'" class="agenda-upcoming-days" [hidden]="!upcomingOpen()">
+      @for (day of upcoming(); track day.date) {
+        <section class="agenda-day" [attr.aria-label]="day.date | date: 'EEEE d MMMM'">
+          <h3 class="agenda-day-heading date">{{ day.date | date: 'd MMM' }}</h3>
+          <bt-task-list [items]="day.items" [now]="now()" [inThing]="inThing()" />
+        </section>
+      } @empty {
+        <p class="agenda-empty">Nothing else is scheduled.</p>
+      }
+      @if (hasMore()) {
+        <button type="button" class="button-secondary button-sm agenda-more" (click)="showMore()">
+          Load more
+        </button>
+      }
+    </div>
+  </section>
+</div>
+<bt-task-dialogs />

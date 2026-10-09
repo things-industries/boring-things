@@ -1,0 +1,17 @@
+@use 'tokens';
+
+:host {
+  display: block;
+}
+
+// The tag leads; the items after it are separated by dots.
+.suggested-task-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: tokens.space(1);
+
+  > :nth-child(n + 3)::before {
+    content: '· ';
+  }
+}

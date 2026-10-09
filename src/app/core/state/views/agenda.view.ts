@@ -1,4 +1,4 @@
-import { computed, inject, type Signal } from '@angular/core';
+import { computed, inject, signal, type Signal } from '@angular/core';
 import type { Agenda } from '../../../interfaces/task.interface';
 import { buildAgenda } from '../../../utils/agenda.util';
 import {
@@ -23,7 +23,10 @@ export function loadAgenda() {
 }
 
 /** Tasks, appointments and Thing dates in Today, Tomorrow and later days, for one Thing if given. */
-export function agendaView(now: Signal<Date>, thingId: Signal<string | null>): Signal<Agenda> {
+export function agendaView(
+  now: Signal<Date>,
+  thingId: Signal<string | null> = signal(null),
+): Signal<Agenda> {
   const tasks = inject(TasksStore);
   const events = inject(EventsStore);
   const things = inject(ThingsStore);

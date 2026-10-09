@@ -5,7 +5,6 @@ import {
   eventStart,
   isNewThing,
   relativeDistance,
-  startsFrom,
 } from '../../src/app/utils/date.util.js';
 
 test('New badge includes creation and excludes the seven-day boundary and future dates', () => {
@@ -58,14 +57,4 @@ test('An event starts at its instant, or at local midnight on its date', () => {
     new Date(2026, 9, 25, 9, 30).getTime(),
   );
   assert.equal(eventStart({ startsAt: null, startsOn: null }), null);
-});
-
-test('A date-only event stays upcoming for its whole day; a timed event until it starts', () => {
-  const now = new Date(2026, 9, 25, 12);
-
-  assert.equal(startsFrom({ startsAt: null, startsOn: '2026-10-25' }, now), true);
-  assert.equal(startsFrom({ startsAt: null, startsOn: '2026-10-24' }, now), false);
-  assert.equal(startsFrom({ startsAt: '2026-10-25T11:00', startsOn: null }, now), false);
-  assert.equal(startsFrom({ startsAt: '2026-10-25T13:00', startsOn: null }, now), true);
-  assert.equal(startsFrom({ startsAt: null, startsOn: null }, now), false);
 });

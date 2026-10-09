@@ -25,7 +25,6 @@ import {
   attachmentSpecification,
   changeCategory,
   compatibleProduct,
-  complete,
   deleteItem,
   downloadAttachment,
   allDetails,
@@ -41,16 +40,8 @@ import {
   moreActions,
   resolveIssue,
   setAsImage,
-  taskCleaning,
-  taskInspection,
-  taskOther,
-  taskRepair,
-  taskReplacement,
-  taskService,
   unlinkAttachment,
-  upcomingEvent,
   uploadFile,
-  scheduleTask,
 } from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
 import { AttachmentsService } from '../../core/data/attachments.service';
@@ -61,16 +52,15 @@ import { Toasts } from '../../core/services/toasts.service';
 import { AttachmentsStore } from '../../core/state/attachments.store';
 import { CategoriesStore } from '../../core/state/categories.store';
 import { ConversationsStore } from '../../core/state/conversations.store';
-import { EventsStore } from '../../core/state/events.store';
 import { TasksStore } from '../../core/state/tasks.store';
 import { IssuesStore } from '../../core/state/issues.store';
 import { PurchasablesStore } from '../../core/state/purchasables.store';
 import { TagsStore } from '../../core/state/tags.store';
 import { ThingsStore } from '../../core/state/things.store';
+import { agendaView } from '../../core/state/views/agenda.view';
 import { AttachmentThumbnail } from '../../components/attachment-thumbnail/attachment-thumbnail';
 import { Dialog } from '../../components/dialog/dialog';
 import { ErrorMessage } from '../../components/error-message/error-message';
-import { EventCard } from '../../components/event-card/event-card';
 import { Hero } from '../../components/hero/hero';
 import { IconButton } from '../../components/icon-button/icon-button';
 import { KeyValueRow } from '../../components/key-value-row/key-value-row';
@@ -81,11 +71,14 @@ import { Notice } from '../../components/notice/notice';
 import { SectionHeader } from '../../components/section-header/section-header';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { Sheet } from '../../components/sheet/sheet';
+import { SuggestedTask } from '../../components/suggested-task/suggested-task';
+import { TaskDialogs } from '../../components/task-dialogs/task-dialogs';
+import { TaskActions } from '../../components/task-list/task-actions';
+import { TaskList } from '../../components/task-list/task-list';
 import { TopBar } from '../../components/top-bar/top-bar';
-import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
-import { daysUntil, eventStart } from '../../utils/date.util';
+import { byPriority, nextItems } from '../../utils/agenda.util';
+import { daysUntil } from '../../utils/date.util';
 import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
-import { taskBadges } from '../../utils/event.util';
 import { formatFieldValue } from '../../utils/field.util';
 import { issueBadges } from '../../utils/issue.util';
 import { ImportProgress } from './import-progress/import-progress';
@@ -108,7 +101,6 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'link' | 'delete
     RouterLink,
     Dialog,
     ErrorMessage,
-    EventCard,
     Hero,
     IconButton,
     ImportProgress,
@@ -120,11 +112,13 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'link' | 'delete
     Menu,
     MenuItem,
     Notice,
-    RelativeTimePipe,
     RowSkeleton,
     ScrollContainer,
     SectionHeader,
     Sheet,
+    SuggestedTask,
+    TaskDialogs,
+    TaskList,
     ThingSkeleton,
     TopBar,
   ],
@@ -141,7 +135,6 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'link' | 'delete
       attachmentSpecification,
       changeCategory,
       compatibleProduct,
-      complete,
       deleteItem,
       downloadAttachment,
       allDetails,
@@ -157,18 +150,11 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'link' | 'delete
       moreActions,
       resolveIssue,
       setAsImage,
-      taskCleaning,
-      taskInspection,
-      taskOther,
-      taskRepair,
-      taskReplacement,
-      taskService,
       unlinkAttachment,
-      upcomingEvent,
       uploadFile,
-      scheduleTask,
     }),
   ],
+  providers: [TaskActions],
   templateUrl: './thing.page.html',
   styleUrl: './thing.page.scss',
 })
@@ -177,7 +163,6 @@ export class ThingPage {
   private categories = inject(CategoriesStore);
   private tagsStore = inject(TagsStore);
   private issues = inject(IssuesStore);
-  private events = inject(EventsStore);
   private tasks = inject(TasksStore);
   private attachments = inject(AttachmentsStore);
   private purchasablesStore = inject(PurchasablesStore);
@@ -200,7 +185,6 @@ export class ThingPage {
   readonly daysUntil = daysUntil;
   readonly attachmentBadge = attachmentBadge;
   readonly attachmentFormat = attachmentFormat;
-  readonly taskBadges = taskBadges;
   readonly formatValue = formatFieldValue;
 
   readonly issueBadges = issueBadges;
@@ -249,16 +233,14 @@ export class ThingPage {
     ),
   );
 
-  private readonly thingEvents = computed(() => this.events.eventsByThing()[this.id()] ?? []);
-
-  readonly scheduled = computed(() =>
-    this.thingEvents()
-      .filter((event) => event.status === 'SCHEDULED')
-      .sort((a, b) => (eventStart(a) ?? 0) - (eventStart(b) ?? 0)),
-  );
+  readonly now = new Date();
+  private readonly agenda = agendaView(signal(this.now), this.id);
+  readonly upcoming = computed(() => nextItems(this.agenda(), APP_CONFIG.thingTaskLimit));
 
   readonly suggested = computed(() =>
-    (this.tasks.tasksByThing()[this.id()] ?? []).filter((task) => task.status === 'SUGGESTED'),
+    byPriority(
+      (this.tasks.tasksByThing()[this.id()] ?? []).filter((task) => task.status === 'SUGGESTED'),
+    ).slice(0, APP_CONFIG.thingTaskLimit),
   );
 
   readonly purchasables = computed(
@@ -281,7 +263,7 @@ export class ThingPage {
   constructor() {
     void this.categories.ensureLoaded();
     void this.issues.ensureLoaded();
-    void this.events.ensureLoaded();
+    void this.tasks.ensureLoaded();
     void this.attachments.ensureLoaded();
 
     effect(() => {
@@ -354,11 +336,6 @@ export class ThingPage {
 
   resolve(id: string) {
     void this.issues.resolve(id);
-  }
-
-  /** Completes a task, which may create its next occurrence, or an appointment. */
-  complete(id: string) {
-    void (this.tasks.entityMap()[id] ? this.tasks.complete(id) : this.events.complete(id));
   }
 
   /** Adds a suggested task to the schedule; the day is chosen for the owner. */

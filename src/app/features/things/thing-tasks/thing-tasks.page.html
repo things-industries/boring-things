@@ -1,0 +1,30 @@
+<bt-top-bar
+  [title]="thing() ? thing()!.name + ' tasks' : 'Tasks'"
+  [back]="['/things', id()]"
+  backLabel="Back to thing"
+/>
+<bt-scroll-container>
+  <div class="thing-tasks-content">
+    @if (error()) {
+      <div class="thing-tasks-error">
+        <bt-error-message [code]="error()" />
+        <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+      </div>
+    } @else if (missing()) {
+      <p class="thing-tasks-empty">
+        This thing is unavailable. <a class="button-link" routerLink="/">Go home</a>
+      </p>
+    } @else if (!loaded()) {
+      <bt-agenda-skeleton />
+    } @else {
+      <bt-agenda [agenda]="agenda()" [now]="now()" [inThing]="true" [expanded]="true" />
+      @if (suggestions()) {
+        <a
+          class="button-secondary button-sm thing-tasks-suggested"
+          [routerLink]="['/things', id(), 'suggestions']"
+          >Suggested tasks ({{ suggestions() }})</a
+        >
+      }
+    }
+  </div>
+</bt-scroll-container>

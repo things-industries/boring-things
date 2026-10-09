@@ -1,7 +1,7 @@
 @use 'tokens';
 @use 'mixins';
 
-.tasks-skeleton {
+.agenda-skeleton {
   display: flex;
   flex-direction: column;
   gap: tokens.space(2);

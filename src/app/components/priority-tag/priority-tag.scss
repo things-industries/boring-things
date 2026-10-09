@@ -1,0 +1,31 @@
+@use 'tokens';
+@use 'typography';
+
+:host {
+  @include typography.role(caption);
+  display: inline-block;
+  padding: 0 tokens.space(2);
+  border-radius: tokens.radius(pill);
+  font-weight: typography.weight(medium);
+  white-space: nowrap;
+}
+
+:host(.critical) {
+  background: tokens.color(danger-subtle);
+  color: tokens.color(danger);
+}
+
+:host(.important) {
+  background: tokens.color(warning-subtle);
+  color: tokens.color(warning);
+}
+
+:host(.recommended) {
+  background: tokens.color(info-subtle);
+  color: tokens.color(info);
+}
+
+:host(.nice_to_have) {
+  background: tokens.color(secondary);
+  color: tokens.color(primary-muted);
+}

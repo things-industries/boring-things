@@ -292,20 +292,19 @@ test('a suggested task is added, and completing it schedules the next one', asyn
   });
 
   await page.reload();
-  await expect(page.locator('bt-list-row', { hasText: 'Clean the lint filter' })).toContainText(
-    'Once every 2 weeks',
-  );
+  await expect(
+    page.locator('bt-suggested-task', { hasText: 'Clean the lint filter' }),
+  ).toContainText('Once every 2 weeks');
   // Adding a task schedules it without asking for a date; until #100 it is due today.
   await page.getByRole('button', { name: 'Add to tasks: Clean the lint filter' }).click();
 
-  const card = page.locator('bt-event-card', { hasText: 'Clean the lint filter' });
-  const due = (days: number) => `Due ${format(addDays(new Date(), days), 'd MMM y')}`;
+  const cards = page.locator('bt-task-card', { hasText: 'Clean the lint filter' });
 
-  await expect(card).toContainText(due(0));
-  await card.getByRole('button', { name: 'Mark complete: Clean the lint filter' }).click();
-  // Completing a recurring task schedules its next occurrence.
-  await expect(card).toHaveCount(1);
-  await expect(card).toContainText(due(14));
+  await expect(cards).toHaveText([/Today\s+·\s+Every 2 weeks/]);
+  await cards.getByRole('checkbox', { name: 'Clean the lint filter' }).click();
+  // Completing a recurring task schedules its next occurrence; the done one stays for today.
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1)).toContainText(format(addDays(new Date(), 14), 'EEE d MMM'));
   // The new event changes the Thing, which reloads events while the test ends.
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });

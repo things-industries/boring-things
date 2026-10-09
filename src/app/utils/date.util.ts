@@ -53,14 +53,6 @@ export function eventStart(event: {
   const value = event.startsAt ?? event.startsOn;
   return value ? parseISO(value).getTime() : null;
 }
-/** Whether an event starts at or after `now`; a date-only event counts for its whole day. */
-export function startsFrom(
-  event: { startsAt: string | null; startsOn: string | null },
-  now = new Date(),
-): boolean {
-  if (event.startsAt) return parseISO(event.startsAt).getTime() >= now.getTime();
-  return !!event.startsOn && event.startsOn >= format(now, 'yyyy-MM-dd');
-}
 
 /**
  * Time left until `value`: whole years from two years, whole months from one month, otherwise days.

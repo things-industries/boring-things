@@ -1,0 +1,24 @@
+@use 'tokens';
+@use 'mixins';
+
+:host {
+  @include mixins.viewport-page;
+}
+
+.suggestions-list {
+  margin: 0;
+  padding: 0 0 tokens.space(7);
+  list-style: none;
+}
+
+.suggestions-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: tokens.space(3);
+}
+
+.suggestions-empty {
+  margin: 0;
+  color: tokens.color(primary-muted);
+}

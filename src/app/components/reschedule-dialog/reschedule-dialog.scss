@@ -10,18 +10,26 @@
   display: flex;
   flex-direction: column;
   gap: tokens.space(1);
+  margin-bottom: 0;
 }
 
+// "Every 2 weeks" reads as one sentence: the controls sit on the text's baseline.
 .reschedule-interval {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  display: flex;
+  align-items: baseline;
   gap: tokens.space(2);
   margin: 0;
   padding: 0;
   border: 0;
+  color: tokens.color(primary);
 
-  legend {
-    margin-bottom: tokens.space(2);
-    padding: 0;
+  input {
+    flex: none;
+    width: 4.5em;
+    text-align: center;
+  }
+
+  select {
+    width: auto;
   }
 }

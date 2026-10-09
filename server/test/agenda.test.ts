@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Appointment, Task, ThingDate } from '../../src/app/interfaces/task.interface.js';
-import { buildAgenda } from '../../src/app/utils/agenda.util.js';
+import { buildAgenda, byPriority, nextItems } from '../../src/app/utils/agenda.util.js';
 import { addRecurrence } from '../../src/app/utils/date.util.js';
 
 const now = new Date(2026, 9, 8, 9, 0);
@@ -170,4 +170,34 @@ test('Recurrence adds whole calendar units', () => {
   assert.equal(addRecurrence('2026-10-08', { interval: 2, unit: 'WEEK' }), '2026-10-22');
   assert.equal(addRecurrence('2026-10-08', { interval: 12, unit: 'MONTH' }), '2027-10-08');
   assert.equal(addRecurrence('2026-10-08', { interval: 3, unit: 'DAY' }), '2026-10-11');
+});
+
+test('Items sit on their day, overdue ones on today, and previews take the next ones', () => {
+  const result = agenda([
+    task('late', { scheduledOn: '2026-10-01' }),
+    task('tomorrow', { scheduledOn: '2026-10-09' }),
+    task('later', { scheduledOn: '2026-11-03' }),
+  ]);
+
+  assert.deepEqual(
+    nextItems(result, 2).map((item) => [item.key, item.day]),
+    [
+      ['task:late', '2026-10-08'],
+      ['task:tomorrow', '2026-10-09'],
+    ],
+  );
+});
+
+test('Suggestions list by priority, then title', () => {
+  const sorted = byPriority([
+    task('b', { priority: 'NICE_TO_HAVE' }),
+    task('c', { priority: 'CRITICAL' }),
+    task('a', { priority: 'NICE_TO_HAVE' }),
+    task('d', { priority: 'IMPORTANT' }),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['c', 'd', 'a', 'b'],
+  );
 });

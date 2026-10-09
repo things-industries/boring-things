@@ -1,7 +1,5 @@
 import type { Schema } from '../../../shared/model';
 
-export type EventView = Schema['Event'] & { thingName: string };
-
 export type EventKind = 'CLEANING' | 'INSPECTION' | 'REPAIR' | 'REPLACEMENT' | 'SERVICE' | 'OTHER';
 
 export interface EventRecurrence {

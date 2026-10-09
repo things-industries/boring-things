@@ -35,73 +35,89 @@
       <ng-icon [name]="followUpIcons[followUp.type]" aria-hidden="true" />
       {{ followUp.prompt }}
     </button>
-  } @else if (timeLine(); as line) {
-    @switch (line.type) {
-      @case ('overdue') {
-        <p class="task-card-meta overdue">
-          <ng-icon name="taskOverdue" aria-hidden="true" />
-          @if (line.days === 1) {
-            Yesterday
-          } @else {
-            {{ line.days }} days ago
-          }
-        </p>
-      }
-      @case ('countdown') {
-        <p class="task-card-meta">
-          @if (line.days === 0) {
-            Due today
-          } @else if (line.days === 1) {
-            Due tomorrow
-          } @else {
-            Due in {{ line.days }} days
-          }
-          · {{ line.date | date: 'd MMM' }}
-        </p>
-      }
-      @case ('interval') {
-        <p class="task-card-meta">
-          @let n = line.recurrence.interval;
-          @switch (line.recurrence.unit) {
-            @case ('DAY') {
-              @if (n === 1) {
-                Every day
-              } @else {
-                Every {{ n }} days
-              }
+  } @else {
+    @let line = timeLine();
+    @if (overdueDays(); as days) {
+      <p class="task-card-meta overdue">
+        <ng-icon name="taskOverdue" aria-hidden="true" />
+        @if (days === 1) {
+          Yesterday
+        } @else {
+          {{ days }} days ago
+        }
+      </p>
+    } @else if (line || showDay()) {
+      <p class="task-card-meta">
+        @if (showDay()) {
+          @switch (dayOffset()) {
+            @case (0) {
+              Today
             }
-            @case ('WEEK') {
-              @if (n === 1) {
-                Every week
-              } @else {
-                Every {{ n }} weeks
-              }
+            @case (1) {
+              Tomorrow
             }
-            @case ('MONTH') {
-              @if (n === 1) {
-                Every month
-              } @else {
-                Every {{ n }} months
-              }
-            }
-            @case ('YEAR') {
-              @if (n === 1) {
-                Every year
-              } @else {
-                Every {{ n }} years
-              }
+            @default {
+              {{ entry.day | date: 'EEE d MMM' }}
             }
           }
-        </p>
-      }
-      @case ('time') {
-        <p class="task-card-meta">
-          {{ line.start | date: 'HH:mm' }}
-          @if (line.end) {
-            – {{ line.end | date: 'HH:mm' }}
+          @if (line) {
+            ·
           }
-        </p>
-      }
+        }
+        @if (line) {
+          @switch (line.type) {
+            @case ('countdown') {
+              @if (line.days === 0) {
+                Due today
+              } @else if (line.days === 1) {
+                Due tomorrow
+              } @else {
+                Due in {{ line.days }} days
+              }
+              · {{ line.date | date: 'd MMM' }}
+            }
+            @case ('interval') {
+              @let n = line.recurrence.interval;
+              @switch (line.recurrence.unit) {
+                @case ('DAY') {
+                  @if (n === 1) {
+                    Every day
+                  } @else {
+                    Every {{ n }} days
+                  }
+                }
+                @case ('WEEK') {
+                  @if (n === 1) {
+                    Every week
+                  } @else {
+                    Every {{ n }} weeks
+                  }
+                }
+                @case ('MONTH') {
+                  @if (n === 1) {
+                    Every month
+                  } @else {
+                    Every {{ n }} months
+                  }
+                }
+                @case ('YEAR') {
+                  @if (n === 1) {
+                    Every year
+                  } @else {
+                    Every {{ n }} years
+                  }
+                }
+              }
+            }
+            @case ('time') {
+              {{ line.start | date: 'HH:mm' }}
+              @if (line.end) {
+                – {{ line.end | date: 'HH:mm' }}
+              }
+            }
+          }
+        }
+      </p>
     }
   }
 </div>
@@ -112,7 +128,9 @@
       Reschedule
     </button>
   }
-  <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
+  @if (!inThing()) {
+    <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
+  }
   @if (entry.type === 'TASK') {
     <button type="button" btMenuItem icon="deleteTask" (click)="removed.emit()">Delete task</button>
   }

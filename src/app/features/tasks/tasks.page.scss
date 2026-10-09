@@ -1,8 +1,5 @@
 @use 'tokens';
 @use 'typography';
-@use 'mixins';
-
-$point-column: tokens.space(7);
 
 :host {
   display: flex;
@@ -25,141 +22,9 @@ $point-column: tokens.space(7);
   }
 }
 
-.tasks-filter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: tokens.space(2);
-  margin: 0;
-  padding: tokens.space(1) tokens.space(1) tokens.space(1) tokens.space(4);
-  border-radius: tokens.radius(pill);
-  background: tokens.color('white');
-  color: tokens.color(primary-muted);
-
-  strong {
-    color: tokens.color(primary);
-    font-weight: typography.weight(medium);
-  }
-}
-
 .tasks-error {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: tokens.space(2);
-}
-
-// A vertical line through the day points connects the days.
-.tasks-timeline {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(6);
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset-block: tokens.space(3);
-    inset-inline-start: calc(tokens.space(2) + 1px);
-    width: 1px;
-    background: tokens.color(secondary);
-  }
-}
-
-.tasks-day {
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(2);
-}
-
-.tasks-day-heading {
-  position: relative;
-  margin: 0;
-  padding-inline-start: $point-column;
-  @include typography.role(section);
-  color: tokens.color(primary);
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: tokens.space(1);
-    width: tokens.space(2);
-    height: tokens.space(2);
-    box-sizing: border-box;
-    border: 1px solid tokens.color(primary-muted);
-    border-radius: tokens.radius(pill);
-    background: tokens.color(secondary-subtle);
-    transform: translateY(-50%);
-  }
-
-  &.current::before {
-    border-color: tokens.color(accent);
-    background: tokens.color(accent);
-    box-shadow: 0 0 0 2px tokens.color(accent-subtle);
-  }
-
-  &.date {
-    @include typography.role(label);
-    color: tokens.color(primary-muted);
-  }
-}
-
-.tasks-list {
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(2);
-  margin: 0;
-  padding: 0 0 0 $point-column;
-  list-style: none;
-}
-
-.tasks-empty {
-  margin: 0;
-  padding-inline-start: $point-column;
-  color: tokens.color(primary-muted);
-}
-
-.tasks-upcoming {
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(4);
-
-  > div {
-    display: flex;
-    flex-direction: column;
-    gap: tokens.space(4);
-
-    &[hidden] {
-      display: none;
-    }
-  }
-}
-
-.tasks-upcoming-heading {
-  position: relative;
-  margin: 0;
-  text-align: center;
-
-  button {
-    @include typography.role(label);
-    display: inline-flex;
-    align-items: center;
-    gap: tokens.space(1);
-    padding: tokens.space(2) tokens.space(3);
-    border: 0;
-    border-radius: tokens.radius(pill);
-    background: tokens.color(secondary-subtle);
-    color: tokens.color(primary);
-    cursor: pointer;
-    @include mixins.icon-size(sm);
-
-    &[aria-expanded='true'] ng-icon {
-      transform: rotate(180deg);
-    }
-  }
-}
-
-.tasks-more {
-  align-self: center;
 }
