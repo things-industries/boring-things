@@ -7,8 +7,15 @@
   gap: tokens.space(4);
 }
 
-// Every control is one height, so the "Every" sentence lines up.
-.reschedule-form :is(input, select) {
+.reschedule-task {
+  margin: 0;
+  @include typography.role(section);
+  color: tokens.color(primary);
+  overflow-wrap: anywhere;
+}
+
+// Text controls share one height, so the interval row lines up.
+.reschedule-form :is(input:not([type='radio']), select) {
   height: tokens.size(control-md);
   margin-top: 0;
   padding-block: 0;
@@ -21,20 +28,25 @@
   margin-bottom: 0;
 }
 
-// "Every 2 weeks" reads as one sentence: the controls sit on the text's baseline.
-.reschedule-interval {
-  display: flex;
-  align-items: baseline;
-  gap: tokens.space(2);
+.reschedule-group {
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
-  color: tokens.color(primary);
+
+  legend {
+    margin-bottom: tokens.space(1);
+    padding: 0;
+  }
+}
+
+.reschedule-interval {
+  display: flex;
+  gap: tokens.space(2);
 
   input {
     flex: none;
     width: 4.5em;
-    text-align: center;
   }
 
   select {
@@ -42,8 +54,25 @@
   }
 }
 
+.reschedule-options {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+}
+
+.reschedule-option {
+  margin-bottom: 0;
+  @include typography.role(body);
+  color: tokens.color(primary);
+  cursor: pointer;
+
+  input {
+    accent-color: tokens.color(primary);
+  }
+}
+
 .reschedule-note {
   @include typography.role(caption);
-  margin: 0;
+  margin: tokens.space(2) 0 0;
   color: tokens.color(primary-muted);
 }

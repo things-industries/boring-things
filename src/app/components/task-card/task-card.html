@@ -125,7 +125,7 @@
   <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
   @if (entry.type === 'TASK') {
     <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">
-      Reschedule
+      Edit schedule
     </button>
   }
   @if (!inThing()) {

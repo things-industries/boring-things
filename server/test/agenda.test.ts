@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Appointment, Task, ThingDate } from '../../src/app/interfaces/task.interface.js';
 import { buildAgenda, byPriority, nextItems } from '../../src/app/utils/agenda.util.js';
-import { addRecurrence } from '../../src/app/utils/date.util.js';
+import { addRecurrence, nextDueOn } from '../../src/app/utils/date.util.js';
 
 const now = new Date(2026, 9, 8, 9, 0);
 
@@ -170,6 +170,22 @@ test('Recurrence adds whole calendar units', () => {
   assert.equal(addRecurrence('2026-10-08', { interval: 2, unit: 'WEEK' }), '2026-10-22');
   assert.equal(addRecurrence('2026-10-08', { interval: 12, unit: 'MONTH' }), '2027-10-08');
   assert.equal(addRecurrence('2026-10-08', { interval: 3, unit: 'DAY' }), '2026-10-11');
+});
+
+test('The next task counts from completion or from the due date', () => {
+  const monthly = { interval: 1, unit: 'MONTH' } as const;
+
+  // Finished late and early.
+  for (const completedOn of ['2026-10-20', '2026-10-01']) {
+    assert.equal(
+      nextDueOn('2026-10-08', completedOn, { ...monthly, from: 'COMPLETION' }),
+      addRecurrence(completedOn, monthly),
+    );
+    assert.equal(
+      nextDueOn('2026-10-08', completedOn, { ...monthly, from: 'DUE_DATE' }),
+      '2026-11-08',
+    );
+  }
 });
 
 test('Items sit on their day, overdue ones on today, and previews take the next ones', () => {

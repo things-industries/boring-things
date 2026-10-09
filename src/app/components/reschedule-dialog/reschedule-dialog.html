@@ -1,9 +1,6 @@
-<bt-dialog
-  [title]="'Reschedule “' + (task()?.title ?? '') + '”'"
-  [open]="!!task()"
-  (closed)="close()"
->
+<bt-dialog title="Edit schedule" [open]="!!task()" (closed)="close()">
   <form [id]="formId" class="reschedule-form" (ngSubmit)="save()">
+    <h3 class="reschedule-task">{{ task()?.title }}</h3>
     <label class="reschedule-field"
       >Next due date
       <input
@@ -14,57 +11,75 @@
         (ngModelChange)="date.set($event)"
       />
     </label>
-    <select
-      name="repeats"
-      aria-label="Repeats"
-      [ngModel]="repeats()"
-      (ngModelChange)="repeats.set($event)"
-    >
-      <option [ngValue]="false">Does not repeat</option>
-      <option [ngValue]="true">Repeats</option>
-    </select>
+    <label class="reschedule-field"
+      >Repeat
+      <select name="repeats" [ngModel]="repeats()" (ngModelChange)="repeats.set($event)">
+        <option [ngValue]="false">No</option>
+        <option [ngValue]="true">Yes</option>
+      </select>
+    </label>
     @if (repeats()) {
-      <fieldset class="reschedule-interval">
-        <legend class="visually-hidden">How often</legend>
-        <span aria-hidden="true">Every</span>
-        <input
-          name="interval"
-          type="number"
-          min="1"
-          step="1"
-          inputmode="numeric"
-          required
-          aria-label="Number"
-          [ngModel]="interval()"
-          (ngModelChange)="interval.set($event)"
-          (focus)="selectAll($event)"
-          (click)="selectAll($event)"
-        />
-        <select name="unit" aria-label="Unit" [ngModel]="unit()" (ngModelChange)="unit.set($event)">
-          <option value="DAY">{{ interval() === 1 ? 'day' : 'days' }}</option>
-          <option value="WEEK">{{ interval() === 1 ? 'week' : 'weeks' }}</option>
-          <option value="MONTH">{{ interval() === 1 ? 'month' : 'months' }}</option>
-          <option value="YEAR">{{ interval() === 1 ? 'year' : 'years' }}</option>
-        </select>
+      <fieldset class="reschedule-group">
+        <legend>Repeat every</legend>
+        <div class="reschedule-interval">
+          <input
+            name="interval"
+            type="number"
+            min="1"
+            step="1"
+            inputmode="numeric"
+            required
+            aria-label="Number"
+            [ngModel]="interval()"
+            (ngModelChange)="interval.set($event)"
+            (focus)="selectAll($event)"
+            (click)="selectAll($event)"
+          />
+          <select
+            name="unit"
+            aria-label="Unit"
+            [ngModel]="unit()"
+            (ngModelChange)="unit.set($event)"
+          >
+            @for (option of units; track option) {
+              <option [value]="option">{{ unitOption(option) }}</option>
+            }
+          </select>
+        </div>
       </fieldset>
-      <p class="reschedule-note">
-        Completing it adds the next one {{ interval() }}
-        @switch (unit()) {
-          @case ('DAY') {
-            {{ interval() === 1 ? 'day' : 'days' }}
-          }
-          @case ('WEEK') {
-            {{ interval() === 1 ? 'week' : 'weeks' }}
-          }
-          @case ('MONTH') {
-            {{ interval() === 1 ? 'month' : 'months' }}
-          }
-          @case ('YEAR') {
-            {{ interval() === 1 ? 'year' : 'years' }}
-          }
-        }
-        later, counted from the day you complete it, or from its due date if you finish early.
-      </p>
+      <fieldset class="reschedule-group">
+        <legend>Schedule next task from</legend>
+        <div class="reschedule-options">
+          <label class="check-label reschedule-option">
+            <input
+              type="radio"
+              name="from"
+              value="COMPLETION"
+              [ngModel]="from()"
+              (ngModelChange)="from.set($event)"
+            />
+            When I complete this task
+          </label>
+          <label class="check-label reschedule-option">
+            <input
+              type="radio"
+              name="from"
+              value="DUE_DATE"
+              [ngModel]="from()"
+              (ngModelChange)="from.set($event)"
+            />
+            The scheduled due date
+          </label>
+        </div>
+        <p class="reschedule-note">
+          The next task will be due {{ interval() }} {{ unitName(unit()) }} after
+          {{
+            from() === 'COMPLETION'
+              ? 'you complete this one.'
+              : 'its scheduled due date, even if you finish early or late.'
+          }}
+        </p>
+      </fieldset>
     }
   </form>
   <div dialogActions>
@@ -75,7 +90,7 @@
       class="button-primary button-sm"
       [disabled]="!valid()"
     >
-      Save
+      Save changes
     </button>
   </div>
 </bt-dialog>

@@ -8,17 +8,17 @@ import {
   withProps,
   withState,
 } from '@ngrx/signals';
-import type { EventRecurrence } from '../../interfaces/event.interface';
 import type { MutationResult } from '../../interfaces/state.interface';
+import type { TaskRecurrence } from '../../interfaces/task.interface';
 import { groupBy } from '../../utils/collection.util';
-import { addRecurrence, dayKey } from '../../utils/date.util';
+import { dayKey, nextDueOn } from '../../utils/date.util';
 import { isTaskEvent, mockTask } from '../mocks/tasks.mock';
 import { EventsStore } from './events.store';
 import { withSession } from './with-load';
 
 interface TasksState {
   /** Recurrences changed this session, by task ID; `null` makes a task one-off. */
-  _intervals: Record<string, EventRecurrence | null>;
+  _intervals: Record<string, TaskRecurrence | null>;
   /** Next occurrence created by completing a recurring task, by the completed task's ID. */
   _generated: Record<string, string>;
 }
@@ -63,15 +63,13 @@ export const TasksStore = signalStore(
 
       if (!result.ok || !task?.recurrence || !task.scheduledOn) return result;
 
-      const today = dayKey(new Date());
-      const from = task.scheduledOn > today ? task.scheduledOn : today;
       const next = await store._events.create({
         thingId: task.thingId,
         issueId: task.issueId,
         title: task.title,
         description: task.description,
         status: 'SCHEDULED',
-        startsOn: addRecurrence(from, task.recurrence),
+        startsOn: nextDueOn(task.scheduledOn, dayKey(new Date()), task.recurrence),
       });
 
       if (next.ok)
@@ -120,7 +118,7 @@ export const TasksStore = signalStore(
       ),
 
     /** Moves a task to another day and sets or clears its recurrence. */
-    async reschedule(id: string, scheduledOn: string, recurrence: EventRecurrence | null) {
+    async reschedule(id: string, scheduledOn: string, recurrence: TaskRecurrence | null) {
       const previous = store._intervals();
 
       patchState(store, { _intervals: { ...previous, [id]: recurrence } });

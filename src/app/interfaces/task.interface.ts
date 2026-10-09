@@ -3,6 +3,9 @@ import type { EventKind, EventRecurrence } from './event.interface';
 
 export type TaskStatus = 'SUGGESTED' | 'SCHEDULED' | 'COMPLETED';
 
+/** How often a task repeats, and whether the next one counts from completion or the due date. */
+export type TaskRecurrence = EventRecurrence & { from: 'COMPLETION' | 'DUE_DATE' };
+
 /** How bad it is if the task is not done, most important first. */
 export type TaskPriority = 'CRITICAL' | 'IMPORTANT' | 'RECOMMENDED' | 'NICE_TO_HAVE';
 
@@ -25,7 +28,7 @@ export interface Task {
   /** Day the task sits in the list; null while suggested. */
   scheduledOn: string | null;
   deadlineOn: string | null;
-  recurrence: EventRecurrence | null;
+  recurrence: TaskRecurrence | null;
   followUp: FollowUp | null;
   completedAt: string | null;
   sourceRefs: Schema['SourceRef'][];

@@ -1,11 +1,11 @@
 // Mock for #100: Tasks, Thing dates and follow-ups. Remove when #100 is delivered.
 import type { Schema } from '../../../../shared/model';
-import type { EventRecurrence } from '../../interfaces/event.interface';
 import type {
   Appointment,
   FollowUp,
   Task,
   TaskPriority,
+  TaskRecurrence,
   TaskStatus,
   ThingDate,
 } from '../../interfaces/task.interface';
@@ -38,11 +38,12 @@ function taskFollowUp(text: string): FollowUp | null {
 
 /**
  * The Task for a date-only Event, or `null` for a dismissed one. Priority and an `ADD_DOCUMENT`
- * follow-up are inferred from the text; `intervals` holds recurrences changed this session.
+ * follow-up are inferred from the text; `intervals` holds recurrences changed this session. Read
+ * recurrences count from completion.
  */
 export function mockTask(
   event: Schema['Event'],
-  intervals: Record<string, EventRecurrence | null>,
+  intervals: Record<string, TaskRecurrence | null>,
 ): Task | null {
   const status = statuses[event.status];
 
@@ -62,7 +63,10 @@ export function mockTask(
     kind,
     scheduledOn: event.startsOn,
     deadlineOn: null,
-    recurrence: event.id in intervals ? intervals[event.id] : recurrence,
+    recurrence:
+      event.id in intervals
+        ? intervals[event.id]
+        : recurrence && { ...recurrence, from: 'COMPLETION' },
     followUp: taskFollowUp(text),
     completedAt: event.completedAt,
     sourceRefs: event.sourceRefs,

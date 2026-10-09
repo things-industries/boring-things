@@ -110,16 +110,20 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   await expect(check).toHaveAttribute('aria-checked', 'false');
   await expect(upcoming.locator('bt-task-card', { hasText: 'Oil the hinges' })).toHaveCount(0);
 
-  // Rescheduling moves the task and sets its interval.
+  // Editing the schedule moves the task and sets its interval.
   await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
-  await page.getByRole('menuitem', { name: 'Reschedule' }).click();
-  await expect(page.getByRole('dialog', { name: 'Reschedule “Descale the kettle”' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Edit schedule' });
+
+  await expect(dialog.getByRole('heading', { name: 'Descale the kettle' })).toBeVisible();
   await page.getByLabel('Next due date').fill(day(1));
 
-  const repeats = page.getByRole('combobox', { name: 'Repeats' });
+  const repeat = page.getByRole('combobox', { name: 'Repeat' });
 
-  await expect(repeats.locator('option:checked')).toHaveText('Does not repeat');
-  await repeats.selectOption({ label: 'Repeats' });
+  await expect(repeat.locator('option:checked')).toHaveText('No');
+  await expect(dialog.getByRole('group', { name: 'Schedule next task from' })).toHaveCount(0);
+  await repeat.selectOption({ label: 'Yes' });
 
   // Clicking the number selects it, so typing replaces it.
   const number = page.getByLabel('Number');
@@ -127,14 +131,27 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   await number.click();
   await page.keyboard.type('2');
   await expect(number).toHaveValue('2');
-  await expect(page.getByRole('dialog')).toContainText(
-    'Completing it adds the next one 2 months later',
+  await expect(page.getByRole('radio', { name: 'When I complete this task' })).toBeChecked();
+  await expect(dialog).toContainText(
+    'The next task will be due 2 months after you complete this one.',
+  );
+  await page.getByRole('radio', { name: 'The scheduled due date' }).check();
+  await expect(dialog).toContainText(
+    'The next task will be due 2 months after its scheduled due date, even if you finish early or late.',
   );
   await page.getByLabel('Unit').selectOption('WEEK');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(tomorrow.locator('bt-task-card', { hasText: 'Descale the kettle' })).toContainText(
     'Every 2 weeks',
   );
+
+  // Reopening keeps the saved schedule.
+  await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
+  await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
+  await expect(repeat.locator('option:checked')).toHaveText('Yes');
+  await expect(number).toHaveValue('2');
+  await expect(page.getByRole('radio', { name: 'The scheduled due date' })).toBeChecked();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
 
   // Deleting returns the task to the Thing's suggestions.
   await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();

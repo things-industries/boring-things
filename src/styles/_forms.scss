@@ -37,7 +37,8 @@ label > textarea {
 textarea {
   resize: vertical;
 }
-input[type='checkbox'] {
+input[type='checkbox'],
+input[type='radio'] {
   width: auto;
 }
 input[type='file'] {

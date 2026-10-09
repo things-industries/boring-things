@@ -190,7 +190,7 @@ See the `UI Inspiration` folder for ideas for specific components
         - Items are tasks (things the owner does), events (appointments such as a tradesperson visit) and Thing events (deadline dates on a Thing, such as a warranty end).
         - Each item shows its title, a check control when it can be done, and a time line: overdue status, a countdown to a deadline, a recurrence interval or a time of day. Critical tasks are flagged.
         - Each day lists events first, then tasks by importance (critical, important, recommended, nice to have). Overdue tasks sit at the bottom of Today.
-        - Item actions: Ask (chat with the item as context), Reschedule (next due date, and whether and how often it repeats), Go to Thing and Delete (returns the task to the Thing's suggestions).
+        - Item actions: Ask (chat with the item as context), Edit schedule (next due date, whether and how often it repeats, and whether the next one counts from completion or the due date), Go to Thing and Delete (returns the task to the Thing's suggestions).
     - **Thing tasks view**: the same view for one Thing, showing every later day without an Upcoming toggle.
     - **Suggested tasks view**: one Thing's suggestions by priority, tagged with their priority, each with an Add action.
         - A completed task or event may have a follow-up: a chat with defined context, or a question that updates a Thing detail or adds a document.
