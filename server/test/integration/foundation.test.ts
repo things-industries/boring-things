@@ -109,7 +109,7 @@ test('reseeding replaces category glyphs and preserves appliance details', async
   ];
   const thing = await create({
     categoryId: 'appliances',
-    addFieldSetIds: ['appliances.bosch', 'appliances.ownership', 'appliances.warranty'],
+    addFieldSetIds: ['appliances.bsh', 'appliances.ownership', 'appliances.warranty'],
     values,
     pinnedFields: [{ fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn' }],
   });

@@ -122,7 +122,7 @@ export const fields: FieldDefinition[] = [
   }),
   field('common.serialNumber', 'Serial number', undefined, {
     description:
-      'Identifier assigned to an individual unit. Preserve leading zeroes; manufacturer-specific markings may require a dedicated field.',
+      'Unit serial number explicitly identified as such. Preserve leading zeroes; differently named manufacturer markings such as Z-Nr use their dedicated fields.',
     keywords: ['serial number', 'serial', 'S/N', 'SN'],
     uiHint: 'TEXT',
     icon: 'fieldSerial',
@@ -351,7 +351,7 @@ export const fields: FieldDefinition[] = [
   field('appliances.energyClass', 'Energy class', undefined, {
     instanceSpecific: false,
     description:
-      'Appliances carrying an energy label. Appliances with one overall class; combination products may have separate cycle classes.',
+      'The overall product energy class where one is given. Keep separate washing and complete wash-and-dry cycle classes in their function fields.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
@@ -899,7 +899,7 @@ export const fields: FieldDefinition[] = [
     { type: 'integer', minimum: 1, maximum: 99 },
     {
       description:
-        'Road motor vehicles with the corresponding operating specification. Includes vans fitted with passenger seats.',
+        'Seating capacity including the driver. Includes vans fitted with passenger seats.',
       uiHint: 'NUMBER',
       icon: 'fieldSeats',
     },
@@ -1756,7 +1756,8 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldDelivery',
   }),
   field('subscriptions.domainName', 'Domain name', undefined, {
-    description: 'Domain registration, hosting and website subscriptions. Domain registrations.',
+    description:
+      'A registered domain name. Give each domain with distinct registration terms its own Thing.',
     uiHint: 'TEXT',
     icon: 'fieldLink',
   }),
@@ -2793,7 +2794,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.ownership',
     'Ownership',
-    'A household appliance acquired by purchase, gift or transfer. Seller, price and order reference apply to purchases.',
+    'An appliance acquired by purchase, gift or transfer.',
     ['common.acquiredOn', 'common.seller', 'common.pricePaid', 'common.orderReference'],
     [],
     ['appliances.warranty', 'appliances.extendedWarranty'],
@@ -2802,7 +2803,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.warranty',
     'Warranty',
-    'A product covered by a manufacturer warranty, including expired cover retained for reference.',
+    'An appliance with a manufacturer warranty, including expired cover.',
     ['common.warrantyProvider', 'common.warrantyStarts', 'common.warrantyEnds'],
     [],
     ['appliances.extendedWarranty'],
@@ -2811,7 +2812,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.extendedWarranty',
     'Extended warranty',
-    'A product with a separately purchased extended warranty. Its coverage dates and provider belong to this cover.',
+    'An appliance with a separate extended warranty.',
     [
       'common.extendedWarrantyProvider',
       'common.extendedWarrantyStarts',
@@ -2833,7 +2834,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.maintenance',
     'Maintenance',
-    'A product with a documented recurring service requirement. Intervals describe the maintenance terms.',
+    'An appliance requiring recurring maintenance.',
     ['common.serviceInterval'],
     [],
     ['appliances.support'],
@@ -2842,10 +2843,11 @@ export const sets: FieldSet[] = [
   set(
     'appliances.appliance',
     'Appliance',
-    'A household appliance, including products with multiple functions.',
+    'All things',
     [
       'common.manufacturer',
       'common.model',
+      'common.serialNumber',
       'appliances.applianceType',
       'appliances.productCode',
       'appliances.manufacturedOn',
@@ -2853,7 +2855,6 @@ export const sets: FieldSet[] = [
     ],
     [],
     [
-      'appliances.serial',
       'appliances.ownership',
       'appliances.warranty',
       'appliances.support',
@@ -2866,45 +2867,18 @@ export const sets: FieldSet[] = [
     ['appliance', 'white goods', 'household', 'model number'],
   ),
   set(
-    'appliances.serial',
-    'Serial number',
-    'An appliance carrying a unit serial identifier other than a Z-Nr marking. BSH Z-Nr markings belong to the matching manufacturer identifier set.',
-    ['common.serialNumber'],
-    [],
-    ['appliances.appliance'],
-    ['serial', 'number', 'S/N'],
-  ),
-  set(
-    'appliances.bosch',
-    'Bosch identifiers',
-    'A Bosch household appliance whose rating plate provides E-Nr, FD or Z-Nr markings.',
+    'appliances.bsh',
+    'BSH group product (Bosch, Siemens, NEFF)',
+    'Identifiably a Bosch, Siemens or NEFF appliance through branding or an E-Nr, FD or Z-Nr marking.',
     ['appliances.eNumber', 'appliances.fdNumber', 'appliances.zNumber'],
     ['appliances.appliance'],
     [],
-    ['bosch', 'identifiers', 'BSH', 'E-Nr', 'FD', 'Z-Nr'],
-  ),
-  set(
-    'appliances.neff',
-    'Neff identifiers',
-    'A Neff household appliance whose rating plate provides E-Nr, FD or Z-Nr markings.',
-    ['appliances.eNumber', 'appliances.fdNumber', 'appliances.zNumber'],
-    ['appliances.appliance'],
-    [],
-    ['neff', 'identifiers', 'BSH', 'E-Nr', 'FD', 'Z-Nr'],
-  ),
-  set(
-    'appliances.siemens',
-    'Siemens identifiers',
-    'A Siemens household appliance whose rating plate provides E-Nr, FD or Z-Nr markings.',
-    ['appliances.eNumber', 'appliances.fdNumber', 'appliances.zNumber'],
-    ['appliances.appliance'],
-    [],
-    ['siemens', 'identifiers', 'BSH', 'E-Nr', 'FD', 'Z-Nr'],
+    ['BSH', 'Bosch', 'Siemens', 'NEFF', 'E-Nr', 'FD', 'Z-Nr'],
   ),
   set(
     'appliances.pnc',
-    'Product number',
-    'An AEG, Electrolux or Zanussi appliance with a PNC on its product label.',
+    'AEG, Electrolux and Zanussi identifiers',
+    'Identifiably an AEG, Electrolux or Zanussi appliance through branding or a PNC.',
     ['appliances.pnc'],
     ['appliances.appliance'],
     [],
@@ -2912,17 +2886,20 @@ export const sets: FieldSet[] = [
   ),
   set(
     'appliances.installation',
-    'Installation',
-    'An installed or fitted appliance with installation details or clearance requirements.',
+    'Physical installation',
+    'An appliance installed in a fixed location or requiring a fitted opening or clearance.',
     [
       'appliances.installedOn',
       'appliances.installer',
       'appliances.installationType',
       'appliances.ventilationClearance',
+      'appliances.requiredRecessWidth',
+      'appliances.requiredRecessHeight',
+      'appliances.requiredRecessDepth',
     ],
     [],
-    ['appliances.recess', 'appliances.dimensions', 'appliances.electrical'],
-    ['installation', 'fitted', 'built-in', 'installer'],
+    ['appliances.dimensions', 'appliances.electrical'],
+    ['installation', 'fitted', 'built-in', 'installer', 'opening', 'cabinet', 'niche', 'recess'],
   ),
   set(
     'appliances.dimensions',
@@ -2934,22 +2911,9 @@ export const sets: FieldSet[] = [
     ['dimensions', 'size', 'width', 'height', 'depth'],
   ),
   set(
-    'appliances.recess',
-    'Installation opening',
-    'A built-in appliance requiring a specified installation opening.',
-    [
-      'appliances.requiredRecessWidth',
-      'appliances.requiredRecessHeight',
-      'appliances.requiredRecessDepth',
-    ],
-    ['appliances.installation'],
-    [],
-    ['installation', 'opening', 'cabinet', 'niche', 'recess'],
-  ),
-  set(
     'appliances.electrical',
     'Electrical supply',
-    'An electrically powered appliance with specified supply and connection requirements.',
+    'An electrically powered appliance.',
     [
       'appliances.supplyVoltage',
       'appliances.supplyFrequency',
@@ -2964,7 +2928,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.energyLabel',
     'Energy label',
-    'An appliance carrying an energy label. Use the overall energy class only where a single product-level class is provided; separate wash and complete-cycle classes belong to the relevant function sets.',
+    'An appliance with an energy efficiency label.',
     ['appliances.energyLabelScheme', 'appliances.energyClass'],
     [],
     ['appliances.washing', 'appliances.washAndDry'],
@@ -3002,7 +2966,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.washAndDry',
     'Wash-and-dry cycle',
-    'A combination washer-dryer with measurements for its complete wash-and-dry cycle.',
+    'A washer-dryer.',
     [
       'appliances.washAndDryEnergyClass',
       'appliances.washAndDryEnergyUse',
@@ -3015,20 +2979,25 @@ export const sets: FieldSet[] = [
   set(
     'appliances.dishwasher',
     'Dishwasher',
-    'A household dishwasher with eco-cycle consumption specifications.',
+    'A dishwasher.',
     ['appliances.dishwasherWaterUse', 'appliances.dishwasherEnergyUse'],
     ['appliances.appliance'],
     ['appliances.energyLabel', 'appliances.cleaning'],
     ['dishwasher', 'dishwashing'],
   ),
   set(
-    'appliances.refrigeration',
-    'Refrigeration',
+    'appliances.fridge',
+    'Fridge',
     'A refrigerator or the chilled compartment of a fridge-freezer.',
     ['appliances.fridgeCapacity'],
     ['appliances.appliance'],
-    ['appliances.freezing', 'appliances.waterFilter', 'appliances.energyLabel'],
-    ['refrigeration', 'fridge', 'refrigerator', 'fridge-freezer'],
+    [
+      'appliances.freezing',
+      'appliances.cooling',
+      'appliances.consumables',
+      'appliances.energyLabel',
+    ],
+    ['fridge', 'refrigerator', 'refrigeration', 'fridge-freezer'],
   ),
   set(
     'appliances.freezing',
@@ -3036,22 +3005,13 @@ export const sets: FieldSet[] = [
     'A freezer or the frozen compartment of a fridge-freezer.',
     ['appliances.freezerCapacity', 'appliances.defrostSystem'],
     ['appliances.appliance'],
-    ['appliances.refrigeration', 'appliances.energyLabel'],
+    ['appliances.fridge', 'appliances.cooling', 'appliances.energyLabel'],
     ['freezer', 'frost free', 'fridge-freezer'],
-  ),
-  set(
-    'appliances.waterFilter',
-    'Water filter',
-    'An appliance with a replaceable drinking-water filter, including filtered-water refrigerators.',
-    ['appliances.waterFilterModel'],
-    [],
-    ['appliances.refrigeration'],
-    ['water', 'filter', 'filtered water', 'filter cartridge'],
   ),
   set(
     'appliances.oven',
     'Oven',
-    'An oven or the oven component of a cooker or combination appliance. Second-oven capacity applies to products with a second cavity.',
+    'An oven or the oven component of a cooker or combination appliance.',
     ['appliances.mainOvenCapacity', 'appliances.secondOvenCapacity'],
     ['appliances.appliance'],
     ['appliances.hob', 'appliances.cookingOutput', 'appliances.energyLabel', 'appliances.cleaning'],
@@ -3069,7 +3029,7 @@ export const sets: FieldSet[] = [
   set(
     'appliances.cookingOutput',
     'Cooking output',
-    'A cooking appliance whose specification states delivered output power, including microwave output.',
+    'A microwave oven or other cooking appliance rated by delivered output power.',
     ['appliances.outputPower'],
     [],
     ['appliances.oven', 'appliances.electrical'],
@@ -3081,17 +3041,17 @@ export const sets: FieldSet[] = [
     'A boiler, heat pump or other appliance providing space heating.',
     ['appliances.heatingOutput'],
     ['appliances.appliance'],
-    ['appliances.cooling', 'appliances.hotWater', 'appliances.fuel', 'appliances.refrigerant'],
+    ['appliances.spaceCooling', 'appliances.hotWater', 'appliances.fuel', 'appliances.cooling'],
     ['heating', 'boiler', 'heat pump', 'heater'],
   ),
   set(
-    'appliances.cooling',
-    'Cooling',
-    'An air conditioner or heat pump providing cooling.',
+    'appliances.spaceCooling',
+    'Space cooling',
+    'An air conditioner or heat pump providing space cooling.',
     ['appliances.coolingOutput'],
     ['appliances.appliance'],
-    ['appliances.heating', 'appliances.refrigerant'],
-    ['cooling', 'air conditioning', 'reversible heat pump'],
+    ['appliances.heating', 'appliances.cooling'],
+    ['air conditioner', 'air conditioning', 'space cooling', 'reversible heat pump'],
   ),
   set(
     'appliances.hotWater',
@@ -3112,27 +3072,35 @@ export const sets: FieldSet[] = [
     ['fuel', 'gas', 'oil', 'LPG'],
   ),
   set(
-    'appliances.refrigerant',
-    'Refrigerant',
-    'Heating or cooling equipment with a refrigerant circuit.',
+    'appliances.cooling',
+    'Cooling',
+    'An appliance with a refrigerant circuit, including a fridge, freezer, air conditioner or heat pump.',
     ['appliances.refrigerant'],
     [],
-    ['appliances.heating', 'appliances.cooling'],
-    ['refrigerant', 'refrigerant gas', 'heat pump'],
+    ['appliances.fridge', 'appliances.freezing', 'appliances.heating', 'appliances.spaceCooling'],
+    [
+      'cooling',
+      'refrigerant',
+      'refrigerant gas',
+      'fridge',
+      'freezer',
+      'air conditioner',
+      'heat pump',
+    ],
   ),
   set(
     'appliances.waterTank',
     'Water reservoir',
-    'A small appliance with a refillable water reservoir, including coffee machines and steam appliances.',
+    'An appliance with a refillable water reservoir.',
     ['appliances.waterTankCapacity'],
     [],
-    ['appliances.descaling'],
+    ['appliances.cleaning'],
     ['water', 'reservoir', 'coffee machine', 'steam'],
   ),
   set(
     'appliances.vacuum',
     'Vacuum cleaner',
-    'A vacuum cleaner or cleaning robot with a dust container.',
+    'A vacuum cleaner or cleaning robot.',
     ['appliances.dustContainerCapacity'],
     ['appliances.appliance'],
     ['appliances.consumables', 'appliances.cleaning'],
@@ -3141,8 +3109,12 @@ export const sets: FieldSet[] = [
   set(
     'appliances.consumables',
     'Consumables',
-    'An appliance requiring identifiable replacement filters, bags, cartridges or cleaning supplies.',
-    ['appliances.replacementFilter', 'appliances.compatibleConsumable'],
+    'An appliance using replaceable filters, bags, cartridges or cleaning supplies.',
+    [
+      'appliances.replacementFilter',
+      'appliances.compatibleConsumable',
+      'appliances.waterFilterModel',
+    ],
     [],
     ['appliances.cleaning'],
     ['consumables', 'filter', 'bag', 'cartridge', 'refill'],
@@ -3150,25 +3122,20 @@ export const sets: FieldSet[] = [
   set(
     'appliances.cleaning',
     'Cleaning',
-    'An appliance with documented cleaning instructions or a recurring cleaning interval.',
-    ['appliances.cleaningInstructions', 'appliances.cleaningInterval'],
+    'An appliance requiring cleaning or descaling.',
+    [
+      'appliances.cleaningInstructions',
+      'appliances.cleaningInterval',
+      'appliances.descalingInterval',
+    ],
     [],
-    ['appliances.descaling', 'appliances.consumables'],
-    ['cleaning', 'clean', 'care'],
-  ),
-  set(
-    'appliances.descaling',
-    'Descaling',
-    'An appliance whose instructions require periodic descaling.',
-    ['appliances.descalingInterval'],
-    [],
-    ['appliances.cleaning'],
-    ['descaling', 'scale', 'limescale', 'coffee'],
+    ['appliances.consumables'],
+    ['cleaning', 'clean', 'care', 'descaling', 'scale', 'limescale'],
   ),
   set(
     'devices.ownership',
     'Ownership',
-    'A device acquired by purchase, gift or transfer. Seller, price and order reference apply to purchases.',
+    'A device acquired by purchase, gift or transfer.',
     ['common.acquiredOn', 'common.seller', 'common.pricePaid', 'common.orderReference'],
     [],
     ['devices.warranty', 'devices.extendedWarranty'],
@@ -3177,7 +3144,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.warranty',
     'Warranty',
-    'A product covered by a manufacturer warranty, including expired cover retained for reference.',
+    'A device with a manufacturer warranty, including expired cover.',
     ['common.warrantyProvider', 'common.warrantyStarts', 'common.warrantyEnds'],
     [],
     ['devices.extendedWarranty'],
@@ -3186,7 +3153,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.extendedWarranty',
     'Extended warranty',
-    'A product with a separately purchased extended warranty. Its coverage dates and provider belong to this cover.',
+    'A device with a separate extended warranty.',
     [
       'common.extendedWarrantyProvider',
       'common.extendedWarrantyStarts',
@@ -3208,7 +3175,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.maintenance',
     'Maintenance',
-    'A product with a documented recurring service requirement. Intervals describe the maintenance terms.',
+    'A device requiring recurring maintenance.',
     ['common.serviceProvider', 'common.serviceInterval'],
     [],
     ['devices.support'],
@@ -3217,7 +3184,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.device',
     'Device',
-    'An electronic device with manufacturer and model identity.',
+    'All things',
     [
       'common.manufacturer',
       'common.model',
@@ -3239,7 +3206,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.software',
     'System software',
-    'A device with an operating system or firmware version that its owner can identify.',
+    'A device with an operating system or firmware.',
     ['devices.operatingSystem', 'devices.firmwareVersion'],
     [],
     ['devices.device'],
@@ -3248,7 +3215,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.computing',
     'Computing and storage',
-    'A computer, phone, tablet, console or network storage device with computing or storage specifications.',
+    'A computer, phone, tablet, console or network storage device.',
     ['devices.processor', 'devices.memory', 'devices.builtInStorage', 'devices.expandableStorage'],
     ['devices.device'],
     ['devices.software'],
@@ -3257,7 +3224,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.cellular',
     'Cellular hardware',
-    'A phone, tablet, wearable or modem with cellular hardware. Line 2 and EID apply only to devices exposing those identities.',
+    'A device with cellular hardware.',
     ['devices.imeiLine1', 'devices.imeiLine2', 'devices.eid', 'devices.simFormat'],
     ['devices.device'],
     [],
@@ -3275,7 +3242,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.network',
     'Network connection',
-    'A network-connected device with a hostname or identifiable network interfaces.',
+    'A device with a network connection.',
     ['devices.ethernetMacAddress', 'devices.wiFiMacAddress', 'devices.localHostname'],
     [],
     ['devices.wifi', 'devices.smartHome'],
@@ -3293,7 +3260,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.smartHome',
     'Smart home compatibility',
-    'A smart-home device with a declared interoperability or control protocol.',
+    'A smart-home device.',
     ['devices.connectionProtocol'],
     [],
     ['devices.network'],
@@ -3302,7 +3269,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.display',
     'Display',
-    'A television, monitor or device with an integrated display or video connectors.',
+    'A device with an integrated display or video connectors.',
     ['devices.screenDiagonal', 'devices.displayResolution', 'devices.displayConnectors'],
     [],
     ['devices.mounting', 'devices.device'],
@@ -3320,7 +3287,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.printing',
     'Printer',
-    'A printer or the printing component of a multifunction device. Colour consumables apply to colour printers.',
+    'A printer or the printing component of a multifunction device.',
     [
       'devices.printTechnology',
       'devices.blackCartridge',
@@ -3335,7 +3302,7 @@ export const sets: FieldSet[] = [
   set(
     'devices.scanning',
     'Scanner',
-    'A scanner or the scanning component of a multifunction device with a document feeder.',
+    'A scanner or the scanning component of a multifunction device.',
     ['devices.automaticDuplexScanning'],
     ['devices.device'],
     ['devices.printing'],
@@ -3344,11 +3311,29 @@ export const sets: FieldSet[] = [
   set(
     'devices.camera',
     'Camera',
-    'A camera, interchangeable lens or recording device with the relevant lens, card or recording-storage feature.',
-    ['devices.lensMount', 'devices.memoryCardFormat', 'devices.recordingStorage'],
+    'A camera, including a security camera.',
+    ['devices.lensMount', 'devices.memoryCardFormat'],
     ['devices.device'],
-    [],
-    ['camera', 'lens', 'security camera'],
+    ['devices.recording'],
+    ['camera', 'photography', 'security camera'],
+  ),
+  set(
+    'devices.lens',
+    'Interchangeable lens',
+    'An interchangeable camera lens.',
+    ['devices.lensMount'],
+    ['devices.device'],
+    ['devices.camera'],
+    ['lens', 'camera lens', 'lens mount'],
+  ),
+  set(
+    'devices.recording',
+    'Video recorder',
+    'A video recorder or security camera.',
+    ['devices.recordingStorage'],
+    ['devices.device'],
+    ['devices.camera'],
+    ['recorder', 'security camera', 'recording storage'],
   ),
   set(
     'devices.dimensions',
@@ -3371,7 +3356,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.ownership',
     'Ownership',
-    'A vehicle acquired by purchase, gift or transfer. Seller, price and order reference apply to purchases.',
+    'A vehicle acquired by purchase, gift or transfer.',
     ['common.acquiredOn', 'common.seller', 'common.pricePaid', 'common.orderReference'],
     [],
     ['vehicles.warranty', 'vehicles.extendedWarranty'],
@@ -3380,7 +3365,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.warranty',
     'Warranty',
-    'A product covered by a manufacturer warranty, including expired cover retained for reference.',
+    'A vehicle with a manufacturer warranty, including expired cover.',
     ['common.warrantyProvider', 'common.warrantyStarts', 'common.warrantyEnds'],
     [],
     ['vehicles.extendedWarranty'],
@@ -3389,7 +3374,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.extendedWarranty',
     'Extended warranty',
-    'A product with a separately purchased extended warranty. Its coverage dates and provider belong to this cover.',
+    'A vehicle with a separate extended warranty.',
     [
       'common.extendedWarrantyProvider',
       'common.extendedWarrantyStarts',
@@ -3411,16 +3396,16 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.maintenance',
     'Maintenance',
-    'A product with a documented recurring service requirement. Intervals describe the maintenance terms.',
-    ['common.serviceProvider', 'common.serviceInterval'],
+    'A vehicle requiring recurring maintenance.',
+    ['common.serviceProvider', 'common.serviceInterval', 'vehicles.serviceMileageInterval'],
     [],
     ['vehicles.support'],
-    ['maintenance', 'service', 'servicing'],
+    ['maintenance', 'service', 'servicing', 'mileage', 'kilometres'],
   ),
   set(
     'vehicles.vehicle',
     'Vehicle',
-    'A road vehicle, cycle, trailer or watercraft with manufacturer and model identity.',
+    'All things',
     [
       'common.manufacturer',
       'common.model',
@@ -3468,7 +3453,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.roadMotor',
     'Road vehicle specifications',
-    'A motorised road vehicle, including cars, vans, motorcycles and motorhomes.',
+    'A motorised road vehicle, including a car, van, motorcycle or motorhome.',
     [
       'vehicles.fuelOrPowerType',
       'vehicles.transmission',
@@ -3484,14 +3469,14 @@ export const sets: FieldSet[] = [
       'vehicles.combustion',
       'vehicles.electric',
       'vehicles.roadworthiness',
-      'vehicles.distanceMaintenance',
+      'vehicles.maintenance',
     ],
     ['road', 'vehicle', 'specifications', 'motor vehicle'],
   ),
   set(
     'vehicles.car',
     'Car',
-    'A passenger car. Seating capacity includes the driver.',
+    'A passenger car.',
     ['vehicles.seats'],
     ['vehicles.roadMotor'],
     ['vehicles.towing', 'vehicles.roofLoad'],
@@ -3500,7 +3485,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.van',
     'Van',
-    'A van or pickup used to carry goods. Cargo specifications describe its load space.',
+    'A van or pickup used to carry goods.',
     [
       'vehicles.seats',
       'vehicles.payloadKg',
@@ -3533,15 +3518,6 @@ export const sets: FieldSet[] = [
     ['roadworthiness', 'MOT', 'inspection'],
   ),
   set(
-    'vehicles.distanceMaintenance',
-    'Distance-based servicing',
-    'A vehicle with a manufacturer service interval expressed as distance.',
-    ['vehicles.serviceMileageInterval'],
-    [],
-    ['vehicles.maintenance'],
-    ['distance', 'based', 'servicing', 'mileage', 'kilometres', 'service interval'],
-  ),
-  set(
     'vehicles.roofLoad',
     'Roof load',
     'A vehicle with a manufacturer-declared roof load limit.',
@@ -3553,7 +3529,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.platedMass',
     'Permitted mass',
-    'A vehicle or trailer with a plated maximum authorised mass. Gross train weight applies to towing vehicles with a combined mass limit.',
+    'A vehicle or trailer with a plated maximum authorised mass.',
     ['vehicles.maximumAuthorisedMass', 'vehicles.grossTrainWeight'],
     [],
     ['vehicles.towing'],
@@ -3571,7 +3547,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.electric',
     'Electric drive',
-    'A battery-electric or plug-in hybrid road vehicle. DC specifications apply where DC charging is supported.',
+    'A battery-electric or plug-in hybrid road vehicle.',
     [
       'vehicles.usableTractionBatteryCapacity',
       'vehicles.acChargingConnector',
@@ -3619,7 +3595,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.motorcycle',
     'Motorcycle',
-    'A motorcycle or motor scooter. Chain specification applies to chain-driven models.',
+    'A motorcycle or motor scooter.',
     ['vehicles.seats', 'vehicles.finalDrive', 'vehicles.chainSpecification'],
     ['vehicles.roadMotor'],
     [],
@@ -3628,7 +3604,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.habitation',
     'Living accommodation',
-    'A caravan, motorhome or campervan fitted with accommodation. Tank capacities apply where the tanks are fitted.',
+    'A caravan, motorhome or campervan fitted with accommodation.',
     ['vehicles.berths', 'vehicles.freshWaterTankCapacity', 'vehicles.wasteWaterTankCapacity'],
     [],
     ['vehicles.roadMotor', 'vehicles.platedMass'],
@@ -3637,7 +3613,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.watercraft',
     'Watercraft',
-    'A boat or personal watercraft. Engine serial number applies to motorised craft.',
+    'A boat or personal watercraft.',
     [
       'vehicles.hullIdentificationNumber',
       'vehicles.hullLength',
@@ -3652,7 +3628,7 @@ export const sets: FieldSet[] = [
   set(
     'vehicles.finance',
     'Vehicle finance',
-    'A leased or financed vehicle. Mileage terms apply where specified by the agreement.',
+    'A leased or financed vehicle.',
     [
       'vehicles.financeProvider',
       'vehicles.agreementReference',
@@ -3667,7 +3643,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.account',
     'Account',
-    'A membership with a provider-managed account. Account identity is distinct from the specific plan or membership identity.',
+    'All things',
     [
       'membership.provider',
       'common.accountNumber',
@@ -3709,7 +3685,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.membership',
     'Membership',
-    'Membership of an organisation, club or scheme. Term-end and auto-renewal details apply to memberships with those terms.',
+    'All things',
     [
       'membership.number',
       'membership.level',
@@ -3726,7 +3702,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.namedMembers',
     'Members',
-    'A joint, family or group membership with named people.',
+    'A joint, family or group membership.',
     ['memberships.namedMembers'],
     [],
     ['memberships.membership'],
@@ -3744,7 +3720,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.museum',
     'Museum and heritage membership',
-    'Membership of a museum, gallery, heritage organisation, zoo or attraction offering venue or visitor benefits.',
+    'Membership of a museum, gallery, heritage organisation, zoo or attraction.',
     [
       'memberships.includedVenues',
       'memberships.guestAllowance',
@@ -3760,7 +3736,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.leisure',
     'Sports and leisure membership',
-    'A gym, pool, sports club or leisure membership with venue-access terms. Classes, guests, freezing and lockers apply where offered.',
+    'A gym, pool, sports club or leisure membership.',
     [
       'memberships.homeVenue',
       'memberships.otherIncludedVenues',
@@ -3777,7 +3753,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.professional',
     'Professional membership',
-    'A professional association, union or accreditation membership. Registration, CPD and accreditation dates apply where required.',
+    'A professional association, union or accreditation membership.',
     [
       'memberships.professionalGrade',
       'memberships.registrationNumber',
@@ -3791,7 +3767,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.lending',
     'Borrowing membership',
-    'A library or lending-club membership with borrowing entitlements.',
+    'A library or lending-club membership.',
     ['memberships.borrowingLimit', 'memberships.standardLoanPeriod', 'memberships.homeBranch'],
     ['memberships.membership'],
     [],
@@ -3800,7 +3776,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.loyalty',
     'Loyalty programme',
-    'A loyalty or travel-club membership with a loyalty identifier or status tier.',
+    'A loyalty or travel-club membership.',
     ['memberships.loyaltyNumber', 'memberships.statusTier'],
     ['memberships.membership'],
     [],
@@ -3809,7 +3785,7 @@ export const sets: FieldSet[] = [
   set(
     'memberships.workspace',
     'Workspace membership',
-    'A coworking space or makerspace membership with access or usage allowances. Induction applies where required.',
+    'A coworking space or makerspace membership.',
     [
       'memberships.homeWorkspace',
       'memberships.includedWorkspaceDays',
@@ -3824,7 +3800,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.account',
     'Account',
-    'A subscription with a provider-managed account. Account identity is distinct from the specific plan or membership identity.',
+    'All things',
     [
       'common.provider',
       'common.accountNumber',
@@ -3866,7 +3842,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.subscription',
     'Subscription',
-    'A recurring or fixed-term subscription with a named plan. Access-end and auto-renewal details apply according to its terms.',
+    'All things',
     [
       'subscriptions.subscriptionReference',
       'subscriptions.planName',
@@ -3891,7 +3867,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.introductoryOffer',
     'Introductory offer',
-    'A subscription with a time-limited introductory price and a stated subsequent price.',
+    'A subscription with a time-limited introductory offer.',
     ['subscriptions.introductoryPriceEnds', 'subscriptions.postOfferPrice'],
     [],
     ['subscriptions.billing'],
@@ -3900,7 +3876,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.bundle',
     'Included services',
-    'A subscription bundling more than one service. Each service-specific entitlement set applies independently.',
+    'A subscription that includes more than one service.',
     ['subscriptions.includedServices'],
     ['subscriptions.subscription'],
     ['subscriptions.streaming', 'subscriptions.software', 'subscriptions.cloudStorage'],
@@ -3909,7 +3885,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.streaming',
     'Streaming',
-    'A video, music or gaming-streaming subscription with plan-specific playback entitlements. Video quality applies to video services.',
+    'A video, music or game streaming subscription.',
     [
       'subscriptions.simultaneousStreams',
       'subscriptions.maximumVideoQuality',
@@ -3924,7 +3900,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.software',
     'Software licence',
-    'A software subscription with licensed-user, activation or licence-type terms. Licence key applies where activation requires a private key.',
+    'A software subscription.',
     [
       'subscriptions.licensedUsers',
       'subscriptions.activatedDeviceLimit',
@@ -3938,7 +3914,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.cloudStorage',
     'Cloud storage',
-    'A cloud service with a storage allowance or contractually selected storage region.',
+    'A cloud storage service or the storage component of a subscription.',
     ['subscriptions.storageAllowance', 'subscriptions.storageRegion'],
     ['subscriptions.subscription'],
     ['subscriptions.software', 'subscriptions.backup'],
@@ -3947,7 +3923,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.metered',
     'Usage allowance',
-    'A metered subscription with a recurring quota, reset rule or overage price.',
+    'A subscription with metered usage or a recurring allowance.',
     ['subscriptions.usageAllowance', 'subscriptions.allowanceResets', 'subscriptions.overagePrice'],
     [],
     ['subscriptions.subscription', 'subscriptions.billing'],
@@ -3970,7 +3946,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.domain',
     'Domain registration',
-    'A subscription registering a single domain name. Each domain with distinct registration terms needs its own Thing.',
+    'A subscription registering a single domain name.',
     ['subscriptions.domainName', 'subscriptions.domainExpires', 'subscriptions.registrar'],
     ['subscriptions.subscription'],
     ['subscriptions.hosting'],
@@ -3988,7 +3964,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.backup',
     'Backups',
-    'A subscription providing backups with a defined retention period.',
+    'A subscription providing backups.',
     ['subscriptions.backupRetention'],
     [],
     ['subscriptions.hosting', 'subscriptions.cloudStorage'],
@@ -4010,7 +3986,7 @@ export const sets: FieldSet[] = [
   set(
     'subscriptions.monitoring',
     'Monitoring',
-    'An alarm or monitoring subscription. Recording retention applies to plans storing recordings.',
+    'An alarm or monitoring subscription.',
     ['subscriptions.monitoringLevel', 'subscriptions.recordingRetention'],
     ['subscriptions.subscription'],
     ['subscriptions.emergencyResponse'],
@@ -4028,7 +4004,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.account',
     'Account',
-    'A utility service with a provider-managed account. Account identity is distinct from the specific plan or membership identity.',
+    'All things',
     [
       'common.provider',
       'common.accountNumber',
@@ -4070,7 +4046,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.service',
     'Utility service',
-    'A utility account serving a property or providing a telecommunications service. Supply address applies to location-bound services.',
+    'All things',
     ['common.startsOn', 'utilities.supplyAddress', 'utilities.serviceType'],
     ['utilities.account'],
     ['utilities.commitment'],
@@ -4079,7 +4055,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.tariff',
     'Tariff terms',
-    'An account with tariff-wide terms. In a bundle, use this set only for terms shared by all included services; service-specific terms belong to their service sets.',
+    'An account with tariff terms shared across its services.',
     [
       'utilities.tariffName',
       'utilities.tariffType',
@@ -4094,7 +4070,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.electricity',
     'Electricity supply',
-    'An electricity supply, including the electricity component of a dual-fuel account. Meter details apply to the associated import meter.',
+    'An electricity supply or the electricity component of a combined account.',
     [
       'utilities.electricitySupplier',
       'utilities.electricityTariffName',
@@ -4116,7 +4092,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.electricityRates',
     'Electricity rates',
-    'An electricity tariff with contractual import rates and standing charges. The single unit rate applies to single-rate tariffs; effective date and tax basis qualify the prices.',
+    'An electricity supply with contractual import rates or standing charges.',
     [
       'utilities.electricityUnitRate',
       'utilities.electricityStandingCharge',
@@ -4131,7 +4107,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.electricityGb',
     'Electricity supply identity (GB)',
-    'An electricity supply in Great Britain identified by an MPAN.',
+    'An electricity supply in Great Britain.',
     ['utilities.electricityMeterPointMpan'],
     ['utilities.electricity'],
     [],
@@ -4140,7 +4116,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.electricityPt',
     'Electricity supply identity (Portugal)',
-    'An electricity supply in Portugal identified by a CPE.',
+    'An electricity supply in Portugal.',
     ['utilities.electricitySupplyPointCpe'],
     ['utilities.electricity'],
     ['utilities.contractedPower'],
@@ -4158,7 +4134,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.dynamicRates',
     'Dynamic tariff reference',
-    'An electricity tariff whose variable settlement-period prices are published at a stable provider URL. Store the reference URL here.',
+    'An electricity tariff with prices that vary by settlement period.',
     ['utilities.dynamicRateSchedule'],
     [],
     ['utilities.electricity'],
@@ -4167,7 +4143,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.export',
     'Electricity export',
-    'An electricity supply with an export agreement and any separately assigned export meter point.',
+    'An electricity supply with an export agreement.',
     ['utilities.electricityExportRate', 'utilities.exportMeterPoint'],
     [],
     ['utilities.electricity'],
@@ -4185,7 +4161,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.gas',
     'Gas supply',
-    'A gas supply, including the gas component of a dual-fuel account. Meter units describe the physical meter.',
+    'A gas supply or the gas component of a combined account.',
     [
       'utilities.gasSupplier',
       'utilities.gasTariffName',
@@ -4200,7 +4176,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.gasRates',
     'Gas rates',
-    'A gas tariff with contractual unit rates and standing charges. Effective date and tax basis qualify the prices.',
+    'A gas supply with contractual unit rates or standing charges.',
     [
       'utilities.gasUnitRate',
       'utilities.gasStandingCharge',
@@ -4215,7 +4191,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.gasGb',
     'Gas supply identity (GB)',
-    'A gas supply in Great Britain identified by an MPRN.',
+    'A gas supply in Great Britain.',
     ['utilities.gasMeterPointMprn'],
     ['utilities.gas'],
     [],
@@ -4233,7 +4209,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.water',
     'Water supply',
-    'A clean-water supply account. Fixed charge and effective date apply where published.',
+    'A clean-water supply account.',
     [
       'utilities.waterSupplier',
       'utilities.waterChargingBasis',
@@ -4256,7 +4232,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.unmeteredWater',
     'Unmetered water',
-    'A water account billed using a property rateable value.',
+    'An unmetered water supply.',
     ['utilities.rateableValue'],
     ['utilities.water'],
     [],
@@ -4265,7 +4241,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.wastewater',
     'Wastewater',
-    'A service charging for wastewater collection or treatment. Unit rate applies to usage-based charging.',
+    'A wastewater collection or treatment service.',
     [
       'utilities.wastewaterProvider',
       'utilities.wastewaterUnitRate',
@@ -4278,7 +4254,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.broadband',
     'Broadband',
-    'A broadband service, including the broadband component of a telecommunications bundle. Speeds are contractual specifications.',
+    'A broadband service or the broadband component of a bundle.',
     [
       'utilities.broadbandPlan',
       'utilities.broadbandTechnology',
@@ -4305,7 +4281,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.mobile',
     'Mobile service',
-    'A mobile phone or mobile-data contract. Roaming, calls and spending caps apply where offered.',
+    'A mobile phone or mobile-data contract.',
     [
       'utilities.mobileNumber',
       'utilities.mobileNetwork',
@@ -4332,7 +4308,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.heat',
     'Heat network',
-    'A metered district or communal heating supply.',
+    'A district or communal heating supply.',
     ['utilities.heatUnitRate', 'utilities.heatStandingCharge'],
     ['utilities.service'],
     [],
@@ -4350,7 +4326,7 @@ export const sets: FieldSet[] = [
   set(
     'utilities.waste',
     'Waste collection',
-    'A waste-collection service with an allocated container.',
+    'A waste-collection service.',
     ['utilities.containerSize'],
     ['utilities.service'],
     [],
@@ -4359,7 +4335,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.policy',
     'Policy',
-    'An insurance policy or separately identified cover agreement. Brokers and underwriters apply where identified.',
+    'All things',
     [
       'insurance.provider',
       'insurance.underwriter',
@@ -4410,7 +4386,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.property',
     'Insured property',
-    'Home cover referring to a single insured property address, shared by any buildings and contents components.',
+    'Home insurance for an identified property.',
     ['insurance.insuredPropertyAddress'],
     [],
     ['insurance.buildings', 'insurance.contents'],
@@ -4440,7 +4416,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.contents',
     'Contents cover',
-    'Insurance covering possessions, including the contents component of combined home cover. Limits and excesses apply to this component.',
+    'Insurance covering possessions, including the contents component of combined home cover.',
     [
       'insurance.sumInsured',
       'insurance.contentsCoverBasis',
@@ -4466,7 +4442,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.specifiedItem',
     'Specified possession',
-    'A contents policy with exactly one individually scheduled possession whose description and value are recorded together. Multiple scheduled possessions require a repeated-item model before mapping this section.',
+    'A contents policy with exactly one individually scheduled possession whose description and value are recorded together.',
     ['insurance.specifiedItem', 'insurance.specifiedItemInsuredValue'],
     [],
     ['insurance.contents'],
@@ -4475,7 +4451,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.motor',
     'Motor cover',
-    'Motor cover for one insured vehicle with one set of cover and excess terms. Per-vehicle differences in multi-vehicle policies require a repeated-vehicle model before mapping this section.',
+    'Motor cover for one insured vehicle with one set of cover and excess terms.',
     [
       'insurance.insuredVehicle',
       'insurance.motorCoverLevel',
@@ -4496,7 +4472,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.travel',
     'Travel cover',
-    'Travel insurance or the travel component of a bundled policy. Benefit limits retain their per-person or per-claim basis.',
+    'Travel insurance or the travel component of a bundled policy.',
     [
       'insurance.travelPolicyType',
       'insurance.travelCoverArea',
@@ -4516,7 +4492,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.pet',
     'Pet cover',
-    'Pet insurance for one insured pet and one set of cover terms. Per-pet differences in multi-pet policies require a repeated-pet model before mapping this section.',
+    'Pet insurance for one insured pet and one set of cover terms.',
     [
       'insurance.insuredPet',
       'insurance.petCoverType',
@@ -4549,7 +4525,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.dental',
     'Dental cover',
-    'A policy or policy component providing dental cover with an annual limit. Waiting-period end applies to this dental benefit where specified.',
+    'A policy or policy component providing dental cover.',
     ['insurance.dentalAnnualLimit', 'insurance.waitingPeriodEnds'],
     ['insurance.policy'],
     ['insurance.medical'],
@@ -4558,7 +4534,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.life',
     'Life cover',
-    'Life assurance with one life-assured value and one set of cover terms. Term-end applies to fixed-term cover.',
+    'Life insurance for one named life.',
     [
       'insurance.lifeAssured',
       'insurance.lifeCoverAmount',
@@ -4572,7 +4548,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.criticalIllness',
     'Critical illness cover',
-    'A policy or policy component paying a stated critical-illness benefit.',
+    'A policy or policy component providing critical-illness cover.',
     ['insurance.criticalIllnessAmount'],
     ['insurance.policy'],
     ['insurance.life'],
@@ -4581,7 +4557,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.incomeProtection',
     'Income protection',
-    'Income protection with monthly benefits, a deferred period and defined payment-duration and incapacity terms.',
+    'A policy or policy component providing income protection.',
     [
       'insurance.monthlyBenefit',
       'insurance.deferredPeriod',
@@ -4614,7 +4590,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.gadget',
     'Gadget cover',
-    'Cover for one identified gadget with one per-item limit. Multiple gadgets with different terms require a repeated-item model before mapping this section.',
+    'Cover for one identified gadget.',
     ['insurance.gadgetInsuredItem', 'insurance.gadgetCoverLimit'],
     ['insurance.policy'],
     [],
@@ -4623,7 +4599,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.publicLiability',
     'Public liability',
-    'A policy or component providing a stated public-liability limit.',
+    'A policy or component providing public-liability cover.',
     ['insurance.publicLiabilityLimit'],
     ['insurance.policy'],
     [],
@@ -4632,7 +4608,7 @@ export const sets: FieldSet[] = [
   set(
     'insurance.legalExpenses',
     'Legal expenses',
-    'A policy or component providing a stated legal-expenses limit.',
+    'A policy or component providing legal-expenses cover.',
     ['insurance.legalExpensesLimit'],
     ['insurance.policy'],
     [],

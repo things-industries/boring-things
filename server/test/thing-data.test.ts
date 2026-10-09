@@ -13,7 +13,7 @@ test('mandatory inclusion expands and a required dependency cannot be removed', 
     /still required/,
   );
   assert.throws(
-    () => patchData(data, { addFieldSetIds: ['appliances.bosch'] }, 'vehicles', registry),
+    () => patchData(data, { addFieldSetIds: ['appliances.bsh'] }, 'vehicles', registry),
     /incompatible/,
   );
 });

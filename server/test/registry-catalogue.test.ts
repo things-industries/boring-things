@@ -69,8 +69,52 @@ test('manufacturer markings, measurements and rates preserve context and leading
   assert.equal(registry.fields.get('subscriptions.licenceKey')!.sensitive, true);
   assert.equal(registry.fields.get('insurance.medicalScreeningReference')!.sensitive, true);
   assert.ok(
-    !registry.sets.get('appliances.bosch')!.fields.some((f) => f.id === 'common.serialNumber'),
+    !registry.sets.get('appliances.bsh')!.fields.some((f) => f.id === 'common.serialNumber'),
   );
+});
+
+test('base sets, product types and shared traits retain distinct field groups', () => {
+  for (const id of [
+    'appliances.appliance',
+    'devices.device',
+    'vehicles.vehicle',
+    'memberships.membership',
+    'subscriptions.subscription',
+    'utilities.service',
+    'insurance.policy',
+  ])
+    assert.equal(registry.sets.get(id)!.eligibility, 'All things');
+
+  const fieldIds = (id: string) => registry.sets.get(id)!.fields.map((field) => field.id);
+  assert.ok(fieldIds('appliances.appliance').includes('common.serialNumber'));
+  assert.deepEqual(fieldIds('appliances.bsh'), [
+    'appliances.eNumber',
+    'appliances.fdNumber',
+    'appliances.zNumber',
+  ]);
+  assert.ok(fieldIds('appliances.installation').includes('appliances.requiredRecessWidth'));
+  assert.ok(fieldIds('appliances.consumables').includes('appliances.waterFilterModel'));
+  assert.ok(fieldIds('appliances.cleaning').includes('appliances.descalingInterval'));
+  assert.ok(fieldIds('vehicles.maintenance').includes('vehicles.serviceMileageInterval'));
+  assert.deepEqual(fieldIds('appliances.fridge'), ['appliances.fridgeCapacity']);
+  assert.deepEqual(fieldIds('appliances.cooling'), ['appliances.refrigerant']);
+  assert.deepEqual(fieldIds('appliances.spaceCooling'), ['appliances.coolingOutput']);
+  assert.deepEqual(fieldIds('devices.lens'), ['devices.lensMount']);
+  assert.deepEqual(fieldIds('devices.recording'), ['devices.recordingStorage']);
+  assert.ok(registry.sets.get('subscriptions.streaming')!.keywords.includes('music'));
+  for (const retired of [
+    'appliances.serial',
+    'appliances.bosch',
+    'appliances.neff',
+    'appliances.siemens',
+    'appliances.recess',
+    'appliances.refrigeration',
+    'appliances.waterFilter',
+    'appliances.refrigerant',
+    'appliances.descaling',
+    'vehicles.distanceMaintenance',
+  ])
+    assert.equal(registry.sets.has(retired), false);
 });
 
 test('composite utility and medical/dental cover components retain independent values', () => {

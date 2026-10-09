@@ -316,7 +316,7 @@ test('immediate skeleton, progressive empty sets, source retention, string IDs a
   assert.ok(thing!.fieldSets.length);
   assert.equal(
     thing!.fieldSets
-      .find((s) => s.id === 'appliances.neff')!
+      .find((s) => s.id === 'appliances.bsh')!
       .fields.find((f) => f.id === 'appliances.zNumber')!.value,
     null,
   );
@@ -331,7 +331,7 @@ test('immediate skeleton, progressive empty sets, source retention, string IDs a
   thing = (await request('GET', `/things/${accepted.thingId}`)).json();
   assert.equal(
     thing.fieldSets
-      .find((s) => s.id === 'appliances.neff')!
+      .find((s) => s.id === 'appliances.bsh')!
       .fields.find((f) => f.id === 'appliances.zNumber')!.value,
     '0015',
   );
@@ -412,7 +412,7 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   const edit = await request('PATCH', `/things/${accepted.thingId}`, {
     values: [
       {
-        fieldSetId: 'appliances.neff',
+        fieldSetId: 'appliances.bsh',
         fieldId: 'appliances.zNumber',
         value: '0099',
       },
@@ -427,7 +427,7 @@ test('failed mapping retry reuses targets, preserves user edits and has no dupli
   const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(
     thing.fieldSets
-      .find((s) => s.id === 'appliances.neff')!
+      .find((s) => s.id === 'appliances.bsh')!
       .fields.find((f) => f.id === 'appliances.zNumber')!.value,
     '0099',
   );
@@ -466,7 +466,7 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
     assert.equal(subject.facts.length, 21);
     assert.deepEqual(
       selectedSets.map((set) => set.id),
-      ['appliances.appliance', 'appliances.neff'],
+      ['appliances.appliance', 'appliances.bsh'],
     );
     assert.ok(
       selectedSets.some((set) => set.fields.some((field) => field.id === 'appliances.zNumber')),
@@ -482,7 +482,7 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
         values: [
           {
             factId: 'fact-1',
-            fieldSetId: 'appliances.neff',
+            fieldSetId: 'appliances.bsh',
             fieldId: 'appliances.zNumber',
             value: '0015',
             pin: false,
@@ -499,7 +499,7 @@ test('application fact batches have separate tool budgets, reject out-of-batch v
   const thing = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
   assert.equal(
     thing.fieldSets
-      .find((s) => s.id === 'appliances.neff')!
+      .find((s) => s.id === 'appliances.bsh')!
       .fields.find((f) => f.id === 'appliances.zNumber')!.value,
     '0015',
   );
@@ -547,7 +547,7 @@ test('fact decisions and Thing values roll back together, then retry preserves s
     assert.equal(thing.customFields.length, 0);
     assert.equal(
       thing.fieldSets
-        .find((set) => set.id === 'appliances.neff')!
+        .find((set) => set.id === 'appliances.bsh')!
         .fields.find((field) => field.id === 'appliances.zNumber')!.value,
       null,
     );
@@ -1026,7 +1026,7 @@ test('category document enrichment validates variants, commits cited values prog
   const updated = await request('PATCH', `/things/${accepted.thingId}`, {
     addFieldSetIds: ['appliances.cookingOutput', 'appliances.electrical'],
     values: [
-      { fieldSetId: 'appliances.neff', fieldId: 'appliances.eNumber', value: 'SYNTHETIC/01' },
+      { fieldSetId: 'appliances.bsh', fieldId: 'appliances.eNumber', value: 'SYNTHETIC/01' },
     ],
     customFields: [
       { label: 'Public variant', value: 'UK', sensitive: true, instanceSpecific: false },

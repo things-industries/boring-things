@@ -122,7 +122,7 @@
       "candidate": "candidate-1",
       "result": {
         "kind": "sets",
-        "setIds": ["appliances.neff", "appliances.appliance"]
+        "setIds": ["appliances.bsh", "appliances.appliance"]
       }
     },
     {
@@ -139,14 +139,14 @@
           },
           {
             "factId": "fact-3",
-            "fieldSetId": "appliances.neff",
+            "fieldSetId": "appliances.bsh",
             "fieldId": "appliances.eNumber",
             "value": "T58TS6BN0/01",
             "pin": true
           },
           {
             "factId": "fact-4",
-            "fieldSetId": "appliances.neff",
+            "fieldSetId": "appliances.bsh",
             "fieldId": "appliances.zNumber",
             "value": "0015",
             "pin": true

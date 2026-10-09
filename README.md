@@ -87,7 +87,7 @@ Sharing, checkout, repair booking, calendar sync and the conversation history UI
 
 ## Fields and privacy
 
-The registry contains 165 fieldsets and 413 definitions across seven categories. Ownership, warranty, support and maintenance compose with product or service types. Manufacturer identifiers and coverage components retain separate semantics and set-scoped values. `Other` supports custom fields.
+The registry contains 160 fieldsets and 413 definitions across seven categories. Each category has a base set; subtype sets carry distinct fields, and ownership, warranty, support and maintenance compose with product or service types. Shared manufacturer identifiers and coverage components retain set-scoped values. `Other` supports custom fields.
 
 Registry fields carry semantic keys in `icon` (for example `fieldDate`). The table below maps these keys to `@ng-icons/remixicon` exports for frontend integration; clients use `fieldDefault` for missing or unknown keys and custom fields.
 
@@ -134,9 +134,9 @@ Registry fields carry semantic keys in `icon` (for example `fieldDate`). The tab
 | `fieldCount`        | `remixListOrdered2`         |
 | `fieldCheck`        | `remixCheckboxCircleLine`   |
 
-Registry seeds are authored in `server/src/db/seeds/registry.ts`. Edit stable IDs carefully, run the checks, then `pnpm db:seed` and restart the API. Seeding updates registry metadata; it does not migrate existing values or delete owned data. Incompatible registry changes require a migration.
+Registry seeds are authored in `server/src/db/seeds/registry.ts`. Edit stable IDs carefully, run the checks, then apply pending migrations with `pnpm db:migrate`, run `pnpm db:seed` and restart the API. Seeding updates registry metadata; migrations move existing values and remove retired set definitions.
 
-Apply `20260930040000_expanded_fieldsets.sql` with `pnpm db:migrate`, then restart the API. The migration installs the catalogue and moves existing appliance ownership/warranty, vehicle registration/VIN and museum membership values into their new sets. It preserves source references, sensitivity, user edits and pins. Conflicts and retired renewal dates become custom fields. Legacy standalone appliance fields migrate to the shared definitions. Re-running `pnpm db:seed` keeps the same catalogue metadata.
+The registry migrations preserve source references, sensitivity, owner edits and pins while moving values between sets. Conflicting manufacturer markings become custom fields with their original evidence. The current grouping migration also updates saved import mapping checkpoints and document target keys.
 
 Dimensions are separate width, height, depth or length fields where applicable. Measurements and rates use text to retain units, precision and allowance bases; counts, full dates, booleans and simple monetary amounts use typed schemas. Partial manufacture dates remain text. Membership types accept provider-specific names. Upcoming activities belong in events and documents in attachments.
 
