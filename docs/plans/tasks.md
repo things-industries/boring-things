@@ -27,7 +27,8 @@ Replaces the Timeline placeholder with the Tasks screen from Figma ([Tasks frame
 - Critical tasks show the flag after the title. Other priorities show no marker.
 - The overflow menu offers **Ask** (chat with task context), **Reschedule**, **Go to Thing** and **Delete task**. Thing events offer **Ask** and **Go to Thing** only.
 - When a completed item has a follow-up, a button appears under the title (Figma "How did it go?"). A `CHAT` follow-up opens the Thing chat with the task context. An `UPDATE_FIELD` follow-up opens a dialog with the question and an input for the target field. An `ADD_DOCUMENT` follow-up opens a dialog with the question and a file picker; the upload is linked to the Thing.
-- **Reschedule** opens a dialog with two controls: a new date, and the interval (number plus days, weeks, months or years; recurring tasks only, with an option to make a one-off task recurring).
+- **Reschedule** opens a dialog with the next due date and whether the task repeats: Once, or Repeats every number of days, weeks, months or years.
+- Adding a suggested task (Thing page or a chat card) schedules it straight away; the backend chooses the day, and the owner can reschedule it.
 
 ### Layout and order
 
@@ -74,6 +75,7 @@ Contract, using existing component names where they exist:
 
 - Completing a recurring task stores `completedAt` and creates the next occurrence with `scheduledOn` set to the interval after the later of `scheduledOn` and the completion date. Reopening it (status back to `SCHEDULED`) deletes that generated occurrence if it is still unchanged. The response returns both tasks.
 - Rescheduling patches `scheduledOn` and `recurrence`.
+- Scheduling a suggested task patches `status: SCHEDULED` without `scheduledOn`; the server chooses the day.
 - `Event` gains `endsAt` (nullable date-time, for "14:00–16:00") and the same nullable `followUp`. An Event with a follow-up accepts `status: COMPLETED`.
 - `GET /api/thing-dates?from=&to=` returns derived Thing events: `{ thingId, fieldId, label, date }` from DATE fields whose definitions are marked as deadlines (warranty end, renewal, expiry). Registry seeds mark those definitions.
 - `POST /api/conversations` accepts an optional `taskId` or `eventId`, so **Ask** and `CHAT` follow-ups open a conversation that starts with that context.
@@ -89,7 +91,7 @@ Each stage is one commit, with `pnpm format` and `CI=true pnpm check` passing.
 3. **State.** `TasksStore` in `core/state/` exposes the task collection and `complete`, `reopen`, `reschedule` and `unschedule`; until #100 it maps `EventsStore` through the mock, then it becomes a `withEntityCollection` store over a `TasksService`. Cross-store read model `core/state/views/agenda.view.ts` merging tasks, events and Thing dates into day groups with the ordering rules above; pure ordering and grouping helpers in `app/utils/agenda.util.ts` with Node unit tests.
 4. **Task card.** `components/task-card/` (`bt-task-card`): primary action (check/uncheck or type icon), title with critical flag, time line, follow-up button and overflow menu built on `bt-menu`. Tinted completed state. Styles from `styles/CHEATSHEET.md` tokens; add a warning text class if missing.
 5. **Tasks page.** Connected timeline with day points, Today/Tomorrow with empty states, collapsible Upcoming with month headings and **Load more**, loading skeleton and inline `bt-error-message` with Retry.
-6. **Reschedule dialog.** `features/tasks/reschedule-dialog/` on `bt-dialog`: date input, and an interval number plus unit select with a Does not repeat option.
+6. **Reschedule dialog.** `features/tasks/reschedule-dialog/` on `bt-dialog`: **Next due date**, and **Repeats** (Once or Repeats); Repeats reveals **Every** with a number and a days, weeks, months or years select.
 7. **Follow-ups and Ask.** `CHAT` follow-up and **Ask** navigate to `/things/:id/chat` and start a conversation with the task context (mocked as a first user message until `taskId` is accepted). `UPDATE_FIELD` dialog on `bt-dialog`: date fields patch the Thing value through `ThingsStore.update`; document fields upload through the existing attachment flow and link to the Thing.
 8. **Thing detail.** **Suggested tasks** read `TasksStore`, and completing an upcoming task goes through it so recurring tasks get their next occurrence. **Upcoming tasks › See all** goes to `/tasks?thingId=…`, which filters the page to that Thing with a clear-filter control. **Suggested tasks › See all** stays disabled: the Tasks page lists scheduled work only.
 9. **Docs and tests.** Update `README.md`, `PRODUCT.md` Timeline section, `src/AGENTS.md` if structure changed. Playwright journey: open Tasks, complete and uncheck a task, reschedule, delete back to suggested, expand Upcoming and load more, answer a follow-up. Screenshots at phone and desktop widths.

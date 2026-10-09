@@ -6,11 +6,14 @@ textarea,
 select {
   font: inherit;
 }
-label {
+label,
+legend {
   display: block;
   font-size: 12px;
   font-weight: 550;
   color: tokens.color(text-label);
+}
+label {
   margin-bottom: 14px;
 }
 input,

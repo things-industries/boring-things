@@ -8,7 +8,7 @@ import { dayKey } from '../../../utils/date.util';
 
 let nextId = 0;
 
-/** Moves a task to a new date and sets how often it repeats. Open while `task` is set. */
+/** Sets a task's next due date and whether, and how often, it repeats. Open while `task` is set. */
 @Component({
   selector: 'bt-reschedule-dialog',
   imports: [FormsModule, Dialog],
@@ -20,8 +20,9 @@ export class RescheduleDialog {
   readonly task = input<Task | null>(null);
   readonly closed = output<void>();
   readonly date = signal('');
+  readonly repeats = signal(false);
   readonly interval = signal(1);
-  readonly unit = signal<EventRecurrence['unit'] | ''>('');
+  readonly unit = signal<EventRecurrence['unit']>('MONTH');
   readonly formId = `reschedule-task-${nextId++}`;
 
   constructor() {
@@ -30,8 +31,9 @@ export class RescheduleDialog {
 
       if (!task) return;
       this.date.set(task.scheduledOn ?? dayKey(new Date()));
+      this.repeats.set(!!task.recurrence);
       this.interval.set(task.recurrence?.interval ?? 1);
-      this.unit.set(task.recurrence?.unit ?? '');
+      this.unit.set(task.recurrence?.unit ?? 'MONTH');
     });
   }
 
@@ -39,13 +41,23 @@ export class RescheduleDialog {
     this.closed.emit();
   }
 
+  /** Whether the form can be saved: a date, and a whole interval of at least one when repeating. */
+  valid() {
+    return (
+      !!this.date() &&
+      (!this.repeats() || (Number.isInteger(this.interval()) && this.interval() >= 1))
+    );
+  }
+
   save() {
     const task = this.task();
-    const unit = this.unit();
-    const interval = Math.floor(this.interval());
 
-    if (!task || !this.date() || (unit && !(interval >= 1))) return;
-    void this.tasks.reschedule(task.id, this.date(), unit ? { interval, unit } : null);
+    if (!task || !this.valid()) return;
+    void this.tasks.reschedule(
+      task.id,
+      this.date(),
+      this.repeats() ? { interval: this.interval(), unit: this.unit() } : null,
+    );
     this.close();
   }
 }

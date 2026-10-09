@@ -12,16 +12,15 @@
   gap: tokens.space(1);
 }
 
-.reschedule-repeat {
+.reschedule-interval {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: tokens.space(3);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: tokens.space(2);
   margin: 0;
   padding: 0;
   border: 0;
 
   legend {
-    grid-column: 1 / -1;
     margin-bottom: tokens.space(2);
     padding: 0;
   }

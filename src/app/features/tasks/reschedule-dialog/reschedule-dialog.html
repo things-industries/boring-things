@@ -1,7 +1,7 @@
 <bt-dialog title="Reschedule task" [open]="!!task()" (closed)="close()">
   <form [id]="formId" class="reschedule-form" (ngSubmit)="save()">
-    <label class="reschedule-field reschedule-date"
-      >Date
+    <label class="reschedule-field"
+      >Next due date
       <input
         name="date"
         type="date"
@@ -10,32 +10,35 @@
         (ngModelChange)="date.set($event)"
       />
     </label>
-    <fieldset class="reschedule-repeat">
-      <legend>Repeats</legend>
-      <label class="reschedule-field"
-        >Every
+    <label class="reschedule-field"
+      >Repeats
+      <select name="repeats" [ngModel]="repeats()" (ngModelChange)="repeats.set($event)">
+        <option [ngValue]="false">Once</option>
+        <option [ngValue]="true">Repeats</option>
+      </select>
+    </label>
+    @if (repeats()) {
+      <fieldset class="reschedule-interval">
+        <legend>Every</legend>
         <input
           name="interval"
           type="number"
           min="1"
           step="1"
           inputmode="numeric"
-          [disabled]="!unit()"
+          required
+          aria-label="Number"
           [ngModel]="interval()"
           (ngModelChange)="interval.set($event)"
         />
-      </label>
-      <label class="reschedule-field"
-        >Unit
-        <select name="unit" [ngModel]="unit()" (ngModelChange)="unit.set($event)">
-          <option value="">Does not repeat</option>
-          <option value="DAY">{{ interval() === 1 ? 'Day' : 'Days' }}</option>
-          <option value="WEEK">{{ interval() === 1 ? 'Week' : 'Weeks' }}</option>
-          <option value="MONTH">{{ interval() === 1 ? 'Month' : 'Months' }}</option>
-          <option value="YEAR">{{ interval() === 1 ? 'Year' : 'Years' }}</option>
+        <select name="unit" aria-label="Unit" [ngModel]="unit()" (ngModelChange)="unit.set($event)">
+          <option value="DAY">{{ interval() === 1 ? 'day' : 'days' }}</option>
+          <option value="WEEK">{{ interval() === 1 ? 'week' : 'weeks' }}</option>
+          <option value="MONTH">{{ interval() === 1 ? 'month' : 'months' }}</option>
+          <option value="YEAR">{{ interval() === 1 ? 'year' : 'years' }}</option>
         </select>
-      </label>
-    </fieldset>
+      </fieldset>
+    }
   </form>
   <div dialogActions>
     <button type="button" class="button-secondary button-sm" (click)="close()">Cancel</button>
@@ -43,7 +46,7 @@
       type="submit"
       [attr.form]="formId"
       class="button-primary button-sm"
-      [disabled]="!date() || (!!unit() && !(interval() >= 1))"
+      [disabled]="!valid()"
     >
       Save
     </button>

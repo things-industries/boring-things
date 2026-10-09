@@ -112,9 +112,10 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   // Rescheduling moves the task and sets its interval.
   await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
   await page.getByRole('menuitem', { name: 'Reschedule' }).click();
-  await page.getByLabel('Date').fill(day(1));
+  await page.getByLabel('Next due date').fill(day(1));
+  await page.getByLabel('Repeats').selectOption({ label: 'Repeats' });
+  await page.getByLabel('Number').fill('2');
   await page.getByLabel('Unit').selectOption('WEEK');
-  await page.getByLabel('Every').fill('2');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(tomorrow.locator('bt-task-card', { hasText: 'Descale the kettle' })).toContainText(
     'Every 2 weeks',
@@ -125,7 +126,9 @@ test('Tasks orders a day, completes and reopens a recurring task, reschedules an
   await page.getByRole('menuitem', { name: 'Delete task' }).click();
   await expect(card(page, 'Descale the kettle')).toHaveCount(0);
   await page.goto(`/things/${thingId}`);
-  await expect(page.getByRole('button', { name: 'Schedule: Descale the kettle' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Add to tasks: Descale the kettle' }),
+  ).toBeVisible();
 });
 
 test('Tasks always shows Today and Tomorrow, and Upcoming expands', async ({ page }) => {
