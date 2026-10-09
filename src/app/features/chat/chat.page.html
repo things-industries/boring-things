@@ -65,7 +65,7 @@
                 }
               }
               @for (card of entry.others; track $index) {
-                <bt-resource-card [card]="card" (schedule)="scheduling.set($event)" />
+                <bt-resource-card [card]="card" (schedule)="addTask($event.id)" />
               }
               @if (message.sourceRefs.length) {
                 <ul class="chat-sources" aria-label="Sources">
@@ -177,5 +177,3 @@
     (focusout)="composerFocus($event)"
   />
 }
-
-<bt-schedule-dialog [event]="scheduling()" (closed)="scheduling.set(null)" />

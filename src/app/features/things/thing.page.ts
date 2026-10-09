@@ -83,7 +83,7 @@ import { ScrollContainer } from '../../components/scroll-container/scroll-contai
 import { Sheet } from '../../components/sheet/sheet';
 import { TopBar } from '../../components/top-bar/top-bar';
 import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
-import { daysUntil, eventStart, localDateTimeToUtc } from '../../utils/date.util';
+import { daysUntil, eventStart } from '../../utils/date.util';
 import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
 import { taskBadges } from '../../utils/event.util';
 import { formatFieldValue } from '../../utils/field.util';
@@ -96,7 +96,7 @@ import { RowSkeleton } from './row-skeleton/row-skeleton';
 import { ThingSkeleton } from './thing-skeleton/thing-skeleton';
 import { activeImport, discovering, fieldValueById, keyDetails } from './thing.view';
 
-type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'link' | 'deleteFile';
+type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'link' | 'deleteFile';
 
 /** A Thing's image, status, key details, tasks, products and attachments. */
 @Component({
@@ -275,8 +275,6 @@ export class ThingPage {
   readonly target = signal<string | null>(null);
   readonly categoryDraft = signal('');
   readonly newTag = signal('');
-  readonly scheduleDate = signal('');
-  readonly scheduleTime = signal('');
   readonly copied = signal(false);
   private viewed = new Set<string>();
 
@@ -327,10 +325,6 @@ export class ThingPage {
   open(dialog: ThingDialog, target: string | null = null) {
     this.target.set(target);
     if (dialog === 'category') this.categoryDraft.set(this.thing()?.categoryId ?? '');
-    if (dialog === 'schedule') {
-      this.scheduleDate.set('');
-      this.scheduleTime.set('');
-    }
     this.dialog.set(dialog);
   }
 
@@ -367,21 +361,9 @@ export class ThingPage {
     void (this.tasks.entityMap()[id] ? this.tasks.complete(id) : this.events.complete(id));
   }
 
-  schedule() {
-    const id = this.target();
-    const date = this.scheduleDate();
-
-    if (!id || !date) return;
-
-    const startsAt = this.scheduleTime()
-      ? localDateTimeToUtc(`${date}T${this.scheduleTime()}`)
-      : null;
-
-    void this.events.schedule(
-      id,
-      startsAt ? { startsAt, startsOn: null } : { startsOn: date, startsAt: null },
-    );
-    this.closeDialog();
+  /** Adds a suggested task to the schedule; the day is chosen for the owner. */
+  addTask(id: string) {
+    void this.tasks.add(id);
   }
 
   saveCategory() {

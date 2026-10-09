@@ -15,6 +15,7 @@ import { DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import type { Schema } from '../../../../shared/model';
+import { TasksStore } from '../../core/state/tasks.store';
 import {
   chatHistory,
   chatUnavailable,
@@ -35,7 +36,6 @@ import { Menu } from '../../components/menu/menu';
 import { MenuItem } from '../../components/menu/menu-item';
 import { Notice } from '../../components/notice/notice';
 import { RichText } from '../../components/rich-text/rich-text';
-import { ScheduleDialog } from '../../components/schedule-dialog/schedule-dialog';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { ThingCard } from '../../components/thing-card/thing-card';
 import { TopBar } from '../../components/top-bar/top-bar';
@@ -68,7 +68,6 @@ type IntroPhase = 'typing' | 'reveal' | 'shown';
     Notice,
     ResourceCard,
     RichText,
-    ScheduleDialog,
     ScrollContainer,
     TermPipe,
     ThingCard,
@@ -87,6 +86,7 @@ type IntroPhase = 'typing' | 'reveal' | 'shown';
 export class ChatPage {
   private conversations = inject(ConversationsStore);
   private things = inject(ThingsStore);
+  private tasks = inject(TasksStore);
   private categories = inject(CategoriesStore);
   private files = inject(AttachmentsService);
   private toasts = inject(Toasts);
@@ -106,7 +106,6 @@ export class ChatPage {
   readonly error = signal<UiErrorCode | null>(null);
   readonly sending = signal(false);
   readonly text = signal('');
-  readonly scheduling = signal<Schema['Event'] | null>(null);
 
   /** Visible area while the composer has focus, so the page fits above the on-screen keyboard. */
   readonly visible = signal<{ top: number; height: number } | null>(null);
@@ -256,6 +255,11 @@ export class ChatPage {
     const id = this.id();
 
     if (id && this.introPhase() === from) this.intro.set({ id, phase: to });
+  }
+
+  /** Adds a suggested task from a card to the schedule; the day is chosen for the owner. */
+  addTask(id: string) {
+    void this.tasks.add(id);
   }
 
   send() {

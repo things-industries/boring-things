@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { addDays, format } from 'date-fns';
 import { test, expect } from './fixtures.js';
 
 /** A 1×1 PNG served in place of attachment content. */
@@ -256,9 +257,7 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
 });
 
-test('a suggested task is scheduled, and completing it schedules the next one', async ({
-  page,
-}) => {
+test('a suggested task is added, and completing it schedules the next one', async ({ page }) => {
   const url = await createThing(page, `Task dryer ${Date.now()}`);
   const thingId = url.split('/').pop()!;
   const eventId = crypto.randomUUID();
@@ -296,17 +295,17 @@ test('a suggested task is scheduled, and completing it schedules the next one', 
   await expect(page.locator('bt-list-row', { hasText: 'Clean the lint filter' })).toContainText(
     'Once every 2 weeks',
   );
-  await page.getByRole('button', { name: 'Schedule: Clean the lint filter' }).click();
-  await page.getByLabel('Date').fill('2099-03-04');
-  await page.getByRole('button', { name: 'Schedule', exact: true }).click();
+  // Adding a task schedules it without asking for a date; until #100 it is due today.
+  await page.getByRole('button', { name: 'Add to tasks: Clean the lint filter' }).click();
 
   const card = page.locator('bt-event-card', { hasText: 'Clean the lint filter' });
+  const due = (days: number) => `Due ${format(addDays(new Date(), days), 'd MMM y')}`;
 
-  await expect(card).toContainText('Due 4 Mar 2099');
+  await expect(card).toContainText(due(0));
   await card.getByRole('button', { name: 'Mark complete: Clean the lint filter' }).click();
   // Completing a recurring task schedules its next occurrence.
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText('Due 18 Mar 2099');
+  await expect(card).toContainText(due(14));
   // The new event changes the Thing, which reloads events while the test ends.
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });

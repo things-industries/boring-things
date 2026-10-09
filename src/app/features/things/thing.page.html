@@ -308,8 +308,8 @@
                         btIconButton
                         variant="accent"
                         icon="scheduleTask"
-                        [label]="'Schedule: ' + task.title"
-                        (click)="open('schedule', task.id)"
+                        [label]="'Add to tasks: ' + task.title"
+                        (click)="addTask(task.id)"
                       ></button>
                     </bt-list-row>
                   } @empty {
@@ -536,43 +536,6 @@
         Keep it
       </button>
       <button type="button" class="button-danger button-sm" (click)="remove()">Delete thing</button>
-    </div>
-  </bt-dialog>
-
-  <bt-dialog title="Schedule task" [open]="dialog() === 'schedule'" (closed)="closeDialog()">
-    <form id="schedule-task" class="thing-schedule" (ngSubmit)="schedule()">
-      <label class="thing-field"
-        >Date
-        <input
-          name="date"
-          type="date"
-          required
-          [ngModel]="scheduleDate()"
-          (ngModelChange)="scheduleDate.set($event)"
-        />
-      </label>
-      <label class="thing-field"
-        >Time (optional)
-        <input
-          name="time"
-          type="time"
-          [ngModel]="scheduleTime()"
-          (ngModelChange)="scheduleTime.set($event)"
-        />
-      </label>
-    </form>
-    <div dialogActions>
-      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
-        Cancel
-      </button>
-      <button
-        type="submit"
-        form="schedule-task"
-        class="button-primary button-sm"
-        [disabled]="!scheduleDate()"
-      >
-        Schedule
-      </button>
     </div>
   </bt-dialog>
 

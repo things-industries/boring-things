@@ -111,6 +111,14 @@ export const TasksStore = signalStore(
       );
     },
 
+    /** Adds a suggested task to the schedule. Until #100 picks the day, it is scheduled for today. */
+    add: (id: string) =>
+      store._events.update(
+        id,
+        { status: 'SCHEDULED', startsOn: dayKey(new Date()), startsAt: null },
+        'addTask',
+      ),
+
     /** Moves a task to another day and sets or clears its recurrence. */
     async reschedule(id: string, scheduledOn: string, recurrence: EventRecurrence | null) {
       const previous = store._intervals();

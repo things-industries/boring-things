@@ -166,11 +166,6 @@
     flex: 1;
   }
 }
-.thing-schedule {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: tokens.space(3);
-}
 .thing-upload {
   position: relative;
   align-self: flex-start;

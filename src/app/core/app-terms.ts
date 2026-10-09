@@ -22,6 +22,7 @@ export const ACTION_TERMS = {
   addEvent: "Couldn't add the event",
   completeEvent: "Couldn't complete the event",
   scheduleEvent: "Couldn't schedule the event",
+  addTask: "Couldn't add the task",
   completeTask: "Couldn't complete the task",
   reopenTask: "Couldn't reopen the task",
   rescheduleTask: "Couldn't reschedule the task",
