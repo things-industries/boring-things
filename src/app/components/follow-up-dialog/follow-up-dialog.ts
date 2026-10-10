@@ -3,19 +3,19 @@ import { FormsModule } from '@angular/forms';
 import { AttachmentsStore } from '../../core/state/attachments.store';
 import { ThingsStore } from '../../core/state/things.store';
 import { Dialog } from '../dialog/dialog';
-import type { FollowUp } from '../../interfaces/task.interface';
+import type { CompletionAction } from '../../interfaces/task.interface';
 import { fieldValue } from '../../utils/field.util';
 
-/** A field or document follow-up waiting for an answer. */
+/** A field or document completion action waiting for an answer. */
 export interface FollowUpRequest {
   thingId: string;
-  followUp: Extract<FollowUp, { type: 'UPDATE_FIELD' | 'ADD_DOCUMENT' }>;
+  action: Extract<CompletionAction, { type: 'UPDATE_FIELD' | 'ADD_DOCUMENT' }>;
 }
 
 let nextId = 0;
 
 /**
- * Answers a follow-up: updates the Thing field it names, or uploads a document to the Thing. Open
+ * Answers a completion action: updates the Thing field it names, or uploads a document to the Thing. Open
  * while `request` is set.
  */
 @Component({
@@ -34,13 +34,13 @@ export class FollowUpDialog {
   readonly busy = signal(false);
   readonly formId = `follow-up-${nextId++}`;
 
-  /** The field an `UPDATE_FIELD` follow-up names, with its set; `null` once it is missing. */
+  /** The field an `UPDATE_FIELD` action names, with its set; `null` once it is missing. */
   readonly target = computed(() => {
     const request = this.request();
 
-    if (request?.followUp.type !== 'UPDATE_FIELD') return null;
+    if (request?.action.type !== 'UPDATE_FIELD') return null;
 
-    const { fieldId } = request.followUp;
+    const { fieldId } = request.action;
     const detail = this.things.entityMap()[request.thingId]?.detail;
     const set = detail?.fieldSets.find((s) => s.fields.some((f) => f.id === fieldId));
     const field = set
@@ -51,7 +51,7 @@ export class FollowUpDialog {
   });
 
   readonly ready = computed(() =>
-    this.request()?.followUp.type === 'ADD_DOCUMENT' ? !!this.file() : !!this.draft().trim(),
+    this.request()?.action.type === 'ADD_DOCUMENT' ? !!this.file() : !!this.draft().trim(),
   );
 
   close() {
@@ -70,7 +70,7 @@ export class FollowUpDialog {
     const file = this.file();
 
     if (!request || !this.ready() || this.busy()) return;
-    if (request.followUp.type === 'UPDATE_FIELD') {
+    if (request.action.type === 'UPDATE_FIELD') {
       if (!target) return;
       void this.things.update(request.thingId, {
         values: [

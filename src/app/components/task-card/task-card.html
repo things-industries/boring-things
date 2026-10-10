@@ -30,11 +30,15 @@
       <span class="visually-hidden">(critical)</span>
     }
   </p>
-  @if (done() && followUp(); as followUp) {
-    <button type="button" class="task-card-follow-up" (click)="followedUp.emit(followUp)">
-      <ng-icon [name]="followUpIcons[followUp.type]" aria-hidden="true" />
-      {{ followUp.prompt }}
-    </button>
+  @if (done() && actions().length) {
+    <div class="task-card-actions" role="group" [attr.aria-label]="'Next steps for ' + title()">
+      @for (action of actions(); track $index) {
+        <button type="button" class="task-card-action" (click)="actionChosen.emit(action)">
+          <ng-icon [name]="actionIcons[action.type]" aria-hidden="true" />
+          {{ action.label }}
+        </button>
+      }
+    </div>
   } @else {
     @let line = timeLine();
     @if (overdueDays(); as days) {

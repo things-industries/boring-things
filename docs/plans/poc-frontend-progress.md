@@ -81,13 +81,14 @@ Record each shared component, mixin or token group when added: name, path, first
 
 Each active mock, its path and the Backend issue that removes it.
 
-| Mock                              | Path                                          | Issue |
-| --------------------------------- | --------------------------------------------- | ----- |
-| Issue kind and due-date ordering  | `src/app/core/mocks/issue-kind.mock.ts`       | #9    |
-| Creates wait for server IDs       | `src/app/core/mocks/client-ids.mock.ts`       | #34   |
-| Event kind and recurrence         | `src/app/core/mocks/event-recurrence.mock.ts` | #100  |
-| Tasks, Thing dates and follow-ups | `src/app/core/mocks/tasks.mock.ts`            | #100  |
-| Saved-document card               | `src/app/core/mocks/saved-document.mock.ts`   | #14   |
+| Mock                                      | Path                                          | Issue |
+| ----------------------------------------- | --------------------------------------------- | ----- |
+| Issue kind and due-date ordering          | `src/app/core/mocks/issue-kind.mock.ts`       | #9    |
+| Creates wait for server IDs               | `src/app/core/mocks/client-ids.mock.ts`       | #34   |
+| Event kind and recurrence                 | `src/app/core/mocks/event-recurrence.mock.ts` | #100  |
+| Tasks, Thing dates and completion actions | `src/app/core/mocks/tasks.mock.ts`            | #100  |
+| Sample tasks with completion actions      | `src/app/core/mocks/sample-tasks.mock.ts`     | #100  |
+| Saved-document card                       | `src/app/core/mocks/saved-document.mock.ts`   | #14   |
 
 ## Issues
 

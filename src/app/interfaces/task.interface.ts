@@ -9,11 +9,22 @@ export type TaskRecurrence = EventRecurrence & { from: 'COMPLETION' | 'DUE_DATE'
 /** How bad it is if the task is not done, most important first. */
 export type TaskPriority = 'CRITICAL' | 'IMPORTANT' | 'RECOMMENDED' | 'NICE_TO_HAVE';
 
-/** What the owner is asked once a task or event is done. */
-export type FollowUp =
+/**
+ * An option offered once a task or event is done. An item's options show side by side as
+ * alternatives, such as "Is it fixed?" and "Needs a follow-up" after an engineer's visit. `label` is
+ * the button text and the title of the dialog it opens.
+ * - `CHAT` opens a Thing chat with the item, its issue and this action as context; `prompt` is the
+ *   opening message.
+ * - `UPDATE_FIELD` asks for a new value of the Thing field `fieldId`.
+ * - `ADD_DOCUMENT` uploads a document of `documentType` linked to the Thing.
+ * - `RESOLVE_ISSUE` resolves the item's `issueId`.
+ */
+export type CompletionAction = { label: string } & (
   | { type: 'CHAT'; prompt: string }
-  | { type: 'UPDATE_FIELD'; prompt: string; fieldId: string }
-  | { type: 'ADD_DOCUMENT'; prompt: string; documentType: Schema['AttachmentDocumentTypeEnum'] };
+  | { type: 'UPDATE_FIELD'; fieldId: string }
+  | { type: 'ADD_DOCUMENT'; documentType: Schema['AttachmentDocumentTypeEnum'] }
+  | { type: 'RESOLVE_ISSUE' }
+);
 
 /** Something the owner does for a Thing, shaped like the #100 `Task`. */
 export interface Task {
@@ -29,14 +40,17 @@ export interface Task {
   scheduledOn: string | null;
   deadlineOn: string | null;
   recurrence: TaskRecurrence | null;
-  followUp: FollowUp | null;
+  completionActions: CompletionAction[];
   completedAt: string | null;
   sourceRefs: Schema['SourceRef'][];
   isSample: boolean;
 }
 
 /** An Event with the #100 additions. */
-export type Appointment = Schema['Event'] & { endsAt: string | null; followUp: FollowUp | null };
+export type Appointment = Schema['Event'] & {
+  endsAt: string | null;
+  completionActions: CompletionAction[];
+};
 
 /** A deadline read from a DATE field on a Thing, such as a warranty end. */
 export interface ThingDate {

@@ -76,7 +76,13 @@
   }
 }
 
-.task-card-follow-up {
+.task-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: tokens.space(2);
+}
+
+.task-card-action {
   @include typography.role(caption);
   display: inline-flex;
   align-items: center;

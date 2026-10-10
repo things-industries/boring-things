@@ -212,6 +212,7 @@ export const agendaThingDate = remixCalendarEventLine;
 export const followUpChat = remixChat3Fill;
 export const followUpField = remixPencilLine;
 export const followUpDocument = remixUploadLine;
+export const followUpResolve = remixCheckboxCircleLine;
 export const askAboutTask = remixChat3Line;
 export const rescheduleTask = remixCalendarLine;
 export const goToThing = remixBox3Line;

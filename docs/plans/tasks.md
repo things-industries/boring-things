@@ -8,8 +8,9 @@ Replaces the Timeline placeholder with the Tasks screen from Figma ([Tasks frame
 - **Thing events** (for example "Car insurance expires") are derived by the backend from DATE fields on a Thing, such as `common.warrantyEnds` or an insurance renewal date. They are read-only and are not stored as Events.
 - **Recurring tasks** show once, at their next occurrence. Completing one creates the next occurrence; unchecking it removes that occurrence and reopens the task.
 - **Delete task** returns the task to `SUGGESTED`, so it appears under the Thing's suggested tasks and can be scheduled again.
-- **Completed items** stay in their day group, tinted, with their follow-up button, until the day passes.
-- **Past items**: open tasks that are past due roll into Today's overdue block. Past Events without an open follow-up, past Thing events and items completed before today are not shown. Surfacing older follow-ups elsewhere is a separate Frontend issue.
+- **Completed items** stay in their day group, tinted, with their completion actions, until the day passes.
+- **Completion actions**: a task or event can carry several next steps, written in when one is needed (a visit to the mechanic, renewing a contract). Once the item is done they show side by side as alternatives, for example "Is it fixed?" and "Needs a follow-up" after an engineer's visit.
+- **Past items**: open tasks that are past due roll into Today's overdue block. Past Events without completion actions, past Thing events and items completed before today are not shown. Surfacing older completion actions elsewhere is a separate Frontend issue.
 - **Upcoming** shows everything scheduled after tomorrow, collapsed by default, revealed in pages with **Load more**.
 - **Route**: `/tasks` with label **Tasks** replaces `/timeline`; no redirect.
 
@@ -17,16 +18,16 @@ Replaces the Timeline placeholder with the Tasks screen from Figma ([Tasks frame
 
 ### Item types
 
-| Type        | Primary action                                                          | Time line                                                                                                         |
-| ----------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Task        | Check / uncheck                                                         | Overdue status, else deadline countdown ("Due in 10 days · 18 Oct"), else interval ("Every 12 months"), else none |
-| Event       | Check / uncheck only when it has a follow-up; otherwise a calendar icon | Time of day ("14:00–16:00"); none for all-day                                                                     |
-| Thing event | None (calendar icon)                                                    | None                                                                                                              |
+| Type        | Primary action                                                                 | Time line                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Task        | Check / uncheck                                                                | Overdue status, else deadline countdown ("Due in 10 days · 18 Oct"), else interval ("Every 12 months"), else none |
+| Event       | Check / uncheck only when it has completion actions; otherwise a calendar icon | Time of day ("14:00–16:00"); none for all-day                                                                     |
+| Thing event | None (calendar icon)                                                           | None                                                                                                              |
 
 - Overdue status uses the warning colour and clock icon: "Yesterday", "2 days ago", measured from the scheduled date or a passed deadline.
 - Critical tasks show the flag after the title. Other priorities show no marker.
 - The overflow menu offers **Ask** (chat with task context), **Edit schedule**, **Go to Thing** and **Delete task**. Thing events offer **Ask** and **Go to Thing** only.
-- When a completed item has a follow-up, a button appears under the title (Figma "How did it go?"). A `CHAT` follow-up opens the Thing chat with the task context. An `UPDATE_FIELD` follow-up opens a dialog with the question and an input for the target field. An `ADD_DOCUMENT` follow-up opens a dialog with the question and a file picker; the upload is linked to the Thing.
+- When a completed item has completion actions, they show as a row of buttons under the title (Figma "How did it go?"), wrapping on narrow screens. A `CHAT` action opens the Thing chat with the item, its issue and the action as context. An `UPDATE_FIELD` action opens a dialog titled with its label and an input for the target field. An `ADD_DOCUMENT` action opens a dialog with a file picker; the upload is linked to the Thing. A `RESOLVE_ISSUE` action resolves the item's issue and is hidden once the issue is resolved.
 - **Edit schedule** opens a dialog headed with the task's name: **Next due date** and **Repeat** (**No** or **Yes**). **Yes** reveals **Repeat every** (a number and a days, weeks, months or years select, the same height; clicking the number selects it) and **Schedule next task from**, with **When I complete this task** (default) or **The scheduled due date**. A muted line under the choice says when the next task will be due, using the chosen interval.
 - Adding a suggested task (Thing page, the Thing's suggestions page or a chat card) schedules it straight away; the backend chooses the day, and the owner can reschedule it.
 
@@ -68,12 +69,13 @@ Contract, using existing component names where they exist:
   "scheduledOn": "2026-10-08", // day the task sits in the list; null while SUGGESTED
   "deadlineOn": "2026-10-18", // optional hard deadline
   "recurrence": { "interval": 12, "unit": "MONTH", "from": "COMPLETION" }, // unit DAY | WEEK | MONTH | YEAR; from COMPLETION | DUE_DATE; nullable
-  "followUp": {
-    "type": "UPDATE_FIELD", // CHAT | UPDATE_FIELD | ADD_DOCUMENT, nullable
-    "prompt": "When does the new policy end?",
-    "fieldId": "uuid", // UPDATE_FIELD only: the Thing field to update
-    // ADD_DOCUMENT only: "documentType", an AttachmentDocumentTypeEnum value
-  },
+  "completionActions": [
+    // Alternatives offered once done, in order; empty when none is needed.
+    { "type": "UPDATE_FIELD", "label": "Set the new date", "fieldId": "insurance.policyEnds" },
+    { "type": "ADD_DOCUMENT", "label": "Add the renewal", "documentType": "OTHER" },
+    // { "type": "CHAT", "label": "Needs a follow-up", "prompt": "It still needs work: " }
+    // { "type": "RESOLVE_ISSUE", "label": "Is it fixed?" } resolves the task's issueId
+  ],
   "completedAt": null,
   "sourceRefs": [],
   "isSample": false,
@@ -83,28 +85,28 @@ Contract, using existing component names where they exist:
 - Completing a recurring task stores `completedAt` and creates the next occurrence with `scheduledOn` set to the interval after the completion date when `recurrence.from` is `COMPLETION`, or after the completed task's `scheduledOn` when it is `DUE_DATE`. Reopening it (status back to `SCHEDULED`) deletes that generated occurrence if it is still unchanged. The response returns both tasks.
 - Editing the schedule patches `scheduledOn` and `recurrence`, which carries `from`: `COMPLETION` or `DUE_DATE`.
 - Scheduling a suggested task patches `status: SCHEDULED` without `scheduledOn`; the server chooses the day.
-- `Event` gains `endsAt` (nullable date-time, for "14:00–16:00") and the same nullable `followUp`. An Event with a follow-up accepts `status: COMPLETED`.
+- `Event` gains `endsAt` (nullable date-time, for "14:00–16:00") and the same `completionActions`. An Event with completion actions accepts `status: COMPLETED`.
 - `GET /api/thing-dates?from=&to=` returns derived Thing events: `{ thingId, fieldId, label, date }` from DATE fields whose definitions are marked as deadlines (warranty end, renewal, expiry). Registry seeds mark those definitions.
-- `POST /api/conversations` accepts an optional `taskId` or `eventId`, so **Ask** and `CHAT` follow-ups open a conversation that starts with that context.
+- `POST /api/conversations` accepts an optional `taskId` or `eventId`, and with it an optional `actionIndex` naming a `CHAT` completion action, so **Ask** and `CHAT` actions open a conversation that starts with the item, its Thing, its issue and the action as context.
 - Migration: existing `SUGGESTED` and suggestion-derived Events move to `bt.tasks`. Discovery and the chat `create_event` tool create Tasks for maintenance work, with priority and recurrence when the source gives them.
-- Sample data includes tasks of each priority, a recurring task, a deadline task, an Event with a follow-up and a Thing with an upcoming warranty end.
+- Sample data includes tasks of each priority, a recurring task, a deadline task, a Thing with an upcoming warranty end, and items with completion actions: an engineer's visit about the sample issue (`RESOLVE_ISSUE` and `CHAT`), a finished garage service (`ADD_DOCUMENT` and `CHAT`) and a renewal (`UPDATE_FIELD` and `ADD_DOCUMENT`).
 
 ## Frontend plan
 
 Each stage is one commit, with `pnpm format` and `CI=true pnpm check` passing.
 
 1. **Route and naming.** Rename `features/timeline` to `features/tasks` (`TasksPage`, `tasks.page.*`), route `/tasks`, `APP_TERMS.tasks`, nav icons `navTasks`/`navTasksActive` (Remix `task` / checkbox icons), bottom nav and Home **View Tasks** link. Update e2e selectors.
-2. **Contract and mocks.** Add `Task`, `ThingDate`, `FollowUp` and `TaskPriority` interfaces in `app/interfaces/task.interface.ts`, shaped like the proposed contract so the swap is a type change. Add `core/mocks/tasks.mock.ts` (header naming #100). Until #100, a Task is a date-only Event (`startsOn`, or no date while suggested) and an appointment is a timed Event (`startsAt`), so status and date changes persist through `/api/events`. The mock fills priority, kind, recurrence and follow-ups from the title and description, deadlines and `UPDATE_FIELD` follow-ups from the Thing's deadline dates, and Thing dates from DATE field values whose names mention an end, expiry or renewal. Interval changes and links to generated occurrences last for the session only. Record the mock in `poc-frontend-progress.md`.
+2. **Contract and mocks.** Add `Task`, `ThingDate`, `CompletionAction` and `TaskPriority` interfaces in `app/interfaces/task.interface.ts`, shaped like the proposed contract so the swap is a type change. Add `core/mocks/tasks.mock.ts` (header naming #100). Until #100, a Task is a date-only Event (`startsOn`, or no date while suggested) and an appointment is a timed Event (`startsAt`), so status and date changes persist through `/api/events`. The mock fills priority, kind, recurrence and completion actions from the title and description, deadlines and `UPDATE_FIELD` actions from the Thing's deadline fields, and Thing dates from DATE field values whose names mention an end, expiry or renewal. Interval changes and links to generated occurrences last for the session only. `core/mocks/sample-tasks.mock.ts` adds in-memory sample tasks and appointments with completion actions to sample Things for the session. Record the mock in `poc-frontend-progress.md`.
 3. **State.** `TasksStore` in `core/state/` exposes the task collection and `complete`, `reopen`, `reschedule` and `unschedule`; until #100 it maps `EventsStore` through the mock, then it becomes a `withEntityCollection` store over a `TasksService`. Cross-store read model `core/state/views/agenda.view.ts` merging tasks, events and Thing dates into day groups with the ordering rules above; pure ordering and grouping helpers in `app/utils/agenda.util.ts` with Node unit tests.
-4. **Task card.** `components/task-card/` (`bt-task-card`): primary action (check/uncheck or type icon), title with critical flag, time line, follow-up button and overflow menu built on `bt-menu`. Tinted completed state. Styles from `styles/CHEATSHEET.md` tokens; add a warning text class if missing.
+4. **Task card.** `components/task-card/` (`bt-task-card`): primary action (check/uncheck or type icon), title with critical flag, time line, completion action buttons and overflow menu built on `bt-menu`. Tinted completed state. Styles from `styles/CHEATSHEET.md` tokens; add a warning text class if missing.
 5. **Tasks page.** Connected timeline with day points, Today/Tomorrow with empty states, collapsible Upcoming with month headings and **Load more**, loading skeleton and inline `bt-error-message` with Retry.
 6. **Edit schedule dialog.** `components/reschedule-dialog/` on `bt-dialog`: **Next due date** and **Repeat**; **Yes** reveals **Repeat every** and **Schedule next task from**. The agenda (`components/agenda/`), card list and its `TaskActions` (`components/task-list/`) and the dialogs (`components/task-dialogs/`) are shared by Tasks, Thing tasks and the Thing page.
-7. **Follow-ups and Ask.** `CHAT` follow-up and **Ask** navigate to `/things/:id/chat` and start a conversation with the task context (mocked as a first user message until `taskId` is accepted). `UPDATE_FIELD` dialog on `bt-dialog`: date fields patch the Thing value through `ThingsStore.update`; document fields upload through the existing attachment flow and link to the Thing.
+7. **Completion actions and Ask.** `CHAT` actions and **Ask** navigate to `/things/:id/chat` and start a conversation with the task context (mocked as a first user message until `taskId` is accepted). `RESOLVE_ISSUE` resolves the issue through `IssuesStore`. `UPDATE_FIELD` dialog on `bt-dialog`: date fields patch the Thing value through `ThingsStore.update`; document fields upload through the existing attachment flow and link to the Thing.
 8. **Thing detail.** **Upcoming tasks** previews the Thing's agenda with Tasks cards and links to `/things/:id/tasks`. **Suggested tasks** read `TasksStore`, sorted and tagged by priority (`bt-suggested-task`, `bt-priority-tag`), and link to `/things/:id/suggestions`. Home's **Today** summarises today's agenda and links to `/tasks`.
-9. **Docs and tests.** Update `README.md`, `PRODUCT.md` Timeline section, `src/AGENTS.md` if structure changed. Playwright journey: open Tasks, complete and uncheck a task, reschedule, delete back to suggested, expand Upcoming and load more, answer a follow-up. Screenshots at phone and desktop widths.
+9. **Docs and tests.** Update `README.md`, `PRODUCT.md` Timeline section, `src/AGENTS.md` if structure changed. Playwright journey: open Tasks, complete and uncheck a task, reschedule, delete back to suggested, expand Upcoming and load more, take a completion action. Screenshots at phone and desktop widths.
 
 ## Related issues
 
 - #100 Backend contract (this plan's mocks are removed when it lands).
-- #101 Surface open follow-ups on the Thing page and Home.
+- #101 Surface open completion actions on the Thing page and Home.
 - #98 Events (inc tasks) experience.

@@ -58,8 +58,8 @@ function placeTask(task: Task, today: string): AgendaItem | null {
 }
 
 /**
- * Where an appointment sits. A past one shows today only while its follow-up is open, or on the day
- * that follow-up was answered.
+ * Where an appointment sits. A past one with completion actions shows today while it is open, or on
+ * the day it was completed.
  */
 function placeEvent(event: Appointment, today: string): AgendaItem | null {
   const start = event.startsAt ?? event.startsOn;
@@ -77,7 +77,7 @@ function placeEvent(event: Appointment, today: string): AgendaItem | null {
   });
 
   if (day >= today) return item(false);
-  if (!event.followUp) return null;
+  if (!event.completionActions.length) return null;
   if (event.status === 'SCHEDULED') return item(true);
   return event.completedAt && dayKey(event.completedAt) === today ? item(true) : null;
 }

@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Appointment, Task, ThingDate } from '../../src/app/interfaces/task.interface.js';
+import type {
+  Appointment,
+  CompletionAction,
+  Task,
+  ThingDate,
+} from '../../src/app/interfaces/task.interface.js';
 import { buildAgenda, byPriority, nextItems } from '../../src/app/utils/agenda.util.js';
 import { addRecurrence, nextDueOn } from '../../src/app/utils/date.util.js';
 
@@ -19,7 +24,7 @@ function task(id: string, overrides: Partial<Task> = {}): Task {
     scheduledOn: '2026-10-08',
     deadlineOn: null,
     recurrence: null,
-    followUp: null,
+    completionActions: [],
     completedAt: null,
     sourceRefs: [],
     isSample: false,
@@ -41,12 +46,12 @@ function event(id: string, overrides: Partial<Appointment> = {}): Appointment {
     sourceRefs: [],
     isSample: false,
     endsAt: null,
-    followUp: null,
+    completionActions: [],
     ...overrides,
   };
 }
 
-const chat = { type: 'CHAT', prompt: 'How did it go?' } as const;
+const chat: CompletionAction[] = [{ type: 'CHAT', label: 'How did it go?', prompt: '' }];
 
 const agenda = (tasks: Task[], events: Appointment[] = [], thingDates: ThingDate[] = []) =>
   buildAgenda({ tasks, events, thingDates, thingNames: { thing: 'Car' } }, now);
@@ -121,22 +126,22 @@ test('Completed items stay on their day; past ones only on the day they were com
   );
 });
 
-test('Past events show today only while a follow-up is open or was answered today', () => {
+test('Past events with completion actions show today while open or completed today', () => {
   const yesterday = new Date(2026, 9, 7, 10).toISOString();
   const { today } = agenda(
     [],
     [
       event('past', { startsAt: yesterday }),
-      event('open', { startsAt: yesterday, followUp: chat }),
+      event('open', { startsAt: yesterday, completionActions: chat }),
       event('answered-today', {
         startsAt: yesterday,
-        followUp: chat,
+        completionActions: chat,
         status: 'COMPLETED',
         completedAt: now.toISOString(),
       }),
       event('answered-before', {
         startsAt: yesterday,
-        followUp: chat,
+        completionActions: chat,
         status: 'COMPLETED',
         completedAt: yesterday,
       }),

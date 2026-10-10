@@ -232,9 +232,46 @@ test('Home summarises today and opens Tasks', async ({ page }) => {
 
   const summary = page.locator('a.home-today');
 
-  await expect(summary).toContainText('Descale the kettle');
+  await expect(summary).toContainText(/\d+ to do today/);
   await expect(summary).toContainText(/\d+ overdue/);
   await expect(summary.getByRole('checkbox')).toHaveCount(0);
   await summary.click();
   await expect(page).toHaveURL(/\/tasks$/);
+  await expect(card(page, 'Descale the kettle')).toContainText('Yesterday');
+});
+
+test('A done item offers its completion actions side by side', async ({ page }) => {
+  // Resolving answers from the stored issue without saving, so the sample issue stays open.
+  await page.route(/\/api\/issues\/[^/?]+$/, async (route) => {
+    if (route.request().method() !== 'PATCH') return route.fallback();
+
+    const response = await route.fetch({ method: 'GET', postData: undefined });
+    const issue = await response.json();
+
+    await route.fulfill({
+      json: { ...issue, ...route.request().postDataJSON(), resolvedAt: new Date().toISOString() },
+    });
+  });
+  await page.goto('/tasks');
+
+  const actions = (title: string) =>
+    page.getByRole('group', { name: `Next steps for ${title}` }).getByRole('button');
+
+  // Sample items until #100: a finished service, and an engineer's visit about the hob's issue.
+  await expect(actions('Annual service at the mechanic')).toHaveText([
+    'Add the invoice',
+    'Needs more work',
+  ]);
+  await expect(actions('Engineer visit')).toHaveCount(0);
+  await page.getByRole('checkbox', { name: 'Engineer visit' }).click();
+  await expect(actions('Engineer visit')).toHaveText(['Is it fixed?', 'Needs a follow-up']);
+
+  // Resolving the issue leaves the follow-up chat.
+  await actions('Engineer visit').filter({ hasText: 'Is it fixed?' }).click();
+  await expect(actions('Engineer visit')).toHaveText(['Needs a follow-up']);
+  await actions('Engineer visit').click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+\/chat\?draft=/);
+  await expect(page.getByLabel('Message', { exact: true })).toHaveValue(
+    'Update on “Engineer visit” about “One ring heats unevenly”: It still needs work: ',
+  );
 });

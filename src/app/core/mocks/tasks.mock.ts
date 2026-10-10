@@ -1,8 +1,8 @@
-// Mock for #100: Tasks, Thing dates and follow-ups. Remove when #100 is delivered.
+// Mock for #100: Tasks, Thing dates and completion actions. Remove when #100 is delivered.
 import type { Schema } from '../../../../shared/model';
 import type {
   Appointment,
-  FollowUp,
+  CompletionAction,
   Task,
   TaskPriority,
   TaskRecurrence,
@@ -30,15 +30,38 @@ function priority(text: string): TaskPriority {
   return 'RECOMMENDED';
 }
 
-function taskFollowUp(text: string): FollowUp | null {
-  return /certificate|gas safety|\bmot\b/i.test(text)
-    ? { type: 'ADD_DOCUMENT', prompt: 'Add the new certificate', documentType: 'OTHER' }
-    : null;
+const renewal = /renew|expires|expiry/i;
+
+/**
+ * Completion actions inferred from the text. A visit about an issue asks whether it is fixed or
+ * needs a follow-up, a garage visit asks for the invoice or more work, and a certificate or renewal
+ * asks for the new document. `mockDeadline` adds the new date to renewals.
+ */
+function completionActions(event: Schema['Event']): CompletionAction[] {
+  const text = `${event.title} ${event.description}`;
+
+  if (/mechanic|garage/i.test(text))
+    return [
+      { type: 'ADD_DOCUMENT', label: 'Add the invoice', documentType: 'INVOICE' },
+      { type: 'CHAT', label: 'Needs more work', prompt: 'The mechanic found more work: ' },
+    ];
+  if (/certificate|gas safety|\bmot\b/i.test(text))
+    return [{ type: 'ADD_DOCUMENT', label: 'Add the new certificate', documentType: 'OTHER' }];
+  if (/visit|engineer|technician|repair|install|appointment|cleaner/i.test(text))
+    return event.issueId
+      ? [
+          { type: 'RESOLVE_ISSUE', label: 'Is it fixed?' },
+          { type: 'CHAT', label: 'Needs a follow-up', prompt: 'It still needs work: ' },
+        ]
+      : [{ type: 'CHAT', label: 'How did it go?', prompt: '' }];
+  if (renewal.test(text))
+    return [{ type: 'ADD_DOCUMENT', label: 'Add the renewal', documentType: 'OTHER' }];
+  return [];
 }
 
 /**
- * The Task for a date-only Event, or `null` for a dismissed one. Priority and an `ADD_DOCUMENT`
- * follow-up are inferred from the text; `intervals` holds recurrences changed this session. Read
+ * The Task for a date-only Event, or `null` for a dismissed one. Priority and completion actions
+ * are inferred from the text; `intervals` holds recurrences changed this session. Read
  * recurrences count from completion.
  */
 export function mockTask(
@@ -67,30 +90,25 @@ export function mockTask(
       event.id in intervals
         ? intervals[event.id]
         : recurrence && { ...recurrence, from: 'COMPLETION' },
-    followUp: taskFollowUp(text),
+    completionActions: completionActions(event),
     completedAt: event.completedAt,
     sourceRefs: event.sourceRefs,
     isSample: event.isSample,
   };
 }
 
-/** A timed Event with a chat follow-up when it reads like a visit; no end time. */
+/** A timed Event with completion actions inferred from its text; no end time. */
 export function mockAppointment(event: Schema['Event']): Appointment {
-  const visit = /visit|engineer|technician|repair|install|appointment|cleaner/i.test(
-    `${event.title} ${event.description}`,
-  );
-
-  return {
-    ...event,
-    endsAt: null,
-    followUp: visit ? { type: 'CHAT', prompt: 'How did it go?' } : null,
-  };
+  return { ...event, endsAt: null, completionActions: completionActions(event) };
 }
 
 const deadlineName = /\b(ends?|expires?|expiry|renewal|renews)\b/i;
 
-/** Deadlines from loaded Thing details: DATE fields whose names mention an end, expiry or renewal. */
-export function mockThingDates(things: ThingRecord[]): ThingDate[] {
+/** A deadline field on a Thing, set or not. */
+export type MockDeadlineField = Omit<ThingDate, 'date'> & { date: string | null };
+
+/** DATE fields in loaded Thing details whose names mention an end, expiry or renewal. */
+export function mockDeadlineFields(things: ThingRecord[]): MockDeadlineField[] {
   return things.flatMap((thing) => {
     const detail = thing.detail;
 
@@ -99,34 +117,48 @@ export function mockThingDates(things: ThingRecord[]): ThingDate[] {
     const fields = [...detail.fieldSets.flatMap((set) => set.fields), ...detail.standaloneFields];
 
     return fields.flatMap((field) =>
-      field.uiHint === 'DATE' && typeof field.value === 'string' && deadlineName.test(field.name)
-        ? [{ thingId: thing.id, fieldId: field.id, label: field.name, date: field.value }]
+      field.uiHint === 'DATE' && deadlineName.test(field.name)
+        ? [
+            {
+              thingId: thing.id,
+              fieldId: field.id,
+              label: field.name,
+              date: typeof field.value === 'string' ? field.value : null,
+            },
+          ]
         : [],
     );
   });
 }
 
+/** Thing deadlines: the deadline fields that are set. */
+export function mockThingDates(fields: MockDeadlineField[]): ThingDate[] {
+  return fields.flatMap(({ date, ...field }) => (date ? [{ ...field, date }] : []));
+}
+
 /**
  * A renewal or expiry task takes its deadline from the Thing's earliest deadline date on or after
- * the task's day, and asks for the new date once done.
+ * the task's day. Once done, it asks for that field's new date, or the Thing's first deadline
+ * field's when none is set.
  */
-export function mockDeadline(task: Task, dates: ThingDate[]): Task {
-  if (!task.scheduledOn || !/renew|expires|expiry/i.test(task.title)) return task;
+export function mockDeadline(task: Task, fields: MockDeadlineField[]): Task {
+  if (!task.scheduledOn || !renewal.test(task.title)) return task;
 
   const scheduledOn = task.scheduledOn;
-  const date = dates
-    .filter((d) => d.thingId === task.thingId && d.date >= scheduledOn)
+  const own = fields.filter((field) => field.thingId === task.thingId);
+  const dated = mockThingDates(own)
+    .filter((date) => date.date >= scheduledOn)
     .sort((a, b) => a.date.localeCompare(b.date))[0];
+  const field = dated ?? own[0];
 
-  if (!date) return task;
+  if (!field) return task;
   return {
     ...task,
-    deadlineOn: date.date,
-    followUp: task.followUp ?? {
-      type: 'UPDATE_FIELD',
-      prompt: `What is the new ${date.label.toLowerCase()}?`,
-      fieldId: date.fieldId,
-    },
+    deadlineOn: dated?.date ?? task.deadlineOn,
+    completionActions: [
+      { type: 'UPDATE_FIELD', label: 'Set the new date', fieldId: field.fieldId },
+      ...task.completionActions,
+    ],
   };
 }
 
@@ -147,8 +179,15 @@ export async function mockLoadThingDetails(things: {
 
 /**
  * Opening message for a chat about an agenda item. Until `ConversationInput` accepts a task or
- * event, Ask and chat follow-ups start a new Thing chat with this text in the composer.
+ * event with a completion action, Ask and `CHAT` actions start a new Thing chat with the item, its
+ * issue and the action's prompt in the composer.
  */
-export function mockChatDraft(title: string, followUp: boolean): string {
-  return followUp ? `Update on “${title}”: ` : `About “${title}”: `;
+export function mockChatDraft(
+  title: string,
+  issueTitle: string | null,
+  action: Extract<CompletionAction, { type: 'CHAT' }> | null,
+): string {
+  const about = issueTitle ? `“${title}” about “${issueTitle}”` : `“${title}”`;
+
+  return action ? `Update on ${about}: ${action.prompt}` : `About ${about}: `;
 }

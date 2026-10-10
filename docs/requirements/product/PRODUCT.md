@@ -193,7 +193,7 @@ See the `UI Inspiration` folder for ideas for specific components
         - Item actions: Ask (chat with the item as context), Edit schedule (next due date, whether and how often it repeats, and whether the next one counts from completion or the due date), Go to Thing and Delete (returns the task to the Thing's suggestions).
     - **Thing tasks view**: the same view for one Thing, showing every later day without an Upcoming toggle.
     - **Suggested tasks view**: one Thing's suggestions by priority, tagged with their priority, each with an Add action.
-        - A completed task or event may have a follow-up: a chat with defined context, or a question that updates a Thing detail or adds a document.
+        - A completed task or event may offer several completion actions side by side as alternatives, such as "Is it fixed?" and "Needs a follow-up" after an engineer's visit: resolve the linked issue, a chat with the item, issue and Thing as context, or a question that updates a Thing detail or adds a document.
 - **Assistant**:
     - **List of previous chats**
     - **Conversation view**

@@ -1,7 +1,7 @@
-@let followUp = request()?.followUp;
-<bt-dialog [title]="followUp?.prompt ?? ''" [open]="!!followUp" (closed)="close()">
+@let action = request()?.action;
+<bt-dialog [title]="action?.label ?? ''" [open]="!!action" (closed)="close()">
   <form [id]="formId" class="follow-up-form" (ngSubmit)="save()">
-    @if (followUp?.type === 'ADD_DOCUMENT') {
+    @if (action?.type === 'ADD_DOCUMENT') {
       <div class="follow-up-file">
         <button type="button" class="button-secondary button-sm" (click)="picker.click()">
           Choose document
@@ -36,10 +36,10 @@
       type="submit"
       [attr.form]="formId"
       class="button-primary button-sm"
-      [disabled]="!ready() || busy() || (followUp?.type === 'UPDATE_FIELD' && !target())"
+      [disabled]="!ready() || busy() || (action?.type === 'UPDATE_FIELD' && !target())"
       [attr.aria-busy]="busy()"
     >
-      {{ followUp?.type === 'ADD_DOCUMENT' ? 'Upload' : 'Save' }}
+      {{ action?.type === 'ADD_DOCUMENT' ? 'Upload' : 'Save' }}
     </button>
   </div>
 </bt-dialog>

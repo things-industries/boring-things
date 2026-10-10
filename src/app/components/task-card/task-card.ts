@@ -10,6 +10,7 @@ import {
   followUpChat,
   followUpDocument,
   followUpField,
+  followUpResolve,
   goToThing,
   rescheduleTask,
   taskCritical,
@@ -17,21 +18,22 @@ import {
   taskOpen,
   taskOverdue,
 } from '../../core/app-icons';
-import type { AgendaItem, FollowUp } from '../../interfaces/task.interface';
+import type { AgendaItem, CompletionAction } from '../../interfaces/task.interface';
 import { isDone, itemTitle, timeLine } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { Menu } from '../menu/menu';
 import { MenuItem } from '../menu/menu-item';
 
-const followUpIcons: Record<FollowUp['type'], string> = {
+const actionIcons: Record<CompletionAction['type'], string> = {
   CHAT: 'followUpChat',
   UPDATE_FIELD: 'followUpField',
   ADD_DOCUMENT: 'followUpDocument',
+  RESOLVE_ISSUE: 'followUpResolve',
 };
 
 /**
  * Agenda card for a task, appointment or Thing date: a check control for items that can be done,
- * the title, a time line or, once done, the follow-up button, and an overflow menu. On a white
+ * the title, a time line or, once done, its completion actions side by side, and an overflow menu. On a white
  * surface, set `--task-card-background`.
  */
 @Component({
@@ -46,6 +48,7 @@ const followUpIcons: Record<FollowUp['type'], string> = {
       followUpChat,
       followUpDocument,
       followUpField,
+      followUpResolve,
       goToThing,
       rescheduleTask,
       taskCritical,
@@ -66,22 +69,22 @@ export class TaskCard {
   /** Leaves out Go to Thing, on that Thing's pages. */
   readonly inThing = input(false);
   readonly toggled = output<void>();
-  readonly followedUp = output<FollowUp>();
+  readonly actionChosen = output<CompletionAction>();
   readonly asked = output<void>();
   readonly rescheduled = output<void>();
   readonly removed = output<void>();
 
   readonly title = computed(() => itemTitle(this.item()));
 
-  readonly followUp = computed(() => {
+  readonly actions = computed(() => {
     const item = this.item();
 
-    if (item.type === 'TASK') return item.task.followUp;
-    return item.type === 'EVENT' ? item.event.followUp : null;
+    if (item.type === 'TASK') return item.task.completionActions;
+    return item.type === 'EVENT' ? item.event.completionActions : [];
   });
 
-  /** Tasks, and events with a follow-up, can be checked off. */
-  readonly checkable = computed(() => this.item().type === 'TASK' || !!this.followUp());
+  /** Tasks, and events with completion actions, can be checked off. */
+  readonly checkable = computed(() => this.item().type === 'TASK' || this.actions().length > 0);
 
   readonly done = computed(() => isDone(this.item()));
 
@@ -102,5 +105,5 @@ export class TaskCard {
 
   /** Days from today to the item's day. */
   readonly dayOffset = computed(() => daysUntil(this.item().day, this.now()));
-  readonly followUpIcons = followUpIcons;
+  readonly actionIcons = actionIcons;
 }
