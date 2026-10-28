@@ -342,6 +342,48 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
   assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
 });
 
+// Research omitted the source-derived name, losing the year for models with reused names.
+test('public research keeps the source-derived product generation across its requests', async (t) => {
+  const source = 'https://maker.example/watch-2021';
+  const requests: Record<string, unknown>[] = [];
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    requests.push(body);
+    const response = output(
+      body.text?.format.schema.properties.identity ? { identity: null, items: [] } : { items: [] },
+    );
+    return jsonResponse({
+      ...response,
+      output: [
+        { type: 'web_search_call', action: { sources: [{ url: source }] } },
+        ...response.output,
+      ],
+    });
+  });
+  const research = {
+    id: 'candidate-1',
+    name: 'Example Watch (2021)',
+    categoryId: 'devices',
+    knownFields: [
+      {
+        fieldSetId: null,
+        fieldId: 'common.model',
+        label: 'Model',
+        description: '',
+        value: 'Example Watch',
+      },
+    ],
+    emptyFields: [],
+    referenceUrls: [],
+  };
+  const ai = new OpenAiImports('test-key', 'test-model', 12000, 3, 'test-model', async () => null);
+  await ai.findResources(research, context());
+  await ai.suggestTasks({ ...research, existingTasks: [] }, context());
+  await ai.findPurchasables({ ...research, existingPurchasables: [] }, context());
+  assert.equal(requests.length, 4);
+  for (const request of requests) assert.ok(JSON.stringify(request.input).includes(research.name));
+});
+
 test('SDK document extraction uses the configured model, contained schema and per-task usage without search or write tools', async (t) => {
   const usage: Partial<Usage>[] = [];
   const turns: Parameters<AiTurnCompleted>[0][] = [];

@@ -87,6 +87,7 @@ function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: numb
       'Usually no purchasables; include only products required or supported by the service documentation.',
   };
   const subject = {
+    name: research.name,
     categoryId: research.categoryId,
     knownFields: research.knownFields,
     referenceUrls: research.referenceUrls,

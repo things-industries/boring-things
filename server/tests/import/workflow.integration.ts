@@ -6,10 +6,16 @@ import * as attachmentsDb from '../../src/db/entities/attachments.js';
 import { setTimeout } from 'node:timers/promises';
 import { startTestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
+import type { ResearchThing } from '../../src/application/import/types.js';
 
 test('contextual Import and Recommendation preserve owner fields and retry unfinished work', async () => {
   const app = await startTestApp({ importWorkflow: { specialists: [] } });
   try {
+    const researchNames: (string | undefined)[] = [];
+    app.importAi.findResources = async (research?: ResearchThing) => {
+      researchNames.push(research?.name);
+      return { items: [], sources: [] };
+    };
     const request = (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
       app.app.inject({ method, url, payload, headers: { authorization: app.authorization } });
     const created = await request('POST', '/api/things', {
@@ -18,6 +24,7 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       addFieldSetIds: ['appliances.warranty'],
       values: [
         { fieldSetId: 'appliances.appliance', fieldId: 'appliances.zNumber', value: 'OWNER' },
+        { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'X1' },
       ],
     });
     assert.equal(created.statusCode, 201, created.body);
@@ -45,6 +52,7 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
     const retry = await request('POST', '/api/imports/' + id + ':retry');
     assert.equal(retry.statusCode, 200, retry.body);
     assert.equal((await wait(id)).status, 'COMPLETE');
+    assert.deepEqual(researchNames, [undefined]);
     const saved = await request('GET', '/api/things/' + thing.id);
     assert.equal(saved.statusCode, 200, saved.body);
     const detail = saved.json<Schema['Thing']>();
@@ -81,6 +89,13 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     },
   });
   try {
+    const resolve = env.importAi.resolveThing.bind(env.importAi);
+    env.importAi.resolveThing = async (input, tools) => {
+      const result = await resolve(input, tools);
+      for (const candidate of result.candidates) candidate.name = 'Example oven (2021)';
+      return result;
+    };
+    const researchNames: (string | undefined)[] = [];
     const request = (method: 'GET' | 'POST' | 'DELETE' | 'PATCH', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
     const baseTranscribe = env.importAi.transcribe.bind(env.importAi);
@@ -95,19 +110,22 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
             identifiers: [],
           }
         : baseTranscribe(source);
-    env.importAi.findResources = async () => ({
-      items: [
-        {
-          kind: 'reference' as const,
-          title: 'Official manual',
-          description: 'Model X1 manual',
-          url: 'https://example.com/manual.pdf',
-          sourceUrl: 'https://example.com/oven',
-          metadata: null,
-        },
-      ],
-      sources: ['https://example.com/manual.pdf', 'https://example.com/oven'],
-    });
+    env.importAi.findResources = async (research?: ResearchThing) => {
+      researchNames.push(research?.name);
+      return {
+        items: [
+          {
+            kind: 'reference' as const,
+            title: 'Official manual',
+            description: 'Model X1 manual',
+            url: 'https://example.com/manual.pdf',
+            sourceUrl: 'https://example.com/oven',
+            metadata: null,
+          },
+        ],
+        sources: ['https://example.com/manual.pdf', 'https://example.com/oven'],
+      };
+    };
     env.importAi.assessResource = async () => {
       const source = await env.pool.query<{ id: string }>(
         'select id from bt.attachments where owner_id is null',
@@ -151,6 +169,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     };
     const job = await wait(submit.json<Schema['ImportAccepted']>().importId);
     assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
+    assert.deepEqual(researchNames, ['Example oven (2021)']);
     assert.equal(job.thingIds.length, 1);
     const first = job.thingIds[0];
     const shared = (
@@ -217,6 +236,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     );
     const after = (await request('GET', '/api/things/' + second)).json<Schema['Thing']>();
     assert.ok(!after.attachmentIds.includes(shared.id));
+    assert.deepEqual(researchNames, ['Example oven (2021)', undefined, undefined]);
     assert.equal((await request('DELETE', '/api/things/' + first)).statusCode, 204);
     assert.equal(
       (await env.pool.query('select 1 from bt.attachments where id=$1', [shared.id])).rowCount,

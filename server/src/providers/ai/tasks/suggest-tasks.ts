@@ -70,6 +70,7 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
       'Required meter readings, tariff reviews and renewal actions supported by the contract.',
   };
   const subject = {
+    name: research.name,
     categoryId: research.categoryId,
     knownFields: research.knownFields,
     referenceUrls: research.referenceUrls,

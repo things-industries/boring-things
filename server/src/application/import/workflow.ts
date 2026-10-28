@@ -484,7 +484,15 @@ export class ImportWorkflow {
       let discovery;
       try {
         discovery = await this.ai.findResources(
-          { id: thing.id, categoryId: thing.categoryId, knownFields: known, emptyFields: [] },
+          {
+            id: thing.id,
+            name: this.job.workflow.selected?.attachmentIds.length
+              ? this.job.workflow.selected.name
+              : undefined,
+            categoryId: thing.categoryId,
+            knownFields: known,
+            emptyFields: [],
+          },
           this.context,
           this.config.discoverySearchCalls,
         );
@@ -1051,6 +1059,9 @@ export class ImportWorkflow {
       }
     }
     const research = {
+      name: this.job.workflow.selected?.attachmentIds.length
+        ? this.job.workflow.selected.name
+        : undefined,
       categoryId: thing.categoryId,
       knownFields: publicFields(thing.data, this.registry),
       referenceUrls: [

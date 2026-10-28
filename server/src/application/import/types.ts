@@ -91,12 +91,15 @@ export interface Discovery {
   rejectedDocumentUrls?: string[];
 }
 
-export interface TaskResearch extends Pick<ResearchThing, 'categoryId' | 'knownFields'> {
+export interface TaskResearch extends Pick<ResearchThing, 'name' | 'categoryId' | 'knownFields'> {
   referenceUrls: string[];
   existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
 }
 
-export interface PurchasableResearch extends Pick<ResearchThing, 'categoryId' | 'knownFields'> {
+export interface PurchasableResearch extends Pick<
+  ResearchThing,
+  'name' | 'categoryId' | 'knownFields'
+> {
   referenceUrls: string[];
   existingPurchasables: Pick<Schema['Purchasable'], 'name' | 'kind'>[];
 }
@@ -129,6 +132,7 @@ export interface RegistryTools {
 
 export interface ResearchThing {
   id: string;
+  name?: string;
   categoryId: string;
   knownFields: KnownResearchField[];
   emptyFields: EmptyResearchField[];
