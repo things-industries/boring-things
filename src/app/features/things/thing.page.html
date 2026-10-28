@@ -27,6 +27,24 @@
           type="button"
           btMenuItem
           icon="extractDetails"
+          [disabled]="processing() || startingImport()"
+          (click)="enrich('IMPORT')"
+        >
+          Find more details
+        </button>
+        <button
+          type="button"
+          btMenuItem
+          icon="extractDetails"
+          [disabled]="processing() || startingImport()"
+          (click)="enrich('RECOMMENDATION')"
+        >
+          Refresh recommendations
+        </button>
+        <button
+          type="button"
+          btMenuItem
+          icon="extractDetails"
           [disabled]="processing()"
           (click)="open('sources')"
         >

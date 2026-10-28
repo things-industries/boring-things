@@ -7,6 +7,8 @@ export default ts.config(
       'node_modules/**',
       'dist/**',
       '.angular/**',
+      'test-results/**',
+      'playwright-report/**',
       'shared/api.ts',
       'server/src/providers/ai/schema-types.ts',
       'supabase/**',

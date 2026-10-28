@@ -231,6 +231,17 @@ export const ThingsStore = signalStore(
         return result;
       },
 
+      /** Starts research or refreshes recommendations for an existing Thing. */
+      async enrich(thingId: string, operation: 'IMPORT' | 'RECOMMENDATION') {
+        const result = await store.mutate('importThing', [], () =>
+          operation === 'IMPORT'
+            ? store._imports.create({ attachmentIds: [], thingId })
+            : store._imports.recommend(thingId),
+        );
+        if (result.ok) await store.loadOne(thingId);
+        return result;
+      },
+
       async retryImport(id: string) {
         const result = await store.mutate('retryImport', [], () => store._imports.retry(id));
 

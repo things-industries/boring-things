@@ -27,7 +27,12 @@ const subject = 'browser-alice';
  * so anything waiting on the port finds the state and sample data ready. It requires a fixed port.
  */
 export async function startTestApp(
-  options: { samples?: boolean; port?: number; storageStatePath?: string } = {},
+  options: {
+    samples?: boolean;
+    port?: number;
+    storageStatePath?: string;
+    importWorkflow?: import('../../src/application/import/workflow.js').WorkflowOptions;
+  } = {},
 ) {
   const port = options.port ?? 0;
   if (options.storageStatePath && !port)
@@ -92,7 +97,13 @@ export async function startTestApp(
     await database.transaction(pool, registrySeedDb.seedRegistry);
     const importAi = new FixtureAi();
     const chatAi = new FixtureChat();
-    const app = await buildApp({ dbPool: pool, config, importAi, chatAi });
+    const app = await buildApp({
+      dbPool: pool,
+      config,
+      importAi,
+      chatAi,
+      importWorkflow: { specialists: [], ...options.importWorkflow },
+    });
     cleanup.push(() => app.close());
 
     // Long enough for a reused e2e server; the key only exists for this process.

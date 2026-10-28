@@ -13,7 +13,7 @@ export async function searchRegistry(
 ) {
   // SQL identifiers come from fixed choices; search terms remain bound parameters.
   const table = kind === 'fields' ? 'field_definitions' : 'field_sets';
-  const description = kind === 'fields' ? 'description' : 'eligibility';
+  const description = kind === 'fields' ? 'description' : "coalesce(eligibility,'All things')";
   const category = kind === 'field-sets' ? 'and ($4::text is null or category_id=$4)' : '';
   const params: unknown[] = [terms.length ? terms : [''], limit, offset];
   if (kind === 'field-sets') params.push(categoryId ?? null);
@@ -54,5 +54,13 @@ export async function listCategories(
       [owner, limit + 1, offset],
     ),
     query,
+  );
+}
+
+// Supplies category meanings alongside identifier definitions for identity resolution.
+export async function listCategoryDefinitions(db: Database) {
+  return database.rows<Pick<Schema['Category'], 'id' | 'name' | 'description'>>(
+    db,
+    'select id,name,description from bt.categories order by sort_order,id',
   );
 }

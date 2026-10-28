@@ -1,10 +1,5 @@
--- Completed Imports retain their results; new work cites one or more transcribed Attachments.
-do $$
-begin
-  if exists (select 1 from bt.imports where status <> 'COMPLETE') then
-    raise exception 'Finish or remove unfinished Imports before this migration';
-  end if;
-end $$;
+-- Remove obsolete unfinished demo jobs; completed Imports retain their results at this step.
+delete from bt.imports where status <> 'COMPLETE';
 
 alter table bt.imports
   add column candidates_allocated boolean not null default false,

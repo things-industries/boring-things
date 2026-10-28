@@ -1,16 +1,17 @@
-// Shows persisted Import progress before and after Thing creation.
+/** Shows persisted Import progress before and after Thing creation. */
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { ImportsStore } from '../../core/state/imports.store';
+import { ImportSteps } from '../things/import-steps/import-steps';
 import { Notice } from '../../components/notice/notice';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { TopBar } from '../../components/top-bar/top-bar';
 
 @Component({
   selector: 'bt-import-page',
-  imports: [RouterLink, Notice, ScrollContainer, TopBar],
+  imports: [RouterLink, Notice, ScrollContainer, TopBar, ImportSteps],
   templateUrl: './import.page.html',
   styleUrl: './import.page.scss',
 })
@@ -22,9 +23,6 @@ export class ImportPage {
     requireSync: true,
   });
   readonly job = computed(() => this.imports.records()[this.id()] ?? null);
-  readonly reviewCandidates = computed(
-    () => this.job()?.candidates.filter((candidate) => candidate.reviewRequired) ?? [],
-  );
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly busy = signal(false);

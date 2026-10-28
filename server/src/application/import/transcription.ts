@@ -3,10 +3,11 @@ import type pg from 'pg';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
+import { blankUsage } from './types.js';
 import type { ImportAi, SourceTranscription } from './types.js';
 import * as database from '../../db/connection.js';
 import * as attachmentsDb from '../../db/entities/attachments.js';
-import { updateAttachmentMetadata } from '../attachments.js';
+import { updateAttachmentMetadata, validateAttachmentMetadata } from '../attachments.js';
 import { ensure } from '../errors.js';
 import { pdfPageCount } from '../../lib/pdf.js';
 
@@ -31,6 +32,10 @@ export class AttachmentTranscriptionProcessor {
     if (!claimed) return false;
     const { file, ownerId } = claimed;
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
+    const usage = file.transcriptionUsage ?? blankUsage(this.config.openaiModel),
+      started = Date.now();
+    const elapsed = usage.elapsedMs;
+    let requests = usage.entries?.length ?? 0;
     try {
       const chunks: Buffer[] = [];
       for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
@@ -39,16 +44,25 @@ export class AttachmentTranscriptionProcessor {
       }
       const content = Buffer.concat(chunks);
       const source = { ...file, content };
-      const context = { signal, record: async () => {} };
-      const result: SourceTranscription = this.ai.transcribe
-        ? await this.ai.transcribe(source, context)
-        : await this.ai.extract(source, [], context).then((extraction) => ({
-            text: extraction.text,
-            summary: extraction.summary ?? null,
-            terms: extraction.terms ?? [],
-            status: extraction.transcriptionStatus ?? 'EMPTY',
-            metadata: extraction.metadata ?? null,
-          }));
+      const context = {
+        maxTextCharacters: this.config.importMaxTextCharacters,
+        signal,
+        beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
+        record: async (delta: Partial<import('./types.js').Usage>) => {
+          usage.inputTokens += delta.inputTokens ?? 0;
+          usage.outputTokens += delta.outputTokens ?? 0;
+          usage.cachedTokens += delta.cachedTokens ?? 0;
+          usage.toolCalls.push(...(delta.toolCalls ?? []));
+          if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
+          usage.elapsedMs = elapsed + Date.now() - started;
+          await database.execute(
+            this.pool,
+            'update bt.attachments set transcription_usage=$1 where id=$2',
+            [JSON.stringify(usage), file.id],
+          );
+        },
+      };
+      const result: SourceTranscription = await this.ai.transcribe(source, context);
       signal.throwIfAborted();
       ensure(
         typeof result.text === 'string' &&
@@ -60,6 +74,18 @@ export class AttachmentTranscriptionProcessor {
         'Invalid transcription',
       );
       if (file.mediaType === 'text/plain') result.text = content.toString('utf8');
+      ensure(
+        (result.identifiers ?? []).length <= 30 &&
+          (result.identifiers ?? []).every(
+            (identifier) =>
+              identifier.label.length <= 200 &&
+              identifier.value.length <= 200 &&
+              identifier.quote.length > 0 &&
+              identifier.quote.length <= 2000 &&
+              result.text.includes(identifier.quote),
+          ),
+        'Invalid identifier observations',
+      );
       const pageCount = file.pageCount ?? (await pdfPageCount(content, file.mediaType, signal));
       await database.transaction(this.pool, async (db) => {
         await attachmentsDb.saveTranscription(db, ownerId, file.id, {
@@ -67,8 +93,9 @@ export class AttachmentTranscriptionProcessor {
           summary: result.summary,
           terms: result.terms,
           status: result.status,
+          identifiers: result.identifiers ?? [],
         });
-        if (result.metadata || pageCount !== null)
+        if (ownerId !== null && (result.metadata || pageCount !== null))
           await updateAttachmentMetadata(
             db,
             ownerId,
@@ -77,6 +104,21 @@ export class AttachmentTranscriptionProcessor {
             { origin: 'IMPORT', sourceRefs: [{ attachmentId: file.id }] },
             pageCount,
           );
+        if (ownerId === null) {
+          if (result.metadata) {
+            const metadata = validateAttachmentMetadata(result.metadata);
+            for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
+              if (metadata[key] != null) {
+                Object.assign(file, { [key]: metadata[key] });
+                file.metadataSources[key] = {
+                  origin: 'IMPORT',
+                  sourceRefs: [{ attachmentId: file.id }],
+                };
+              }
+          }
+          file.pageCount = pageCount;
+          await attachmentsDb.saveAttachmentMetadata(db, null, file);
+        }
       });
     } catch {
       await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
@@ -84,11 +126,12 @@ export class AttachmentTranscriptionProcessor {
     await database.execute(
       this.pool,
       `update bt.imports i set updated_at=now() from bt.import_sources s
-       where s.import_id=i.id and s.attachment_id=$1 and i.owner_id=$2
+       where s.import_id=i.id and s.attachment_id=$1
          and i.status='WAITING_FOR_TRANSCRIPTION'`,
-      [file.id, ownerId],
+      [file.id],
     );
-    this.events.publish({ type: 'data.changed', ownerId });
+    for (const recipient of await attachmentsDb.affectedOwners(this.pool, file))
+      this.events.publish({ type: 'data.changed', ownerId: recipient });
     return true;
   }
 }

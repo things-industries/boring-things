@@ -1,3 +1,4 @@
+/** Provides Import and Recommendation submissions, retries and progress streams. */
 import { Injectable, inject } from '@angular/core';
 import type { Schema } from '../../../../shared/model';
 import { apiData } from '../api/api-client';
@@ -10,6 +11,12 @@ export class ImportsService {
 
   create(body: Schema['ImportSubmission']) {
     return this.client.POST('/api/imports', { body }).then(apiData);
+  }
+
+  recommend(thingId: string) {
+    return this.client
+      .POST('/api/things/{thingId}:recommend', { params: { path: { thingId } } })
+      .then(apiData);
   }
 
   get(id: string) {

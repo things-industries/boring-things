@@ -10,6 +10,7 @@ const ACTIVE_IMPORT = [
   'EXTRACTING',
   'MAPPING',
   'DISCOVERING',
+  'RECOMMENDING',
 ];
 
 export function activeImport(job: Schema['Import'] | null | undefined): boolean {
@@ -17,14 +18,15 @@ export function activeImport(job: Schema['Import'] | null | undefined): boolean 
 }
 
 /** Import stages shown to the user: read the source, add details, find more online. */
-export const IMPORT_STEP_COUNT = 3;
+export const IMPORT_STEP_COUNT = 4;
 
 const IMPORT_STEPS: Partial<Record<Schema['ImportStatusEnum'], number>> = {
   QUEUED: 0,
   WAITING_FOR_TRANSCRIPTION: 0,
   EXTRACTING: 0,
-  MAPPING: 1,
-  DISCOVERING: 2,
+  MAPPING: 2,
+  DISCOVERING: 1,
+  RECOMMENDING: 3,
 };
 
 /** The zero-based stage an import status belongs to; finished imports are past the last. */

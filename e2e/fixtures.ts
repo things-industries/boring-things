@@ -29,6 +29,9 @@ export const test = base.extend<{ pageProblems: string[]; expectedConsoleErrors:
       });
 
       await use(problems);
+
+      // Finish route interception before Playwright closes the page.
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
       expect(problems).toEqual([]);
     },
     { auto: true },

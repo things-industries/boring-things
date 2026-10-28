@@ -29,7 +29,9 @@ Copy `.env.example` only on first setup; preserve an existing `.env`. Complete [
 
 To check on a phone on the same network, run `pnpm dev:lan` instead. It serves the app over HTTPS with a self-signed certificate on every network interface and prints the `Network:` address. Accept the certificate warning on the phone, and register that origin in Logto (see [phone testing](docs/setup/logto.md#phone-testing)).
 
-Ports are isolated from Supabase's defaults to avoid other local projects. `pnpm db:stop` stops this stack and preserves its data. `pnpm db:migrate` applies pending migrations without resetting data. The Supabase `db reset` command **deletes local database data** and is not needed for ordinary startup.
+Ports are isolated from Supabase's defaults to avoid other local projects. `pnpm db:stop` stops this stack and preserves its data. `pnpm db:migrate` applies pending schema and data migrations. The Supabase `db reset` command **deletes local database data** and is not needed for ordinary startup.
+
+The single-Thing Import upgrade replaces old demo Import history and field values. Things, Attachments, transcribed text and attachment links are retained. Apply `pnpm db:migrate` and `pnpm db:seed` before starting the revised app.
 
 Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, including `CI=true pnpm dev` and `CI=true pnpm check`.
 
@@ -53,19 +55,18 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 
 Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`, apply `pnpm db:migrate`, and restart the API. The model must support Responses API image/PDF inputs, structured outputs, function calls and web search. Missing AI configuration disables import controls; manual editing remains available.
 
-The **Add a thing** screen offers Camera, Photos, Files and Text tiles: take or choose photos, upload supported files, or paste text on its own step. The manual form is at `/things/new/manual`; Add a thing has no entry to it yet. Without AI configuration the tiles are disabled. Each source is stored privately and starts transcription after upload. The client then creates one Import citing the uploaded Attachments. Its progress page shows source outcomes before Thing creation and links to resolved Things. Open extraction identifies candidates across the sources; candidates with possible owned matches are shown as review-required stubs. Owner resolution controls are pending. Selected sets appear with empty fields before validated value groups arrive. Facts map to selected-set fields, standalone registry fields or useful custom fields; information without established practical value is discarded. Fact decisions and selected sets are saved as checkpoints so retries process unfinished batches. The original source and extracted content remain stored. Review extracted values.
+The **Add a thing** screen offers Camera, Photos, Files and Text tiles. Each source is stored privately and starts transcription after upload. The client submits one Import citing the Attachments and shows persisted source outcomes and progress. The Import selects one candidate, matches or creates a Thing, and saves its category identifiers before Research. Fieldset selection and cited population use all applicable linked evidence. Existing owner-entered values and manually cleared fields remain protected.
 
-On an existing Thing, **Add details from a source** creates a restricted Import after upload. Uploading under **Attachments** stores and links the file without creating an Import. Linking an existing Attachment to a Thing schedules restricted processing. Existing user values are preserved.
+On a Thing, **Add details from a source** submits a contextual Import. **Find more details** starts Research without new Attachments. **Refresh recommendations** runs Recommendation independently. Manual creation saves the Thing directly. Uploading under **Attachments** also submits a contextual Import; linking an existing Attachment schedules contextual processing.
 
-- Registry search uses bounded Postgres text/identifier queries, includes mandatory dependencies and one hop of alongside suggestions. The model receives search results, never a whole-registry prompt.
-- Mapping accepts retrieved IDs, validates category, field membership and schemas, and preserves user values and clears. Records are read-only during processing. Retries reuse persisted targets and discovery results.
-- Naming favours brand and everyday product type, such as **Bosch Oven**. Cited model discovery can refine a new Thing's name. Existing names belonging to the same owner are checked locally; collisions add a model identifier or number. Existing Things and user-edited names are preserved.
-- Research uses populated fields classified as `instanceSpecific: false` to find applicable category documents and an official product photograph. Empty eligible fields receive cited `DISCOVERY` values. Owner edits and image choices survive retries. Optional research failures finish with warnings; saved work is reused. See [the import guide](docs/setup/imports.md) for retrieval, document and image limits.
-- Imports independently research category-directed tasks and purchasables using public fields from the mapped Thing and reference URLs. Tasks arrive as unscheduled suggestions; supported consumables and accessories require observed purchase links and compatibility evidence. Retry checkpoints preserve existing tasks, purchasables and owner edits, avoiding duplicate suggestions. Task intervals remain descriptive; prices and product images are unset.
-- Authenticated fetch SSE delivers masked snapshots after commits. Navigation/logout aborts the stream; reconnect fetches persisted state with a refreshed token. Streams renew within 55 seconds and use revision ordering.
-- One in-process runner consumes persisted jobs. Restart marks interrupted work failed and retryable; queued work resumes. Run one API process per database. This is not a distributed queue.
-- Limits: 10 candidates per source, 100 facts per candidate, 1,000,000 characters of extracted text; value groups contain up to 20 facts. Sources remain subject to the configured upload limit. Oversized/invalid extraction fails without deleting the source.
-- `GET /api/imports/{id}` reports status, candidates, results, sanitized errors and cumulative model/token/tool/elapsed-time metrics. Source-wide transcription, summary, terms and status are stored on the Attachment. Candidate extraction remains private on the Import; existing Import text remains for retry compatibility. Raw content is omitted from ordinary API/SSE responses because it can contain secrets.
+- `bt.thing_fields` stores field values, provenance and automatic-population permissions. Empty manually added registry fields remain eligible. All automatic writers recheck permissions before saving.
+- Category-mandatory fieldsets contain identifiers. Registry search returns bounded optional fieldset and field definitions. Population validates occurrence addresses, value schemas, source quotes and original pages in batches of twenty.
+- Specialist lookup runs before public resource research. Icecat uses `ICECAT_ACCESS_TOKEN` to look up appliances and devices by GTIN or manufacturer plus product code/model number. Free Open Icecat access covers participating brands such as Philips. Catalogue misses and access restrictions allow public research to continue.
+- Public research receives populated fields classified as `instanceSpecific: false`. Discovered resources are shared unowned Attachments with system-managed content and metadata. Owner-scoped links expose only the owner's associations. Unlink decisions survive research retries.
+- Recommendation uses applicable Attachment content through local model tools, then eligible public fields for web research. Tasks become unscheduled suggestions; purchasables require cited compatibility and purchase links. Existing suggestions and owner decisions are preserved.
+- Authenticated revisioned SSE snapshots restore progress after navigation and reconnect. Source text, identity evidence and credentials remain outside ordinary Import responses.
+- One database leader runs Import/Recommendation, transcription and chat concurrently, with one job at a time per processor. Restart resumes persisted checkpoints; shutdown waits for all processors before releasing leadership.
+- Optional failures retain warnings and saved work. Retry resumes unfinished work; field batches detect changes to their source evidence. See [the import guide](docs/setup/imports.md) for lifecycle, access, provenance and limits.
 
 ## Assistant
 
@@ -186,28 +187,32 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 
 `readConfig(env)` eagerly parses an injectable environment source into `EnvConfig`; production requirements are checked before startup.
 
-| Variable                    | Purpose                                                     |
-| --------------------------- | ----------------------------------------------------------- |
-| `DATABASE_URL`              | Backend Postgres connection; local default uses port 55432  |
-| `LOGTO_ENDPOINT`            | Tenant endpoint, without `/oidc`                            |
-| `LOGTO_APP_ID`              | SPA application ID; public identifier                       |
-| `LOGTO_API_RESOURCE`        | API audience; `https://api.boring-things.local`             |
-| `BLOB_DIRECTORY`            | Local blob directory; default `.data/blobs`                 |
-| `MAX_UPLOAD_BYTES`          | Upload and research document limit; default 100000000       |
-| `ENABLE_SAMPLE_DATA`        | Enables the authenticated sample-data action; default false |
-| `OPENAI_API_KEY`            | Server-only OpenAI credential                               |
-| `OPENAI_MODEL`              | Configurable model; required for imports and chat           |
-| `DOCUMENT_EXTRACTION_MODEL` | Reference extraction model; defaults to `OPENAI_MODEL`      |
-| `IMPORT_TIMEOUT_MS`         | Extraction/mapping attempt deadline; default 180000         |
-| `IMPORT_TOOL_ROUNDS`        | Registry tool-call budget per selection or batch; default 4 |
-| `DISCOVERY_TIMEOUT_MS`      | Discovery deadline per candidate; default 90000             |
-| `DISCOVERY_SEARCH_CALLS`    | Web tool-call budget per import or chat research; default 3 |
-| `CHAT_TIMEOUT_MS`           | Assistant attempt deadline; default 180000                  |
-| `CHAT_TOOL_CALLS`           | Function-call budget per assistant response; default 12     |
-| `AI_MAX_OUTPUT_TOKENS`      | Output token limit per provider response; default 12000     |
-| `HOST`, `PORT`              | API bind address; default `127.0.0.1:3000`                  |
-| `LOG_LEVEL`                 | Minimum severity; default `info`; use `trace` for requests  |
-| `LOG_FORMAT`                | `pretty` locally; `json` when `NODE_ENV=production`         |
+| Variable                     | Purpose                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `DATABASE_URL`               | Backend Postgres connection; local default uses port 55432              |
+| `LOGTO_ENDPOINT`             | Tenant endpoint, without `/oidc`                                        |
+| `LOGTO_APP_ID`               | SPA application ID; public identifier                                   |
+| `LOGTO_API_RESOURCE`         | API audience; `https://api.boring-things.local`                         |
+| `BLOB_DIRECTORY`             | Local blob directory; default `.data/blobs`                             |
+| `MAX_UPLOAD_BYTES`           | Upload and research document limit; default 100000000                   |
+| `ENABLE_SAMPLE_DATA`         | Enables the authenticated sample-data action; default false             |
+| `OPENAI_API_KEY`             | Server-only OpenAI credential                                           |
+| `OPENAI_MODEL`               | Configurable model; required for imports and chat                       |
+| `DOCUMENT_EXTRACTION_MODEL`  | Additional-information model; defaults to `OPENAI_MODEL`                |
+| `ICECAT_ACCESS_TOKEN`        | Optional Icecat API token; free access covers participating brands      |
+| `IMPORT_MAX_REQUESTS`        | Model request limit per Import or Attachment across retries; default 60 |
+| `IMPORT_MAX_TEXT_CHARACTERS` | Model conversation text limit; default 120000                           |
+| `IMPORT_MAX_RESOURCES`       | Discovered resource limit per Import; default 3                         |
+| `IMPORT_TIMEOUT_MS`          | Import attempt deadline; default 180000                                 |
+| `IMPORT_TOOL_ROUNDS`         | Local tool-call budget per task or batch; default 4                     |
+| `DISCOVERY_TIMEOUT_MS`       | Resource transcription wait deadline; default 90000                     |
+| `DISCOVERY_SEARCH_CALLS`     | Web tool-call budget per import or chat research; default 3             |
+| `CHAT_TIMEOUT_MS`            | Assistant attempt deadline; default 180000                              |
+| `CHAT_TOOL_CALLS`            | Function-call budget per assistant response; default 12                 |
+| `AI_MAX_OUTPUT_TOKENS`       | Output token limit per provider response; default 12000                 |
+| `HOST`, `PORT`               | API bind address; default `127.0.0.1:3000`                              |
+| `LOG_LEVEL`                  | Minimum severity; default `info`; use `trace` for requests              |
+| `LOG_FORMAT`                 | `pretty` locally; `json` when `NODE_ENV=production`                     |
 
 Local server logs use Fastify's [Pino transport support](https://fastify.dev/docs/latest/Reference/Logging/#environment-specific-configuration) with `pino-pretty`: local timestamps, severity, messages and structured context on one line, with process ID and hostname omitted. Production defaults to JSON.
 
@@ -243,7 +248,7 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 ### Import verification
 
-`server/test/fixtures/imports.ts` contains synthetic failure/retry fixtures. The hob, van and combined-policy cases also form the SDK extraction replay baseline. Prompts live in `server/src/providers/ai/prompts.ts`; authored response/tool schemas live in `server/src/providers/ai/schemas.json`. Run `pnpm ai:generate` after schema edits; `pnpm ai:check` checks generated types and runs within `pnpm check`. Import and chat adapters use the [official OpenAI TypeScript SDK](https://developers.openai.com/api/docs/libraries), with storage and transport retries disabled. The importer awaits field-set selection and batches of 20 facts, validating and committing each result. `server/test/fixtures/import-recording.json` records extraction/mapping from a live synthetic run with `gpt-5.6-sol`; it is a regression example, not a quality benchmark. Integration/browser checks cover metadata-driven research, category reference extraction, progressive fields, multiple Things, owner isolation, shared sources, retry, discovery deduplication, restart recovery and SSE reconnect.
+`server/test/fixtures/imports.ts` supplies deterministic fixture providers. Tests in `server/tests/` cover the single-Thing workflow, population permissions, shared resources, specialist lookup and runner concurrency. Existing integration/browser checks cover authentication, masking, progressive navigation, chat, SSE and sample data. Each module in `server/src/providers/ai/tasks/` owns its prompt, output schema, tools and application result conversion. Shared prompts and tool adapters remain in the AI provider. Internal schemas are independent of the HTTP OpenAPI contract; run `pnpm ai:generate` after schema changes. SDK requests disable transport retries and remote response storage. Live quality and provider checks remain opt-in and require explicit approval.
 
 See [the import guide](docs/setup/imports.md) for the lifecycle, research eligibility, provenance and limits. [Import evaluations](docs/requirements/research/import-evaluations.md) record dated measurements and the paid model-comparison command.
 

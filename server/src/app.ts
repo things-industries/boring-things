@@ -41,6 +41,7 @@ export interface BuildAppOptions {
   logger?: boolean;
   importAi?: ImportAi;
   chatAi?: ChatAi;
+  importWorkflow?: import('./application/import/workflow.js').WorkflowOptions;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -109,7 +110,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
       [
         assistant,
         new AttachmentTranscriptionProcessor(dbPool, blobs, importAi, config, events),
-        new ImportProcessor(dbPool, registry, blobs, importAi, config, events),
+        new ImportProcessor(
+          dbPool,
+          registry,
+          blobs,
+          importAi,
+          config,
+          events,
+          options.importWorkflow,
+        ),
       ],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
       jobLeaseDb.jobLease(dbPool, () => {

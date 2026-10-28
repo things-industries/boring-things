@@ -7,7 +7,7 @@ import type { ImportAi } from '../../application/import/types.js';
 import type { ChatAi } from '../../application/conversations/types.js';
 import { OpenAiImports } from './openai-imports.js';
 import { OpenAiChat } from './openai-chat.js';
-import type { AiTurnCompleted } from './responses.js';
+import type { AiTurnCompleted } from './types.js';
 
 interface AiProviders {
   importAi?: ImportAi;
@@ -32,6 +32,7 @@ export function createAi(
             config.documentExtractionModel,
             undefined,
             onTurnCompleted,
+            config.importMaxTextCharacters,
           )
         : undefined),
     chatAi:

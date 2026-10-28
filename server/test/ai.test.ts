@@ -6,10 +6,9 @@ import { PDFDocument } from 'pdf-lib';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
 import { extractedThings, extractionBaseline } from './fixtures/imports.js';
-import * as registrySeedDb from '../src/db/seeds/registry.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
-import type { AiTurnCompleted } from '../src/providers/ai/responses.js';
+import type { AiTurnCompleted } from '../src/providers/ai/types.js';
 
 const context = () => ({ signal: new AbortController().signal, record: async () => {} });
 const jsonResponse = (data: unknown) =>
@@ -193,124 +192,6 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
   assert.equal(request, 3);
 });
 
-test('SDK mapping supplies minimal Thing and field context and retains tool history within each batch', async (t) => {
-  let request = 0;
-  const turns: Parameters<AiTurnCompleted>[0][] = [];
-  const selectedSets = registrySeedDb.sets.filter((set) => set.id === 'appliances.bsh');
-  const fieldResults = { results: [] };
-  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
-    const body = JSON.parse(init.body as string);
-    assert.equal(body.store, false);
-    assert.equal(body.parallel_tool_calls, false);
-    request++;
-    const round = request <= 2 ? 0 : Math.ceil((request - 2) / 2);
-    const toolName = round === 0 ? 'search_field_sets' : 'search_fields';
-    if (round > 0)
-      assert.deepEqual(
-        body.tools.map((tool: { name: string }) => tool.name),
-        ['search_fields'],
-      );
-    if (request % 2 === 1) {
-      assert.equal(body.input.length, 1);
-      if (round > 0) {
-        const prompt = body.input[0].content;
-        assert.match(prompt, /A "?Thing"? is an identifiable/);
-        assert.match(prompt, /selection and mandatory dependencies are already resolved/);
-        assert.match(prompt, /Account for every supplied fact/);
-        const input = JSON.parse(prompt.split('\nInput: ')[1]);
-        assert.deepEqual(input.thing, {
-          name: 'Neff hob',
-          categoryId: 'appliances',
-          terms: ['Neff'],
-        });
-        assert.deepEqual(Object.keys(input.fieldSets[0]).sort(), ['fields', 'id', 'name']);
-        assert.equal(input.fieldSets[0].id, selectedSets[0].id);
-        assert.equal(input.fieldSets[0].name, selectedSets[0].name);
-        assert.equal(input.fieldSets[0].fields.length, selectedSets[0].fields.length);
-        for (const field of input.fieldSets[0].fields) {
-          const definition = selectedSets[0].fields.find((f) => f.id === field.id)!;
-          assert.deepEqual(Object.keys(field).sort(), [
-            'description',
-            'id',
-            'name',
-            'schema',
-            'sensitive',
-          ]);
-          assert.equal(field.description, definition.description);
-          assert.deepEqual(field.schema, definition.schema);
-          assert.equal(field.sensitive, definition.sensitive);
-        }
-        const { page: _page, ...fact } = extractedThings.neff.facts[round - 1];
-        assert.deepEqual(input.facts, [fact]);
-      }
-      return jsonResponse({
-        status: 'completed',
-        output: [
-          {
-            type: 'reasoning',
-            id: `reason-${round}`,
-            summary: [],
-            encrypted_content: `opaque-${round}`,
-          },
-          {
-            type: 'function_call',
-            name: toolName,
-            call_id: `call-${round}`,
-            arguments:
-              round === 0
-                ? '{"categoryId":"appliances","terms":["Neff"]}'
-                : '{"labels":[{"label":"Installer reference","context":""}]}',
-          },
-        ],
-      });
-    }
-    assert.ok(
-      body.input.some(
-        (entry: { encrypted_content?: string }) => entry.encrypted_content === `opaque-${round}`,
-      ),
-    );
-    assert.ok(
-      body.input.some(
-        (entry: { call_id?: string; output?: string }) =>
-          entry.call_id === `call-${round}` &&
-          entry.output === JSON.stringify(round === 0 ? { sets: selectedSets } : fieldResults),
-      ),
-    );
-    return jsonResponse(
-      output(
-        round === 0
-          ? { setIds: ['appliances.bsh'] }
-          : {
-              values: [],
-              customFactIds: [extractedThings.neff.facts[round - 1].id],
-              discardedFactIds: [],
-            },
-      ),
-    );
-  });
-  const tools = {
-    searchFieldSets: async () => ({ sets: selectedSets }),
-    searchFields: async () => fieldResults,
-  };
-  const ai = createAi(
-    readConfig({ OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'fixture' }),
-    {},
-    (entry) => turns.push(entry),
-  ).importAi!;
-  const selection = await ai.selectFieldSets(extractedThings.neff, tools, context());
-  assert.deepEqual(selection, { setIds: ['appliances.bsh'] });
-  for (const fact of extractedThings.neff.facts)
-    assert.deepEqual(
-      await ai.mapFacts(extractedThings.neff, [fact], selectedSets, tools, context()),
-      { values: [], customFactIds: [fact.id], discardedFactIds: [] },
-    );
-  assert.equal(request, 6);
-  assert.deepEqual(
-    turns.map((turn) => turn.toolCalls),
-    [['search_field_sets'], [], ['search_fields'], [], ['search_fields'], []],
-  );
-});
-
 test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP errors without transport retries', async (t) => {
   const source = {
     filename: 'source.txt',
@@ -344,7 +225,7 @@ test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP
       },
       context(),
     ),
-    /Invalid registry tool arguments/,
+    /Invalid AI tool arguments/,
   );
   fetch.mock.mockImplementation(
     async () =>
@@ -488,6 +369,7 @@ test('SDK document extraction uses the configured model, contained schema and pe
   ).importAi!;
   const pdf = await PDFDocument.create();
   pdf.addPage();
+  assert.ok(ai instanceof OpenAiImports);
   await ai.extractDocument(
     {
       attachmentId: 'document',

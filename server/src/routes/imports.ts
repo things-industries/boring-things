@@ -31,12 +31,30 @@ const importRoutes: FastifyPluginAsync<Options> = async (
   { pool, registry, runner, events, enabled, sse },
 ) => {
   route(app, 'POST', '/api/imports', async (req, reply) => {
-    ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
+    ensure(
+      enabled || (!req.body.attachmentIds.length && !req.body.thingId),
+      'Import is not configured',
+      'UNAVAILABLE',
+    );
     const accepted = await importsDb.createImport(
       pool,
       req.ownerId,
       req.body.attachmentIds,
       req.body.thingId,
+    );
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    runner.wake();
+    return reply.code(202).send(accepted);
+  });
+
+  route(app, 'POST', '/api/things/{thingId}:recommend', async (req, reply) => {
+    ensure(enabled, 'Recommendation is not configured', 'UNAVAILABLE');
+    const accepted = await importsDb.createImport(
+      pool,
+      req.ownerId,
+      [],
+      req.params.thingId,
+      'RECOMMENDATION',
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();

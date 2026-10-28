@@ -120,3 +120,10 @@ pnpm test:e2e
 The existing tests use Node's test runner and Playwright under `server/test/`; there is no Angular unit-test builder configured. Update relevant browser checks when a user journey changes. Integration checks require local Supabase and a built frontend, and use isolated databases plus signed test tokens. Verify changed flows at mobile and desktop widths; report live Logto verification separately.
 
 Cover user journeys in the Playwright e2e suite under `e2e/` (`pnpm test:e2e`). Check visible changes with `pnpm e2e:serve` and `pnpm screenshot`, then read the PNGs. Both run signed in against a temporary database with sample data, locally or in cloud sessions. Setup and options: `.claude/skills/e2e/SKILL.md`.
+
+## Code style
+
+- Use comments sparingly.
+- Only comment what would be hard to understand by reading the code alone.
+- Do not write verbose comments.
+- Adding comments in code should be minimal and only ever describe a method, a function, a class, or a complicated procedure that without a comment would be hard to read or understand.

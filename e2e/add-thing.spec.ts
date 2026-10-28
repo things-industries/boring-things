@@ -111,3 +111,35 @@ test('an empty library is asked to add its first thing', async ({ page }) => {
   await page.goto('/things/new');
   await expect(page.getByRole('heading', { name: 'Add your first Thing', level: 1 })).toBeVisible();
 });
+
+test('a manual Thing can research details and refresh recommendations', async ({ page }) => {
+  await page.goto('/things/new/manual');
+  await page.getByRole('textbox', { name: 'Name' }).fill('Research fixture oven');
+  await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
+  await page.getByRole('button', { name: 'Create thing' }).click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+  const id = page.url().split('/').at(-1)!;
+  for (const operation of ['Find more details', 'Refresh recommendations']) {
+    await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    const accepted = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        (operation === 'Find more details'
+          ? response.url().endsWith('/api/imports')
+          : response.url().endsWith(':recommend')),
+    );
+    await page.getByRole('menuitem', { name: operation, exact: true }).click();
+    const response = await accepted;
+    expect(response.status()).toBe(202);
+    await page.reload();
+    await expect(page.locator('bt-import-progress bt-notice')).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'Research fixture oven', exact: true }),
+    ).toBeVisible();
+    await page.reload();
+  }
+  expect(page.url()).toContain('/things/' + id);
+  await expect(
+    page.getByRole('heading', { name: 'Research fixture oven', exact: true }),
+  ).toBeVisible();
+});

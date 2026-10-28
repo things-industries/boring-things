@@ -1,12 +1,10 @@
+/** Defines application Import inputs, results, usage and workflow capability contracts. */
+
 import type { PublicField } from '../public-fields.js';
 import type { FieldSearchLabel } from '../registry/registry.js';
-/**
- * Defines import extraction, mapping, discovery and provider interfaces, plus shared usage tracking
- * and active job states.
- */
-
-import type { FieldDefinition, FieldSet, Schema, Value } from '../../../../shared/model.js';
-import type { components } from '../../providers/ai/schema-types.js';
+import type { FieldDefinition, Schema, Value } from '../../../../shared/model.js';
+import type { AiContext } from '../../providers/ai/types.js';
+import type { FieldProposal } from '../thing-fields.js';
 
 export interface Fact {
   id: string;
@@ -39,6 +37,7 @@ export interface SourceTranscription {
   summary: string | null;
   terms: string[];
   status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
+  identifiers?: IdentifierObservation[];
   metadata: Schema['AttachmentPatch'] | null;
 }
 
@@ -49,19 +48,9 @@ export interface ExtractedThing {
   terms: string[];
   identifiers?: ImportIdentifier[];
   sourceRefs?: { attachmentId: string; page: number | null; quote: string }[];
-  reviewRequired?: boolean;
-  possibleMatches?: string[];
-  targeted?: boolean;
-  relevantAttachmentIds?: string[];
-  linksCommitted?: boolean;
-  assessments?: {
-    attachmentId: string;
-    relevant: boolean;
-    summary: string | null;
-    terms: string[];
-  }[];
   facts: Fact[];
-  mapping?: { setIds: string[]; batches: FactMapping[] };
+  knownFields?: KnownResearchField[];
+  sources?: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
 }
 
 export interface Extraction {
@@ -80,8 +69,6 @@ export interface Source {
   pageCount?: number | null;
   text?: string;
 }
-
-export type FactMapping = components['schemas']['Mapping'];
 
 export interface DiscoveryItem {
   kind: 'reference' | 'image';
@@ -125,18 +112,14 @@ export interface PurchasableSuggestions {
   >[];
 }
 
-export interface ImportResearchCheckpoint {
-  complete: boolean;
-  warnings: DiscoveryWarning[];
-}
-
 export type Usage = Schema['ImportUsage'];
 
 export type DiscoveryWarning = Omit<Schema['ImportWarning'], 'thingId'>;
 
-export interface AiContext {
-  signal: AbortSignal;
-  record: (usage: Partial<Usage>) => Promise<void>;
+export class UsagePersistenceError extends Error {
+  constructor(cause: unknown) {
+    super('Usage persistence failed', { cause });
+  }
 }
 
 export interface RegistryTools {
@@ -184,50 +167,50 @@ export interface DocumentExtraction {
   }[];
 }
 
+export interface AdditionalInformationInput {
+  thing: { name: string; categoryId: string; identifiers?: { fieldId: string; value: Value }[] };
+  knownFields: string[];
+  attachmentId: string;
+  text: string;
+}
+
 export interface ImportAi {
-  transcribe?(source: Source, context: AiContext): Promise<SourceTranscription>;
-  identifyCandidates?(
-    sources: ImportSourceText[],
-    categories: string[],
+  assessResource?(
+    input: ResourceApplicabilityInput,
+    tools: WorkflowTools,
     context: AiContext,
-  ): Promise<Omit<ExtractedThing, 'id' | 'facts'>[]>;
-  extractTargetFacts?(
-    sources: ImportSourceText[],
-    thing: Pick<ExtractedThing, 'name' | 'categoryId' | 'terms' | 'identifiers'>,
+  ): Promise<ResourceApplicability>;
+  recommendFromSources?(
+    input: SourceRecommendationsInput,
+    tools: WorkflowTools,
     context: AiContext,
-  ): Promise<
-    {
-      attachmentId: string;
-      relevant: boolean;
-      summary: string | null;
-      terms: string[];
-      facts: Fact[];
-    }[]
-  >;
-  extract(source: Source, categories: string[], context: AiContext): Promise<Extraction>;
+  ): Promise<SourceRecommendations>;
+  resolveThing?(
+    input: ResolutionInput,
+    tools: WorkflowTools,
+    context: AiContext,
+  ): Promise<ResolutionResult>;
+  populateFields?(
+    input: PopulationInput,
+    tools: WorkflowTools,
+    context: AiContext,
+  ): Promise<PopulationResult>;
+  additionalInformation?(
+    input: AdditionalInformationInput,
+    tools: WorkflowTools,
+    context: AiContext,
+  ): Promise<AdditionalInformationResult>;
+  transcribe(source: Source, context: AiContext): Promise<SourceTranscription>;
   selectFieldSets(
     extractedThing: ExtractedThing,
     tools: RegistryTools,
     context: AiContext,
   ): Promise<{ setIds: string[] }>;
-  mapFacts(
-    thing: ExtractedThing,
-    facts: Fact[],
-    selectedSets: FieldSet[],
-    tools: RegistryTools,
-    context: AiContext,
-  ): Promise<FactMapping>;
   findResources(
     research: ResearchThing,
     context: AiContext,
     searchCalls?: number,
   ): Promise<Discovery>;
-  extractDocument(
-    document: ReferenceDocument,
-    research: ResearchThing,
-    targets: EmptyResearchField[],
-    context: AiContext,
-  ): Promise<DocumentExtraction>;
   suggestTasks(
     research: TaskResearch,
     context: AiContext,
@@ -246,6 +229,7 @@ export const activeStatuses = [
   'EXTRACTING',
   'MAPPING',
   'DISCOVERING',
+  'RECOMMENDING',
 ];
 
 export const blankUsage = (model = ''): Usage => ({
@@ -256,3 +240,107 @@ export const blankUsage = (model = ''): Usage => ({
   elapsedMs: 0,
   toolCalls: [],
 });
+
+export interface IdentifierObservation {
+  label: string;
+  value: string;
+  page: number | null;
+  quote: string;
+}
+export interface ThingCandidate {
+  id: string;
+  name: string;
+  categoryId: string;
+  terms: string[];
+  identifiers: (SourceEvidence & { fieldId: string; value: string })[];
+  attachmentIds: string[];
+  strength: number;
+  matchedThingId: string | null;
+}
+
+export interface SourceEvidence {
+  attachmentId: string;
+  page: number | null;
+  quote: string;
+}
+
+export interface ResolutionResult {
+  candidates: Omit<ThingCandidate, 'id'>[];
+  contradiction: boolean;
+}
+
+export interface PopulationResult {
+  values: FieldProposal[];
+  pinnedFields: Pick<FieldProposal, 'fieldSetId' | 'fieldId'>[];
+}
+
+export interface ResourceApplicability {
+  applicable: boolean;
+  identifiers: (SourceEvidence & { fieldId: string; value: string })[];
+}
+
+export interface AdditionalInformationResult {
+  findings: (SourceEvidence & {
+    label: string;
+    fieldId: string | null;
+    value: Value;
+    sensitive: boolean;
+    reason: string;
+  })[];
+}
+
+export interface SourceRecommendations {
+  tasks: TaskSuggestions['items'];
+  purchasables: (Omit<PurchasableSuggestions['items'][number], 'merchantUrl'> & {
+    merchantUrl: string | null;
+  })[];
+}
+
+export interface ResourceApplicabilityInput {
+  categoryId: string;
+  knownFields: KnownResearchField[];
+  identifierFields: FieldDefinition[];
+  source: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
+    identifiers: IdentifierObservation[] | null;
+  };
+}
+
+export interface SourceRecommendationsInput {
+  thing: AdditionalInformationInput['thing'];
+  fields: { id: string; value: Value | null }[];
+  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
+  existingTasks: TaskResearch['existingTasks'];
+  existingPurchasables: PurchasableResearch['existingPurchasables'];
+}
+export interface WorkflowTools {
+  searchTranscription(
+    attachmentId: string,
+    query: string,
+    offset: number,
+  ): Promise<{ attachmentId: string; text: string; offset: number; nextOffset: number | null }>;
+  searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
+  searchFieldSets(categoryId: string, terms: string[]): Promise<unknown>;
+}
+export interface ResolutionInput {
+  sources: (Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
+    identifiers: IdentifierObservation[];
+  })[];
+  categories: { id: string; name: string; description: string; identifiers: FieldDefinition[] }[];
+  existingThings: {
+    id: string;
+    name: string;
+    categoryId: string;
+    identifiers: { fieldId: string; value: Value }[];
+  }[];
+  thingContextId: string | null;
+}
+export interface PopulationInput {
+  thing: {
+    id: string;
+    name: string;
+    categoryId: string;
+    identifiers?: { fieldId: string; value: Value }[];
+  };
+  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
+  fields: { fieldSetId: string | null; field: FieldDefinition; value: Value | null }[];
+}

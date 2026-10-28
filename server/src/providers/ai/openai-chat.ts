@@ -1,171 +1,32 @@
-/**
- * Adapts streamed OpenAI Responses calls to assistant text deltas and sequential application tools,
- * including requested attachment content.
- */
+/** Assembles streamed assistant and public research tasks behind the chat capability contract. */
 
 import OpenAI from 'openai';
-import type { Response, ResponseInput, Tool } from 'openai/resources/responses/responses';
-import * as prompts from './prompts.js';
-import type {
-  ChatAi,
-  ChatInput,
-  ChatContext,
-  ChatTools,
-} from '../../application/conversations/types.js';
-import { ensure } from '../../application/errors.js';
-import type { PublicField } from '../../application/public-fields.js';
-import type { AiContext } from '../../application/import/types.js';
-import { searchWeb, type AiTurnCompleted } from './responses.js';
-import { pdfText } from '../../lib/pdf.js';
+import type { ChatAi } from '../../application/conversations/types.js';
+import type { AiTurnCompleted } from './types.js';
+import type { TaskRuntime } from './tasks/task.js';
+import { AssistantTask } from './tasks/assistant.js';
+import { ResearchTask } from './tasks/research.js';
 
 export class OpenAiChat implements ChatAi {
-  private client: OpenAI;
+  private runtime: TaskRuntime;
   constructor(
     key: string,
-    private model: string,
-    private maxOutputTokens: number,
+    model: string,
+    maxOutputTokens: number,
     private rounds: number,
     private searchCalls = 3,
-    private onTurnCompleted?: AiTurnCompleted,
+    onTurnCompleted?: AiTurnCompleted,
   ) {
-    this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
+    this.runtime = {
+      client: new OpenAI({ apiKey: key, maxRetries: 0 }),
+      model,
+      maxOutputTokens,
+      onTurnCompleted,
+    };
   }
 
-  async research(question: string, fields: PublicField[], context: AiContext) {
-    return searchWeb(
-      this.client,
-      this.model,
-      this.maxOutputTokens,
-      prompts.chatResearchPrompt(question, fields, this.searchCalls),
-      this.searchCalls,
-      context,
-      'cited',
-      this.onTurnCompleted,
-    );
-  }
-
-  async respond(task: ChatInput, tools: ChatTools, context: ChatContext) {
-    const conversation: ResponseInput = task.messages.map((message) => ({
-      ...message,
-      role: message.role === 'USER' ? ('user' as const) : ('assistant' as const),
-    }));
-    conversation.push({
-      role: 'developer',
-      content: prompts.chatContextPrompt(task),
-    });
-    let answer = '';
-
-    for (let round = 0; round <= this.rounds; round++) {
-      context.signal.throwIfAborted();
-      const started = Date.now();
-      let completed: Response | undefined;
-      try {
-        const stream = await this.client.responses.create(
-          {
-            model: this.model,
-            store: false,
-            stream: true,
-            max_output_tokens: this.maxOutputTokens,
-            instructions: prompts.chatInstructions,
-            input: conversation,
-            tools: tools.definitions as Tool[],
-            parallel_tool_calls: true,
-            include: ['reasoning.encrypted_content'],
-            ...(round === this.rounds ? { tool_choice: 'none' as const } : {}),
-          },
-          { signal: context.signal },
-        );
-        try {
-          for await (const event of stream) {
-            context.signal.throwIfAborted();
-            if (event.type === 'response.output_text.delta') {
-              answer += event.delta;
-              context.delta(event.delta);
-            }
-            if (event.type === 'response.completed') completed = event.response;
-            if (['error', 'response.failed', 'response.incomplete'].includes(event.type))
-              throw new Error('chat_provider_failed');
-          }
-          context.signal.throwIfAborted();
-        } finally {
-          stream.controller.abort();
-        }
-      } catch (error) {
-        context.signal.throwIfAborted();
-        throw new Error(
-          error instanceof OpenAI.APIError && error.status
-            ? `ai_http_${error.status}`
-            : 'chat_provider_failed',
-        );
-      }
-
-      ensure(completed?.status === 'completed', 'Assistant response incomplete');
-      const calls = completed.output.filter((o) => o.type === 'function_call');
-      const usage = {
-        model: this.model,
-        inputTokens: completed.usage?.input_tokens ?? 0,
-        outputTokens: completed.usage?.output_tokens ?? 0,
-        cachedTokens: completed.usage?.input_tokens_details?.cached_tokens ?? 0,
-      };
-      this.onTurnCompleted?.({
-        ...usage,
-        task: 'assistant_response',
-        elapsedMs: Date.now() - started,
-        toolCalls: calls.map((call) => call.name),
-      });
-      await context.record(usage);
-      // Replay output and tool results for the next turn because remote response storage is disabled.
-      conversation.push(...(completed.output as ResponseInput));
-      if (!calls.length) return answer;
-      ensure(round < this.rounds, 'tool_limit');
-
-      for (const call of calls) {
-        let args: unknown;
-        try {
-          args = JSON.parse(call.arguments);
-        } catch {
-          throw new Error('chat_provider_failed');
-        }
-        const result = await tools.execute(call.name, args);
-        conversation.push({
-          type: 'function_call_output',
-          call_id: call.call_id,
-          output: JSON.stringify(result.output),
-        });
-
-        if (result.source) {
-          const source = result.source;
-          const text =
-            source.mediaType === 'application/pdf' && !source.includeImages
-              ? (await pdfText(source.content, context.signal)).text
-              : source.mediaType === 'text/plain'
-                ? source.content.toString('utf8')
-                : undefined;
-          const data = text?.trim()
-            ? ''
-            : `data:${source.mediaType};base64,${source.content.toString('base64')}`;
-          conversation.push({
-            role: 'user',
-            content: [
-              {
-                type: 'input_text',
-                text: prompts.attachmentEvidencePrompt,
-              },
-              text?.trim()
-                ? { type: 'input_text', text }
-                : source.mediaType.startsWith('image/')
-                  ? { type: 'input_image', image_url: data, detail: 'auto' }
-                  : {
-                      type: 'input_file',
-                      filename: source.filename,
-                      file_data: data,
-                    },
-            ],
-          });
-        }
-      }
-    }
-
-    throw new Error('tool_limit');
-  }
+  research: ChatAi['research'] = (question, fields, context) =>
+    new ResearchTask(this.runtime, question, fields, this.searchCalls).run(context);
+  respond: ChatAi['respond'] = (input, tools, context) =>
+    new AssistantTask(this.runtime, input, tools, this.rounds).run(context);
 }

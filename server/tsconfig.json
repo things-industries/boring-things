@@ -4,6 +4,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "tests/**/*.ts",
     "../scripts/**/*.ts",
     "../shared/**/*.ts",
     "../e2e/**/*.ts",

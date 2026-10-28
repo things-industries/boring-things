@@ -170,6 +170,7 @@ test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   );
 });
 
+// The population workflow fixture omitted the van payload used by detail actions.
 test('All details deletes a value after confirmation', async ({ page }) => {
   await page.goto('/things/new/text');
   await page.getByRole('textbox', { name: 'Text to import' }).fill('van');
@@ -367,11 +368,11 @@ test('import steps show while discovering, then the sheet slides up once', async
   await page.goto('/things');
   await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.locator('.thing-discovering')).toContainText(
-    'Step 1 of 3: Reading your source',
+    'Step 1 of 4: Identifying your Thing',
   );
   await expect(page.locator('bt-sheet')).toHaveClass(/\barrive\b/);
   await expect(page.locator('bt-hero')).toHaveClass(/\barrive\b/);
-  await expect(page.locator('bt-import-progress')).toContainText('Step 2 of 3: Adding details');
+  await expect(page.locator('bt-import-progress')).toContainText('Step 3 of 4: Adding details');
 
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await page.reload();

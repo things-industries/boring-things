@@ -29,7 +29,6 @@ export function patchData(
   const edited = new Set(data.userEdited ?? []);
   for (const key of ['name', 'categoryId', 'description', 'imageAttachmentId'] as const)
     if (patch[key] !== undefined) edited.add(key);
-  for (const v of patch.values ?? []) edited.add(`${v.fieldSetId ?? ''}:${v.fieldId}`);
   for (const id of patch.removeCustomFieldIds ?? []) edited.add(`local:${id}`);
   for (const f of patch.customFields ?? []) if (f.id) edited.add(`local:${f.id}`);
   for (const id of patch.removeFieldSetIds ?? []) edited.add(`set:${id}`);
@@ -49,6 +48,7 @@ export function patchData(
   // Removing a populated set preserves its values as custom fields and moves pins to the new local IDs.
   for (const oldId of data.setIds.filter((id) => !selected.includes(id))) {
     for (const [fieldId, stored] of Object.entries(data.values[oldId] ?? {})) {
+      if (stored.value === null) continue;
       const definition = registry.fields.get(fieldId)!;
       const id = randomUUID();
       data.customFields.push({
@@ -67,6 +67,14 @@ export function patchData(
   }
 
   data.setIds = selected;
+  for (const setId of selected)
+    for (const field of registry.sets.get(setId)!.fields)
+      (data.values[setId] ??= {})[field.id] ??= {
+        value: null,
+        origin: 'IMPORT',
+        sourceRefs: [],
+        autoPopulate: true,
+      };
 
   for (const entry of patch.values ?? []) {
     if (entry.fieldSetId !== null) {
@@ -80,14 +88,17 @@ export function patchData(
     const target =
       entry.fieldSetId === null ? data.standalone : (data.values[entry.fieldSetId] ??= {});
 
-    if (entry.value === null) delete target[entry.fieldId];
-    else {
-      registry.validate(entry.fieldId, entry.value);
+    if (entry.value !== undefined) {
+      if (entry.value !== null) registry.validate(entry.fieldId, entry.value);
       target[entry.fieldId] = {
         value: entry.value,
         origin: 'USER',
         sourceRefs: [],
+        autoPopulate: entry.autoPopulate ?? false,
       };
+    } else {
+      ensure(target[entry.fieldId], 'Unknown field occurrence');
+      if (entry.autoPopulate !== undefined) target[entry.fieldId].autoPopulate = entry.autoPopulate;
     }
   }
 
@@ -108,6 +119,7 @@ export function patchData(
         true,
       id: input.id ?? randomUUID(),
       origin: 'USER' as const,
+      autoPopulate: false,
       sourceRefs: [],
     };
     data.customFields = [...data.customFields.filter((f) => f.id !== field.id), field];
@@ -141,8 +153,10 @@ function projectField(definition: FieldDefinition, stored?: StoredValue): Schema
   return {
     ...definition,
     instanceSpecific: definition.instanceSpecific ?? true,
+    identifierKind: definition.identifierKind ?? 'NONE',
+    autoPopulate: stored?.autoPopulate ?? stored?.origin !== 'USER',
     value: definition.sensitive ? null : (stored?.value ?? null),
-    masked: definition.sensitive && !!stored,
+    masked: definition.sensitive && stored?.value != null,
     origin: stored?.origin ?? null,
     sourceRefs: definition.sensitive ? [] : (stored?.sourceRefs ?? []),
   };
@@ -166,9 +180,13 @@ export function projectData(
     customFields: data.customFields.map((f) => ({
       ...f,
       instanceSpecific: f.instanceSpecific ?? true,
-      valueType: (typeof f.value === 'object'
-        ? 'MONEY'
-        : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum'],
+      valueType:
+        f.valueType ??
+        ((f.value === null
+          ? 'STRING'
+          : typeof f.value === 'object'
+            ? 'MONEY'
+            : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum']),
       value: f.sensitive ? null : f.value,
       masked: f.sensitive,
       sourceRefs: f.sensitive ? [] : f.sourceRefs,

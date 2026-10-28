@@ -4,6 +4,7 @@ import { page, pageResult } from '../../application/pagination.js';
 import type { Schema, ThingData } from '../../../../shared/model.js';
 import type { Database } from '../connection.js';
 import { ensure } from '../../application/errors.js';
+import * as thingFieldsDb from './thing-fields.js';
 
 export type ThingRow = Omit<Schema['ThingSummary'], 'tagIds'> & {
   ownerId: string;
@@ -22,7 +23,7 @@ export async function getOwnedThingOrThrow(
     [id, owner],
   );
   ensure(thing, 'Thing not found', 'NOT_FOUND');
-  return thing;
+  return { ...thing, data: await thingFieldsDb.load(db, owner, id, thing.data) };
 }
 
 export async function bumpThing(db: Database, owner: string, id: string) {
@@ -111,8 +112,16 @@ export async function insertThing(
   const [created] = await database.rows<{ id: string }>(
     db,
     'insert into bt.things(owner_id,category_id,name,description,data,id) values($1,$2,$3,$4,$5,coalesce($6::uuid,gen_random_uuid())) returning id',
-    [owner, input.categoryId, input.name, input.description, JSON.stringify(input.data), input.id],
+    [
+      owner,
+      input.categoryId,
+      input.name,
+      input.description,
+      JSON.stringify(thingFieldsDb.metadata(input.data)),
+      input.id,
+    ],
   );
+  await thingFieldsDb.save(db, owner, created.id, input.data);
   return getOwnedThingOrThrow(db, owner, created.id);
 }
 export async function updateThing(
@@ -128,12 +137,13 @@ export async function updateThing(
       input.name,
       input.description,
       input.categoryId,
-      JSON.stringify(input.data),
+      JSON.stringify(thingFieldsDb.metadata(input.data)),
       input.imageAttachmentId,
       id,
       owner,
     ],
   );
+  await thingFieldsDb.save(db, owner, id, input.data);
 }
 export async function deleteThing(db: Database, owner: string, id: string): Promise<void> {
   await database.execute(db, 'delete from bt.things where id=$1 and owner_id=$2', [id, owner]);
@@ -147,8 +157,9 @@ export async function saveThingData(
   await database.execute(
     db,
     'update bt.things set data=$1,revision=revision+1 where id=$2 and owner_id=$3',
-    [JSON.stringify(data), id, owner],
+    [JSON.stringify(thingFieldsDb.metadata(data)), id, owner],
   );
+  await thingFieldsDb.save(db, owner, id, data);
 }
 export async function renameThing(
   db: Database,

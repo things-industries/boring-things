@@ -62,7 +62,19 @@ function patchDetail(
 
   let standaloneFields = detail.standaloneFields;
 
-  for (const { fieldSetId, fieldId, value } of patch.values ?? []) {
+  for (const { fieldSetId, fieldId, value, autoPopulate } of patch.values ?? []) {
+    if (value === undefined) {
+      const update = (field: Schema['Field']) =>
+        field.id === fieldId
+          ? { ...field, ...(autoPopulate !== undefined ? { autoPopulate } : {}) }
+          : field;
+      if (fieldSetId === null) standaloneFields = standaloneFields.map(update);
+      else
+        fieldSets = fieldSets.map((set) =>
+          set.id === fieldSetId ? { ...set, fields: set.fields.map(update) } : set,
+        );
+      continue;
+    }
     if (fieldSetId === null) {
       const existing = standaloneFields.find((f) => f.id === fieldId);
       const definition = existing ?? registry.fields[fieldId];

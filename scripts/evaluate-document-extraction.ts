@@ -6,7 +6,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { readConfig } from '../server/src/config.js';
 import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import { Registry } from '../server/src/application/registry/registry.js';
-import { validateDocumentExtraction } from '../server/src/application/import/research.js';
+import { validateDocumentExtraction } from '../server/src/application/import/evidence.js';
 import type { DocumentExtraction, Usage } from '../server/src/application/import/types.js';
 import {
   referenceDocumentBaseline,

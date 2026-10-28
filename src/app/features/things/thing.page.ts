@@ -211,6 +211,7 @@ export class ThingPage {
   readonly allCategories = this.categories.entities;
   readonly tags = this.tagsStore.sorted;
   readonly job = computed(() => this.detail()?.import ?? null);
+  readonly startingImport = signal(false);
   readonly processing = computed(() => activeImport(this.job()));
 
   readonly discovering = computed(() => {
@@ -226,7 +227,7 @@ export class ThingPage {
   readonly showImport = computed(() => {
     const job = this.job();
 
-    return !!job && (job.status !== 'COMPLETE' || job.thingIds.length > 1);
+    return !!job && (job.status !== 'COMPLETE' || !!job.warnings?.length);
   });
 
   readonly model = computed(() => {
@@ -435,6 +436,16 @@ export class ThingPage {
       await this.files.download(file);
     } catch (e) {
       this.toasts.error('downloadFile', errorCode(e));
+    }
+  }
+
+  // Starts an explicit enrichment action and prevents duplicate submissions.
+  async enrich(operation: 'IMPORT' | 'RECOMMENDATION') {
+    this.startingImport.set(true);
+    try {
+      await this.things.enrich(this.id(), operation);
+    } finally {
+      this.startingImport.set(false);
     }
   }
 

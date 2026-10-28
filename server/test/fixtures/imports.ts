@@ -1,15 +1,14 @@
+import { pauseUntil } from './pause.js';
 import type {
   ExtractedThing,
   Extraction,
   ImportAi,
-  ImportSourceText,
-  Fact,
-  FactMapping,
   Source,
   RegistryTools,
-  AiContext,
 } from '../../src/application/import/types.js';
-import type { FieldSet } from '../../../shared/model.js';
+import type { AiContext } from '../../src/providers/ai/types.js';
+type PopulationResult = Awaited<ReturnType<NonNullable<ImportAi['populateFields']>>>;
+
 // Synthetic replay fixtures. Live provider observations are recorded separately by the smoke script.
 const fact = (
   id: string,
@@ -56,7 +55,7 @@ export const extractedThings: Record<string, ExtractedThing> = {
   },
 };
 const sets: Record<string, string[]> = {
-  appliances: ['appliances.bsh'],
+  appliances: ['appliances.appliance'],
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
 };
@@ -69,7 +68,6 @@ export class FixtureAi implements ImportAi {
   metadata?: Extraction['metadata'];
   failOnce = false;
   arbitraryId = false;
-  exhaustTools = false;
   pause?: Promise<void>;
 
   async transcribe(source: Source) {
@@ -81,204 +79,179 @@ export class FixtureAi implements ImportAi {
         ? ['neff']
         : text.includes('warranty')
           ? ['warranty']
-          : ['source'],
+          : text.includes('van')
+            ? ['van']
+            : ['source'],
       status: (text === 'non-english' ? 'INSUFFICIENT_LANGUAGE' : 'COMPLETE') as
         'COMPLETE' | 'INSUFFICIENT_LANGUAGE',
       metadata: this.metadata ?? null,
+      identifiers: [],
     };
   }
 
-  async identifyCandidates(sources: ImportSourceText[], _categories: string[]) {
-    const make = (name: string, categoryId: string, source: ImportSourceText) => ({
-      name,
-      categoryId,
-      terms: [name.toLowerCase()],
-      identifiers: [],
-      sourceRefs: [{ attachmentId: source.attachmentId, page: null, quote: source.text }],
-    });
-    const neff = sources.find((source) => /neff|^two$/.test(source.text.toLowerCase()));
-    const policy = sources.find((source) => /policy|^two$/.test(source.text.toLowerCase()));
-    const van = sources.find((source) => source.text.toLowerCase().includes('van'));
-    const model = sources.find((source) => source.text.includes('model-only'));
-    return [
-      ...(neff ? [make('Neff oven', 'appliances', neff)] : []),
-      ...(policy ? [make('Policy', 'insurance', policy)] : []),
-      ...(van ? [make('Cargo van', 'vehicles', van)] : []),
-      ...(model
-        ? [
-            {
-              ...make('Model X1 oven', 'appliances', model),
-              identifiers: [
-                {
-                  kind: 'model',
-                  value: 'X1',
-                  attachmentId: model.attachmentId,
-                  page: null,
-                  quote: model.text,
-                },
-              ],
-            },
-          ]
-        : []),
-    ];
+  async resolveThing(
+    input: import('../../src/application/import/types.js').ResolutionInput,
+    tools: import('../../src/application/import/types.js').WorkflowTools,
+  ) {
+    const source = input.sources[0];
+    if (!source) return { candidates: [], contradiction: false };
+    const evidence = await tools.searchTranscription(source.attachmentId, '', 0);
+    const text = evidence.text.toLowerCase();
+    const categoryId = text.includes('policy')
+      ? 'insurance'
+      : text.includes('van')
+        ? 'vehicles'
+        : 'appliances';
+    const contextual = input.existingThings.find((thing) => thing.id === input.thingContextId);
+    if (text.includes('nonsense') || text === 'non-english')
+      return { candidates: [], contradiction: false };
+    const identifiers = text.includes('model-only')
+      ? [
+          {
+            fieldId: 'common.model',
+            value: 'X1',
+            attachmentId: source.attachmentId,
+            page: null,
+            quote: evidence.text,
+          },
+        ]
+      : [];
+    return {
+      contradiction: !!contextual && text.includes('wrong'),
+      candidates: [
+        {
+          name:
+            contextual?.name ??
+            (categoryId === 'vehicles'
+              ? 'Cargo van'
+              : categoryId === 'insurance'
+                ? 'Policy'
+                : 'Neff oven'),
+          categoryId: contextual?.categoryId ?? categoryId,
+          terms: source.terms,
+          identifiers,
+          attachmentIds: [source.attachmentId],
+          strength: 1,
+          matchedThingId:
+            contextual?.id ??
+            input.existingThings.find((thing) =>
+              identifiers.some((identifier) =>
+                thing.identifiers.some(
+                  (entry) =>
+                    entry.fieldId === identifier.fieldId && entry.value === identifier.value,
+                ),
+              ),
+            )?.id ??
+            null,
+        },
+      ],
+    };
   }
 
-  async extractTargetFacts(
-    sources: ImportSourceText[],
-    thing: Pick<ExtractedThing, 'categoryId'>,
-  ): Promise<Awaited<ReturnType<NonNullable<ImportAi['extractTargetFacts']>>>> {
-    return sources.map((source) => ({
-      attachmentId: source.attachmentId,
-      relevant:
-        thing.categoryId === 'appliances'
-          ? /neff|warranty|^two$/.test(source.text.toLowerCase())
-          : thing.categoryId === 'vehicles'
-            ? source.text.toLowerCase().includes('van')
-            : /policy|^two$/.test(source.text.toLowerCase()),
-      summary: source.summary,
-      terms: source.terms,
-      facts:
-        thing.categoryId === 'appliances' && /neff|^two$/.test(source.text.toLowerCase())
-          ? [
-              {
-                id: 'fact-1',
-                label: 'Z-Nr',
-                value: '0015',
-                quote: source.text,
-                page: null,
-                sensitive: false,
-              },
-              {
-                id: 'fact-2',
-                label: 'Installer reference',
-                value: 'ABC-12',
-                quote: source.text,
-                page: null,
-                sensitive: false,
-              },
-            ]
-          : thing.categoryId === 'vehicles' && source.text.toLowerCase().includes('van')
-            ? [
-                {
-                  id: 'fact-1',
-                  label: 'Load capacity',
-                  value: 1200,
-                  quote: source.text,
-                  page: null,
-                  sensitive: false,
-                },
-              ]
-            : thing.categoryId === 'insurance' && /policy|^two$/.test(source.text.toLowerCase())
-              ? [
-                  {
-                    id: 'fact-1',
-                    label: 'Buildings sum',
-                    value: { amountMinor: 40000000, currency: 'GBP' as const },
-                    quote: source.text,
-                    page: null,
-                    sensitive: false,
-                  },
-                  {
-                    id: 'fact-2',
-                    label: 'Contents sum',
-                    value: { amountMinor: 5000000, currency: 'GBP' as const },
-                    quote: source.text,
-                    page: null,
-                    sensitive: false,
-                  },
-                ]
-              : [],
-    }));
-  }
-
-  async extract(source: Source): Promise<Extraction> {
-    const name = source.mediaType === 'text/plain' ? source.content.toString() : 'neff';
-    if (name === 'bad') throw new Error('synthetic extraction failure');
-    const chosen =
-      name === 'no-thing' || name === 'non-english'
-        ? []
-        : name === 'two'
-          ? [extractedThings.neff, { ...extractedThings.policy, id: 'candidate-2' }]
-          : [extractedThings[name] ?? extractedThings.neff];
-    return structuredClone({
-      text: name,
-      summary: `Source for ${name}`,
-      terms: ['source'],
-      transcriptionStatus: name === 'non-english' ? 'INSUFFICIENT_LANGUAGE' : 'COMPLETE',
-      extractedThings: chosen,
-      ...(this.metadata ? { metadata: this.metadata } : {}),
-    });
-  }
-  async selectFieldSets(candidate: ExtractedThing, tools: RegistryTools) {
-    await tools.searchFieldSets(candidate.categoryId, candidate.terms);
-    return { setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId] };
-  }
-  async mapFacts(
-    thing: ExtractedThing,
-    facts: Fact[],
-    _selectedSets: FieldSet[],
-    tools: RegistryTools,
+  async populateFields(
+    input: import('../../src/application/import/types.js').PopulationInput,
+    tools: import('../../src/application/import/types.js').WorkflowTools,
     context: AiContext,
-  ): Promise<FactMapping> {
-    const categoryId = thing.categoryId;
-    if (this.pause) await this.pause;
-    if (this.exhaustTools)
-      for (let i = 0; i < 5; i++)
-        await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+  ): Promise<PopulationResult> {
+    await pauseUntil(this.pause, context.signal);
     if (this.failOnce) {
       this.failOnce = false;
-      throw new Error('synthetic interrupted mapping');
+      throw new Error('Synthetic population failure');
     }
-    const values: FactMapping['values'] =
-      categoryId === 'appliances'
-        ? [
-            {
-              factId: 'fact-1',
-              fieldSetId: 'appliances.bsh',
-              fieldId: 'appliances.zNumber',
-              value: '0015',
-              pin: true,
-            },
-          ]
-        : categoryId === 'vehicles'
+    const source =
+      input.sources.find((source) => !source.summary?.includes('public-manual')) ??
+      input.sources[0];
+    if (!source) return { values: [], pinnedFields: [] };
+    const evidence = await tools.searchTranscription(source.attachmentId, '', 0);
+    return {
+      pinnedFields: input.fields
+        .filter((target) => ['appliances.zNumber', 'vehicles.payloadKg'].includes(target.field.id))
+        .map((target) => ({ fieldSetId: target.fieldSetId, fieldId: target.field.id })),
+      values: input.fields.flatMap<PopulationResult['values'][number]>((target) =>
+        target.field.id === 'appliances.zNumber' && !source.summary?.includes('public-manual')
           ? [
               {
-                factId: 'fact-1',
-                fieldSetId: 'vehicles.van',
-                fieldId: 'vehicles.payloadKg',
-                value: 1200,
-                pin: true,
+                fieldSetId: target.fieldSetId,
+                fieldId: target.field.id,
+                value: '0015',
+                sourceRefs: [{ attachmentId: source.attachmentId, quote: evidence.text }],
               },
             ]
-          : ['buildings', 'contents'].map((part, i) => ({
-              factId: `fact-${i + 1}`,
-              fieldSetId: `insurance.${part}`,
-              fieldId: 'insurance.sumInsured',
-              value: thing.facts[i].value,
-              pin: false,
-            }));
-    await context.record({
-      inputTokens: 100,
-      outputTokens: 30,
-      cachedTokens: 20,
-      model: 'fixture',
-    });
-
-    if (categoryId === 'appliances')
-      await tools.searchFields([{ label: 'Installer reference', context: '' }]);
-    const mapped = values.filter((entry) => facts.some((fact) => fact.id === entry.factId));
-    return {
-      values: mapped,
-      customFactIds: facts
-        .filter((fact) => !mapped.some((entry) => entry.factId === fact.id))
-        .map((fact) => fact.id),
-      discardedFactIds: [],
+          : target.field.id === 'insurance.sumInsured' && input.thing.categoryId === 'insurance'
+            ? [
+                {
+                  fieldSetId: target.fieldSetId,
+                  fieldId: target.field.id,
+                  value: {
+                    amountMinor: target.fieldSetId === 'insurance.buildings' ? 40000000 : 5000000,
+                    currency: 'GBP' as const,
+                  },
+                  sourceRefs: [{ attachmentId: source.attachmentId, quote: evidence.text }],
+                },
+              ]
+            : target.field.id === 'vehicles.payloadKg' && input.thing.categoryId === 'vehicles'
+              ? [
+                  {
+                    fieldSetId: target.fieldSetId,
+                    fieldId: target.field.id,
+                    value: 1200,
+                    sourceRefs: [{ attachmentId: source.attachmentId, quote: evidence.text }],
+                  },
+                ]
+              : target.field.id === 'common.warrantyEnds' && evidence.text.includes('warranty')
+                ? [
+                    {
+                      fieldSetId: target.fieldSetId,
+                      fieldId: target.field.id,
+                      value: '2030-01-01',
+                      sourceRefs: [{ attachmentId: source.attachmentId, quote: evidence.text }],
+                    },
+                  ]
+                : [],
+      ),
     };
   }
-  async extractDocument() {
-    return { metadata: null, applicable: false, applicability: null, values: [] };
+
+  async assessResource(): Promise<Awaited<ReturnType<NonNullable<ImportAi['assessResource']>>>> {
+    return { applicable: true, identifiers: [] };
   }
-  async findResources() {
+  async recommendFromSources(): Promise<
+    Awaited<ReturnType<NonNullable<ImportAi['recommendFromSources']>>>
+  > {
+    return { tasks: [], purchasables: [] };
+  }
+
+  async additionalInformation(
+    input: import('../../src/application/import/types.js').AdditionalInformationInput,
+    tools: import('../../src/application/import/types.js').WorkflowTools,
+  ) {
+    if (input.text !== 'neff' || input.knownFields.includes('Installer reference'))
+      return { findings: [] };
+    await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    return {
+      findings: [
+        {
+          label: 'Installer reference',
+          fieldId: null,
+          value: 'ABC-12',
+          sensitive: false,
+          reason: 'Fixture administration reference',
+          attachmentId: input.attachmentId,
+          page: null,
+          quote: input.text,
+        },
+      ],
+    };
+  }
+
+  async selectFieldSets(candidate: ExtractedThing, tools: RegistryTools) {
+    await tools.searchFieldSets(
+      candidate.categoryId,
+      candidate.terms.length ? candidate.terms : [candidate.name],
+    );
+    return { setIds: this.arbitraryId ? ['invented.set'] : sets[candidate.categoryId] };
+  }
+  async findResources(): Promise<Awaited<ReturnType<ImportAi['findResources']>>> {
     return { items: [], sources: [] };
   }
   async suggestTasks() {
