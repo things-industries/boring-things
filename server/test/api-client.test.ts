@@ -1,6 +1,9 @@
+/** HTTP authentication, failure handling and pagination checks. */
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { allPages, apiData, createApiClient } from '../../src/app/core/api/api-client.js';
+import { UiError } from '../../src/app/utils/error.util.js';
 
 test('authenticated requests obtain the current token and disable caching', async () => {
   let token = 'first';
@@ -39,6 +42,42 @@ test('public configuration needs no token', async () => {
     },
   });
   assert.deepEqual(await client.GET('/api/config').then(apiData), config);
+});
+
+// Token refresh failures bypassed the API's 401 response handler and left expired sessions signed in.
+test('expired token acquisition ends the session before sending an API request', async () => {
+  let unauthorized = 0;
+  const failure = new UiError('unauthorized');
+  const client = createApiClient(
+    {
+      token: async () => {
+        throw failure;
+      },
+      onUnauthorized: () => unauthorized++,
+    },
+    {
+      baseUrl: 'https://example.test',
+      fetch: async () => assert.fail('An expired session must not send an API request'),
+    },
+  );
+
+  await assert.rejects(client.GET('/api/profile'), (error) => error === failure);
+  assert.equal(unauthorized, 1);
+});
+
+test('temporary token acquisition failures allow retry without ending the session', async () => {
+  const failure = new TypeError('Network unavailable');
+  const client = createApiClient(
+    {
+      token: async () => {
+        throw failure;
+      },
+      onUnauthorized: () => assert.fail('A network error must not end the session'),
+    },
+    { baseUrl: 'https://example.test', fetch: async () => assert.fail('Unexpected API request') },
+  );
+
+  await assert.rejects(client.GET('/api/profile'), (error) => error === failure);
 });
 
 test('JSON and non-JSON failures reject, including unauthorized blob downloads', async () => {
