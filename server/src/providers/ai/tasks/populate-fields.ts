@@ -2,9 +2,9 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { importInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions } from '../prompts.js';
 import type {
   PopulationInput,
   PopulationResult,
@@ -58,22 +58,25 @@ export const schema = createObjectSchema(
   'Cited values for enabled Thing Fields.',
 );
 
-export class PopulateFieldsTask extends AiTask<components['schemas']['Population']> {
+export class PopulateFieldsTask extends AiTask<
+  components['schemas']['Population'],
+  PopulationResult
+> {
   protected task = 'field_population';
-  protected instructions = importInstructions;
+  protected instructions = thingImportInstructions;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: PopulationInput,
     tools: WorkflowTools,
   ) {
-    super(runtime);
+    super(config);
     this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext): Promise<PopulationResult> {
+  async run(context: AiContext) {
     return this.processResponse(
       await this.execute(
         [

@@ -21,12 +21,7 @@ const admin = database.createPool(url.toString());
 url.pathname = '/' + name;
 const pool = database.createPool(url.toString());
 const directory = await mkdtemp(tmpdir() + '/bt-smoke-');
-const ai = new OpenAiImports(
-  config.openaiApiKey,
-  config.openaiModel,
-  config.aiMaxOutputTokens,
-  config.discoverySearchCalls,
-);
+const ai = new OpenAiImports(config);
 const trace: unknown[] = [];
 const recorded: ImportAi = {
   transcribe: async (...args) => {

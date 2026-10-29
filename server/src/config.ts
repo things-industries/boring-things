@@ -49,6 +49,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     openaiApiKey: env.OPENAI_API_KEY ?? '',
     openaiModel: env.OPENAI_MODEL ?? '',
     documentExtractionModel: env.DOCUMENT_EXTRACTION_MODEL || env.OPENAI_MODEL || '',
+    googleVisionApiKey: env.GOOGLE_VISION_API_KEY?.trim() ?? '',
     importTimeoutMs: numberOrFallback(env, 'IMPORT_TIMEOUT_MS', 180000),
     icecatAccessToken: env.ICECAT_ACCESS_TOKEN?.trim() ?? '',
     importMaxTextCharacters: numberOrFallback(env, 'IMPORT_MAX_TEXT_CHARACTERS', 120000),

@@ -1,9 +1,9 @@
 /** Additional information task, identifies source facts beyond the selected Thing fields. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { importInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions } from '../prompts.js';
 import type {
   AdditionalInformationInput,
   AdditionalInformationResult,
@@ -53,18 +53,20 @@ export const schema = createObjectSchema(
 );
 
 export class AdditionalInformationTask extends AiTask<
-  components['schemas']['AdditionalInformation']
+  components['schemas']['AdditionalInformation'],
+  AdditionalInformationResult
 > {
+  protected readonly model = this.config.documentExtractionModel;
   protected task = 'additional_information';
-  protected instructions = importInstructions;
+  protected instructions = thingImportInstructions;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: AdditionalInformationInput,
     tools: WorkflowTools,
   ) {
-    super(runtime);
+    super(config);
     this.tools = [
       createTranscriptionTool(tools),
       createFieldsTool(tools),
@@ -73,7 +75,7 @@ export class AdditionalInformationTask extends AiTask<
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext): Promise<AdditionalInformationResult> {
+  async run(context: AiContext) {
     return this.parseOutput(
       await this.execute(
         [

@@ -8,20 +8,12 @@ import type {
   ResponseInput,
   ResponseCreateParamsNonStreaming,
 } from 'openai/resources/responses/responses';
-import type { AiTurnCompleted, AiContext } from '../types.js';
+import type { AiTurnCompleted, AiContext, AiConfig } from '../types.js';
 import type { TaskTool } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
 
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
-
-export interface TaskRuntime {
-  client: OpenAI;
-  model: string;
-  maxOutputTokens: number;
-  maxTextCharacters?: number;
-  onTurnCompleted?: AiTurnCompleted;
-}
 
 // Extracts response text independently of SDK convenience properties.
 export function responseText(result: Response) {
@@ -52,7 +44,15 @@ function inputCharacters(input: ResponseInput | string): number {
   }, 0);
 }
 
-export abstract class AiTask<Output = never> {
+export abstract class AiTask<
+  Output = never,
+  Result = Output,
+  Context extends AiContext = AiContext,
+> {
+  private client: OpenAI;
+  private turnCompleted?: AiTurnCompleted;
+  protected readonly model: string;
+  protected maxTextCharacters: number;
   protected abstract task: string;
   protected abstract instructions: string;
   protected schema?: Record<string, unknown>;
@@ -60,7 +60,20 @@ export abstract class AiTask<Output = never> {
   protected toolRounds = 31;
   protected parallelToolCalls = false;
 
-  constructor(protected runtime: TaskRuntime) {}
+  constructor(protected config: AiConfig) {
+    this.client = new OpenAI({ apiKey: config.openaiApiKey, maxRetries: 0 });
+    this.model = config.openaiModel;
+    this.maxTextCharacters = config.importMaxTextCharacters;
+  }
+
+  // Runs the task and returns its application result.
+  abstract run(context: Context): Promise<Result>;
+
+  // Registers the callback for completed model turns.
+  onTurnCompleted(callback?: AiTurnCompleted): this {
+    this.turnCompleted = callback;
+    return this;
+  }
 
   // Runs model turns and awaits tool results before continuing the conversation.
   protected async execute(
@@ -155,24 +168,24 @@ export abstract class AiTask<Output = never> {
     context.signal.throwIfAborted();
     const characters = inputCharacters(input);
     ensure(
-      characters + this.instructions.length <= (this.runtime.maxTextCharacters ?? Infinity) &&
+      characters + this.instructions.length <= this.maxTextCharacters &&
         characters <= (context.maxTextCharacters ?? Infinity),
       'text_limit',
     );
     context.beforeRequest?.();
     const started = Date.now();
     const parameters = {
-      model: this.runtime.model,
+      model: this.model,
       store: false,
       instructions: this.instructions,
       input,
-      max_output_tokens: this.runtime.maxOutputTokens,
+      max_output_tokens: this.config.aiMaxOutputTokens,
       ...options,
     };
     let result: Response | undefined;
     try {
       if (delta) {
-        const stream = await this.runtime.client.responses.create(
+        const stream = await this.client.responses.create(
           { ...parameters, stream: true },
           { signal: context.signal },
         );
@@ -190,7 +203,7 @@ export abstract class AiTask<Output = never> {
           stream.controller.abort();
         }
       } else
-        result = await this.runtime.client.responses.create(
+        result = await this.client.responses.create(
           { ...parameters, stream: false },
           { signal: context.signal },
         );
@@ -213,7 +226,7 @@ export abstract class AiTask<Output = never> {
     };
     const entry = { ...usage, task, elapsedMs: Date.now() - started };
     if (result.status === 'completed')
-      this.runtime.onTurnCompleted?.({
+      this.turnCompleted?.({
         ...entry,
         toolCalls: result.output.flatMap((item) =>
           item.type === 'function_call'

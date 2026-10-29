@@ -6,7 +6,7 @@ import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
 import type { ImportAi } from './types.js';
 import type { AiContext } from '../../providers/ai/types.js';
-import { blankUsage, UsagePersistenceError } from './types.js';
+import { blankUsage, getImportFailureReason, UsagePersistenceError } from './types.js';
 import * as importsDb from '../../db/entities/imports.js';
 import { ImportWorkflow, type WorkflowOptions } from './workflow.js';
 import { ensure } from '../errors.js';
@@ -37,6 +37,7 @@ export class ImportProcessor {
     const started = Date.now(),
       elapsed = usage.elapsedMs;
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
+    let usageWrites = Promise.resolve();
     const context: AiContext = {
       maxTextCharacters: this.config.importMaxTextCharacters,
       signal,
@@ -49,7 +50,11 @@ export class ImportProcessor {
         if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
         usage.elapsedMs = elapsed + Date.now() - started;
         try {
-          await importsDb.recordImportUsage(this.pool, job, usage);
+          // Parallel requests share totals; write snapshots in order.
+          usageWrites = usageWrites
+            .catch(() => {})
+            .then(() => importsDb.recordImportUsage(this.pool, job, usage));
+          await usageWrites;
         } catch (error) {
           throw new UsagePersistenceError(error);
         }
@@ -84,6 +89,10 @@ export class ImportProcessor {
               ].includes(error.message)
             ? error.message
             : 'import_failed';
+      await importsDb.saveWorkflow(this.pool, current, {
+        ...current.workflow,
+        failure: { stage: current.workflow.stage, reason: getImportFailureReason(error) },
+      });
       await importsDb.setImportStatus(
         this.pool,
         job.ownerId,

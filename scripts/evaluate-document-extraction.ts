@@ -35,7 +35,12 @@ for (const model of models) assert.ok(rates[model], `Supply DOCUMENT_EVAL_RATES 
 const registry = new Registry(referenceFields, [referenceSet]);
 const results: Record<string, unknown>[] = [];
 for (const model of models) {
-  const ai = new OpenAiImports(config.openaiApiKey, config.openaiModel, 4000, 3, model);
+  const ai = new OpenAiImports({
+    ...config,
+    aiMaxOutputTokens: 4000,
+    discoverySearchCalls: 3,
+    documentExtractionModel: model,
+  });
   for (const fixture of referenceDocumentBaseline) {
     const usage: NonNullable<Usage['entries']> = [];
     let content = Buffer.from(fixture.pages.join('\n'));

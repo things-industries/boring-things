@@ -31,6 +31,7 @@ import type { ImportAi } from './application/import/types.js';
 import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
 import { ApplicationEvents } from './application/events.js';
+import * as googleVision from './providers/google-vision/index.js';
 
 // Allow overriding of dependencies for testing
 export interface BuildAppOptions {
@@ -42,6 +43,7 @@ export interface BuildAppOptions {
   importAi?: ImportAi;
   chatAi?: ChatAi;
   importWorkflow?: import('./application/import/workflow.js').WorkflowOptions;
+  readImageText?: typeof googleVision.readImageText;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -109,7 +111,23 @@ export async function buildApp(options: BuildAppOptions = {}) {
     const runner = new JobRunner(
       [
         assistant,
-        new AttachmentTranscriptionProcessor(dbPool, blobs, importAi, config, events),
+        new AttachmentTranscriptionProcessor(
+          dbPool,
+          blobs,
+          importAi,
+          config,
+          events,
+          options.readImageText ??
+            (async (content, key, signal) => {
+              const started = Date.now();
+              const text = await googleVision.readImageText(content, key, signal);
+              app.log.info(
+                { metrics: { elapsedMs: Date.now() - started, imageCount: 1 } },
+                'Google Vision OCR completed',
+              );
+              return text;
+            }),
+        ),
         new ImportProcessor(
           dbPool,
           registry,

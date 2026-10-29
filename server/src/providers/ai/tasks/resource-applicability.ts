@@ -1,9 +1,9 @@
 /** Resource applicability task, checks public document coverage for a Thing class and variant. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { importInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions } from '../prompts.js';
 import type {
   ResourceApplicabilityInput,
   ResourceApplicability,
@@ -43,23 +43,24 @@ export const schema = createObjectSchema(
 );
 
 export class ResourceApplicabilityTask extends AiTask<
-  components['schemas']['ResourceApplicability']
+  components['schemas']['ResourceApplicability'],
+  ResourceApplicability
 > {
   protected task = 'resource_applicability';
-  protected instructions = importInstructions;
+  protected instructions = thingImportInstructions;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: ResourceApplicabilityInput,
     tools: WorkflowTools,
   ) {
-    super(runtime);
+    super(config);
     this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext): Promise<ResourceApplicability> {
+  async run(context: AiContext) {
     return this.parseOutput(
       await this.execute(
         [

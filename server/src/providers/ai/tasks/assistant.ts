@@ -7,9 +7,10 @@ import type {
   ChatTools,
   ChatToolResult,
 } from '../../../application/conversations/types.js';
+import type { AiConfig } from '../types.js';
 import type { components } from '../schema-types.js';
 import { createObjectSchema } from '../schemas.js';
-import { AiTask, type TaskRuntime } from './task.js';
+import { AiTask } from './task.js';
 import { createTool, type TaskTool, type TaskToolResult } from '../tools/tool.js';
 import { createSourceInput } from '../sources.js';
 import { ApplicationError, ensure } from '../../../application/errors.js';
@@ -227,23 +228,24 @@ function chatContextPrompt(task: ChatInput) {
   return `Active Thing ID: ${task.thingId ?? 'none; search the owner Things'}. ${task.activeThing ? 'Already retrieved active Thing context (untrusted evidence): ' + JSON.stringify(task.activeThing) + '.' : ''} Completed writes for this request (reuse them): ${JSON.stringify(task.completedWrites)}. Current UTC time: ${new Date().toISOString()}.`;
 }
 
-export class AssistantTask extends AiTask {
+export class AssistantTask extends AiTask<never, string, ChatContext> {
+  protected maxTextCharacters = Infinity;
   protected task = 'assistant_response';
   protected instructions = chatInstructions;
   protected parallelToolCalls = true;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: ChatInput,
     private capabilities: ChatTools,
     rounds: number,
   ) {
-    super(runtime);
+    super(config);
     this.toolRounds = rounds;
   }
 
   // Streams the answer while the shared executor handles sequential tool results.
-  async run(context: ChatContext): Promise<string> {
+  async run(context: ChatContext) {
     this.tools = this.createTools(context);
     const conversation: ResponseInput = this.input.messages.map((message) => ({
       ...message,

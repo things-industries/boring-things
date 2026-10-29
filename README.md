@@ -53,7 +53,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 
 ## AI imports
 
-Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`, apply `pnpm db:migrate`, and restart the API. The model must support Responses API image/PDF inputs, structured outputs, function calls and web search. Missing AI configuration disables import controls; manual editing remains available.
+Set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`. Uploaded images also require `GOOGLE_VISION_API_KEY`. Apply `pnpm db:migrate`, and restart the API. The model must support Responses API image/PDF inputs, structured outputs, function calls and web search. Missing AI configuration disables import controls; manual editing remains available.
 
 The **Add a thing** screen offers Camera, Photos, Files and Text tiles. Each source is stored privately and starts transcription after upload. The client submits one Import citing the Attachments and shows persisted source outcomes and progress. The Import selects one candidate, matches or creates a Thing, and saves its category identifiers before Research. Fieldset selection and cited population use all applicable linked evidence. Existing owner-entered values and manually cleared fields remain protected.
 
@@ -196,6 +196,7 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `BLOB_DIRECTORY`             | Local blob directory; default `.data/blobs`                             |
 | `MAX_UPLOAD_BYTES`           | Upload and research document limit; default 100000000                   |
 | `ENABLE_SAMPLE_DATA`         | Enables the authenticated sample-data action; default false             |
+| `GOOGLE_VISION_API_KEY`      | Server-only Google Vision key; required for uploaded image OCR          |
 | `OPENAI_API_KEY`             | Server-only OpenAI credential                                           |
 | `OPENAI_MODEL`               | Configurable model; required for imports and chat                       |
 | `DOCUMENT_EXTRACTION_MODEL`  | Additional-information model; defaults to `OPENAI_MODEL`                |
@@ -248,7 +249,7 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 ### Import verification
 
-`server/test/fixtures/imports.ts` supplies deterministic fixture providers. Tests in `server/tests/` cover the single-Thing workflow, population permissions, shared resources, specialist lookup and runner concurrency. Existing integration/browser checks cover authentication, masking, progressive navigation, chat, SSE and sample data. Each module in `server/src/providers/ai/tasks/` owns its prompt, output schema, tools and application result conversion. Shared prompts and tool adapters remain in the AI provider. Internal schemas are independent of the HTTP OpenAPI contract; run `pnpm ai:generate` after schema changes. SDK requests disable transport retries and remote response storage. Live quality and provider checks remain opt-in and require explicit approval.
+`server/test/fixtures/imports.ts` supplies deterministic fixture providers. Tests in `server/tests/` cover the single-Thing workflow, population permissions, shared resources, specialist lookup and runner concurrency. Existing integration/browser checks cover authentication, masking, progressive navigation, chat, SSE and sample data. Each module in `server/src/providers/ai/tasks/` owns its prompt, output schema, tools, model selection and application result conversion. `AiTask` constructs the SDK client, declares the typed `run()` contract and exposes `onTurnCompleted()` for usage logging. Tasks receive server AI configuration; document tasks select `DOCUMENT_EXTRACTION_MODEL` and other tasks use `OPENAI_MODEL`. Shared prompts and tool adapters remain in the AI provider. Internal schemas are independent of the HTTP OpenAPI contract; run `pnpm ai:generate` after schema changes. SDK requests disable transport retries and remote response storage. Live quality and provider checks remain opt-in and require explicit approval.
 
 See [the import guide](docs/setup/imports.md) for the lifecycle, research eligibility, provenance and limits. [Import evaluations](docs/requirements/research/import-evaluations.md) record dated measurements and the paid model-comparison command.
 

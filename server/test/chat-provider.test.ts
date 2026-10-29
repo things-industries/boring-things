@@ -3,16 +3,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import OpenAI from 'openai';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
 import { AiTask } from '../src/providers/ai/tasks/task.js';
 import { createWebSearchOptions, readWebResult } from '../src/providers/ai/tools/web.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 import { chatFunctions } from '../src/providers/ai/tasks/assistant.js';
+import type { AiContext } from '../src/providers/ai/types.js';
 import type { Usage } from '../src/application/import/types.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
+const config = readConfig({
+  OPENAI_API_KEY: 'synthetic-key',
+  OPENAI_MODEL: 'fixture',
+  AI_MAX_OUTPUT_TOKENS: '1000',
+});
+
 const task = {
   thingId: null,
   messages: [{ role: 'USER' as const, content: 'Read the Thing' }],
@@ -110,10 +116,10 @@ test('assistant research answers the supplied question in one bounded request wi
     entries.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.resultCount),
     [100, 1],
   );
-  class SourceSearchTask extends AiTask {
+  class SourceSearchTask extends AiTask<never, Awaited<ReturnType<typeof readWebResult>>> {
     protected task = 'research';
     protected instructions = 'Find public manuals.';
-    async run() {
+    async run(context: AiContext) {
       return readWebResult(
         await this.execute('Find manuals', context, createWebSearchOptions(2)),
         context,
@@ -121,11 +127,7 @@ test('assistant research answers the supplied question in one bounded request wi
       );
     }
   }
-  const discovery = await new SourceSearchTask({
-    client: new OpenAI({ apiKey: 'synthetic-key' }),
-    model: 'fixture',
-    maxOutputTokens: 1000,
-  }).run();
+  const discovery = await new SourceSearchTask(config).run(context);
   assert.ok(discovery.sources.includes(opened));
   assert.ok(discovery.sources.includes(candidates[99].url));
 
@@ -221,7 +223,7 @@ test('Responses streaming collects split frames, passes function results and rec
       tokens += usage.inputTokens ?? 0;
     },
   };
-  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3, 3, (entry) =>
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 3 }, (entry) =>
     turns.push(entry),
   ).respond(
     task,
@@ -268,7 +270,7 @@ test('an interrupted provider stream cannot complete an assistant response', asy
     stream([{ type: 'response.output_text.delta', delta: 'Partial' }]),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1, 3, () =>
+    new OpenAiChat({ ...config, chatToolCalls: 1 }, () =>
       assert.fail('interrupted response logged as complete'),
     ).respond(
       task,
@@ -326,7 +328,7 @@ test('one AI turn handles multiple tool calls and returns rejected calls for cor
       completed([]),
     ]);
   });
-  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 3 }).respond(
     task,
     {
       execute: async (_name, args) => {
@@ -390,7 +392,7 @@ test('PDF attachment input preserves text pages and original files for diagrams'
         completed([]),
       ]);
     });
-    const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 2).respond(
+    const answer = await new OpenAiChat({ ...config, chatToolCalls: 2 }).respond(
       task,
       {
         execute: async () => ({
@@ -428,7 +430,7 @@ test('SDK streaming cancellation closes the response and prevents tool execution
       ),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
       task,
       {
         execute: async () => assert.fail('tool executed after cancellation'),
@@ -450,7 +452,7 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
       stream([{ type, message: 'private source text' }]),
     );
     await assert.rejects(
-      new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+      new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
         task,
         {
           execute: async () => assert.fail('failed response executed a tool'),
@@ -476,7 +478,7 @@ test('SDK HTTP failures retain status without provider error text', async (t) =>
     ),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
       task,
       {
         execute: async () => assert.fail('HTTP failure executed a tool'),
@@ -511,7 +513,7 @@ test('assistant returns invalid tool arguments for correction before invoking ap
       completed(),
     ]);
   });
-  const answer = await new OpenAiChat('fixture-key', 'fixture', 1000, 2).respond(
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 2 }).respond(
     task,
     {
       execute: async () => {
@@ -542,7 +544,7 @@ test('invalid assistant tool arguments consume the task tool budget', async (t) 
     ]);
   });
   await assert.rejects(
-    new OpenAiChat('fixture-key', 'fixture', 1000, 1).respond(
+    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
       task,
       { execute: async () => assert.fail('invalid arguments reached the application') },
       { signal: new AbortController().signal, record: async () => {}, delta: () => {} },

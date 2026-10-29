@@ -9,6 +9,9 @@ import { extractedThings, extractionBaseline } from './fixtures/imports.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
+import { taskRecommendationInstructions, thingDefinition } from '../src/providers/ai/prompts.js';
+
+const config = readConfig({ OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'fixture' });
 
 const context = () => ({ signal: new AbortController().signal, record: async () => {} });
 const jsonResponse = (data: unknown) =>
@@ -51,7 +54,7 @@ test('PDF source text uses one request, retains original pages and skips model t
       output({ ...sourceDetails, text: '', metadata: null, candidates: [subject] }),
     );
   });
-  const result = await new OpenAiImports('test-key', 'fixture').extract(
+  const result = await new OpenAiImports(config).extract(
     {
       filename: 'source.pdf',
       mediaType: 'application/pdf',
@@ -84,7 +87,7 @@ test('camera source extraction requests and returns a descriptive attachment tit
       }),
     );
   });
-  const result = await new OpenAiImports('test-key', 'fixture').extract(
+  const result = await new OpenAiImports(config).extract(
     { filename: 'IMG_1234.png', mediaType: 'image/png', content: Buffer.from('fixture image') },
     ['appliances'],
     context(),
@@ -122,7 +125,7 @@ test('reference extraction consumes page-labelled PDF text with original citatio
       }),
     );
   });
-  const result = await new OpenAiImports('test-key', 'fixture').extractDocument(
+  const result = await new OpenAiImports(config).extractDocument(
     {
       attachmentId: 'document',
       url: 'https://example.com/manual.pdf',
@@ -149,7 +152,7 @@ test('PDFs without embedded text reject excessive pages before calling the model
     return jsonResponse({});
   });
   await assert.rejects(
-    new OpenAiImports('test-key', 'fixture').extract(
+    new OpenAiImports(config).extract(
       {
         filename: 'scan.pdf',
         mediaType: 'application/pdf',
@@ -180,7 +183,7 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
       }),
     );
   });
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = new OpenAiImports(config);
   for (const { source, expected: subject } of extractionBaseline) {
     const result = await ai.extract(
       { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from(source) },
@@ -201,7 +204,7 @@ test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP
   const fetch = t.mock.method(globalThis, 'fetch', async () =>
     jsonResponse({ status: 'incomplete', output: [] }),
   );
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = new OpenAiImports(config);
   await assert.rejects(ai.extract(source, ['other'], context()), /incomplete/);
   fetch.mock.mockImplementation(async () =>
     jsonResponse({
@@ -250,7 +253,7 @@ test('SDK import cancellation reaches the request signal', async (t) => {
       }),
   );
   await assert.rejects(
-    new OpenAiImports('test-key', 'fixture').extract(
+    new OpenAiImports(config).extract(
       { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from('synthetic') },
       ['other'],
       { ...context(), signal: controller.signal },
@@ -317,10 +320,13 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       { headers: { 'Content-Type': 'application/json' } },
     );
   });
-  const ai = new OpenAiImports('test-key', 'test-model', 12000, 3, 'test-model', async (url) =>
-    url === source
-      ? { url, links: [{ url: linkedPdf, context: 'Official user manual for the model' }] }
-      : null,
+  const ai = new OpenAiImports(
+    { ...config, openaiModel: 'test-model', documentExtractionModel: 'test-model' },
+    undefined,
+    async (url) =>
+      url === source
+        ? { url, links: [{ url: linkedPdf, context: 'Official user manual for the model' }] }
+        : null,
   );
   const result = await ai.findResources(
     {
@@ -376,7 +382,11 @@ test('public research keeps the source-derived product generation across its req
     emptyFields: [],
     referenceUrls: [],
   };
-  const ai = new OpenAiImports('test-key', 'test-model', 12000, 3, 'test-model', async () => null);
+  const ai = new OpenAiImports(
+    { ...config, openaiModel: 'test-model', documentExtractionModel: 'test-model' },
+    undefined,
+    async () => null,
+  );
   await ai.findResources(research, context());
   await ai.suggestTasks({ ...research, existingTasks: [] }, context());
   await ai.findPurchasables({ ...research, existingPurchasables: [] }, context());
@@ -390,6 +400,8 @@ test('SDK document extraction uses the configured model, contained schema and pe
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.model, 'document-model');
+    assert.ok(body.instructions.includes(thingDefinition));
+    assert.ok(JSON.stringify(body.input).includes('Fixture device (2024)'));
     assert.equal(body.store, false);
     assert.equal(body.tools, undefined);
     assert.equal(body.text.format.schema.properties.applicable.type, 'boolean');
@@ -421,7 +433,13 @@ test('SDK document extraction uses the configured model, contained schema and pe
       content: Buffer.from(await pdf.save()),
       pageCount: 1,
     },
-    { id: 'subject', categoryId: 'devices', knownFields: [], emptyFields: [] },
+    {
+      id: 'subject',
+      name: 'Fixture device (2024)',
+      categoryId: 'devices',
+      knownFields: [],
+      emptyFields: [],
+    },
     [],
     {
       ...context(),
@@ -452,7 +470,7 @@ test('AI attachment metadata validates calendar dates without unknown-format war
       }),
     ),
   );
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = new OpenAiImports(config);
   const source = {
     filename: 'source.txt',
     mediaType: 'text/plain',
@@ -500,6 +518,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     const body = JSON.parse(init.body as string);
     requests.push(body);
     assert.equal(body.store, false);
+    assert.ok(body.instructions.includes(taskRecommendationInstructions));
     assert.match(body.input, /Model A/);
     assert.ok(!body.input.includes('Private owner title'));
     assert.ok(!body.input.includes('Imported facts'));
@@ -513,7 +532,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       usage: { input_tokens: 25, output_tokens: 10 },
     });
   });
-  const ai = new OpenAiImports('test-key', 'import-model');
+  const ai = new OpenAiImports({ ...config, openaiModel: 'import-model' });
   const suggestions = await ai.suggestTasks(
     research,
     {
@@ -584,7 +603,7 @@ test('SDK purchasable research discovers products and purchase links within one 
       output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
     });
   });
-  const ai = new OpenAiImports('test-key', 'import-model');
+  const ai = new OpenAiImports({ ...config, openaiModel: 'import-model' });
   const research = {
     categoryId: 'appliances',
     knownFields: [

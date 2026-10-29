@@ -8,12 +8,7 @@ import type { ChatMessage } from '../server/src/application/conversations/types.
 
 const config = readConfig();
 assert.ok(config.openaiApiKey && config.openaiModel, 'Configure the chat provider');
-const ai = new OpenAiChat(
-  config.openaiApiKey,
-  config.openaiModel,
-  config.aiMaxOutputTokens,
-  config.chatToolCalls,
-);
+const ai = new OpenAiChat(config);
 const thingId = randomUUID();
 const attachmentId = randomUUID();
 const eventId = randomUUID();

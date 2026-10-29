@@ -2,15 +2,14 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { webResearchInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingResearchInstructions } from '../prompts.js';
 import type {
   PurchasableResearch,
   PurchasableSuggestions,
 } from '../../../application/import/types.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
-import { thingDefinition } from '../prompts.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
 
@@ -92,24 +91,27 @@ function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: numb
     knownFields: research.knownFields,
     referenceUrls: research.referenceUrls,
   };
-  return `${thingDefinition}  Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs an observed direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Every merchantUrl and sourceUrl must be observed through web search. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
+  return ` Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs an observed direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Every merchantUrl and sourceUrl must be observed through web search. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
-export class FindPurchasablesTask extends AiTask<components['schemas']['PurchasableSuggestions']> {
+export class FindPurchasablesTask extends AiTask<
+  components['schemas']['PurchasableSuggestions'],
+  PurchasableSuggestions
+> {
   protected task = 'purchasable_suggestions';
-  protected instructions = webResearchInstructions;
+  protected instructions = thingResearchInstructions;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: PurchasableResearch,
     private searchCalls: number,
   ) {
-    super(runtime);
+    super(config);
   }
 
   // Researches public fields and returns cited suggestions.
-  async run(context: AiContext): Promise<PurchasableSuggestions> {
+  async run(context: AiContext) {
     if (!this.input.knownFields.length) return { items: [] };
     const response = await this.execute(
       findPurchasablesPrompt(this.input, this.searchCalls),

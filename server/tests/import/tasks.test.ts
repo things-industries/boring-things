@@ -5,6 +5,11 @@ import { OpenAiImports } from '../../src/providers/ai/openai-imports.js';
 import type { PopulationInput, WorkflowTools } from '../../src/application/import/types.js';
 import type { AiContext } from '../../src/providers/ai/types.js';
 import { fields } from '../../src/db/seeds/registry.js';
+import { readConfig } from '../../src/config.js';
+import { taskRecommendationInstructions, thingDefinition } from '../../src/providers/ai/prompts.js';
+import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
+import { AdditionalInformationTask } from '../../src/providers/ai/tasks/additional-information.js';
+const config = readConfig({ OPENAI_API_KEY: 'fixture-key', OPENAI_MODEL: 'fixture-model' });
 const definition = fields.find((field) => field.id === 'common.model')!;
 const input: PopulationInput = {
   thing: { id: 'thing', name: 'Fixture oven', categoryId: 'appliances' },
@@ -40,6 +45,7 @@ test('field population awaits source retrieval before continuing the model conve
     retrieved = false;
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
+    assert.ok(body.instructions.includes(thingDefinition));
     requests++;
     if (requests === 1)
       return response([
@@ -83,7 +89,7 @@ test('field population awaits source retrieval before continuing the model conve
       },
     ]);
   });
-  const ai = new OpenAiImports('fixture-key', 'fixture-model');
+  const ai = new OpenAiImports(config);
   const result = await ai.populateFields(
     input,
     {
@@ -105,6 +111,53 @@ test('field population awaits source retrieval before continuing the model conve
   assert.equal(requests, 2);
 });
 
+test('Thing resolution receives the definition and reports each turn through its registered callback', async (t) => {
+  const turns: string[] = [];
+  const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    const body = JSON.parse(String(options.body));
+    assert.equal(body.model, config.openaiModel);
+    assert.ok(body.instructions.includes(thingDefinition));
+    return response([
+      {
+        type: 'message',
+        content: [{ type: 'output_text', text: '{"candidates":[],"contradiction":false}' }],
+      },
+    ]);
+  });
+  const task = new ResolveThingTask(
+    config,
+    { sources: [], categories: [], existingThings: [], thingContextId: null },
+    tools,
+  );
+  assert.equal(
+    task.onTurnCompleted((turn) => turns.push(turn.task)),
+    task,
+  );
+  assert.deepEqual(await task.run(context), { candidates: [], contradiction: false });
+  assert.deepEqual(turns, ['thing_resolution']);
+  task.onTurnCompleted();
+  await task.run(context);
+  assert.deepEqual(turns, ['thing_resolution']);
+  assert.equal(fetch.mock.callCount(), 2);
+});
+
+test('additional information selects the document model and receives Thing instructions', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    const body = JSON.parse(String(options.body));
+    assert.equal(body.model, 'document-model');
+    assert.ok(body.instructions.includes(thingDefinition));
+    return response([
+      { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
+    ]);
+  });
+  const task = new AdditionalInformationTask(
+    { ...config, documentExtractionModel: 'document-model' },
+    { thing: input.thing, knownFields: [], attachmentId: 'source', text: 'Model AX1' },
+    tools,
+  );
+  assert.deepEqual(await task.run(context), { findings: [] });
+});
+
 test('an oversized task stops before contacting the model', async (t) => {
   t.after(() => mock.restoreAll());
   let requests = 0;
@@ -112,7 +165,7 @@ test('an oversized task stops before contacting the model', async (t) => {
     requests++;
     throw new Error('Unexpected request');
   });
-  const ai = new OpenAiImports('fixture-key', 'fixture-model');
+  const ai = new OpenAiImports(config);
   await assert.rejects(
     ai.populateFields(
       { ...input, sources: [{ attachmentId: 'source', summary: 'x'.repeat(120000), terms: [] }] },
@@ -158,7 +211,7 @@ test('large parsed sources use bounded transcription requests and retain the com
     ]);
   });
   const text = 'x'.repeat(180000);
-  const result = await new OpenAiImports('fixture-key', 'fixture-model').transcribe(
+  const result = await new OpenAiImports(config).transcribe(
     { filename: 'long.txt', mediaType: 'text/plain', content: Buffer.from(text) },
     context,
   );
@@ -169,7 +222,7 @@ test('large parsed sources use bounded transcription requests and retain the com
 
 test('source recommendations return application citations without model citation properties', async (t) => {
   t.after(() => mock.restoreAll());
-  mock.method(globalThis, 'fetch', async () =>
+  const fetch = mock.method(globalThis, 'fetch', async (_url: unknown, _options: RequestInit) =>
     response([
       {
         type: 'message',
@@ -204,10 +257,18 @@ test('source recommendations return application citations without model citation
       },
     ]),
   );
-  const result = await new OpenAiImports('fixture-key', 'fixture-model').recommendFromSources(
+  const result = await new OpenAiImports(config).recommendFromSources(
     {
       thing: { name: 'Fixture oven', categoryId: 'appliances' },
-      fields: [],
+      fields: [
+        {
+          id: definition.id,
+          label: definition.name,
+          description: definition.description,
+          schema: definition.schema,
+          value: 'AX1',
+        },
+      ],
       sources: input.sources,
       existingTasks: [],
       existingPurchasables: [],
@@ -215,6 +276,20 @@ test('source recommendations return application citations without model citation
     tools,
     context,
   );
+  const request = JSON.parse(String(fetch.mock.calls[0].arguments[1]?.body));
+  assert.ok(request.instructions.includes(taskRecommendationInstructions));
+  assert.ok(request.instructions.includes(thingDefinition));
+  const supplied = JSON.parse(request.input[0].content.split('Input: ')[1]);
+  assert.deepEqual(supplied.fields, [
+    {
+      id: definition.id,
+      label: definition.name,
+      description: definition.description,
+      schema: definition.schema,
+      value: 'AX1',
+    },
+  ]);
+  assert.equal(fetch.mock.callCount(), 1);
   assert.deepEqual(result, {
     tasks: [
       {

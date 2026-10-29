@@ -2,11 +2,11 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { importInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions } from '../prompts.js';
 import type { ResearchThing, Discovery } from '../../../application/import/types.js';
-import { categoryResearchPrompt, webResearchInstructions } from '../prompts.js';
+import { categoryResearchPrompt, thingResearchInstructions } from '../prompts.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { readResourcePage } from '../../web/resources.js';
 
@@ -109,26 +109,26 @@ function structureResearchPrompt(report: string, sources: string[], research: Re
   return `Structure up to 8 supported findings. Research objective: ${categoryResearchPrompt(research.categoryId)}. Public subject: ${JSON.stringify({ name: research.name, knownFields: research.knownFields })}. Include the requested category document and at most one official product photo for a physical object. The retrieved page link catalogue supplies observed URLs and their surrounding page text, including embedded download metadata. Use it to locate the full English manual. Match the source page model even when the linked manual covers a family. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a short brand + everyday product type name such as "Bosch Oven", with sourceUrl proving the identification; otherwise null. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs applicable to the subject and category instruction. Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing applicability. Prefer official documents. A data sheet does not fulfil a manual objective. Image entries link to a product photograph found on an official model page, with sourceUrl proving the matching model and variant. Exclude labels, document scans, logos, icons and unrelated variants. Use null metadata for images. Reference metadata may include title, documentType, publisher and documentDate only when supported by the cited source; unknown properties are null. Do not infer document date from website update dates. Report: ${report}\nRetrieved URLs: ${JSON.stringify(sources)}`;
 }
 
-export class FindResourcesTask extends AiTask<components['schemas']['Discovery']> {
+export class FindResourcesTask extends AiTask<components['schemas']['Discovery'], Discovery> {
   protected task = 'research_structure';
-  protected instructions = importInstructions;
+  protected instructions = thingImportInstructions;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: ResearchThing,
     private searchCalls: number,
     private readPage = readResourcePage,
   ) {
-    super(runtime);
+    super(config);
   }
 
   // Searches public sources before structuring their observed download links.
-  async run(context: AiContext): Promise<Discovery> {
+  async run(context: AiContext) {
     const response = await this.requestResponse(
       resourceSearchPrompt(this.input, this.searchCalls),
       context,
-      { ...createWebSearchOptions(this.searchCalls), instructions: webResearchInstructions },
+      { ...createWebSearchOptions(this.searchCalls), instructions: thingResearchInstructions },
       undefined,
       'research',
     );

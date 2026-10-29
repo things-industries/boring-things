@@ -32,6 +32,7 @@ export async function startTestApp(
     port?: number;
     storageStatePath?: string;
     importWorkflow?: import('../../src/application/import/workflow.js').WorkflowOptions;
+    readImageText?: import('../../src/app.js').BuildAppOptions['readImageText'];
   } = {},
 ) {
   const port = options.port ?? 0;
@@ -103,6 +104,7 @@ export async function startTestApp(
       importAi,
       chatAi,
       importWorkflow: { specialists: [], ...options.importWorkflow },
+      readImageText: options.readImageText ?? (async () => 'neff'),
     });
     cleanup.push(() => app.close());
 

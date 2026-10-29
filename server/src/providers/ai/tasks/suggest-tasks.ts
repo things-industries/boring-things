@@ -2,12 +2,11 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { webResearchInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingResearchInstructions, taskRecommendationInstructions } from '../prompts.js';
 import type { TaskResearch, TaskSuggestions } from '../../../application/import/types.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
-import { thingDefinition } from '../prompts.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
 
@@ -23,14 +22,15 @@ export const schema = createObjectSchema(
         {
           title: {
             type: 'string',
-            description: 'Short action title naming the task (min 1 char, max 200 chars).',
+            description:
+              'Verb and object naming the work, with only qualifiers needed to identify it (min 1 char, max 200 chars).',
             minLength: 1,
             maxLength: 200,
           },
           description: {
             type: 'string',
             description:
-              'Supported instructions, intervals and conditions, with no inferred next date (min 1 char, max 4000 chars).',
+              'Source-supported frequency, triggers, methods, precautions and evidence requirements, with no inferred next date (min 1 char, max 4000 chars).',
             minLength: 1,
             maxLength: 4000,
           },
@@ -75,24 +75,27 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
     knownFields: research.knownFields,
     referenceUrls: research.referenceUrls,
   };
-  return `${thingDefinition}  Find useful management tasks for a Thing. Suitable task ideas for this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs and prefer official manufacturer or provider documentation. Establish applicability to the model, variant, region and service version where relevant. Preserve supported instructions, intervals, usage thresholds and conditions. Every task needs supporting evidence of applicability to the thing. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 3 distinct suggested tasks from public research. Use a supporting URL observed through web search with a supporting quote for every task. Keep secrets and individual identifiers out of task text. Return an empty items array when none are justifiable.  Finding no applicable tasks is a valid outcome.`;
+  return ` Find useful management tasks for a Thing. Suitable task ideas for this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs and prefer official manufacturer or provider documentation. Establish applicability to the model, variant, region and service version where relevant. Preserve supported instructions, intervals, usage thresholds and conditions. Every task needs supporting evidence of applicability to the thing. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 3 distinct suggested tasks from public research. Use a supporting URL observed through web search with a supporting quote for every task. Keep secrets and individual identifiers out of task text. Return an empty items array when none are justifiable.  Finding no applicable tasks is a valid outcome.`;
 }
 
-export class SuggestTasksTask extends AiTask<components['schemas']['TaskSuggestions']> {
+export class SuggestTasksTask extends AiTask<
+  components['schemas']['TaskSuggestions'],
+  TaskSuggestions
+> {
   protected task = 'task_suggestions';
-  protected instructions = webResearchInstructions;
+  protected instructions = `${thingResearchInstructions} ${taskRecommendationInstructions}`;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: TaskResearch,
     private searchCalls: number,
   ) {
-    super(runtime);
+    super(config);
   }
 
   // Researches public fields and returns cited suggestions.
-  async run(context: AiContext): Promise<TaskSuggestions> {
+  async run(context: AiContext) {
     if (!this.input.knownFields.length) return { items: [] };
     const response = await this.execute(
       suggestTasksPrompt(this.input, this.searchCalls),

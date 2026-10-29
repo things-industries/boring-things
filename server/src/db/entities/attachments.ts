@@ -145,12 +145,12 @@ export async function recoverTranscriptions(db: Database): Promise<void> {
   );
 }
 
-// Records failures only when the current source has no completed transcription.
+// Records pending-source outcomes without replacing completed transcriptions.
 export async function setTranscriptionStatus(
   db: Database,
   owner: string | null,
   id: string,
-  status: 'PROCESSING' | 'FAILED',
+  status: 'PROCESSING' | 'FAILED' | 'SKIPPED',
 ): Promise<void> {
   await database.execute(
     db,
@@ -303,7 +303,7 @@ export async function saveDiscoveredAttachment(
     (item.kind === 'reference' ? '.pdf' : '.' + document.mediaType.split('/')[1]);
   const inserted = await database.rows<{ id: string }>(
     db,
-    'insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key,title,document_type,publisher,document_date,page_count,metadata_sources) values($1,$2,$13,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict(import_key) do nothing returning id',
+    'insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key,title,document_type,publisher,document_date,page_count,metadata_sources,transcription_status) values($1,$2,$13,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$14) on conflict(import_key) do nothing returning id',
     [
       null,
       filename,
@@ -318,6 +318,7 @@ export async function saveDiscoveredAttachment(
       document.pageCount ?? null,
       JSON.stringify(metadataSources),
       document.mediaType,
+      item.kind === 'image' ? 'SKIPPED' : 'PENDING',
     ],
   );
   const file = inserted[0] ?? (await findDiscoveryAttachment(db, owner, key));

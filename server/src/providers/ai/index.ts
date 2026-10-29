@@ -22,30 +22,7 @@ export function createAi(
   const enabled = !!(config.openaiApiKey && config.openaiModel);
   return {
     importAi:
-      overrides.importAi ??
-      (enabled
-        ? new OpenAiImports(
-            config.openaiApiKey,
-            config.openaiModel,
-            config.aiMaxOutputTokens,
-            config.discoverySearchCalls,
-            config.documentExtractionModel,
-            undefined,
-            onTurnCompleted,
-            config.importMaxTextCharacters,
-          )
-        : undefined),
-    chatAi:
-      overrides.chatAi ??
-      (enabled
-        ? new OpenAiChat(
-            config.openaiApiKey,
-            config.openaiModel,
-            config.aiMaxOutputTokens,
-            config.chatToolCalls,
-            config.discoverySearchCalls,
-            onTurnCompleted,
-          )
-        : undefined),
+      overrides.importAi ?? (enabled ? new OpenAiImports(config, onTurnCompleted) : undefined),
+    chatAi: overrides.chatAi ?? (enabled ? new OpenAiChat(config, onTurnCompleted) : undefined),
   };
 }

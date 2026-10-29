@@ -1,8 +1,7 @@
 /** Assembles Import AI tasks behind the application's import capability contract. */
 
-import OpenAI from 'openai';
+import type { EnvConfig } from '../../config.js';
 import type { AiContext, AiTurnCompleted } from './types.js';
-import type { TaskRuntime } from './tasks/task.js';
 import type {
   ImportAi,
   Source,
@@ -25,61 +24,74 @@ import { SuggestTasksTask } from './tasks/suggest-tasks.js';
 import { FindPurchasablesTask } from './tasks/find-purchasables.js';
 
 export class OpenAiImports implements ImportAi {
-  private runtime: TaskRuntime;
   constructor(
-    key: string,
-    model: string,
-    maxOutputTokens = 12000,
-    private searchCalls = 3,
-    private documentModel = model,
+    private config: EnvConfig,
+    private onTurnCompleted?: AiTurnCompleted,
     private readPage = readResourcePage,
-    onTurnCompleted?: AiTurnCompleted,
-    maxTextCharacters = 120000,
-  ) {
-    this.runtime = {
-      client: new OpenAI({ apiKey: key, maxRetries: 0 }),
-      model,
-      maxOutputTokens,
-      maxTextCharacters,
-      onTurnCompleted,
-    };
-  }
+  ) {}
 
   resolveThing: NonNullable<ImportAi['resolveThing']> = (input, tools, context) =>
-    new ResolveThingTask(this.runtime, input, tools).run(context);
+    new ResolveThingTask(this.config, input, tools)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   populateFields: NonNullable<ImportAi['populateFields']> = (input, tools, context) =>
-    new PopulateFieldsTask(this.runtime, input, tools).run(context);
+    new PopulateFieldsTask(this.config, input, tools)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   additionalInformation: NonNullable<ImportAi['additionalInformation']> = (input, tools, context) =>
-    new AdditionalInformationTask({ ...this.runtime, model: this.documentModel }, input, tools).run(
-      context,
-    );
+    new AdditionalInformationTask(this.config, input, tools)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   assessResource: NonNullable<ImportAi['assessResource']> = (input, tools, context) =>
-    new ResourceApplicabilityTask(this.runtime, input, tools).run(context);
+    new ResourceApplicabilityTask(this.config, input, tools)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   recommendFromSources: NonNullable<ImportAi['recommendFromSources']> = (input, tools, context) =>
-    new SourceRecommendationsTask(this.runtime, input, tools).run(context);
+    new SourceRecommendationsTask(this.config, input, tools)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   selectFieldSets: NonNullable<ImportAi['selectFieldSets']> = (input, tools, context) =>
-    new SelectFieldSetsTask(this.runtime, input, tools).run(context);
+    new SelectFieldSetsTask(this.config, input, tools)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   transcribe: ImportAi['transcribe'] = (source, context) =>
-    new TranscribeTask(this.runtime, source).run(context);
-  findResources: ImportAi['findResources'] = (input, context, searchCalls = this.searchCalls) =>
-    new FindResourcesTask(this.runtime, input, searchCalls, this.readPage).run(context);
-  suggestTasks: ImportAi['suggestTasks'] = (input, context, searchCalls = this.searchCalls) =>
-    new SuggestTasksTask(this.runtime, input, searchCalls).run(context);
+    new TranscribeTask(this.config, source).onTurnCompleted(this.onTurnCompleted).run(context);
+  findResources: ImportAi['findResources'] = (
+    input,
+    context,
+    searchCalls = this.config.discoverySearchCalls,
+  ) =>
+    new FindResourcesTask(this.config, input, searchCalls, this.readPage)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+  suggestTasks: ImportAi['suggestTasks'] = (
+    input,
+    context,
+    searchCalls = this.config.discoverySearchCalls,
+  ) =>
+    new SuggestTasksTask(this.config, input, searchCalls)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
   findPurchasables: ImportAi['findPurchasables'] = (
     input,
     context,
-    searchCalls = this.searchCalls,
-  ) => new FindPurchasablesTask(this.runtime, input, searchCalls).run(context);
+    searchCalls = this.config.discoverySearchCalls,
+  ) =>
+    new FindPurchasablesTask(this.config, input, searchCalls)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
 
   // Exposes source extraction for the existing evaluation and provider checks.
   extract(source: Source, categories: string[], context: AiContext) {
-    return new ExtractSourceTask(this.runtime, source, categories).run(context);
+    return new ExtractSourceTask(this.config, source, categories)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
   }
 
   // Exposes document extraction for the existing evaluation and provider checks.
@@ -89,11 +101,8 @@ export class OpenAiImports implements ImportAi {
     targets: EmptyResearchField[],
     context: AiContext,
   ) {
-    return new ExtractDocumentTask(
-      { ...this.runtime, model: this.documentModel },
-      document,
-      research,
-      targets,
-    ).run(context);
+    return new ExtractDocumentTask(this.config, document, research, targets)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
   }
 }

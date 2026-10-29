@@ -10,6 +10,7 @@ import * as attachmentsDb from '../../db/entities/attachments.js';
 import { updateAttachmentMetadata, validateAttachmentMetadata } from '../attachments.js';
 import { ensure } from '../errors.js';
 import { pdfPageCount } from '../../lib/pdf.js';
+import * as googleVision from '../../providers/google-vision/index.js';
 
 export class AttachmentTranscriptionProcessor {
   constructor(
@@ -18,6 +19,7 @@ export class AttachmentTranscriptionProcessor {
     private ai: ImportAi | undefined,
     private config: EnvConfig,
     private events: ApplicationEvents,
+    private readImageText = googleVision.readImageText,
   ) {}
 
   async recover() {
@@ -31,6 +33,10 @@ export class AttachmentTranscriptionProcessor {
     );
     if (!claimed) return false;
     const { file, ownerId } = claimed;
+    if (ownerId === null && file.mediaType.startsWith('image/')) {
+      await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'SKIPPED');
+      return true;
+    }
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
     const usage = file.transcriptionUsage ?? blankUsage(this.config.openaiModel),
       started = Date.now();
@@ -43,7 +49,6 @@ export class AttachmentTranscriptionProcessor {
         chunks.push(Buffer.from(chunk));
       }
       const content = Buffer.concat(chunks);
-      const source = { ...file, content };
       const context = {
         maxTextCharacters: this.config.importMaxTextCharacters,
         signal,
@@ -62,7 +67,23 @@ export class AttachmentTranscriptionProcessor {
           );
         },
       };
-      const result: SourceTranscription = await this.ai.transcribe(source, context);
+      const text = file.mediaType.startsWith('image/')
+        ? await this.readImageText(content, this.config.googleVisionApiKey, signal)
+        : undefined;
+      if (text !== undefined)
+        await context.record({
+          toolCalls: [
+            { name: 'google_vision_ocr', resultCount: text.trim() ? 1 : 0, truncated: false },
+          ],
+        });
+      const source =
+        text === undefined
+          ? { ...file, content }
+          : { filename: file.filename, mediaType: 'text/plain', content: Buffer.from(text) };
+      const result: SourceTranscription =
+        text !== undefined && !text.trim()
+          ? { text, summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
+          : await this.ai.transcribe(source, context);
       signal.throwIfAborted();
       ensure(
         typeof result.text === 'string' &&
@@ -74,6 +95,7 @@ export class AttachmentTranscriptionProcessor {
         'Invalid transcription',
       );
       if (file.mediaType === 'text/plain') result.text = content.toString('utf8');
+      if (text !== undefined) result.text = text;
       ensure(
         (result.identifiers ?? []).length <= 30 &&
           (result.identifiers ?? []).every(

@@ -2,9 +2,9 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { importInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions, taskRecommendationInstructions } from '../prompts.js';
 import type {
   SourceRecommendationsInput,
   SourceRecommendations,
@@ -17,18 +17,20 @@ import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
 export const schema = createObjectSchema(
   {
     tasks: {
-      description: 'Tasks recommended by source.',
+      description: 'Distinct maintenance and administration actions justified by source content.',
       type: 'array',
       maxItems: 8,
       items: createObjectSchema(
         {
           title: {
             type: 'string',
-            description: 'Action title, up to 200 characters.',
+            description:
+              'Verb and object naming the work, with only qualifiers needed to identify it, up to 200 characters.',
           },
           description: {
             type: 'string',
-            description: 'Instructions and relevant intervals, up to 4000 characters.',
+            description:
+              'Source-supported frequency, triggers, methods, precautions and evidence requirements, up to 4000 characters.',
           },
           ...sourceEvidenceProperties,
         },
@@ -68,23 +70,24 @@ export const schema = createObjectSchema(
 );
 
 export class SourceRecommendationsTask extends AiTask<
-  components['schemas']['SourceRecommendations']
+  components['schemas']['SourceRecommendations'],
+  SourceRecommendations
 > {
   protected task = 'source_recommendations';
-  protected instructions = importInstructions;
+  protected instructions = `${thingImportInstructions} ${taskRecommendationInstructions}`;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: SourceRecommendationsInput,
     tools: WorkflowTools,
   ) {
-    super(runtime);
+    super(config);
     this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext): Promise<SourceRecommendations> {
+  async run(context: AiContext) {
     return this.processResponse(
       await this.execute(
         [

@@ -101,11 +101,11 @@ export interface components {
         };
         /** @description Recommendations justified by linked Attachment content. */
         SourceRecommendations: {
-            /** @description Tasks recommended by source. */
+            /** @description Distinct maintenance and administration actions justified by source content. */
             tasks: {
-                /** @description Action title, up to 200 characters. */
+                /** @description Verb and object naming the work, with only qualifiers needed to identify it, up to 200 characters. */
                 title: string;
-                /** @description Instructions and relevant intervals, up to 4000 characters. */
+                /** @description Source-supported frequency, triggers, methods, precautions and evidence requirements, up to 4000 characters. */
                 description: string;
                 /** @description Attachment ID copied from the supplied source. */
                 attachmentId: string;
@@ -363,9 +363,9 @@ export interface components {
         TaskSuggestions: {
             /** @description Up to eight distinct supported tasks; empty when none are established. */
             items: {
-                /** @description Short action title naming the task (min 1 char, max 200 chars). */
+                /** @description Verb and object naming the work, with only qualifiers needed to identify it (min 1 char, max 200 chars). */
                 title: string;
-                /** @description Supported instructions, intervals and conditions, with no inferred next date (min 1 char, max 4000 chars). */
+                /** @description Source-supported frequency, triggers, methods, precautions and evidence requirements, with no inferred next date (min 1 char, max 4000 chars). */
                 description: string;
                 /** @description Supporting URL observed through web search (min 1 char, max 2000 chars). */
                 sourceUrl: string;

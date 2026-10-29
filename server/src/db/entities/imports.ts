@@ -12,13 +12,14 @@ import { importedName } from '../../application/import/naming.js';
 
 export interface WorkflowCheckpoint {
   done: string[];
+  failure?: { stage: string | undefined; reason: string };
   selected?: ThingCandidate;
   isNew?: boolean;
   stage?: string;
   discovery?: Discovery;
   resourceIds: string[];
   excludedIds: string[];
-  warnings: { stage: string; warning: Schema['ImportWarning'] }[];
+  warnings: { stage: string; warning: Schema['ImportWarning']; reason?: string }[];
 }
 export interface ImportRow {
   id: string;
@@ -333,6 +334,7 @@ export async function requeueImport(db: Database, job: ImportRow) {
   const sourceFailures = failed.length > 0;
   await saveWorkflow(db, job, {
     ...job.workflow,
+    failure: undefined,
     done: job.workflow.done.filter(
       (key) =>
         !sourceFailures ||

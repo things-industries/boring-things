@@ -6,6 +6,32 @@ import type { FieldDefinition, Schema, Value } from '../../../../shared/model.js
 import type { AiContext } from '../../providers/ai/types.js';
 import type { FieldProposal } from '../thing-fields.js';
 
+// Describes failures using fixed messages and database codes without source or provider content.
+export function getImportFailureReason(error: unknown): string {
+  if (!(error instanceof Error)) return 'import_failed';
+  if ('code' in error && typeof error.code === 'string' && /^[A-Z0-9]{5}$/.test(error.code))
+    return 'database_' + error.code;
+  if (error.message.startsWith('Invalid value for ')) return 'Invalid field value';
+  return [
+    'Invalid AI output',
+    'AI response incomplete',
+    'ai_provider_failed',
+    'Wrong additional source',
+    'Invalid source evidence',
+    'Invalid source page',
+    'Quote does not match source page',
+    'Invalid additional information',
+    'Invalid additional field',
+    'Invalid field membership',
+    'source_removed',
+    'source_changed',
+    'tool_limit',
+    'text_limit',
+  ].includes(error.message) || /^ai_http_\d{3}$/.test(error.message)
+    ? error.message
+    : 'import_failed';
+}
+
 export interface Fact {
   id: string;
   label: string;
@@ -311,7 +337,13 @@ export interface ResourceApplicabilityInput {
 
 export interface SourceRecommendationsInput {
   thing: AdditionalInformationInput['thing'];
-  fields: { id: string; value: Value | null }[];
+  fields: {
+    id: string;
+    label: string;
+    description: string;
+    schema: FieldDefinition['schema'] | null;
+    value: Value | null;
+  }[];
   sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
   existingTasks: TaskResearch['existingTasks'];
   existingPurchasables: PurchasableResearch['existingPurchasables'];

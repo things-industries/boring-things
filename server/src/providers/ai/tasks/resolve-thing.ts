@@ -1,9 +1,9 @@
 /** Thing resolution task, proposes candidates and identifier matches from saved sources. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext } from '../types.js';
-import { AiTask, type TaskRuntime } from './task.js';
-import { importInstructions } from '../prompts.js';
+import type { AiContext, AiConfig } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions } from '../prompts.js';
 import type {
   ResolutionInput,
   ResolutionResult,
@@ -88,22 +88,25 @@ export const schema = createObjectSchema(
   'Candidate identity and matching decision.',
 );
 
-export class ResolveThingTask extends AiTask<components['schemas']['Resolution']> {
+export class ResolveThingTask extends AiTask<
+  components['schemas']['Resolution'],
+  ResolutionResult
+> {
   protected task = 'thing_resolution';
-  protected instructions = importInstructions;
+  protected instructions = thingImportInstructions;
   protected schema = schema;
 
   constructor(
-    runtime: TaskRuntime,
+    config: AiConfig,
     private input: ResolutionInput,
     tools: WorkflowTools,
   ) {
-    super(runtime);
+    super(config);
     this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext): Promise<ResolutionResult> {
+  async run(context: AiContext) {
     return this.parseOutput(
       await this.execute(
         [

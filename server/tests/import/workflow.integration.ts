@@ -6,7 +6,11 @@ import * as attachmentsDb from '../../src/db/entities/attachments.js';
 import { setTimeout } from 'node:timers/promises';
 import { startTestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
-import type { ResearchThing } from '../../src/application/import/types.js';
+import type {
+  ImportAi,
+  ResearchThing,
+  SourceRecommendationsInput,
+} from '../../src/application/import/types.js';
 
 test('contextual Import and Recommendation preserve owner fields and retry unfinished work', async () => {
   const app = await startTestApp({ importWorkflow: { specialists: [] } });
@@ -96,6 +100,12 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
       return result;
     };
     const researchNames: (string | undefined)[] = [];
+    let recommendationFields: SourceRecommendationsInput['fields'] = [];
+    const importAi: ImportAi = env.importAi;
+    importAi.recommendFromSources = async ({ fields }) => {
+      recommendationFields = fields;
+      return { tasks: [], purchasables: [] };
+    };
     const request = (method: 'GET' | 'POST' | 'DELETE' | 'PATCH', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
     const baseTranscribe = env.importAi.transcribe.bind(env.importAi);
@@ -170,6 +180,11 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     const job = await wait(submit.json<Schema['ImportAccepted']>().importId);
     assert.equal(job.status, 'COMPLETE', JSON.stringify(job));
     assert.deepEqual(researchNames, ['Example oven (2021)']);
+    const model = recommendationFields.find((field) => field.id === 'common.model');
+    assert.equal(model?.value, 'X1');
+    assert.equal(model?.label, 'Model');
+    assert.ok(model?.description);
+    assert.equal(model?.schema?.type, 'string');
     assert.equal(job.thingIds.length, 1);
     const first = job.thingIds[0];
     const shared = (
@@ -310,6 +325,99 @@ test('retry transcribes a failed source and links its evidence to the existing t
         .flatMap((set) => set.fields)
         .find((field) => field.id === 'appliances.zNumber')?.value,
       '0015',
+    );
+  } finally {
+    await env.close();
+  }
+});
+
+// Source recommendation validation escaped optional-failure handling and aborted the refresh.
+test('invalid recommendation citations remain retryable while persistence failures abort the refresh', async () => {
+  const env = await startTestApp();
+  try {
+    const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
+      env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
+    const created = await request('POST', '/api/things', {
+      name: 'Fixture policy',
+      categoryId: 'insurance',
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const thingId = created.json<Schema['Thing']>().id;
+    const source = randomUUID();
+    await env.pool.query(
+      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,page_count,transcription,transcription_status)
+       select $1,owner_id,'policy.pdf','application/pdf',1,'fixture-policy',2,$3,'COMPLETE' from bt.things where id=$2`,
+      [source, thingId, '[PDF page 1]\nCheck the renewal terms.\n[PDF page 2]\nContact details.'],
+    );
+    await env.pool.query(
+      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      [source, thingId],
+    );
+    let page = 2,
+      title = 'Review the policy',
+      publicResearchCalls = 0;
+    env.importAi.recommendFromSources = async () => ({
+      tasks: [
+        {
+          title,
+          description: 'Check the renewal terms.',
+          sourceRefs: [{ attachmentId: source, page, quote: 'Check the renewal terms.' }],
+        },
+      ],
+      purchasables: [],
+    });
+    env.importAi.suggestTasks = async () => {
+      publicResearchCalls++;
+      return { items: [] };
+    };
+    const wait = async (id: string) => {
+      for (let n = 0; n < 250; n++) {
+        const job = (await request('GET', '/api/imports/' + id)).json<Schema['Import']>();
+        if (['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(job.status)) return job;
+        await setTimeout(20);
+      }
+      throw new Error('Recommendation timed out');
+    };
+    const submitted = await request('POST', `/api/things/${thingId}:recommend`);
+    assert.equal(submitted.statusCode, 202, submitted.body);
+    const id = submitted.json<Schema['ImportAccepted']>().importId;
+    const rejected = await wait(id);
+    assert.equal(rejected.status, 'COMPLETE', JSON.stringify(rejected));
+    assert.equal(rejected.error, null);
+    assert.ok(rejected.warnings?.some((warning) => warning.code === 'RESEARCH_FAILED'));
+    const saved = await env.pool.query<{ workflow: { warnings: { reason?: string }[] } }>(
+      'select workflow from bt.imports where id=$1',
+      [id],
+    );
+    assert.equal(saved.rows[0].workflow.warnings[0].reason, 'Quote does not match source page');
+    assert.equal(publicResearchCalls, 1);
+    assert.equal(
+      (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
+      0,
+    );
+
+    page = 1;
+    assert.equal((await request('POST', `/api/imports/${id}:retry`)).statusCode, 200);
+    const retried = await wait(id);
+    assert.equal(retried.status, 'COMPLETE');
+    assert.equal(retried.warnings?.length, 0);
+    assert.equal(
+      (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
+      1,
+    );
+
+    await env.pool
+      .query(`create function bt.reject_fixture_event() returns trigger language plpgsql as $$
+      begin raise exception 'Fixture persistence failure'; end $$;
+      create trigger reject_fixture_event before insert on bt.events for each row execute function bt.reject_fixture_event()`);
+    title = 'Review the cover';
+    const failed = await request('POST', `/api/things/${thingId}:recommend`);
+    const unsaved = await wait(failed.json<Schema['ImportAccepted']>().importId);
+    assert.equal(unsaved.status, 'INCOMPLETE');
+    assert.equal(unsaved.error, 'import_failed');
+    assert.equal(
+      (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
+      1,
     );
   } finally {
     await env.close();
