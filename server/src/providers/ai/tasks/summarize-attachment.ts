@@ -82,6 +82,7 @@ export class SummarizeAttachmentTask extends AiTask<
   protected task = 'summarize_attachment';
   protected instructions = importInstructions;
   protected schema = schema;
+  protected resultKey = 'identifiers' as const;
 
   constructor(
     config: AiConfig,
@@ -91,7 +92,7 @@ export class SummarizeAttachmentTask extends AiTask<
   }
 
   // Summarizes bounded text portions and merges their metadata and identifiers.
-  async run(context: AiContext) {
+  protected async runTask(context: AiContext) {
     const { text } = this;
     const outputs: components['schemas']['AttachmentSummary'][] = [];
     const available =
@@ -129,7 +130,12 @@ export class SummarizeAttachmentTask extends AiTask<
         ],
         context,
       );
-      outputs.push(this.parseOutput(response));
+      const output = this.parseOutput(response);
+      this.reportMetrics({
+        termCount: output.terms.length,
+        summaryCharacters: output.summary?.length ?? 0,
+      });
+      outputs.push(output);
     }
     return this.processResponse(outputs);
   }

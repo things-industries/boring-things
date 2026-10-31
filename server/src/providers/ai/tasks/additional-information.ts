@@ -59,6 +59,7 @@ export class AdditionalInformationTask extends AiTask<
   protected task = 'additional_information';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'findings' as const;
 
   constructor(
     config: AiConfig,
@@ -69,7 +70,7 @@ export class AdditionalInformationTask extends AiTask<
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: ImportTaskContext) {
+  protected async runTask(context: ImportTaskContext) {
     this.tools = [
       createTranscriptionTool(context),
       createFieldsTool(context, this.registryResources),

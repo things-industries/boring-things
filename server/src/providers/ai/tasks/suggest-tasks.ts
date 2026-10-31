@@ -84,6 +84,7 @@ export class SuggestTasksTask extends RecommendationTask<
   protected task = 'task_suggestions';
   protected instructions = `${recommendationInstructions} ${taskRecommendationInstructions}`;
   protected schema = schema;
+  protected resultKey = 'items' as const;
 
   constructor(
     config: AiConfig,
@@ -94,7 +95,7 @@ export class SuggestTasksTask extends RecommendationTask<
   }
 
   // Reads attachments and researches missing evidence before returning cited suggestions.
-  async run(context: ImportTaskContext) {
+  protected async runTask(context: ImportTaskContext) {
     this.registerSourceTool(context);
     if (!this.input.knownFields.length && !this.input.sources.length) return { items: [] };
     const response = await this.execute(suggestTasksPrompt(this.input, this.searchCalls), context);
@@ -104,7 +105,7 @@ export class SuggestTasksTask extends RecommendationTask<
   // Checks observed sources and converts model citations into application references.
   private processResponse(response: Response): TaskSuggestions {
     const result = this.parseOutput(response);
-    return {
+    const output: TaskSuggestions = {
       items: result.items
         .map((item) => ({
           title: item.title,
@@ -118,5 +119,7 @@ export class SuggestTasksTask extends RecommendationTask<
             ),
         ),
     };
+    this.reportMetrics({ validCount: output.items.length });
+    return output;
   }
 }

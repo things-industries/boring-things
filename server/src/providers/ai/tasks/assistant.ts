@@ -247,7 +247,7 @@ export class AssistantTask extends AiTask<never, string, ChatContext> {
   }
 
   // Streams the answer while the shared executor handles sequential tool results.
-  async run(context: ChatContext) {
+  protected async runTask(context: ChatContext) {
     this.tools = this.createTools(context);
     const conversation: ResponseInput = this.input.messages.map((message) => ({
       ...message,
@@ -259,6 +259,7 @@ export class AssistantTask extends AiTask<never, string, ChatContext> {
       answer += text;
       context.delta(text);
     });
+    this.reportMetrics({ textCharacters: answer.length });
     return answer;
   }
 

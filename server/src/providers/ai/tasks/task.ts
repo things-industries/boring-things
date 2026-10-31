@@ -56,12 +56,14 @@ export abstract class AiTask<
 > {
   private client: OpenAI;
   private turnCompleted?: AiTurnCompleted;
+  private pendingTurn?: Parameters<AiTurnCompleted>[0];
   protected abstract readonly model: string;
   protected abstract readonly effort: ReasoningEffort;
   protected maxTextCharacters: number;
   protected abstract task: string;
   protected abstract instructions: string;
   protected schema?: Record<string, unknown>;
+  protected resultKey?: keyof Output & string;
   protected tools: TaskTool[] = [];
   protected toolRounds = 31;
   protected parallelToolCalls = false;
@@ -71,8 +73,32 @@ export abstract class AiTask<
     this.maxTextCharacters = config.importMaxTextCharacters;
   }
 
-  // Runs the task and returns its application result.
-  abstract run(context: Context): Promise<Result>;
+  // Runs the task and logs its last response after output validation and conversion.
+  async run(context: Context): Promise<Result> {
+    try {
+      return await this.runTask(context);
+    } catch (error) {
+      if (this.pendingTurn?.metrics.aiCount !== undefined) this.reportMetrics({ validCount: 0 });
+      throw error;
+    } finally {
+      this.logTurn();
+    }
+  }
+
+  // Implements task-specific requests and result conversion.
+  protected abstract runTask(context: Context): Promise<Result>;
+
+  // Adds task measurements to the current response without logging its content.
+  protected reportMetrics(metrics: Record<string, number>) {
+    if (this.pendingTurn) Object.assign(this.pendingTurn.metrics, metrics);
+  }
+
+  // Emits each completed response once, including responses rejected during task processing.
+  private logTurn() {
+    const turn = this.pendingTurn;
+    this.pendingTurn = undefined;
+    if (turn) this.turnCompleted?.(turn);
+  }
 
   // Registers the callback for completed model turns.
   onTurnCompleted(callback?: AiTurnCompleted): this {
@@ -171,9 +197,17 @@ export abstract class AiTask<
     } catch {
       throw new Error('Invalid AI output');
     }
+
+    // Count proposals before schema validation so rejected outputs still report raw counts.
+    const items: unknown =
+      this.resultKey && output !== null && typeof output === 'object' && this.resultKey in output
+        ? Reflect.get(output, this.resultKey)
+        : undefined;
+    if (Array.isArray(items)) this.reportMetrics({ aiCount: items.length, validCount: 0 });
     ensure(this.schema, 'Missing AI output schema');
     const valid = ajv.compile<Output>(this.schema);
     ensure(valid(output), 'Invalid AI output');
+    if (Array.isArray(items)) this.reportMetrics({ validCount: items.length });
     return output;
   }
 
@@ -185,6 +219,7 @@ export abstract class AiTask<
     delta?: (text: string) => void,
     task = this.task,
   ): Promise<Response> {
+    this.logTurn();
     context.signal.throwIfAborted();
     const characters = inputCharacters(input);
     ensure(
@@ -248,8 +283,9 @@ export abstract class AiTask<
     };
     const entry = { ...usage, task, elapsedMs: Date.now() - started };
     if (result.status === 'completed')
-      this.turnCompleted?.({
-        ...entry,
+      this.pendingTurn = {
+        task,
+        model: usage.model,
         toolCalls: result.output.flatMap((item) =>
           item.type === 'function_call'
             ? [item.name]
@@ -257,7 +293,12 @@ export abstract class AiTask<
               ? ['web_search']
               : [],
         ),
-      });
+        metrics: {
+          tokens: [usage.inputTokens, usage.outputTokens],
+          elapsedMs: entry.elapsedMs,
+          ...(!this.schema ? { textCharacters: responseText(result).length } : {}),
+        },
+      };
     await context.record({ ...usage, entries: [entry] });
     ensure(result.status === 'completed' && Array.isArray(result.output), 'AI response incomplete');
     return result;

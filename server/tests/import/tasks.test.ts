@@ -9,6 +9,7 @@ import type { PopulationInput, Usage } from '../../src/application/import/types.
 import { createImportTaskContext } from '../../test/support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
 import { readConfig } from '../../src/config.js';
+import type { AiTurnCompleted } from '../../src/providers/ai/types.js';
 import { thingDefinition } from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
 import { AdditionalInformationTask } from '../../src/providers/ai/tasks/additional-information.js';
@@ -35,6 +36,7 @@ function response(output: object[]) {
 
 test('field population awaits source retrieval before continuing the model conversation', async (t) => {
   t.after(() => mock.restoreAll());
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   let requests = 0,
     retrieved = false;
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
@@ -87,7 +89,7 @@ test('field population awaits source retrieval before continuing the model conve
       },
     ]);
   });
-  const ai = new OpenAiImports(config);
+  const ai = new OpenAiImports(config, (turn) => turns.push(turn));
   const result = await ai.populateFields(
     input,
     createImportTaskContext({
@@ -107,6 +109,12 @@ test('field population awaits source retrieval before continuing the model conve
     sourceRefs: [{ attachmentId: 'source', quote: 'Model AX1' }],
   });
   assert.equal(requests, 2);
+  assert.equal(turns.length, 2);
+  assert.deepEqual(turns[0].toolCalls, ['search_transcription']);
+  assert.equal(turns[0].metrics.aiCount, undefined);
+  assert.deepEqual(turns[1].toolCalls, []);
+  assert.equal(turns[1].metrics.aiCount, 1);
+  assert.equal(turns[1].metrics.validCount, 1);
 });
 
 test('Thing resolution receives the definition and reports each turn through its registered callback', async (t) => {
@@ -279,6 +287,7 @@ test('an oversized task stops before contacting the model', async (t) => {
 // The shared task text cap rejected a parsed document before its transcription could be saved.
 test('attachment summaries use bounded text requests without requesting or returning source text', async (t) => {
   t.after(() => mock.restoreAll());
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   let requests = 0;
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     requests++;
@@ -313,8 +322,21 @@ test('attachment summaries use bounded text requests without requesting or retur
     ]);
   });
   const text = 'x'.repeat(180000);
-  const result = await new OpenAiImports(config).summarizeAttachment(text, createContext());
+  const result = await new OpenAiImports(config, (turn) => turns.push(turn)).summarizeAttachment(
+    text,
+    createContext(),
+  );
   assert.equal(requests, 3);
+  assert.equal(turns.length, 3);
+  assert.ok(
+    turns.every(
+      ({ metrics }) =>
+        metrics.aiCount === 0 &&
+        metrics.validCount === 0 &&
+        metrics.termCount === 1 &&
+        metrics.summaryCharacters === 11,
+    ),
+  );
   assert.ok(!Object.hasOwn(result, 'text'));
   assert.equal(result.summary, 'Long source\nLong source\nLong source');
   assert.deepEqual(result.terms, ['source']);

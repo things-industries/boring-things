@@ -89,6 +89,7 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<
       task,
     );
     const { sources } = await readWebResult(response, context, remaining);
+    this.reportMetrics({ sourceCount: sources.length });
     this.webCalls += response.output.filter((item) => item.type === 'web_search_call').length;
     sources.forEach((url) => this.observedUrls.add(url));
     return response;

@@ -98,6 +98,7 @@ export class ResolveThingTask extends AiTask<
   protected task = 'thing_resolution';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'candidates' as const;
 
   constructor(
     config: AiConfig,
@@ -107,7 +108,7 @@ export class ResolveThingTask extends AiTask<
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: ImportTaskContext) {
+  protected async runTask(context: ImportTaskContext) {
     this.tools = [createTranscriptionTool(context)];
     return this.parseOutput(
       await this.execute(

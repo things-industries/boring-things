@@ -81,6 +81,7 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 - Every automatic field writer uses current `autoPopulate` permissions under a Thing row lock. Manual values and explicit removals disable population; empty manually added registry fields remain enabled.
 - Queued Imports permit Thing edits. Active jobs protect their target; unlinking remains allowed and records a decision automatic work must preserve.
 - Recommendation runs at Import completion and through its own persisted entrypoint. Use one task for management tasks and one for purchasables. Each may read private Attachment evidence and saved fields and formulate public web queries in the same conversation; queries use public model and provider details. Keep optional provider failures recoverable and persistence failures fatal.
+- Provider completion logs put task first and group measurements under `metrics`; log tokens as `[input, output]`. Include task result counts before and after provider validation where available. Keep cached and derived total token fields out of logs.
 - Use the shared `AiTask` foundation for typed tools, structured outputs, cancellation and usage. Bound source retrieval, text, tool calls and model requests.
 
 - Helpers that advance conversation history return the updated history; callers assign it explicitly. Do not mutate supplied history arrays.

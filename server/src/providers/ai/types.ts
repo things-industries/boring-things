@@ -23,4 +23,15 @@ export interface AiContext {
   record(usage: Partial<Schema['ImportUsage']>): Promise<void>;
 }
 
-export type AiTurnCompleted = (usage: Schema['AiUsageEntry'] & { toolCalls: string[] }) => void;
+export interface AiTurnMetrics {
+  tokens: [input: number, output: number];
+  elapsedMs: number;
+  [name: string]: number | [number, number];
+}
+
+export type AiTurnCompleted = (turn: {
+  task: string;
+  model: string;
+  toolCalls: string[];
+  metrics: AiTurnMetrics;
+}) => void;

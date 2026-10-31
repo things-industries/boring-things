@@ -94,6 +94,7 @@ export class FindPurchasablesTask extends RecommendationTask<
   protected task = 'purchasable_suggestions';
   protected instructions = `${recommendationInstructions} ${purchasableRecommendationInstructions}`;
   protected schema = schema;
+  protected resultKey = 'items' as const;
 
   constructor(
     config: AiConfig,
@@ -104,7 +105,7 @@ export class FindPurchasablesTask extends RecommendationTask<
   }
 
   // Reads attachments and researches missing evidence before returning cited suggestions.
-  async run(context: ImportTaskContext) {
+  protected async runTask(context: ImportTaskContext) {
     this.registerSourceTool(context);
     if (!this.input.knownFields.length && !this.input.sources.length) return { items: [] };
     const response = await this.execute(
@@ -117,7 +118,7 @@ export class FindPurchasablesTask extends RecommendationTask<
   // Checks observed sources and converts model citations into application references.
   private processResponse(response: Response): PurchasableSuggestions {
     const result = this.parseOutput(response);
-    return {
+    const output: PurchasableSuggestions = {
       items: result.items
         .map((item) => {
           const sourceRefs = this.getSourceRefs(item.sourceRefs);
@@ -146,5 +147,7 @@ export class FindPurchasablesTask extends RecommendationTask<
             ),
         ),
     };
+    this.reportMetrics({ validCount: output.items.length });
+    return output;
   }
 }

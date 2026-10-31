@@ -68,6 +68,7 @@ export class PopulateFieldsTask extends AiTask<
   protected task = 'field_population';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'values' as const;
 
   constructor(
     config: AiConfig,
@@ -77,7 +78,7 @@ export class PopulateFieldsTask extends AiTask<
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: ImportTaskContext) {
+  protected async runTask(context: ImportTaskContext) {
     this.tools = [createTranscriptionTool(context)];
     return this.processResponse(
       await this.execute(

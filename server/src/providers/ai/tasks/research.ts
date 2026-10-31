@@ -29,12 +29,14 @@ export class ResearchTask extends AiTask<never, ResearchAnswer> {
   }
 
   // Answers the supplied question and exposes only observed citation URLs.
-  async run(context: AiContext) {
+  protected async runTask(context: AiContext) {
     const response = await this.execute(
       chatResearchPrompt(this.question, this.fields, this.searchCalls),
       context,
       createWebSearchOptions(this.searchCalls, 'cited'),
     );
-    return readWebResult(response, context, this.searchCalls, 'cited');
+    const result = await readWebResult(response, context, this.searchCalls, 'cited');
+    this.reportMetrics({ sourceCount: result.sources.length });
+    return result;
   }
 }

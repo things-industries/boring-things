@@ -122,6 +122,7 @@ export class ExtractDocumentTask extends AiTask<
   protected task = 'document_extraction';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'values' as const;
 
   constructor(
     config: AiConfig,
@@ -133,7 +134,7 @@ export class ExtractDocumentTask extends AiTask<
   }
 
   // Extracts only the requested document field batch.
-  async run(context: AiContext) {
+  protected async runTask(context: AiContext) {
     ensure(this.targets.length <= 20, 'Document extraction limit exceeded');
     const { content } = await createSourceInput(this.document, context.signal);
     const response = await this.execute(

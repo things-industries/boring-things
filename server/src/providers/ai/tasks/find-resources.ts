@@ -116,6 +116,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
   protected task = 'research_structure';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'items' as const;
 
   constructor(
     config: AiConfig,
@@ -127,7 +128,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
   }
 
   // Searches public sources before structuring their observed download links.
-  async run(context: AiContext) {
+  protected async runTask(context: AiContext) {
     const response = await this.requestResponse(
       resourceSearchPrompt(this.input, this.searchCalls),
       context,
@@ -136,6 +137,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
       'research',
     );
     const { text, sources } = await readWebResult(response, context, this.searchCalls);
+    this.reportMetrics({ sourceCount: sources.length });
     if (!sources.length) return { items: [], sources: [] };
     const pages = await Promise.all(
       sources

@@ -142,6 +142,7 @@ export class ExtractSourceTask extends AiTask<components['schemas']['Extraction'
   protected task = 'source_extraction';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'candidates' as const;
 
   constructor(
     config: AiConfig,
@@ -152,7 +153,7 @@ export class ExtractSourceTask extends AiTask<components['schemas']['Extraction'
   }
 
   // Reads one source and converts candidates to the application extraction shape.
-  async run(context: AiContext) {
+  protected async runTask(context: AiContext) {
     const { content, text } = await createSourceInput(this.source, context.signal);
     const response = await this.execute(
       [
@@ -172,6 +173,9 @@ export class ExtractSourceTask extends AiTask<components['schemas']['Extraction'
   // Keeps supplied text and translates the model's candidate collection.
   private processResponse(response: Response, text?: string): Extraction {
     const output = this.parseOutput(response);
+    this.reportMetrics({
+      factCount: output.candidates.reduce((count, item) => count + item.facts.length, 0),
+    });
     return {
       text: text ?? output.text,
       metadata: output.metadata,

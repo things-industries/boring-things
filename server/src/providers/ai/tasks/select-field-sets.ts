@@ -39,6 +39,7 @@ export class SelectFieldSetsTask extends AiTask<
   protected task = 'field_selection';
   protected instructions = thingImportInstructions;
   protected schema = schema;
+  protected resultKey = 'setIds' as const;
 
   constructor(
     config: AiConfig,
@@ -49,7 +50,7 @@ export class SelectFieldSetsTask extends AiTask<
   }
 
   // Selects fieldsets without proposing field values.
-  async run(context: ImportTaskContext) {
+  protected async runTask(context: ImportTaskContext) {
     this.tools = [createFieldSetsTool(context, this.registryResources)];
     const response = await this.execute(
       [{ role: 'user', content: selectFieldSetsPrompt(this.input) }],

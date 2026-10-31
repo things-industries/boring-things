@@ -109,7 +109,18 @@ test('assistant research answers the supplied question in one bounded request wi
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(entries[0].entries?.[0].task, 'research');
   assert.equal(entries[0].cachedTokens, 4);
-  assert.deepEqual(turns, [{ ...entries[0].entries![0], toolCalls: ['web_search', 'web_search'] }]);
+  assert.equal(turns.length, 1);
+  assert.deepEqual(turns[0], {
+    task: 'research',
+    model: 'gpt-6.1-sol',
+    toolCalls: ['web_search', 'web_search'],
+    metrics: {
+      tokens: [20, 8],
+      elapsedMs: entries[0].entries![0].elapsedMs,
+      textCharacters: 32,
+      sourceCount: 3,
+    },
+  });
   assert.deepEqual(
     entries.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.resultCount),
     [100, 1],
@@ -119,7 +130,7 @@ test('assistant research answers the supplied question in one bounded request wi
     protected readonly effort = 'low';
     protected task = 'research';
     protected instructions = 'Find public manuals.';
-    async run(context: AiContext) {
+    protected async runTask(context: AiContext) {
       return readWebResult(
         await this.execute('Find manuals', context, createWebSearchOptions(2)),
         context,
@@ -243,26 +254,22 @@ test('Responses streaming collects split frames, passes function results and rec
   assert.equal(tokens, 10);
   assert.equal(requests, 2);
   assert.deepEqual(
-    turns.map(({ elapsedMs, ...entry }) => {
+    turns.map(({ metrics: { elapsedMs, ...metrics }, ...entry }) => {
       assert.ok(elapsedMs >= 0);
-      return entry;
+      return { ...entry, metrics };
     }),
     [
       {
         task: 'assistant_response',
         model: 'gpt-6.1-sol',
-        inputTokens: 4,
-        outputTokens: 2,
-        cachedTokens: 0,
         toolCalls: ['search_things'],
+        metrics: { tokens: [4, 2], textCharacters: 0 },
       },
       {
         task: 'assistant_response',
         model: 'gpt-6.1-sol',
-        inputTokens: 6,
-        outputTokens: 3,
-        cachedTokens: 2,
         toolCalls: [],
+        metrics: { tokens: [6, 3], textCharacters: 14 },
       },
     ],
   );

@@ -450,9 +450,20 @@ test('SDK document extraction uses its task model, contained schema and per-task
   assert.equal(usage[0].entries?.[0].model, 'gpt-6-luna');
   assert.equal(usage[0].entries?.[0].inputTokens, 25);
   assert.equal(usage[0].cachedTokens, 5);
-  assert.deepEqual(turns, [{ ...usage[0].entries![0], toolCalls: [] }]);
-  assert.equal(turns[0].outputTokens, 10);
-  assert.ok(turns[0].elapsedMs >= 0);
+  assert.deepEqual(turns, [
+    {
+      task: 'document_extraction',
+      model: 'gpt-6-luna',
+      toolCalls: [],
+      metrics: {
+        tokens: [25, 10],
+        elapsedMs: usage[0].entries![0].elapsedMs,
+        aiCount: 0,
+        validCount: 0,
+      },
+    },
+  ]);
+  assert.ok(turns[0].metrics.elapsedMs >= 0);
 });
 
 test('AI attachment metadata validates calendar dates without unknown-format warnings', async (t) => {
@@ -489,6 +500,7 @@ test('AI attachment metadata validates calendar dates without unknown-format war
 });
 
 test('SDK task suggestions research mapped public fields in one bounded structured request', async (t) => {
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   const url = 'https://manufacturer.example/manual';
   const requests: Record<string, unknown>[] = [];
   const entries: Partial<Usage>[] = [];
@@ -542,7 +554,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       usage: { input_tokens: 25, output_tokens: 10 },
     });
   });
-  const ai = new OpenAiImports(config);
+  const ai = new OpenAiImports(config, (turn) => turns.push(turn));
   const suggestions = await ai.suggestTasks(
     research,
     {
@@ -579,6 +591,13 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     ),
     { items: [] },
   );
+  assert.deepEqual(
+    turns.map(({ metrics }) => [metrics.aiCount, metrics.validCount]),
+    [
+      [1, 1],
+      [1, 0],
+    ],
+  );
   sourceUrl = 'https://invented.example/manual';
   await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
   sourceUrl = 'http://localhost/private';
@@ -590,9 +609,22 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     items: [],
   });
   assert.equal(fetch.mock.callCount(), before);
+  assert.equal(turns.length, before);
+  assert.deepEqual(
+    turns.map(({ metrics }) => [metrics.aiCount, metrics.validCount]),
+    [
+      [1, 1],
+      [1, 0],
+      [1, 0],
+      [1, 0],
+      [1, 0],
+    ],
+  );
+  assert.ok(!JSON.stringify(turns).includes(item.title));
 });
 
 test('SDK purchasable research discovers products and purchase links within one bounded operation', async (t) => {
+  const turns: Parameters<AiTurnCompleted>[0][] = [];
   const url = 'https://manufacturer.example/filter-0015';
   const requests: Record<string, unknown>[] = [];
   let product = {
@@ -621,7 +653,7 @@ test('SDK purchasable research discovers products and purchase links within one 
       output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
     });
   });
-  const ai = new OpenAiImports(config);
+  const ai = new OpenAiImports(config, (turn) => turns.push(turn));
   const research = {
     categoryId: 'appliances',
     knownFields: [
@@ -670,4 +702,13 @@ test('SDK purchasable research discovers products and purchase links within one 
     items: [],
   });
   assert.equal(fetch.mock.callCount(), before);
+  assert.equal(turns.length, before);
+  assert.deepEqual(
+    turns.map(({ metrics }) => [metrics.aiCount, metrics.validCount]),
+    [
+      [1, 1],
+      [1, 0],
+      [1, 0],
+    ],
+  );
 });

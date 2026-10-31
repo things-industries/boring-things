@@ -85,11 +85,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     const { importAi, chatAi } = createAi(
       config,
       options,
-      (usage) =>
-        app.log.info(
-          { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
-          'AI turn completed',
-        ),
+      (turn) => app.log.info(turn, 'AI turn completed'),
       { db: dbPool, registry },
     );
     await app.register(routes.configRoutes, {
@@ -126,7 +122,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
               const started = Date.now();
               const text = await googleVision.readImageText(content, key, signal);
               app.log.info(
-                { metrics: { elapsedMs: Date.now() - started, imageCount: 1 } },
+                {
+                  task: 'image_ocr',
+                  metrics: {
+                    elapsedMs: Date.now() - started,
+                    imageCount: 1,
+                    textCharacters: text.length,
+                  },
+                },
                 'Google Vision OCR completed',
               );
               return text;
