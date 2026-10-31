@@ -92,6 +92,8 @@ export class ResolveThingTask extends AiTask<
   components['schemas']['Resolution'],
   ResolutionResult
 > {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'medium';
   protected task = 'thing_resolution';
   protected instructions = thingImportInstructions;
   protected schema = schema;

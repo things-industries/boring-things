@@ -137,6 +137,8 @@ function extractSourcePrompt(categories: string[], extractedText = false) {
 }
 
 export class ExtractSourceTask extends AiTask<components['schemas']['Extraction'], Extraction> {
+  protected readonly model: string = 'gpt-6-luna';
+  protected readonly effort = 'low';
   protected task = 'source_extraction';
   protected instructions = thingImportInstructions;
   protected schema = schema;

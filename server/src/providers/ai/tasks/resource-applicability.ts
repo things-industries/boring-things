@@ -46,6 +46,8 @@ export class ResourceApplicabilityTask extends AiTask<
   components['schemas']['ResourceApplicability'],
   ResourceApplicability
 > {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'medium';
   protected task = 'resource_applicability';
   protected instructions = thingImportInstructions;
   protected schema = schema;

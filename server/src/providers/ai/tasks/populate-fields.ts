@@ -62,6 +62,8 @@ export class PopulateFieldsTask extends AiTask<
   components['schemas']['Population'],
   PopulationResult
 > {
+  protected readonly model: string = 'gpt-6-luna';
+  protected readonly effort = 'low';
   protected task = 'field_population';
   protected instructions = thingImportInstructions;
   protected schema = schema;

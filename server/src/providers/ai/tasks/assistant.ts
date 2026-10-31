@@ -229,6 +229,8 @@ function chatContextPrompt(task: ChatInput) {
 }
 
 export class AssistantTask extends AiTask<never, string, ChatContext> {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'low';
   protected maxTextCharacters = Infinity;
   protected task = 'assistant_response';
   protected instructions = chatInstructions;

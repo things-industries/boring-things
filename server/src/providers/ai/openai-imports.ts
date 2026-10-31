@@ -16,7 +16,7 @@ import { AdditionalInformationTask } from './tasks/additional-information.js';
 import { ResourceApplicabilityTask } from './tasks/resource-applicability.js';
 import { SourceRecommendationsTask } from './tasks/source-recommendations.js';
 import { SelectFieldSetsTask } from './tasks/select-field-sets.js';
-import { TranscribeTask } from './tasks/transcribe.js';
+import { SummarizeAttachmentTask } from './tasks/summarize-attachment.js';
 import { ExtractSourceTask } from './tasks/extract-source.js';
 import { ExtractDocumentTask } from './tasks/extract-document.js';
 import { FindResourcesTask } from './tasks/find-resources.js';
@@ -60,8 +60,10 @@ export class OpenAiImports implements ImportAi {
       .onTurnCompleted(this.onTurnCompleted)
       .run(context);
 
-  transcribe: ImportAi['transcribe'] = (source, context) =>
-    new TranscribeTask(this.config, source).onTurnCompleted(this.onTurnCompleted).run(context);
+  summarizeAttachment: ImportAi['summarizeAttachment'] = (text, context) =>
+    new SummarizeAttachmentTask(this.config, text)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
   findResources: ImportAi['findResources'] = (
     input,
     context,

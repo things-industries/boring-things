@@ -18,6 +18,8 @@ export function getImportFailureReason(error: unknown): string {
     'ai_provider_failed',
     'Wrong additional source',
     'Invalid source evidence',
+    'Invalid recommendation',
+    'Uncited purchase URL',
     'Invalid source page',
     'Quote does not match source page',
     'Invalid additional information',
@@ -58,8 +60,7 @@ export interface ImportSourceText {
   terms: string[];
 }
 
-export interface SourceTranscription {
-  text: string;
+export interface AttachmentSummary {
   summary: string | null;
   terms: string[];
   status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
@@ -230,7 +231,7 @@ export interface ImportAi {
     tools: WorkflowTools,
     context: AiContext,
   ): Promise<AdditionalInformationResult>;
-  transcribe(source: Source, context: AiContext): Promise<SourceTranscription>;
+  summarizeAttachment(text: string, context: AiContext): Promise<AttachmentSummary>;
   selectFieldSets(
     extractedThing: ExtractedThing,
     tools: RegistryTools,

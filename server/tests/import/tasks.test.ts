@@ -6,10 +6,14 @@ import type { PopulationInput, WorkflowTools } from '../../src/application/impor
 import type { AiContext } from '../../src/providers/ai/types.js';
 import { fields } from '../../src/db/seeds/registry.js';
 import { readConfig } from '../../src/config.js';
-import { taskRecommendationInstructions, thingDefinition } from '../../src/providers/ai/prompts.js';
+import {
+  taskRecommendationInstructions,
+  purchasableRecommendationInstructions,
+  thingDefinition,
+} from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
 import { AdditionalInformationTask } from '../../src/providers/ai/tasks/additional-information.js';
-const config = readConfig({ OPENAI_API_KEY: 'fixture-key', OPENAI_MODEL: 'fixture-model' });
+const config = readConfig({ OPENAI_API_KEY: 'fixture-key' });
 const definition = fields.find((field) => field.id === 'common.model')!;
 const input: PopulationInput = {
   thing: { id: 'thing', name: 'Fixture oven', categoryId: 'appliances' },
@@ -46,6 +50,8 @@ test('field population awaits source retrieval before continuing the model conve
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
     assert.ok(body.instructions.includes(thingDefinition));
+    assert.equal(body.model, 'gpt-6-luna');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
     requests++;
     if (requests === 1)
       return response([
@@ -115,7 +121,8 @@ test('Thing resolution receives the definition and reports each turn through its
   const turns: string[] = [];
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
-    assert.equal(body.model, config.openaiModel);
+    assert.equal(body.model, 'gpt-6.1-sol');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'medium' });
     assert.ok(body.instructions.includes(thingDefinition));
     return response([
       {
@@ -141,17 +148,18 @@ test('Thing resolution receives the definition and reports each turn through its
   assert.equal(fetch.mock.callCount(), 2);
 });
 
-test('additional information selects the document model and receives Thing instructions', async (t) => {
+test('additional information selects its model and receives Thing instructions', async (t) => {
   t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
-    assert.equal(body.model, 'document-model');
+    assert.equal(body.model, 'gpt-6.1-sol');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
     assert.ok(body.instructions.includes(thingDefinition));
     return response([
       { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
     ]);
   });
   const task = new AdditionalInformationTask(
-    { ...config, documentExtractionModel: 'document-model' },
+    config,
     { thing: input.thing, knownFields: [], attachmentId: 'source', text: 'Model AX1' },
     tools,
   );
@@ -178,16 +186,20 @@ test('an oversized task stops before contacting the model', async (t) => {
 });
 
 // The shared task text cap rejected a parsed document before its transcription could be saved.
-test('large parsed sources use bounded transcription requests and retain the complete text', async (t) => {
+test('attachment summaries use bounded text requests without requesting or returning source text', async (t) => {
   t.after(() => mock.restoreAll());
   let requests = 0;
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     requests++;
     const body = JSON.parse(String(options.body));
+    assert.equal(body.model, 'gpt-6-luna');
+    assert.ok(!Object.hasOwn(body.text.format.schema.properties, 'text'));
+    assert.ok(!body.text.format.schema.required.includes('text'));
     const parts = body.input.flatMap((message: { content?: unknown }) =>
       Array.isArray(message.content) ? message.content : [],
     );
     assert.ok(parts.every((part: { text?: string }) => !part.text || part.text.length <= 80000));
+    assert.ok(parts.every((part: { type: string }) => part.type === 'input_text'));
     assert.ok(parts.every((part: object) => !Object.hasOwn(part, 'page')));
     return response([
       {
@@ -198,7 +210,6 @@ test('large parsed sources use bounded transcription requests and retain the com
             type: 'output_text',
             annotations: [],
             text: JSON.stringify({
-              text: '',
               summary: 'Long source',
               terms: ['source'],
               status: 'COMPLETE',
@@ -211,12 +222,11 @@ test('large parsed sources use bounded transcription requests and retain the com
     ]);
   });
   const text = 'x'.repeat(180000);
-  const result = await new OpenAiImports(config).transcribe(
-    { filename: 'long.txt', mediaType: 'text/plain', content: Buffer.from(text) },
-    context,
-  );
+  const result = await new OpenAiImports(config).summarizeAttachment(text, context);
   assert.equal(requests, 3);
-  assert.equal(result.text, text);
+  assert.ok(!Object.hasOwn(result, 'text'));
+  assert.equal(result.summary, 'Long source\nLong source\nLong source');
+  assert.deepEqual(result.terms, ['source']);
   assert.equal(result.status, 'COMPLETE');
 });
 
@@ -244,11 +254,11 @@ test('source recommendations return application citations without model citation
                 {
                   kind: 'CONSUMABLE',
                   name: 'Seal cleaner',
-                  description: 'Use on the seal.',
+                  description: 'Removes dirt from the seal when wiping with water is insufficient.',
                   merchantUrl: null,
                   attachmentId: 'source',
                   page: null,
-                  quote: 'Use seal cleaner.',
+                  quote: 'Use seal cleaner SC01 when water alone does not remove dirt.',
                 },
               ],
             }),
@@ -278,6 +288,7 @@ test('source recommendations return application citations without model citation
   );
   const request = JSON.parse(String(fetch.mock.calls[0].arguments[1]?.body));
   assert.ok(request.instructions.includes(taskRecommendationInstructions));
+  assert.ok(request.instructions.includes(purchasableRecommendationInstructions));
   assert.ok(request.instructions.includes(thingDefinition));
   const supplied = JSON.parse(request.input[0].content.split('Input: ')[1]);
   assert.deepEqual(supplied.fields, [
@@ -302,10 +313,132 @@ test('source recommendations return application citations without model citation
       {
         kind: 'CONSUMABLE',
         name: 'Seal cleaner',
-        description: 'Use on the seal.',
+        description: 'Removes dirt from the seal when wiping with water is insufficient.',
         merchantUrl: null,
-        sourceRefs: [{ attachmentId: 'source', quote: 'Use seal cleaner.' }],
+        sourceRefs: [
+          {
+            attachmentId: 'source',
+            quote: 'Use seal cleaner SC01 when water alone does not remove dirt.',
+          },
+        ],
       },
     ],
   });
+});
+
+// The application tool budget threw after four reads and discarded the task's gathered evidence.
+test('source recommendations finish from gathered evidence when the tool budget is exhausted', async (t) => {
+  t.after(() => mock.restoreAll());
+  let requests = 0,
+    reads = 0;
+  mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    const body = JSON.parse(String(options.body));
+    requests++;
+    if (requests <= 5)
+      return response([
+        {
+          type: 'function_call',
+          call_id: 'read-' + requests,
+          name: 'search_transcription',
+          arguments: JSON.stringify({ attachmentId: 'source', query: 'seal', offset: 0 }),
+        },
+      ]);
+    assert.equal(body.tool_choice, 'none');
+    assert.ok(
+      body.input.some(
+        (item: { type?: string; output?: string }) =>
+          item.type === 'function_call_output' &&
+          item.output?.includes('Inspect the seal monthly.'),
+      ),
+    );
+    assert.ok(
+      body.input.some(
+        (item: { type?: string; output?: string }) =>
+          item.type === 'function_call_output' && item.output?.includes('tool_limit'),
+      ),
+    );
+    return response([
+      {
+        type: 'message',
+        role: 'assistant',
+        content: [
+          {
+            type: 'output_text',
+            text: JSON.stringify({
+              tasks: [
+                {
+                  title: 'Check the seal',
+                  description: 'Inspect monthly.',
+                  attachmentId: 'source',
+                  page: null,
+                  quote: 'Inspect the seal monthly.',
+                },
+              ],
+              purchasables: [],
+            }),
+          },
+        ],
+      },
+    ]);
+  });
+  const result = await new OpenAiImports(config).recommendFromSources(
+    {
+      thing: { name: 'Fixture oven', categoryId: 'appliances' },
+      fields: [],
+      sources: input.sources,
+      existingTasks: [],
+      existingPurchasables: [],
+    },
+    {
+      ...tools,
+      searchTranscription: async () => {
+        if (++reads > 4) throw new Error('tool_limit');
+        return {
+          attachmentId: 'source',
+          text: 'Inspect the seal monthly.',
+          offset: 0,
+          nextOffset: null,
+        };
+      },
+    },
+    context,
+  );
+  assert.equal(requests, 6);
+  assert.equal(reads, 5);
+  assert.equal(result.tasks[0].title, 'Check the seal');
+});
+
+test('source recommendation lookup errors propagate without a finalization request', async (t) => {
+  t.after(() => mock.restoreAll());
+  const fetch = mock.method(globalThis, 'fetch', async () =>
+    response([
+      {
+        type: 'function_call',
+        call_id: 'read',
+        name: 'search_transcription',
+        arguments: JSON.stringify({ attachmentId: 'source', query: 'seal', offset: 0 }),
+      },
+    ]),
+  );
+  const failure = new Error('Fixture lookup failed');
+  await assert.rejects(
+    new OpenAiImports(config).recommendFromSources(
+      {
+        thing: { name: 'Fixture oven', categoryId: 'appliances' },
+        fields: [],
+        sources: input.sources,
+        existingTasks: [],
+        existingPurchasables: [],
+      },
+      {
+        ...tools,
+        searchTranscription: async () => {
+          throw failure;
+        },
+      },
+      context,
+    ),
+    failure,
+  );
+  assert.equal(fetch.mock.callCount(), 1);
 });

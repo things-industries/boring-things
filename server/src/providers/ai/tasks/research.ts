@@ -13,6 +13,8 @@ function chatResearchPrompt(question: string, fields: PublicField[], searchCalls
 }
 
 export class ResearchTask extends AiTask<never, ResearchAnswer> {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'low';
   protected maxTextCharacters = Infinity;
   protected task = 'research';
   protected instructions = webResearchInstructions;

@@ -15,7 +15,6 @@ import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
 const config = readConfig({
   OPENAI_API_KEY: 'synthetic-key',
-  OPENAI_MODEL: 'fixture',
   AI_MAX_OUTPUT_TOKENS: '1000',
 });
 
@@ -77,7 +76,6 @@ test('assistant research answers the supplied question in one bounded request wi
   const ai = createAi(
     readConfig({
       OPENAI_API_KEY: 'synthetic-key',
-      OPENAI_MODEL: 'fixture',
       AI_MAX_OUTPUT_TOKENS: '1000',
       CHAT_TOOL_CALLS: '3',
       DISCOVERY_SEARCH_CALLS: '2',
@@ -117,6 +115,8 @@ test('assistant research answers the supplied question in one bounded request wi
     [100, 1],
   );
   class SourceSearchTask extends AiTask<never, Awaited<ReturnType<typeof readWebResult>>> {
+    protected readonly model = 'gpt-6.1-sol';
+    protected readonly effort = 'low';
     protected task = 'research';
     protected instructions = 'Find public manuals.';
     async run(context: AiContext) {
@@ -178,6 +178,8 @@ test('Responses streaming collects split frames, passes function results and rec
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
     assert.equal(body.stream, true);
+    assert.equal(body.model, 'gpt-6.1-sol');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
     assert.deepEqual(
       body.tools
         .filter((f: { name: string }) => f.name.startsWith('create_'))
@@ -248,7 +250,7 @@ test('Responses streaming collects split frames, passes function results and rec
     [
       {
         task: 'assistant_response',
-        model: 'fixture',
+        model: 'gpt-6.1-sol',
         inputTokens: 4,
         outputTokens: 2,
         cachedTokens: 0,
@@ -256,7 +258,7 @@ test('Responses streaming collects split frames, passes function results and rec
       },
       {
         task: 'assistant_response',
-        model: 'fixture',
+        model: 'gpt-6.1-sol',
         inputTokens: 6,
         outputTokens: 3,
         cachedTokens: 2,
@@ -528,10 +530,17 @@ test('assistant returns invalid tool arguments for correction before invoking ap
 });
 
 // Moving validation ahead of application callbacks could bypass their tool-call budget.
-test('invalid assistant tool arguments consume the task tool budget', async (t) => {
+test('invalid assistant tool arguments consume the budget before finalization', async (t) => {
   let requests = 0;
-  t.mock.method(globalThis, 'fetch', async () => {
-    requests++;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (++requests === 2) {
+      assert.equal(body.tool_choice, 'none');
+      return stream([
+        { type: 'response.output_text.delta', delta: 'Choose a document.' },
+        completed(),
+      ]);
+    }
     return stream([
       completed(
         ['first', 'second'].map((call_id) => ({
@@ -543,13 +552,11 @@ test('invalid assistant tool arguments consume the task tool budget', async (t) 
       ),
     ]);
   });
-  await assert.rejects(
-    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
-      task,
-      { execute: async () => assert.fail('invalid arguments reached the application') },
-      { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
-    ),
-    /tool_limit/,
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+    task,
+    { execute: async () => assert.fail('invalid arguments reached the application') },
+    { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
   );
-  assert.equal(requests, 1);
+  assert.equal(answer, 'Choose a document.');
+  assert.equal(requests, 2);
 });

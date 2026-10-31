@@ -72,7 +72,7 @@ export class Assistant {
     const live = { messageId: job.id, text: '' };
     this.live.set(key, live);
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.chatTimeoutMs)]);
-    const usage = job.usage ?? blankUsage(this.config.openaiModel);
+    const usage = job.usage ?? blankUsage();
     const started = Date.now();
     const elapsed = usage.elapsedMs;
     let cards: Schema['ResourceCard'][] = [];

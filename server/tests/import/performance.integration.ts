@@ -35,10 +35,10 @@ test('product photos remain display assets while uploaded photos still receive t
     const ai: ImportAi = env.importAi;
     let transcriptions = 0,
       assessments = 0;
-    const transcribe = env.importAi.transcribe.bind(env.importAi);
-    ai.transcribe = async (source) => {
+    const summarize = env.importAi.summarizeAttachment.bind(env.importAi);
+    ai.summarizeAttachment = async (source) => {
       transcriptions++;
-      return transcribe(source);
+      return summarize(source);
     };
     ai.assessResource = async () => {
       assessments++;

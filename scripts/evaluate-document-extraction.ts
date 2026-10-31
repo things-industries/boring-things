@@ -4,7 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { readConfig } from '../server/src/config.js';
-import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
+import { ExtractDocumentTask } from '../server/src/providers/ai/tasks/extract-document.js';
 import { Registry } from '../server/src/application/registry/registry.js';
 import { validateDocumentExtraction } from '../server/src/application/import/evidence.js';
 import type { DocumentExtraction, Usage } from '../server/src/application/import/types.js';
@@ -15,17 +15,18 @@ import {
 } from '../server/test/fixtures/reference-documents.js';
 
 const config = readConfig();
-assert.ok(config.openaiApiKey && config.openaiModel, 'Set OPENAI_API_KEY and OPENAI_MODEL');
+assert.ok(config.openaiApiKey, 'Set OPENAI_API_KEY');
 const models = [
   ...new Set(
     (
-      process.argv.find((arg) => arg.startsWith('--models='))?.slice(9) ??
-      `${config.openaiModel},gpt-5.4-mini`
+      process.argv.find((arg) => arg.startsWith('--models='))?.slice(9) ?? 'gpt-6-luna,gpt-6.1-sol'
     ).split(','),
   ),
 ];
-// Standard USD rates per million tokens, checked on 4 October 2026. Override for other models.
+// Standard USD rates per million tokens; GPT-6 rates checked on 29 October 2026.
 const rates: Record<string, { input: number; cached: number; output: number }> = {
+  'gpt-6-luna': { input: 0.1, cached: 0.01, output: 0.5 },
+  'gpt-6.1-sol': { input: 2, cached: 0.1, output: 10 },
   'gpt-5.6-sol': { input: 4, cached: 0.4, output: 20 },
   'gpt-5.4-mini': { input: 0.75, cached: 0.075, output: 4.5 },
   'gpt-4.1-mini': { input: 0.4, cached: 0.1, output: 1.6 },
@@ -35,12 +36,9 @@ for (const model of models) assert.ok(rates[model], `Supply DOCUMENT_EVAL_RATES 
 const registry = new Registry(referenceFields, [referenceSet]);
 const results: Record<string, unknown>[] = [];
 for (const model of models) {
-  const ai = new OpenAiImports({
-    ...config,
-    aiMaxOutputTokens: 4000,
-    discoverySearchCalls: 3,
-    documentExtractionModel: model,
-  });
+  class EvaluatedDocumentTask extends ExtractDocumentTask {
+    protected readonly model = model;
+  }
   for (const fixture of referenceDocumentBaseline) {
     const usage: NonNullable<Usage['entries']> = [];
     let content = Buffer.from(fixture.pages.join('\n'));
@@ -67,17 +65,17 @@ for (const model of models) {
     let attempts = 0;
     for (; attempts < 2; attempts++) {
       try {
-        result = await ai.extractDocument(
+        result = await new EvaluatedDocumentTask(
+          { ...config, aiMaxOutputTokens: 4000 },
           document,
           fixture.research,
           fixture.research.emptyFields,
-          {
-            signal: AbortSignal.timeout(90000),
-            record: async (delta) => {
-              usage.push(...(delta.entries ?? []));
-            },
+        ).run({
+          signal: AbortSignal.timeout(90000),
+          record: async (delta) => {
+            usage.push(...(delta.entries ?? []));
           },
-        );
+        });
         validateDocumentExtraction(result, document, fixture.research.emptyFields, registry);
         break;
       } catch (error) {
@@ -140,7 +138,8 @@ await writeFile(
   'test-results/document-extraction-evaluation.json',
   JSON.stringify(
     {
-      date: '2026-10-04',
+      date: new Date().toISOString(),
+      reasoning: { mode: 'standard', effort: 'low' },
       thresholds: { supportedRecall: 1, precision: 1, citationAccuracy: 1, variantErrors: 0 },
       rates,
       results,

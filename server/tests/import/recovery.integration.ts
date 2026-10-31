@@ -44,7 +44,7 @@ test('additional-information warnings permit recommendations and retry, while wr
       'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
       [source, thingId],
     );
-    let quote = 'Invented quotation',
+    let label = '',
       recommendations = 0,
       failWrite = false;
     env.importAi.suggestTasks = async () => {
@@ -62,14 +62,14 @@ test('additional-information warnings permit recommendations and retry, while wr
       return {
         findings: [
           {
-            label: 'Finish',
+            label,
             fieldId: 'appliances.finish',
             value: 'black',
             sensitive: false,
             reason: 'Identifies the finish',
             attachmentId: source,
             page: null,
-            quote,
+            quote: 'Finish: black',
           },
         ],
       };
@@ -81,12 +81,12 @@ test('additional-information warnings permit recommendations and retry, while wr
     assert.equal(recommendations, 1);
     assert.ok(warned.warnings?.some((warning) => warning.retryable));
     const checkpoint = await env.pool.query('select workflow from bt.imports where id=$1', [id]);
-    assert.equal(checkpoint.rows[0].workflow.warnings[0].reason, 'Invalid source evidence');
+    assert.equal(checkpoint.rows[0].workflow.warnings[0].reason, 'Invalid additional information');
     assert.ok(
       !checkpoint.rows[0].workflow.done.some((key: string) => key.startsWith('additional:')),
     );
 
-    quote = 'Finish: black';
+    label = 'Finish';
     assert.equal((await request('POST', `/api/imports/${id}:retry`)).statusCode, 200);
     const retried = await waitForImport(env, id);
     assert.equal(retried.status, 'COMPLETE');
@@ -98,6 +98,19 @@ test('additional-information warnings permit recommendations and retry, while wr
     );
     assert.equal(fields.rows[0].value, 'black');
 
+    const recommendFromSources = env.importAi.recommendFromSources.bind(env.importAi);
+    env.importAi.recommendFromSources = async () => {
+      throw new Error('tool_limit');
+    };
+    const limited = await request('POST', `/api/things/${thingId}:recommend`);
+    const limitedId = limited.json<Schema['ImportAccepted']>().importId;
+    assert.equal((await waitForImport(env, limitedId)).status, 'COMPLETE');
+    const limitedCheckpoint = await env.pool.query('select workflow from bt.imports where id=$1', [
+      limitedId,
+    ]);
+    assert.equal(limitedCheckpoint.rows[0].workflow.warnings[0].reason, 'tool_limit');
+    env.importAi.recommendFromSources = recommendFromSources;
+
     failWrite = true;
     const failed = await request('POST', '/api/imports', { attachmentIds: [], thingId });
     const failedId = failed.json<Schema['ImportAccepted']>().importId;
@@ -108,7 +121,7 @@ test('additional-information warnings permit recommendations and retry, while wr
       reason: 'database_P0001',
     });
     assert.ok(!failure.rows[0].workflow.done.some((key: string) => key.startsWith('additional:')));
-    assert.equal(recommendations, 1);
+    assert.equal(recommendations, 2);
     await env.pool.query(
       'drop trigger reject_fixture_field on bt.thing_fields; drop function bt.reject_fixture_field()',
     );

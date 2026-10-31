@@ -54,7 +54,7 @@ As an overview: what we want to achieve is for a user to be able to upload sourc
 
 Trying to turn that into a formal process I get these processes:
 
-- **Transcribe**: For each uploaded attachment, transcribe all discernable English-language text, produce a summary of limited length, a bag of terms/keywords, and a set of possible identifiers (as identifier candidates)
+- **Prepare attachment**: Extract text locally or through Google Vision OCR for images and PDF pages without embedded text. Run `summarize-attachment` on that text to produce a summary of limited length, a bag of terms/keywords, possible identifiers, display metadata and language/readability status.
 - **Import**: A workflow that takes 0+ Attachments, 0 or 1 Things (thing context), and does the following:
   - if it has 0 attachments and 0 things, stop, there's nothing to do.
   - if at least 1 attachment, construct thing candidates, by prompting an AI with:
@@ -100,7 +100,7 @@ Ideally I think we could have an abstract AiTask class that provides an abstract
 Each AiTask can then be a child of that:
 
 ```ts
-class TranscribeTask extends AiTask {
+class SummarizeAttachmentTask extends AiTask {
   // prompt
   // response schema
   // orchestration of tools

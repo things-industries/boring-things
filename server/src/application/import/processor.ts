@@ -32,7 +32,7 @@ export class ImportProcessor {
     if (!this.ai) return false;
     const job = await importsDb.getNextQueuedImport(this.pool);
     if (!job || !(await importsDb.markImportStarted(this.pool, job))) return false;
-    const usage = job.usage ?? blankUsage(this.config.openaiModel);
+    const usage = job.usage ?? blankUsage();
     let requests = usage.entries?.length ?? 0;
     const started = Date.now(),
       elapsed = usage.elapsedMs;
@@ -43,6 +43,7 @@ export class ImportProcessor {
       signal,
       beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
       record: async (delta) => {
+        if (!usage.model) usage.model = delta.model ?? usage.model;
         usage.inputTokens += delta.inputTokens ?? 0;
         usage.outputTokens += delta.outputTokens ?? 0;
         usage.cachedTokens += delta.cachedTokens ?? 0;

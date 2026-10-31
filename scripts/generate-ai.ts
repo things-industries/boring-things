@@ -1,6 +1,6 @@
 /** Collects task and tool schemas for internal AI type generation and drift checks. */
 
-import { schema as Transcription } from '../server/src/providers/ai/tasks/transcribe.js';
+import { schema as AttachmentSummary } from '../server/src/providers/ai/tasks/summarize-attachment.js';
 import { schema as Resolution } from '../server/src/providers/ai/tasks/resolve-thing.js';
 import { schema as ResourceApplicability } from '../server/src/providers/ai/tasks/resource-applicability.js';
 import { schema as SourceRecommendations } from '../server/src/providers/ai/tasks/source-recommendations.js';
@@ -18,7 +18,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import openapiTS, { astToString } from 'openapi-typescript';
 
 const schemas = {
-  Transcription,
+  AttachmentSummary,
   Resolution,
   ResourceApplicability,
   SourceRecommendations,

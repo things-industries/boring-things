@@ -30,6 +30,8 @@ function selectFieldSetsPrompt(thing: ExtractedThing) {
 }
 
 export class SelectFieldSetsTask extends AiTask<components['schemas']['Selection']> {
+  protected readonly model: string = 'gpt-6-luna';
+  protected readonly effort = 'low';
   protected task = 'field_selection';
   protected instructions = thingImportInstructions;
   protected schema = schema;

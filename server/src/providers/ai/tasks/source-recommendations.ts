@@ -4,7 +4,11 @@ import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
 import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions, taskRecommendationInstructions } from '../prompts.js';
+import {
+  thingImportInstructions,
+  taskRecommendationInstructions,
+  purchasableRecommendationInstructions,
+} from '../prompts.js';
 import type {
   SourceRecommendationsInput,
   SourceRecommendations,
@@ -45,7 +49,8 @@ export const schema = createObjectSchema(
         {
           name: {
             type: 'string',
-            description: 'Product name, up to 200 characters.',
+            description:
+              'Basic item name with only qualifiers needed to distinguish products, up to 200 characters.',
           },
           kind: {
             type: 'string',
@@ -54,7 +59,8 @@ export const schema = createObjectSchema(
           },
           description: {
             type: 'string',
-            description: 'Compatibility evidence and purpose, up to 4000 characters.',
+            description:
+              'Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words, up to 4000 characters.',
           },
           merchantUrl: {
             type: ['string', 'null'],
@@ -73,8 +79,10 @@ export class SourceRecommendationsTask extends AiTask<
   components['schemas']['SourceRecommendations'],
   SourceRecommendations
 > {
+  protected readonly model: string = 'gpt-6-luna';
+  protected readonly effort = 'low';
   protected task = 'source_recommendations';
-  protected instructions = `${thingImportInstructions} ${taskRecommendationInstructions}`;
+  protected instructions = `${thingImportInstructions} ${taskRecommendationInstructions} ${purchasableRecommendationInstructions}`;
   protected schema = schema;
 
   constructor(

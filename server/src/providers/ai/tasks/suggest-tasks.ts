@@ -82,6 +82,8 @@ export class SuggestTasksTask extends AiTask<
   components['schemas']['TaskSuggestions'],
   TaskSuggestions
 > {
+  protected readonly model: string = 'gpt-6-luna';
+  protected readonly effort = 'low';
   protected task = 'task_suggestions';
   protected instructions = `${thingResearchInstructions} ${taskRecommendationInstructions}`;
   protected schema = schema;

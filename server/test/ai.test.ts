@@ -9,9 +9,13 @@ import { extractedThings, extractionBaseline } from './fixtures/imports.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
-import { taskRecommendationInstructions, thingDefinition } from '../src/providers/ai/prompts.js';
+import {
+  taskRecommendationInstructions,
+  purchasableRecommendationInstructions,
+  thingDefinition,
+} from '../src/providers/ai/prompts.js';
 
-const config = readConfig({ OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'fixture' });
+const config = readConfig({ OPENAI_API_KEY: 'test-key' });
 
 const context = () => ({ signal: new AbortController().signal, record: async () => {} });
 const jsonResponse = (data: unknown) =>
@@ -320,13 +324,10 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       { headers: { 'Content-Type': 'application/json' } },
     );
   });
-  const ai = new OpenAiImports(
-    { ...config, openaiModel: 'test-model', documentExtractionModel: 'test-model' },
-    undefined,
-    async (url) =>
-      url === source
-        ? { url, links: [{ url: linkedPdf, context: 'Official user manual for the model' }] }
-        : null,
+  const ai = new OpenAiImports(config, undefined, async (url) =>
+    url === source
+      ? { url, links: [{ url: linkedPdf, context: 'Official user manual for the model' }] }
+      : null,
   );
   const result = await ai.findResources(
     {
@@ -344,6 +345,15 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
   );
   assert.deepEqual(result, { ...expected, sources: [source, pdf, linkedPdf] });
   assert.equal(requests[0].max_tool_calls, 3);
+  assert.equal(requests[0].model, 'gpt-6.1-sol');
+  assert.deepEqual(requests[0].reasoning, { mode: 'standard', effort: 'medium' });
+  assert.equal(requests[1].model, 'gpt-6-luna');
+  assert.deepEqual(requests[1].reasoning, { mode: 'standard', effort: 'none' });
+  assert.ok(requests.every((request) => !Object.hasOwn(request, 'effort')));
+  assert.deepEqual(
+    usage.flatMap((entry) => entry.entries ?? []).map((entry) => entry.model),
+    ['gpt-6.1-sol', 'gpt-6-luna'],
+  );
   assert.ok(JSON.stringify(requests[1].input).includes(linkedPdf));
   assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
 });
@@ -382,11 +392,7 @@ test('public research keeps the source-derived product generation across its req
     emptyFields: [],
     referenceUrls: [],
   };
-  const ai = new OpenAiImports(
-    { ...config, openaiModel: 'test-model', documentExtractionModel: 'test-model' },
-    undefined,
-    async () => null,
-  );
+  const ai = new OpenAiImports(config, undefined, async () => null);
   await ai.findResources(research, context());
   await ai.suggestTasks({ ...research, existingTasks: [] }, context());
   await ai.findPurchasables({ ...research, existingPurchasables: [] }, context());
@@ -394,12 +400,13 @@ test('public research keeps the source-derived product generation across its req
   for (const request of requests) assert.ok(JSON.stringify(request.input).includes(research.name));
 });
 
-test('SDK document extraction uses the configured model, contained schema and per-task usage without search or write tools', async (t) => {
+test('SDK document extraction uses its task model, contained schema and per-task usage without search or write tools', async (t) => {
   const usage: Partial<Usage>[] = [];
   const turns: Parameters<AiTurnCompleted>[0][] = [];
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
-    assert.equal(body.model, 'document-model');
+    assert.equal(body.model, 'gpt-6-luna');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
     assert.ok(body.instructions.includes(thingDefinition));
     assert.ok(JSON.stringify(body.input).includes('Fixture device (2024)'));
     assert.equal(body.store, false);
@@ -414,9 +421,7 @@ test('SDK document extraction uses the configured model, contained schema and pe
   const ai = createAi(
     readConfig({
       OPENAI_API_KEY: 'test-key',
-      OPENAI_MODEL: 'import-model',
       AI_MAX_OUTPUT_TOKENS: '1000',
-      DOCUMENT_EXTRACTION_MODEL: 'document-model',
     }),
     {},
     (entry) => turns.push(entry),
@@ -449,7 +454,7 @@ test('SDK document extraction uses the configured model, contained schema and pe
     },
   );
   assert.equal(usage[0].entries?.[0].task, 'document_extraction');
-  assert.equal(usage[0].entries?.[0].model, 'document-model');
+  assert.equal(usage[0].entries?.[0].model, 'gpt-6-luna');
   assert.equal(usage[0].entries?.[0].inputTokens, 25);
   assert.equal(usage[0].cachedTokens, 5);
   assert.deepEqual(turns, [{ ...usage[0].entries![0], toolCalls: [] }]);
@@ -532,7 +537,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       usage: { input_tokens: 25, output_tokens: 10 },
     });
   });
-  const ai = new OpenAiImports({ ...config, openaiModel: 'import-model' });
+  const ai = new OpenAiImports(config);
   const suggestions = await ai.suggestTasks(
     research,
     {
@@ -584,8 +589,8 @@ test('SDK purchasable research discovers products and purchase links within one 
   const requests: Record<string, unknown>[] = [];
   let product = {
     kind: 'CONSUMABLE',
-    name: 'Filter 0015',
-    description: 'Fits Model A',
+    name: 'Water filter',
+    description: 'Replace the filter when water flow decreases.',
     merchantUrl: url,
     sourceUrl: url,
     quote: '0015 fits Model A',
@@ -594,6 +599,7 @@ test('SDK purchasable research discovers products and purchase links within one 
     const body = JSON.parse(init.body as string);
     requests.push(body);
     assert.match(body.input, /Find useful purchasables/);
+    assert.ok(body.instructions.includes(purchasableRecommendationInstructions));
     assert.match(body.input, /consumables/);
     assert.ok(!body.input.includes('Private owner product'));
     assert.equal(body.text.format.schema.properties.items.type, 'array');
@@ -603,7 +609,7 @@ test('SDK purchasable research discovers products and purchase links within one 
       output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
     });
   });
-  const ai = new OpenAiImports({ ...config, openaiModel: 'import-model' });
+  const ai = new OpenAiImports(config);
   const research = {
     categoryId: 'appliances',
     knownFields: [
@@ -622,8 +628,8 @@ test('SDK purchasable research discovers products and purchase links within one 
     items: [
       {
         kind: 'CONSUMABLE',
-        name: 'Filter 0015',
-        description: 'Fits Model A',
+        name: 'Water filter',
+        description: 'Replace the filter when water flow decreases.',
         merchantUrl: url,
         sourceRefs: [{ url, quote: product.quote }],
       },

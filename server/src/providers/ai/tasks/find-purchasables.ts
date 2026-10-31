@@ -4,7 +4,7 @@ import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
 import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingResearchInstructions } from '../prompts.js';
+import { thingResearchInstructions, purchasableRecommendationInstructions } from '../prompts.js';
 import type {
   PurchasableResearch,
   PurchasableSuggestions,
@@ -33,14 +33,14 @@ export const schema = createObjectSchema(
           name: {
             type: 'string',
             description:
-              'Source-supported product name, retaining any manufacturer part number (min 1 char, max 200 chars).',
+              'Basic item name with only qualifiers needed to distinguish products (min 1 char, max 200 chars).',
             minLength: 1,
             maxLength: 200,
           },
           description: {
             type: 'string',
             description:
-              'Purpose and compatibility explanation supported by retrieved evidence (min 1 char, max 4000 chars).',
+              'Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words (min 1 char, max 4000 chars).',
             minLength: 1,
             maxLength: 4000,
           },
@@ -98,8 +98,10 @@ export class FindPurchasablesTask extends AiTask<
   components['schemas']['PurchasableSuggestions'],
   PurchasableSuggestions
 > {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'medium';
   protected task = 'purchasable_suggestions';
-  protected instructions = thingResearchInstructions;
+  protected instructions = `${thingResearchInstructions} ${purchasableRecommendationInstructions}`;
   protected schema = schema;
 
   constructor(

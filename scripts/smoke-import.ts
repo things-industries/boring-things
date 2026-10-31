@@ -11,7 +11,7 @@ import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
-assert.ok(config.openaiApiKey && config.openaiModel, 'Set OPENAI_API_KEY and OPENAI_MODEL');
+assert.ok(config.openaiApiKey, 'Set OPENAI_API_KEY');
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -24,9 +24,9 @@ const directory = await mkdtemp(tmpdir() + '/bt-smoke-');
 const ai = new OpenAiImports(config);
 const trace: unknown[] = [];
 const recorded: ImportAi = {
-  transcribe: async (...args) => {
-    const result = await ai.transcribe(...args);
-    trace.push({ stage: 'transcription', result });
+  summarizeAttachment: async (...args) => {
+    const result = await ai.summarizeAttachment(...args);
+    trace.push({ stage: 'summarize-attachment', result });
     return result;
   },
   resolveThing: async (...args) => {
@@ -114,7 +114,7 @@ try {
   await mkdir('test-results', { recursive: true });
   await writeFile(
     'test-results/import-smoke.json',
-    JSON.stringify({ model: config.openaiModel, job, things, trace }, null, 2),
+    JSON.stringify({ job, things, trace }, null, 2),
   );
   console.log({
     status: job?.status,
@@ -162,7 +162,7 @@ try {
           messages.push(message);
           await writeFile(
             'test-results/assistant-smoke.json',
-            JSON.stringify({ model: config.openaiModel, messages }, null, 2),
+            JSON.stringify({ messages }, null, 2),
           );
           console.log({
             assistant: message.status,

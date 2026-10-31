@@ -9,7 +9,7 @@ import * as database from '../server/src/db/connection.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
-assert.ok(config.openaiApiKey && config.openaiModel);
+assert.ok(config.openaiApiKey);
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -98,7 +98,7 @@ try {
   await mkdir('test-results', { recursive: true });
   await writeFile(
     'test-results/assistant-products-smoke.json',
-    JSON.stringify({ model: config.openaiModel, message, products }, null, 2),
+    JSON.stringify({ message, products }, null, 2),
   );
   console.log({
     status: message?.status,

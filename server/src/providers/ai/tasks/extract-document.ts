@@ -117,7 +117,8 @@ export class ExtractDocumentTask extends AiTask<
   components['schemas']['DocumentExtraction'],
   DocumentExtraction
 > {
-  protected readonly model = this.config.documentExtractionModel;
+  protected readonly model: string = 'gpt-6-luna';
+  protected readonly effort = 'low';
   protected task = 'document_extraction';
   protected instructions = thingImportInstructions;
   protected schema = schema;

@@ -19,7 +19,7 @@ export function createAi(
   overrides: AiProviders = {},
   onTurnCompleted?: AiTurnCompleted,
 ): AiProviders {
-  const enabled = !!(config.openaiApiKey && config.openaiModel);
+  const enabled = !!config.openaiApiKey;
   return {
     importAi:
       overrides.importAi ?? (enabled ? new OpenAiImports(config, onTurnCompleted) : undefined),

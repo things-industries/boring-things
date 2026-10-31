@@ -47,8 +47,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     chatTimeoutMs: numberOrFallback(env, 'CHAT_TIMEOUT_MS', 180000),
     chatToolCalls: numberOrFallback(env, 'CHAT_TOOL_CALLS', 12),
     openaiApiKey: env.OPENAI_API_KEY ?? '',
-    openaiModel: env.OPENAI_MODEL ?? '',
-    documentExtractionModel: env.DOCUMENT_EXTRACTION_MODEL || env.OPENAI_MODEL || '',
     googleVisionApiKey: env.GOOGLE_VISION_API_KEY?.trim() ?? '',
     importTimeoutMs: numberOrFallback(env, 'IMPORT_TIMEOUT_MS', 180000),
     icecatAccessToken: env.ICECAT_ACCESS_TOKEN?.trim() ?? '',

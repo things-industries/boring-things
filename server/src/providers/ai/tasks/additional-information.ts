@@ -56,7 +56,8 @@ export class AdditionalInformationTask extends AiTask<
   components['schemas']['AdditionalInformation'],
   AdditionalInformationResult
 > {
-  protected readonly model = this.config.documentExtractionModel;
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'low';
   protected task = 'additional_information';
   protected instructions = thingImportInstructions;
   protected schema = schema;

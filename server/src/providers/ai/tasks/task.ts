@@ -1,6 +1,7 @@
 /** Executes AI requests, streamed deltas and bounded tool conversations with validation and usage reporting. */
 
 import OpenAI from 'openai';
+import type { ReasoningEffort } from 'openai/resources/shared';
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import type {
@@ -9,8 +10,12 @@ import type {
   ResponseCreateParamsNonStreaming,
 } from 'openai/resources/responses/responses';
 import type { AiTurnCompleted, AiContext, AiConfig } from '../types.js';
-import type { TaskTool } from '../tools/tool.js';
+import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
+
+type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reasoning'> & {
+  effort?: ReasoningEffort;
+};
 
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
@@ -51,7 +56,8 @@ export abstract class AiTask<
 > {
   private client: OpenAI;
   private turnCompleted?: AiTurnCompleted;
-  protected readonly model: string;
+  protected abstract readonly model: string;
+  protected abstract readonly effort: ReasoningEffort;
   protected maxTextCharacters: number;
   protected abstract task: string;
   protected abstract instructions: string;
@@ -62,7 +68,6 @@ export abstract class AiTask<
 
   constructor(protected config: AiConfig) {
     this.client = new OpenAI({ apiKey: config.openaiApiKey, maxRetries: 0 });
-    this.model = config.openaiModel;
     this.maxTextCharacters = config.importMaxTextCharacters;
   }
 
@@ -79,10 +84,11 @@ export abstract class AiTask<
   protected async execute(
     input: ResponseInput | string,
     context: AiContext,
-    options: Partial<ResponseCreateParamsNonStreaming> = {},
+    options: TaskOptions = {},
     delta?: (text: string) => void,
   ): Promise<Response> {
     let conversation = typeof input === 'string' ? input : [...input];
+    let finish = false;
     for (let round = 0; round <= this.toolRounds; round++) {
       const response = await this.requestResponse(
         conversation,
@@ -103,14 +109,16 @@ export abstract class AiTask<
           ...(this.tools.length ? { tools: this.tools.map((tool) => tool.definition) } : {}),
           parallel_tool_calls: this.parallelToolCalls,
           include: ['reasoning.encrypted_content'],
-          ...(this.tools.length && round === this.toolRounds ? { tool_choice: 'none' } : {}),
           ...options,
+          ...(this.tools.length && (finish || round === this.toolRounds)
+            ? { tool_choice: 'none' }
+            : {}),
         },
         delta,
       );
       const calls = response.output.filter((item) => item.type === 'function_call');
       if (!calls.length) return response;
-      ensure(round < this.toolRounds, 'tool_limit');
+      ensure(!finish && round < this.toolRounds, 'tool_limit');
 
       // Responses output items can be replayed as input, including encrypted reasoning.
       conversation = [
@@ -128,7 +136,19 @@ export abstract class AiTask<
         } catch {
           throw new Error('Invalid AI tool arguments');
         }
-        const result = await tool.execute(args);
+        const result: TaskToolResult = finish
+          ? { output: { error: 'tool_limit' } }
+          : await tool.execute(args).catch((error: unknown) => {
+              if (!(error instanceof Error) || error.message !== 'tool_limit') throw error;
+              finish = true;
+              return {
+                output: {
+                  error: 'tool_limit',
+                  message:
+                    'Finish using the evidence already gathered; no more tool calls are available.',
+                },
+              };
+            });
         conversation = [
           ...conversation,
           {
@@ -161,7 +181,7 @@ export abstract class AiTask<
   protected async requestResponse(
     input: ResponseInput | string,
     context: AiContext,
-    options: Partial<ResponseCreateParamsNonStreaming> = {},
+    options: TaskOptions = {},
     delta?: (text: string) => void,
     task = this.task,
   ): Promise<Response> {
@@ -174,13 +194,15 @@ export abstract class AiTask<
     );
     context.beforeRequest?.();
     const started = Date.now();
+    const { effort = this.effort, ...requestOptions } = options;
     const parameters = {
       model: this.model,
       store: false,
       instructions: this.instructions,
       input,
       max_output_tokens: this.config.aiMaxOutputTokens,
-      ...options,
+      ...requestOptions,
+      reasoning: { mode: 'standard', effort },
     };
     let result: Response | undefined;
     try {

@@ -80,7 +80,7 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
 test('uploaded evidence populates one Thing and shared manuals are reused without exposing associations', async () => {
   const { PDFDocument } = await import('pdf-lib');
   const pdf = await PDFDocument.create();
-  pdf.addPage();
+  pdf.addPage().drawText('public-manual X1');
   const content = Buffer.from(await pdf.save());
   let downloads = 0;
   const env = await startTestApp({
@@ -108,18 +108,17 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     };
     const request = (method: 'GET' | 'POST' | 'DELETE' | 'PATCH', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
-    const baseTranscribe = env.importAi.transcribe.bind(env.importAi);
-    env.importAi.transcribe = async (source) =>
-      source.mediaType === 'application/pdf'
+    const baseSummarize = env.importAi.summarizeAttachment.bind(env.importAi);
+    env.importAi.summarizeAttachment = async (source) =>
+      source.includes('public-manual X1')
         ? {
-            text: 'public-manual X1',
             summary: 'public-manual X1',
             terms: ['manual'],
             status: 'COMPLETE',
             metadata: null,
             identifiers: [],
           }
-        : baseTranscribe(source);
+        : baseSummarize(source);
     env.importAi.findResources = async (research?: ResearchThing) => {
       researchNames.push(research?.name);
       return {
@@ -148,7 +147,14 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
             value: 'X1',
             attachmentId: source.rows[0].id,
             page: 1,
-            quote: 'public-manual X1',
+            quote: ' public-manual  X1 ',
+          },
+          {
+            fieldId: 'common.model',
+            value: 'UNKNOWN',
+            attachmentId: source.rows[0].id,
+            page: 1,
+            quote: 'Model UNKNOWN',
           },
         ],
       };
@@ -273,14 +279,14 @@ test('retry transcribes a failed source and links its evidence to the existing t
       categoryId: 'appliances',
     });
     const target = created.json<Schema['Thing']>().id;
-    const transcribe = env.importAi.transcribe.bind(env.importAi);
+    const summarize = env.importAi.summarizeAttachment.bind(env.importAi);
     let fail = true;
-    env.importAi.transcribe = async (source) => {
+    env.importAi.summarizeAttachment = async (source) => {
       if (fail) {
         fail = false;
         throw new Error('Synthetic transcription failure');
       }
-      return transcribe(source);
+      return summarize(source);
     };
     const upload = await env.app.inject({
       method: 'POST',
@@ -331,8 +337,8 @@ test('retry transcribes a failed source and links its evidence to the existing t
   }
 });
 
-// Source recommendation validation escaped optional-failure handling and aborted the refresh.
-test('invalid recommendation citations remain retryable while persistence failures abort the refresh', async () => {
+// Source recommendation validation discarded valid suggestions alongside a mismatched citation.
+test('invalid recommendation citations skip suggestions while persistence failures abort the refresh', async () => {
   const env = await startTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
@@ -363,6 +369,11 @@ test('invalid recommendation citations remain retryable while persistence failur
           description: 'Check the renewal terms.',
           sourceRefs: [{ attachmentId: source, page, quote: 'Check the renewal terms.' }],
         },
+        {
+          title: 'Confirm contact details',
+          description: 'Read the contact details.',
+          sourceRefs: [{ attachmentId: source, page: 2, quote: ' Contact   details. ' }],
+        },
       ],
       purchasables: [],
     });
@@ -384,26 +395,21 @@ test('invalid recommendation citations remain retryable while persistence failur
     const rejected = await wait(id);
     assert.equal(rejected.status, 'COMPLETE', JSON.stringify(rejected));
     assert.equal(rejected.error, null);
-    assert.ok(rejected.warnings?.some((warning) => warning.code === 'RESEARCH_FAILED'));
-    const saved = await env.pool.query<{ workflow: { warnings: { reason?: string }[] } }>(
-      'select workflow from bt.imports where id=$1',
-      [id],
-    );
-    assert.equal(saved.rows[0].workflow.warnings[0].reason, 'Quote does not match source page');
+    assert.equal(rejected.warnings?.length, 0);
     assert.equal(publicResearchCalls, 1);
     assert.equal(
       (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
-      0,
+      1,
     );
 
     page = 1;
-    assert.equal((await request('POST', `/api/imports/${id}:retry`)).statusCode, 200);
-    const retried = await wait(id);
+    const resubmitted = await request('POST', `/api/things/${thingId}:recommend`);
+    const retried = await wait(resubmitted.json<Schema['ImportAccepted']>().importId);
     assert.equal(retried.status, 'COMPLETE');
     assert.equal(retried.warnings?.length, 0);
     assert.equal(
       (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
-      1,
+      2,
     );
 
     await env.pool
@@ -417,7 +423,73 @@ test('invalid recommendation citations remain retryable while persistence failur
     assert.equal(unsaved.error, 'import_failed');
     assert.equal(
       (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
-      1,
+      2,
+    );
+  } finally {
+    await env.close();
+  }
+});
+
+// Literal field-evidence checks aborted imports and discarded valid proposals in the same batch.
+test('field quote mismatches skip proposals while whitespace differences populate successfully', async () => {
+  const env = await startTestApp();
+  try {
+    const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
+      env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
+    const created = await request('POST', '/api/things', {
+      name: 'Fixture oven',
+      categoryId: 'appliances',
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const thingId = created.json<Schema['Thing']>().id;
+    const source = randomUUID();
+    await env.pool.query(
+      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,page_count,transcription,transcription_status)
+       select $1,owner_id,'label.pdf','application/pdf',1,'fixture-label',2,$3,'COMPLETE' from bt.things where id=$2`,
+      [source, thingId, '[PDF page 1]\nModel: AX1\nSerial:   00026\n[PDF page 2]\nOther details.'],
+    );
+    await env.pool.query(
+      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      [source, thingId],
+    );
+    const ai: ImportAi = env.importAi;
+    ai.findResources = async () => ({ items: [], sources: [] });
+    ai.populateFields = async () => ({
+      values: [
+        {
+          fieldSetId: 'appliances.appliance',
+          fieldId: 'common.model',
+          value: 'AX1',
+          sourceRefs: [{ attachmentId: source, page: 2, quote: 'Model: AX1' }],
+        },
+        {
+          fieldSetId: 'appliances.appliance',
+          fieldId: 'common.serialNumber',
+          value: '00026',
+          sourceRefs: [{ attachmentId: source, page: 1, quote: ' Serial: 00026 ' }],
+        },
+      ],
+      pinnedFields: [],
+    });
+    ai.additionalInformation = async () => ({ findings: [] });
+    const submitted = await request('POST', '/api/imports', { thingId, attachmentIds: [] });
+    assert.equal(submitted.statusCode, 202, submitted.body);
+    const importId = submitted.json<Schema['ImportAccepted']>().importId;
+    let status: string | undefined;
+    for (let attempt = 0; attempt < 250; attempt++) {
+      const job = (await request('GET', '/api/imports/' + importId)).json<Schema['Import']>();
+      status = job.status;
+      if (['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(status)) break;
+      await setTimeout(20);
+    }
+    assert.equal(status, 'COMPLETE');
+    const detail = (await request('GET', '/api/things/' + thingId)).json<Schema['Thing']>();
+    const fields = detail.fieldSets.flatMap((set) => set.fields);
+    assert.equal(fields.find((field) => field.id === 'common.model')?.value, null);
+    assert.equal(fields.find((field) => field.id === 'common.serialNumber')?.value, '00026');
+    assert.equal(
+      fields.find((field) => field.id === 'common.serialNumber')?.sourceRefs[0].quote,
+      'Serial: 00026',
     );
   } finally {
     await env.close();

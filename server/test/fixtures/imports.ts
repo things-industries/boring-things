@@ -3,7 +3,6 @@ import type {
   ExtractedThing,
   Extraction,
   ImportAi,
-  Source,
   RegistryTools,
 } from '../../src/application/import/types.js';
 import type { AiContext } from '../../src/providers/ai/types.js';
@@ -70,10 +69,8 @@ export class FixtureAi implements ImportAi {
   arbitraryId = false;
   pause?: Promise<void>;
 
-  async transcribe(source: Source) {
-    const text = source.mediaType === 'text/plain' ? source.content.toString('utf8') : 'neff';
+  async summarizeAttachment(text: string) {
     return {
-      text,
       summary: `Source for ${text}`,
       terms: text.toLowerCase().includes('neff')
         ? ['neff']

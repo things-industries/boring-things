@@ -6,13 +6,11 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Readable content and metadata of one Attachment. */
-        Transcription: {
-            /** @description Page-labelled English transcription and relevant visual descriptions. */
-            text: string;
-            /** @description Source-wide summary, or null when unreadable. */
+        /** @description Summary, terms, identifiers and metadata of one Attachment. */
+        AttachmentSummary: {
+            /** @description Source-wide summary of up to 2,000 characters, or null when unreadable. */
             summary: string | null;
-            /** @description Source-wide terms without private identifiers. */
+            /** @description Up to 20 source-wide terms without private identifiers, each up to 200 characters. */
             terms: string[];
             /**
              * @description Outcome of reading the source.
@@ -116,14 +114,14 @@ export interface components {
             }[];
             /** @description Compatible products identified by source. */
             purchasables: {
-                /** @description Product name, up to 200 characters. */
+                /** @description Basic item name with only qualifiers needed to distinguish products, up to 200 characters. */
                 name: string;
                 /**
                  * @description Kind of purchasable.
                  * @enum {string}
                  */
                 kind: "CONSUMABLE" | "ACCESSORY";
-                /** @description Compatibility evidence and purpose, up to 4000 characters. */
+                /** @description Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words, up to 4000 characters. */
                 description: string;
                 /** @description Purchase URL printed in the cited source, or null. */
                 merchantUrl: string | null;
@@ -382,9 +380,9 @@ export interface components {
                  * @enum {string}
                  */
                 kind: "CONSUMABLE" | "ACCESSORY";
-                /** @description Source-supported product name, retaining any manufacturer part number (min 1 char, max 200 chars). */
+                /** @description Basic item name with only qualifiers needed to distinguish products (min 1 char, max 200 chars). */
                 name: string;
-                /** @description Purpose and compatibility explanation supported by retrieved evidence (min 1 char, max 4000 chars). */
+                /** @description Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words (min 1 char, max 4000 chars). */
                 description: string;
                 /** @description Direct purchase page URL observed through web search (min 1 char, max 2000 chars). */
                 merchantUrl: string;

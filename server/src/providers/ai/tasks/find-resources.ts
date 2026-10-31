@@ -110,6 +110,8 @@ function structureResearchPrompt(report: string, sources: string[], research: Re
 }
 
 export class FindResourcesTask extends AiTask<components['schemas']['Discovery'], Discovery> {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'medium';
   protected task = 'research_structure';
   protected instructions = thingImportInstructions;
   protected schema = schema;
@@ -171,6 +173,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
         },
       ],
       context,
+      { model: 'gpt-6-luna', effort: 'none' },
     );
     return this.processResponse(result, sources);
   }

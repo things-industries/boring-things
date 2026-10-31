@@ -5,11 +5,7 @@ import type { EnvConfig } from '../../config.js';
 
 export type AiConfig = Pick<
   EnvConfig,
-  | 'openaiApiKey'
-  | 'openaiModel'
-  | 'documentExtractionModel'
-  | 'aiMaxOutputTokens'
-  | 'importMaxTextCharacters'
+  'openaiApiKey' | 'aiMaxOutputTokens' | 'importMaxTextCharacters'
 >;
 
 export interface AiContext {

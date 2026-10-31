@@ -1,4 +1,5 @@
 /** Coordinates one Thing's identity, public research, shared field population and cited recommendations. */
+
 import { randomUUID, createHash } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import type pg from 'pg';
@@ -31,6 +32,7 @@ import { addFieldSets, fieldTargets, populateFields, identifierValues } from '..
 import { publicFields } from '../public-fields.js';
 import { searchFields, searchFieldSets } from '../registry/index.js';
 import { ensure } from '../errors.js';
+import { mapValidEvidence, normalizeWhitespace } from './evidence.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import { downloadPdf } from '../../providers/web/pdf.js';
 import { downloadImage } from '../../providers/web/image.js';
@@ -233,20 +235,20 @@ export class ImportWorkflow {
     };
   }
 
-  // Validates cited source IDs, original pages and verbatim quotations before field writes.
+  // Validates cited sources and original pages while tolerating quotation whitespace differences.
   private evidence(value: {
     attachmentId?: string;
     page?: number | null;
     quote?: string;
   }): SourceRef {
     const page = value.page ?? null;
+    const quote = normalizeWhitespace(value.quote ?? '');
     const source = this.sources.find((source) => source.id === value.attachmentId);
     ensure(
       source &&
-        typeof value.quote === 'string' &&
-        value.quote.trim().length > 0 &&
-        value.quote.length <= 2000 &&
-        source.transcription?.includes(value.quote),
+        quote.length > 0 &&
+        quote.length <= 2000 &&
+        normalizeWhitespace(source.transcription ?? '').includes(quote),
       'Invalid source evidence',
     );
     ensure(
@@ -264,14 +266,15 @@ export class ImportWorkflow {
         start = text.indexOf(marker);
       const end = text.indexOf('[PDF page ', start + marker.length);
       ensure(
-        start >= 0 && text.slice(start, end < 0 ? undefined : end).includes(value.quote),
+        start >= 0 &&
+          normalizeWhitespace(text.slice(start, end < 0 ? undefined : end)).includes(quote),
         'Quote does not match source page',
       );
     }
     return {
       attachmentId: source.id,
       ...(page !== null ? { page: page } : {}),
-      quote: value.quote,
+      quote,
       ...(source.sourceUrl ? { url: source.sourceUrl } : {}),
     };
   }
@@ -380,7 +383,7 @@ export class ImportWorkflow {
         ensure(candidate.categoryId === context.categoryId, 'wrong_thing');
         candidate.matchedThingId = context.id;
       }
-      for (const identifier of candidate.identifiers) {
+      candidate.identifiers = mapValidEvidence(candidate.identifiers, (identifier) => {
         ensure(
           categories
             .find((category) => category.id === candidate.categoryId)
@@ -394,7 +397,8 @@ export class ImportWorkflow {
           'Public source supplied instance data',
         );
         this.evidence(identifier);
-      }
+        return identifier;
+      });
       ensure(
         candidate.attachmentIds.every((id) => usable.some((source) => source.id === id)),
         'Invalid source association',
@@ -741,7 +745,7 @@ export class ImportWorkflow {
         await importsDb.saveWorkflow(this.pool, this.job, this.job.workflow);
         continue;
       }
-      for (const identifier of result.identifiers) {
+      result.identifiers = mapValidEvidence(result.identifiers, (identifier) => {
         ensure(
           identifier.attachmentId === source.id &&
             ['CLASS', 'GROUP'].includes(
@@ -750,7 +754,8 @@ export class ImportWorkflow {
           'Invalid public identifier',
         );
         this.evidence(identifier);
-      }
+        return identifier;
+      });
       await this.commit(key, async (db, current) => {
         await this.assertSourceCurrent(db, current, source.id);
         await attachmentsDb.saveCoverage(
@@ -854,7 +859,7 @@ export class ImportWorkflow {
         ),
         'Unrequested pin',
       );
-      const values: FieldProposal[] = result.values.map((value) => {
+      const values: FieldProposal[] = mapValidEvidence(result.values, (value) => {
         ensure(
           fields.some(
             (target) => target.fieldSetId === value.fieldSetId && target.field.id === value.fieldId,
@@ -938,7 +943,7 @@ export class ImportWorkflow {
             this.tools(thing.categoryId, undefined, retrieved),
             this.context,
           );
-          result.findings.forEach((value) => {
+          result.findings = mapValidEvidence(result.findings, (value) => {
             ensure(value.attachmentId === source.id, 'Wrong additional source');
             this.evidence(value);
             ensure(
@@ -955,6 +960,7 @@ export class ImportWorkflow {
               );
               this.registry.validate(value.fieldId, value.value);
             }
+            return value;
           });
         } catch (error) {
           if (error instanceof UsagePersistenceError) throw error;
@@ -1062,10 +1068,14 @@ export class ImportWorkflow {
           this.tools(thing.categoryId),
           this.context,
         );
-        for (const item of [...result.tasks, ...result.purchasables]) {
+
+        // Validate each suggestion independently so a rejected citation does not discard its peers.
+        const cite = <T extends { sourceRefs: SourceRef[] }>(item: T): T => {
           ensure(item.sourceRefs.length > 0, 'Invalid source evidence');
-          item.sourceRefs = item.sourceRefs.map((ref) => this.evidence(ref));
-        }
+          return { ...item, sourceRefs: item.sourceRefs.map((ref) => this.evidence(ref)) };
+        };
+        result.tasks = mapValidEvidence(result.tasks, cite);
+        result.purchasables = mapValidEvidence(result.purchasables, cite);
         for (const task of result.tasks)
           ensure(
             task.title.length <= 200 && task.description.length <= 4000,
@@ -1088,13 +1098,7 @@ export class ImportWorkflow {
         if (error instanceof UsagePersistenceError) throw error;
         this.context.signal.throwIfAborted();
         result = undefined;
-        const reason = [
-          'Invalid source evidence',
-          'Invalid source page',
-          'Quote does not match source page',
-          'Invalid recommendation',
-          'Uncited purchase URL',
-        ].find((message) => error instanceof Error && error.message === message);
+        const reason = getImportFailureReason(error);
         await this.warning(sourceKey, null, 'RESEARCH_FAILED', reason);
       }
       if (result) {

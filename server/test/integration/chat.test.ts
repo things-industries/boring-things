@@ -28,7 +28,6 @@ const config = () => ({
   ...readConfig(),
   blobDirectory: directory,
   openaiApiKey: '',
-  openaiModel: '',
   chatTimeoutMs: 3000,
 });
 const boot = async () => {
