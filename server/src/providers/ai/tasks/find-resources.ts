@@ -6,7 +6,8 @@ import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { thingImportInstructions } from '../prompts.js';
 import type { ResearchThing, Discovery } from '../../../application/import/types.js';
-import { categoryResearchPrompt, thingResearchInstructions } from '../prompts.js';
+import { thingResearchInstructions } from '../prompts.js';
+import { categoryResearchPrompt } from './resource-prompts.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { readResourcePage } from '../../web/resources.js';
 

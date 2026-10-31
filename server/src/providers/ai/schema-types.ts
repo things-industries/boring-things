@@ -97,42 +97,6 @@ export interface components {
                 quote: string;
             }[];
         };
-        /** @description Recommendations justified by linked Attachment content. */
-        SourceRecommendations: {
-            /** @description Distinct maintenance and administration actions justified by source content. */
-            tasks: {
-                /** @description Verb and object naming the work, with only qualifiers needed to identify it, up to 200 characters. */
-                title: string;
-                /** @description Source-supported frequency, triggers, methods, precautions and evidence requirements, up to 4000 characters. */
-                description: string;
-                /** @description Attachment ID copied from the supplied source. */
-                attachmentId: string;
-                /** @description Original one-based page number, or null for unpaginated text. */
-                page: number | null;
-                /** @description Verbatim source passage, up to 2000 characters. */
-                quote: string;
-            }[];
-            /** @description Compatible products identified by source. */
-            purchasables: {
-                /** @description Basic item name with only qualifiers needed to distinguish products, up to 200 characters. */
-                name: string;
-                /**
-                 * @description Kind of purchasable.
-                 * @enum {string}
-                 */
-                kind: "CONSUMABLE" | "ACCESSORY";
-                /** @description Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words, up to 4000 characters. */
-                description: string;
-                /** @description Purchase URL printed in the cited source, or null. */
-                merchantUrl: string | null;
-                /** @description Attachment ID copied from the supplied source. */
-                attachmentId: string;
-                /** @description Original one-based page number, or null for unpaginated text. */
-                page: number | null;
-                /** @description Verbatim source passage, up to 2000 characters. */
-                quote: string;
-            }[];
-        };
         /** @description Cited values for enabled Thing Fields. */
         Population: {
             /** @description Up to 20 values for the supplied field targets. */
@@ -365,10 +329,20 @@ export interface components {
                 title: string;
                 /** @description Source-supported frequency, triggers, methods, precautions and evidence requirements, with no inferred next date (min 1 char, max 4000 chars). */
                 description: string;
-                /** @description Supporting URL observed through web search (min 1 char, max 2000 chars). */
-                sourceUrl: string;
-                /** @description Supporting excerpt from the public source establishing task applicability (min 1 char, max 2000 chars). */
-                quote: string;
+                /** @description Attachment passages or observed public sources establishing applicability, at least one. */
+                sourceRefs: ({
+                    /** @description Attachment ID copied from the supplied source. */
+                    attachmentId: string;
+                    /** @description Original one-based page number, or null for unpaginated text. */
+                    page: number | null;
+                    /** @description Verbatim source passage, up to 2000 characters. */
+                    quote: string;
+                } | {
+                    /** @description Public source URL observed through web search, 1–2000 characters. */
+                    url: string;
+                    /** @description Supporting excerpt establishing applicability, 1–2000 characters. */
+                    quote: string;
+                })[];
             }[];
         };
         /** @description Supported consumables and accessories with purchase pages and compatibility evidence. */
@@ -384,12 +358,22 @@ export interface components {
                 name: string;
                 /** @description Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words (min 1 char, max 4000 chars). */
                 description: string;
-                /** @description Direct purchase page URL observed through web search (min 1 char, max 2000 chars). */
+                /** @description Direct purchase page URL observed through web search or printed in cited Attachment content (min 1 char, max 2000 chars). */
                 merchantUrl: string;
-                /** @description URL observed through web search establishing compatibility (min 1 char, max 2000 chars). */
-                sourceUrl: string;
-                /** @description Supporting excerpt establishing model, variant, part number or technical compatibility (min 1 char, max 2000 chars). */
-                quote: string;
+                /** @description Attachment passages or observed public sources establishing applicability, at least one. */
+                sourceRefs: ({
+                    /** @description Attachment ID copied from the supplied source. */
+                    attachmentId: string;
+                    /** @description Original one-based page number, or null for unpaginated text. */
+                    page: number | null;
+                    /** @description Verbatim source passage, up to 2000 characters. */
+                    quote: string;
+                } | {
+                    /** @description Public source URL observed through web search, 1–2000 characters. */
+                    url: string;
+                    /** @description Supporting excerpt establishing applicability, 1–2000 characters. */
+                    quote: string;
+                })[];
             }[];
         };
         /** @description Category and source-supported terms used to find eligible field sets. */

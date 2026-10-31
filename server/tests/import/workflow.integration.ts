@@ -9,7 +9,7 @@ import type { Schema } from '../../../shared/model.js';
 import type {
   ImportAi,
   ResearchThing,
-  SourceRecommendationsInput,
+  RecommendationInput,
 } from '../../src/application/import/types.js';
 
 test('contextual Import and Recommendation preserve owner fields and retry unfinished work', async () => {
@@ -94,17 +94,17 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
   });
   try {
     const resolve = env.importAi.resolveThing.bind(env.importAi);
-    env.importAi.resolveThing = async (input, tools) => {
-      const result = await resolve(input, tools);
+    env.importAi.resolveThing = async (input, context) => {
+      const result = await resolve(input, context);
       for (const candidate of result.candidates) candidate.name = 'Example oven (2021)';
       return result;
     };
     const researchNames: (string | undefined)[] = [];
-    let recommendationFields: SourceRecommendationsInput['fields'] = [];
+    let recommendationFields: RecommendationInput['fields'] = [];
     const importAi: ImportAi = env.importAi;
-    importAi.recommendFromSources = async ({ fields }) => {
+    importAi.suggestTasks = async ({ fields }) => {
       recommendationFields = fields;
-      return { tasks: [], purchasables: [] };
+      return { items: [] };
     };
     const request = (method: 'GET' | 'POST' | 'DELETE' | 'PATCH', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
@@ -361,25 +361,23 @@ test('invalid recommendation citations skip suggestions while persistence failur
     );
     let page = 2,
       title = 'Review the policy',
-      publicResearchCalls = 0;
-    env.importAi.recommendFromSources = async () => ({
-      tasks: [
-        {
-          title,
-          description: 'Check the renewal terms.',
-          sourceRefs: [{ attachmentId: source, page, quote: 'Check the renewal terms.' }],
-        },
-        {
-          title: 'Confirm contact details',
-          description: 'Read the contact details.',
-          sourceRefs: [{ attachmentId: source, page: 2, quote: ' Contact   details. ' }],
-        },
-      ],
-      purchasables: [],
-    });
+      recommendationCalls = 0;
     env.importAi.suggestTasks = async () => {
-      publicResearchCalls++;
-      return { items: [] };
+      recommendationCalls++;
+      return {
+        items: [
+          {
+            title,
+            description: 'Check the renewal terms.',
+            sourceRefs: [{ attachmentId: source, page, quote: 'Check the renewal terms.' }],
+          },
+          {
+            title: 'Confirm contact details',
+            description: 'Read the contact details.',
+            sourceRefs: [{ attachmentId: source, page: 2, quote: ' Contact   details. ' }],
+          },
+        ],
+      };
     };
     const wait = async (id: string) => {
       for (let n = 0; n < 250; n++) {
@@ -396,7 +394,7 @@ test('invalid recommendation citations skip suggestions while persistence failur
     assert.equal(rejected.status, 'COMPLETE', JSON.stringify(rejected));
     assert.equal(rejected.error, null);
     assert.equal(rejected.warnings?.length, 0);
-    assert.equal(publicResearchCalls, 1);
+    assert.equal(recommendationCalls, 1);
     assert.equal(
       (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
       1,

@@ -9,15 +9,13 @@ import { extractedThings, extractionBaseline } from './fixtures/imports.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
-import {
-  taskRecommendationInstructions,
-  purchasableRecommendationInstructions,
-  thingDefinition,
-} from '../src/providers/ai/prompts.js';
+import { thingDefinition } from '../src/providers/ai/prompts.js';
+
+import { createImportTaskContext } from './support/import-context.js';
 
 const config = readConfig({ OPENAI_API_KEY: 'test-key' });
 
-const context = () => ({ signal: new AbortController().signal, record: async () => {} });
+const context = createImportTaskContext;
 const jsonResponse = (data: unknown) =>
   new Response(JSON.stringify(data), {
     headers: { 'Content-Type': 'application/json' },
@@ -224,14 +222,7 @@ test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP
     }),
   );
   await assert.rejects(
-    ai.selectFieldSets(
-      extractedThings.neff,
-      {
-        searchFieldSets: async () => assert.fail('invalid arguments executed'),
-        searchFields: async () => ({}),
-      },
-      context(),
-    ),
+    ai.selectFieldSets(extractedThings.neff, context()),
     /Invalid AI tool arguments/,
   );
   fetch.mock.mockImplementation(
@@ -391,6 +382,8 @@ test('public research keeps the source-derived product generation across its req
     ],
     emptyFields: [],
     referenceUrls: [],
+    fields: [],
+    sources: [],
   };
   const ai = new OpenAiImports(config, undefined, async () => null);
   await ai.findResources(research, context());
@@ -511,6 +504,8 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       },
     ],
     referenceUrls: [url],
+    fields: [],
+    sources: [],
     existingTasks: [{ title: 'Private owner title', status: 'DISMISSED' as const }],
   };
   let sourceUrl: string | null = url;
@@ -523,14 +518,24 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     const body = JSON.parse(init.body as string);
     requests.push(body);
     assert.equal(body.store, false);
-    assert.ok(body.instructions.includes(taskRecommendationInstructions));
+    assert.match(body.instructions, /do not suggest recording model numbers/);
+    assert.match(body.instructions, /Name each task with a verb and its object/);
     assert.match(body.input, /Model A/);
-    assert.ok(!body.input.includes('Private owner title'));
+    assert.ok(body.input.includes('existingTasks'));
+    if (requests.length === 1) assert.ok(body.input.includes('Private owner title'));
     assert.ok(!body.input.includes('Imported facts'));
     const properties = body.text.format.schema.properties.items.items.properties;
     assert.ok(!('factId' in properties));
-    assert.equal(properties.sourceUrl.type, 'string');
-    const response = output({ items: [{ ...item, sourceUrl }] });
+    assert.equal(properties.sourceRefs.type, 'array');
+    const response = output({
+      items: [
+        {
+          title: item.title,
+          description: item.description,
+          sourceRefs: [{ url: sourceUrl, quote: item.quote }],
+        },
+      ],
+    });
     return jsonResponse({
       ...response,
       output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
@@ -558,7 +563,10 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(requests[0].max_tool_calls, 2);
   assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
-  assert.deepEqual(requests[0].include, ['web_search_call.action.sources']);
+  assert.deepEqual(requests[0].include, [
+    'reasoning.encrypted_content',
+    'web_search_call.action.sources',
+  ]);
   assert.deepEqual(
     entries.flatMap((entry) => entry.entries ?? []).map((entry) => entry.task),
     ['task_suggestions'],
@@ -572,9 +580,9 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     { items: [] },
   );
   sourceUrl = 'https://invented.example/manual';
-  await assert.rejects(ai.suggestTasks(research, context()), /Uncited task source/);
+  await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
   sourceUrl = 'http://localhost/private';
-  await assert.rejects(ai.suggestTasks(research, context()), /Uncited task source/);
+  await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
   sourceUrl = null;
   await assert.rejects(ai.suggestTasks(research, context()), /Invalid AI output/);
   const before = fetch.mock.callCount();
@@ -592,16 +600,20 @@ test('SDK purchasable research discovers products and purchase links within one 
     name: 'Water filter',
     description: 'Replace the filter when water flow decreases.',
     merchantUrl: url,
-    sourceUrl: url,
-    quote: '0015 fits Model A',
+    sourceRefs: [{ url, quote: '0015 fits Model A' }],
   };
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     requests.push(body);
     assert.match(body.input, /Find useful purchasables/);
-    assert.ok(body.instructions.includes(purchasableRecommendationInstructions));
+    assert.match(body.instructions, /Name each purchasable with its basic item name/);
+    assert.match(
+      body.instructions,
+      /Describe why the item is useful and when the owner should buy it/,
+    );
     assert.match(body.input, /consumables/);
-    assert.ok(!body.input.includes('Private owner product'));
+    assert.ok(body.input.includes('existingPurchasables'));
+    if (requests.length === 1) assert.ok(body.input.includes('Private owner product'));
     assert.equal(body.text.format.schema.properties.items.type, 'array');
     const response = output({ items: [product] });
     return jsonResponse({
@@ -622,6 +634,8 @@ test('SDK purchasable research discovers products and purchase links within one 
       },
     ],
     referenceUrls: [],
+    fields: [],
+    sources: [],
     existingPurchasables: [{ kind: 'CONSUMABLE' as const, name: 'Private owner product' }],
   };
   assert.deepEqual(await ai.findPurchasables(research, context(), 2), {
@@ -631,14 +645,17 @@ test('SDK purchasable research discovers products and purchase links within one 
         name: 'Water filter',
         description: 'Replace the filter when water flow decreases.',
         merchantUrl: url,
-        sourceRefs: [{ url, quote: product.quote }],
+        sourceRefs: [{ url, quote: product.sourceRefs[0].quote }],
       },
     ],
   });
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(requests[0].max_tool_calls, 2);
   assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
-  assert.deepEqual(requests[0].include, ['web_search_call.action.sources']);
+  assert.deepEqual(requests[0].include, [
+    'reasoning.encrypted_content',
+    'web_search_call.action.sources',
+  ]);
   assert.deepEqual(
     await ai.findPurchasables(
       { ...research, existingPurchasables: [{ kind: 'CONSUMABLE', name: product.name }] },

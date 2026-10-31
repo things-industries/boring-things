@@ -8,6 +8,9 @@ import { startTestApp, type TestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 
+import { searchFieldSets } from '../../src/providers/ai/tools/registry.js';
+import { loadRegistry } from '../../src/application/registry/index.js';
+
 // Waits for a fixture request to finish without external AI calls.
 async function waitForImport(env: TestApp, id: string) {
   for (let attempt = 0; attempt < 250; attempt++) {
@@ -52,8 +55,9 @@ test('additional-information warnings permit recommendations and retry, while wr
       return { items: [] };
     };
     const ai: ImportAi = env.importAi;
-    ai.additionalInformation = async (_input, tools) => {
-      await tools.searchFieldSets('appliances', ['appliance']);
+    const registryResources = { db: env.pool, registry: await loadRegistry(env.pool) };
+    ai.additionalInformation = async (_input, context) => {
+      await searchFieldSets(context, registryResources, 'appliances', ['appliance']);
       if (failWrite)
         await env.pool
           .query(`create function bt.reject_fixture_field() returns trigger language plpgsql as $$
@@ -98,8 +102,8 @@ test('additional-information warnings permit recommendations and retry, while wr
     );
     assert.equal(fields.rows[0].value, 'black');
 
-    const recommendFromSources = env.importAi.recommendFromSources.bind(env.importAi);
-    env.importAi.recommendFromSources = async () => {
+    const findPurchasables = env.importAi.findPurchasables.bind(env.importAi);
+    env.importAi.findPurchasables = async () => {
       throw new Error('tool_limit');
     };
     const limited = await request('POST', `/api/things/${thingId}:recommend`);
@@ -109,7 +113,7 @@ test('additional-information warnings permit recommendations and retry, while wr
       limitedId,
     ]);
     assert.equal(limitedCheckpoint.rows[0].workflow.warnings[0].reason, 'tool_limit');
-    env.importAi.recommendFromSources = recommendFromSources;
+    env.importAi.findPurchasables = findPurchasables;
 
     failWrite = true;
     const failed = await request('POST', '/api/imports', { attachmentIds: [], thingId });

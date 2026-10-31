@@ -2,15 +2,15 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { thingImportInstructions } from '../prompts.js';
 import type {
   PopulationInput,
   PopulationResult,
-  WorkflowTools,
+  ImportTaskContext,
 } from '../../../application/import/types.js';
-import { createTranscriptionTool } from '../tools/registry.js';
+import { createTranscriptionTool } from '../tools/transcription.js';
 import { createSourceRef } from '../sources.js';
 import { createObjectSchema, valueSchema, sourceEvidenceProperties } from '../schemas.js';
 
@@ -60,7 +60,8 @@ export const schema = createObjectSchema(
 
 export class PopulateFieldsTask extends AiTask<
   components['schemas']['Population'],
-  PopulationResult
+  PopulationResult,
+  ImportTaskContext
 > {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
@@ -71,14 +72,13 @@ export class PopulateFieldsTask extends AiTask<
   constructor(
     config: AiConfig,
     private input: PopulationInput,
-    tools: WorkflowTools,
   ) {
     super(config);
-    this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext) {
+  async run(context: ImportTaskContext) {
+    this.tools = [createTranscriptionTool(context)];
     return this.processResponse(
       await this.execute(
         [

@@ -7,7 +7,7 @@ import type { ImportAi } from '../../application/import/types.js';
 import type { ChatAi } from '../../application/conversations/types.js';
 import { OpenAiImports } from './openai-imports.js';
 import { OpenAiChat } from './openai-chat.js';
-import type { AiTurnCompleted } from './types.js';
+import type { AiTurnCompleted, RegistryResources } from './types.js';
 
 interface AiProviders {
   importAi?: ImportAi;
@@ -18,11 +18,15 @@ export function createAi(
   config: EnvConfig,
   overrides: AiProviders = {},
   onTurnCompleted?: AiTurnCompleted,
+  registryResources?: RegistryResources,
 ): AiProviders {
   const enabled = !!config.openaiApiKey;
   return {
     importAi:
-      overrides.importAi ?? (enabled ? new OpenAiImports(config, onTurnCompleted) : undefined),
+      overrides.importAi ??
+      (enabled
+        ? new OpenAiImports(config, onTurnCompleted, undefined, registryResources)
+        : undefined),
     chatAi: overrides.chatAi ?? (enabled ? new OpenAiChat(config, onTurnCompleted) : undefined),
   };
 }

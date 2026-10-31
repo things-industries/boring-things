@@ -11,7 +11,7 @@ import type {
   DocumentExtraction,
 } from '../../../application/import/types.js';
 import { createSourceInput } from '../sources.js';
-import { categoryResearchPrompt } from '../prompts.js';
+import { categoryResearchPrompt } from './resource-prompts.js';
 import { ensure } from '../../../application/errors.js';
 
 import { createObjectSchema, valueSchema, attachmentMetadataSchema } from '../schemas.js';

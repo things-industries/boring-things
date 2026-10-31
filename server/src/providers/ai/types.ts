@@ -3,6 +3,14 @@
 import type { Schema } from '../../../../shared/model.js';
 import type { EnvConfig } from '../../config.js';
 
+import type { Database } from '../../db/connection.js';
+import type { Registry } from '../../application/registry/registry.js';
+
+export interface RegistryResources {
+  db: Database;
+  registry: Registry;
+}
+
 export type AiConfig = Pick<
   EnvConfig,
   'openaiApiKey' | 'aiMaxOutputTokens' | 'importMaxTextCharacters'

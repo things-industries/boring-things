@@ -1,11 +1,15 @@
+/** Supplies synthetic Import results for application and browser checks without external AI calls. */
+
 import { pauseUntil } from './pause.js';
 import type {
   ExtractedThing,
   Extraction,
   ImportAi,
-  RegistryTools,
+  ImportTaskContext,
 } from '../../src/application/import/types.js';
-import type { AiContext } from '../../src/providers/ai/types.js';
+import { searchFields, searchFieldSets } from '../../src/providers/ai/tools/registry.js';
+import type { RegistryResources } from '../../src/providers/ai/types.js';
+import { searchTranscription } from '../../src/providers/ai/tools/transcription.js';
 type PopulationResult = Awaited<ReturnType<NonNullable<ImportAi['populateFields']>>>;
 
 // Synthetic replay fixtures. Live provider observations are recorded separately by the smoke script.
@@ -64,6 +68,8 @@ export const extractionBaseline = Object.entries(extractedThings).map(([id, expe
   expected,
 }));
 export class FixtureAi implements ImportAi {
+  constructor(private registryResources: RegistryResources) {}
+
   metadata?: Extraction['metadata'];
   failOnce = false;
   arbitraryId = false;
@@ -88,11 +94,11 @@ export class FixtureAi implements ImportAi {
 
   async resolveThing(
     input: import('../../src/application/import/types.js').ResolutionInput,
-    tools: import('../../src/application/import/types.js').WorkflowTools,
+    context: ImportTaskContext,
   ) {
     const source = input.sources[0];
     if (!source) return { candidates: [], contradiction: false };
-    const evidence = await tools.searchTranscription(source.attachmentId, '', 0);
+    const evidence = await searchTranscription(context, source.attachmentId, '', 0);
     const text = evidence.text.toLowerCase();
     const categoryId = text.includes('policy')
       ? 'insurance'
@@ -147,8 +153,7 @@ export class FixtureAi implements ImportAi {
 
   async populateFields(
     input: import('../../src/application/import/types.js').PopulationInput,
-    tools: import('../../src/application/import/types.js').WorkflowTools,
-    context: AiContext,
+    context: ImportTaskContext,
   ): Promise<PopulationResult> {
     await pauseUntil(this.pause, context.signal);
     if (this.failOnce) {
@@ -159,7 +164,7 @@ export class FixtureAi implements ImportAi {
       input.sources.find((source) => !source.summary?.includes('public-manual')) ??
       input.sources[0];
     if (!source) return { values: [], pinnedFields: [] };
-    const evidence = await tools.searchTranscription(source.attachmentId, '', 0);
+    const evidence = await searchTranscription(context, source.attachmentId, '', 0);
     return {
       pinnedFields: input.fields
         .filter((target) => ['appliances.zNumber', 'vehicles.payloadKg'].includes(target.field.id))
@@ -212,19 +217,15 @@ export class FixtureAi implements ImportAi {
   async assessResource(): Promise<Awaited<ReturnType<NonNullable<ImportAi['assessResource']>>>> {
     return { applicable: true, identifiers: [] };
   }
-  async recommendFromSources(): Promise<
-    Awaited<ReturnType<NonNullable<ImportAi['recommendFromSources']>>>
-  > {
-    return { tasks: [], purchasables: [] };
-  }
-
   async additionalInformation(
     input: import('../../src/application/import/types.js').AdditionalInformationInput,
-    tools: import('../../src/application/import/types.js').WorkflowTools,
+    context: ImportTaskContext,
   ) {
     if (input.text !== 'neff' || input.knownFields.includes('Installer reference'))
       return { findings: [] };
-    await tools.searchFields([{ label: 'Installer reference', context: '' }]);
+    await searchFields(context, this.registryResources, [
+      { label: 'Installer reference', context: '' },
+    ]);
     return {
       findings: [
         {
@@ -241,8 +242,10 @@ export class FixtureAi implements ImportAi {
     };
   }
 
-  async selectFieldSets(candidate: ExtractedThing, tools: RegistryTools) {
-    await tools.searchFieldSets(
+  async selectFieldSets(candidate: ExtractedThing, context: ImportTaskContext) {
+    await searchFieldSets(
+      context,
+      this.registryResources,
       candidate.categoryId,
       candidate.terms.length ? candidate.terms : [candidate.name],
     );
@@ -251,10 +254,16 @@ export class FixtureAi implements ImportAi {
   async findResources(): Promise<Awaited<ReturnType<ImportAi['findResources']>>> {
     return { items: [], sources: [] };
   }
-  async suggestTasks() {
+  async suggestTasks(
+    _input: Parameters<ImportAi['suggestTasks']>[0],
+    _context: ImportTaskContext,
+  ): Promise<Awaited<ReturnType<ImportAi['suggestTasks']>>> {
     return { items: [] };
   }
-  async findPurchasables() {
+  async findPurchasables(
+    _input: Parameters<ImportAi['findPurchasables']>[0],
+    _context: ImportTaskContext,
+  ): Promise<Awaited<ReturnType<ImportAi['findPurchasables']>>> {
     return { items: [] };
   }
 }

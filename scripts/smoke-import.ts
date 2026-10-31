@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
 import * as database from '../server/src/db/connection.js';
+import { loadRegistry } from '../server/src/application/registry/index.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
@@ -21,7 +22,7 @@ const admin = database.createPool(url.toString());
 url.pathname = '/' + name;
 const pool = database.createPool(url.toString());
 const directory = await mkdtemp(tmpdir() + '/bt-smoke-');
-const ai = new OpenAiImports(config);
+let ai: OpenAiImports;
 const trace: unknown[] = [];
 const recorded: ImportAi = {
   summarizeAttachment: async (...args) => {
@@ -46,7 +47,6 @@ const recorded: ImportAi = {
   },
   additionalInformation: (...args) => ai.additionalInformation(...args),
   assessResource: (...args) => ai.assessResource(...args),
-  recommendFromSources: (...args) => ai.recommendFromSources(...args),
   findResources: (...args) => ai.findResources(...args),
   suggestTasks: (...args) => ai.suggestTasks(...args),
   findPurchasables: (...args) => ai.findPurchasables(...args),
@@ -58,6 +58,10 @@ try {
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   await database.transaction(pool, registrySeedDb.seedRegistry);
+  ai = new OpenAiImports(config, undefined, undefined, {
+    db: pool,
+    registry: await loadRegistry(pool),
+  });
   app = await buildApp({
     dbPool: pool,
     config: { ...config, blobDirectory: directory },

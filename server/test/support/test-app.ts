@@ -17,6 +17,7 @@ import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
+import { loadRegistry } from '../../src/application/registry/index.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 
 const appId = 'browser-test';
@@ -96,7 +97,7 @@ export async function startTestApp(
       await pool.query(await readFile(new URL(file, migrations), 'utf8'));
     }
     await database.transaction(pool, registrySeedDb.seedRegistry);
-    const importAi = new FixtureAi();
+    const importAi = new FixtureAi({ db: pool, registry: await loadRegistry(pool) });
     const chatAi = new FixtureChat();
     const app = await buildApp({
       dbPool: pool,

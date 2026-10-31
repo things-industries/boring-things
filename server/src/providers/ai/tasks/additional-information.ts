@@ -1,20 +1,17 @@
 /** Additional information task, identifies source facts beyond the selected Thing fields. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiConfig, RegistryResources } from '../types.js';
 import { AiTask } from './task.js';
 import { thingImportInstructions } from '../prompts.js';
 import type {
   AdditionalInformationInput,
   AdditionalInformationResult,
-  WorkflowTools,
+  ImportTaskContext,
 } from '../../../application/import/types.js';
-import {
-  createTranscriptionTool,
-  createFieldsTool,
-  createFieldSetsTool,
-} from '../tools/registry.js';
+import { createFieldsTool, createFieldSetsTool } from '../tools/registry.js';
 
+import { createTranscriptionTool } from '../tools/transcription.js';
 import { createObjectSchema, valueSchema, sourceEvidenceProperties } from '../schemas.js';
 
 export const schema = createObjectSchema(
@@ -54,7 +51,8 @@ export const schema = createObjectSchema(
 
 export class AdditionalInformationTask extends AiTask<
   components['schemas']['AdditionalInformation'],
-  AdditionalInformationResult
+  AdditionalInformationResult,
+  ImportTaskContext
 > {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
@@ -65,18 +63,18 @@ export class AdditionalInformationTask extends AiTask<
   constructor(
     config: AiConfig,
     private input: AdditionalInformationInput,
-    tools: WorkflowTools,
+    private registryResources?: RegistryResources,
   ) {
     super(config);
-    this.tools = [
-      createTranscriptionTool(tools),
-      createFieldsTool(tools),
-      createFieldSetsTool(tools),
-    ];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext) {
+  async run(context: ImportTaskContext) {
+    this.tools = [
+      createTranscriptionTool(context),
+      createFieldsTool(context, this.registryResources),
+      createFieldSetsTool(context, this.registryResources),
+    ];
     return this.parseOutput(
       await this.execute(
         [

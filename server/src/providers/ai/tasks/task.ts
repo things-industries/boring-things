@@ -13,7 +13,7 @@ import type { AiTurnCompleted, AiContext, AiConfig } from '../types.js';
 import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
 
-type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reasoning'> & {
+export type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reasoning'> & {
   effort?: ReasoningEffort;
 };
 

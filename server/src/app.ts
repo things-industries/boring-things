@@ -80,11 +80,17 @@ export async function buildApp(options: BuildAppOptions = {}) {
       return { status: 'ok' };
     });
 
-    const { importAi, chatAi } = createAi(config, options, (usage) =>
-      app.log.info(
-        { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
-        'AI turn completed',
-      ),
+    // Registry definitions are cached at startup; restart the server after changing seeded metadata.
+    const registry = await loadRegistry(dbPool);
+    const { importAi, chatAi } = createAi(
+      config,
+      options,
+      (usage) =>
+        app.log.info(
+          { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
+          'AI turn completed',
+        ),
+      { db: dbPool, registry },
     );
     await app.register(routes.configRoutes, {
       config: {
@@ -99,8 +105,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
       },
     });
 
-    // Registry definitions are cached at startup; restart the server after changing seeded metadata.
-    const registry = await loadRegistry(dbPool);
     const blobs = options.blobs ?? createBlobs(config);
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const events = new ApplicationEvents();

@@ -3,7 +3,6 @@
 import { schema as AttachmentSummary } from '../server/src/providers/ai/tasks/summarize-attachment.js';
 import { schema as Resolution } from '../server/src/providers/ai/tasks/resolve-thing.js';
 import { schema as ResourceApplicability } from '../server/src/providers/ai/tasks/resource-applicability.js';
-import { schema as SourceRecommendations } from '../server/src/providers/ai/tasks/source-recommendations.js';
 import { schema as Population } from '../server/src/providers/ai/tasks/populate-fields.js';
 import { schema as AdditionalInformation } from '../server/src/providers/ai/tasks/additional-information.js';
 import { schema as Extraction } from '../server/src/providers/ai/tasks/extract-source.js';
@@ -12,6 +11,7 @@ import { schema as Discovery } from '../server/src/providers/ai/tasks/find-resou
 import { schema as DocumentExtraction } from '../server/src/providers/ai/tasks/extract-document.js';
 import { schema as TaskSuggestions } from '../server/src/providers/ai/tasks/suggest-tasks.js';
 import { schema as PurchasableSuggestions } from '../server/src/providers/ai/tasks/find-purchasables.js';
+import { search_transcription } from '../server/src/providers/ai/tools/transcription.js';
 import { registryFunctions } from '../server/src/providers/ai/tools/registry.js';
 import { chatFunctions } from '../server/src/providers/ai/tasks/assistant.js';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -21,7 +21,6 @@ const schemas = {
   AttachmentSummary,
   Resolution,
   ResourceApplicability,
-  SourceRecommendations,
   Population,
   AdditionalInformation,
   Extraction,
@@ -31,7 +30,10 @@ const schemas = {
   TaskSuggestions,
   PurchasableSuggestions,
   ...Object.fromEntries(
-    [...registryFunctions, ...chatFunctions].map((tool) => [tool.name, tool.parameters]),
+    [...registryFunctions, search_transcription, ...chatFunctions].map((tool) => [
+      tool.name,
+      tool.parameters,
+    ]),
   ),
 };
 const generatedTypes = astToString(

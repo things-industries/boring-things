@@ -70,7 +70,7 @@ An Import owns its sources, optional Thing context, selected candidate, resolved
 7. **Find important additional information.** Review owner-uploaded source content in bounded batches. Add significant information to a matching standalone registry field, or to a custom field when justified. Retain incidental content in the transcription. Use a configurable lower-cost model and a high threshold for custom fields.
 8. **Recommend.** Run the Recommendation capability using committed fields, applicable Attachment content and category hints. Save cited management tasks and purchasables while preserving existing suggestions and owner decisions.
 
-Zero-Attachment contextual Imports enter step 4 with the Thing's existing fields. Direct Recommendation starts step 8. Public research receives eligible public fields; private identifiers are used only by an applicable specialist lookup with validated inputs. Source content and model results remain untrusted inputs.
+Zero-Attachment contextual Imports enter step 4 with the Thing's existing fields. Direct Recommendation starts step 8. Resource research receives eligible public fields; specialist lookups receive validated identifiers. Each recommendation task may read private Attachment content and saved fields and formulate web queries using public model, provider and product details. Source content and model results remain untrusted inputs.
 
 ## Task and provider boundaries
 
@@ -78,7 +78,7 @@ Zero-Attachment contextual Imports enter step 4 with the Thing's existing fields
 
 The `AiTask` foundation owns buffered and streamed SDK requests, structured-output validation, bounded tool conversations, cancellation and usage reporting. Task instances hold only state needed for their execution.
 
-Each task owns its prompt, response schema, permitted tool adapters and response conversion: transcription, candidate resolution, fieldset selection, population, additional information, resource research and recommendations. Task schemas are authored with their classes independently of the external HTTP contract. Shared fragments cover repeated shapes; shared prompt text and tool adapters remain in their AI provider modules. Generate model-output types through `pnpm ai:generate` and keep them inside the provider boundary. Application interfaces define domain inputs and results.
+Each task owns its prompt, response schema, permitted tool adapters and response conversion: transcription, candidate resolution, fieldset selection, population, additional information, resource research and recommendations. Task schemas are authored with their classes independently of the external HTTP contract. Shared fragments cover repeated shapes; shared prompt text and tool adapters remain in their AI provider modules. Generate model-output types through `pnpm ai:generate` and keep them inside the provider boundary. Application interfaces define domain inputs, results and the authorised run context. Import tasks import and register read tools; tool modules execute bounded source and registry searches. The provider receives database and registry resources at assembly.
 
 The application workflow owns access checks, database transactions, progress checkpoints and recovery. Tasks return validated batches or use an awaited commit callback. Successful commits precede completion records and progress events. Reuse `ApplicationEvents` for notifications.
 

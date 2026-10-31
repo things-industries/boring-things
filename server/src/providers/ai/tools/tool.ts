@@ -3,6 +3,7 @@
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import type { FunctionTool, ResponseInput } from 'openai/resources/responses/responses';
+import type { AiContext } from '../types.js';
 import { ensure } from '../../../application/errors.js';
 
 const ajv = new Ajv({ strict: false });
@@ -32,4 +33,15 @@ export function createTool<T>(
       return execute(args);
     },
   };
+}
+
+// Counts and records a local read within this task's budget.
+export async function recordToolCall(
+  context: AiContext & { toolCalls: number; toolCallLimit: number },
+  name: string,
+  count: number,
+  truncated = false,
+) {
+  ensure(++context.toolCalls <= context.toolCallLimit, 'tool_limit');
+  await context.record({ toolCalls: [{ name, resultCount: count, truncated }] });
 }

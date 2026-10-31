@@ -1,15 +1,15 @@
 /** Resource applicability task, checks public document coverage for a Thing class and variant. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { thingImportInstructions } from '../prompts.js';
 import type {
   ResourceApplicabilityInput,
   ResourceApplicability,
-  WorkflowTools,
+  ImportTaskContext,
 } from '../../../application/import/types.js';
-import { createTranscriptionTool } from '../tools/registry.js';
+import { createTranscriptionTool } from '../tools/transcription.js';
 
 import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
 
@@ -44,7 +44,8 @@ export const schema = createObjectSchema(
 
 export class ResourceApplicabilityTask extends AiTask<
   components['schemas']['ResourceApplicability'],
-  ResourceApplicability
+  ResourceApplicability,
+  ImportTaskContext
 > {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
@@ -55,14 +56,13 @@ export class ResourceApplicabilityTask extends AiTask<
   constructor(
     config: AiConfig,
     private input: ResourceApplicabilityInput,
-    tools: WorkflowTools,
   ) {
     super(config);
-    this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext) {
+  async run(context: ImportTaskContext) {
+    this.tools = [createTranscriptionTool(context)];
     return this.parseOutput(
       await this.execute(
         [

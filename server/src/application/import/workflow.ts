@@ -10,10 +10,10 @@ import type { ApplicationEvents } from '../events.js';
 import { getImportFailureReason, UsagePersistenceError } from './types.js';
 import type {
   ImportAi,
-  WorkflowTools,
+  ImportTaskContext,
   ResolutionInput,
   ThingCandidate,
-  SourceRecommendations,
+  RecommendationInput,
 } from './types.js';
 import type { AiContext } from '../../providers/ai/types.js';
 import type { ImportRow, WorkflowCheckpoint } from '../../db/entities/imports.js';
@@ -30,7 +30,6 @@ import * as activityDb from '../../db/entities/activity.js';
 import * as purchasablesDb from '../../db/entities/purchasables.js';
 import { addFieldSets, fieldTargets, populateFields, identifierValues } from '../thing-fields.js';
 import { publicFields } from '../public-fields.js';
-import { searchFields, searchFieldSets } from '../registry/index.js';
 import { ensure } from '../errors.js';
 import { mapValidEvidence, normalizeWhitespace } from './evidence.js';
 import { publicUrl } from '../../providers/web/resources.js';
@@ -186,52 +185,23 @@ export class ImportWorkflow {
     this.publish();
   }
 
-  // Provides bounded evidence and registry retrieval for this request's authorised sources.
-  private tools(
-    category: string,
-    retrievedSets?: Set<string>,
-    retrievedFields?: Set<string>,
-  ): WorkflowTools {
-    let calls = 0;
-    const record = async (name: string, count: number, truncated = false) => {
-      ensure(++calls <= this.config.importToolRounds, 'tool_limit');
-      await this.context.record({ toolCalls: [{ name, resultCount: count, truncated }] });
-    };
+  // Supplies authorised data and retrieval records for one task execution.
+  private createTaskContext(
+    categoryId: string,
+    retrievedSetIds = new Set<string>(),
+    retrievedFieldIds = new Set<string>(),
+  ): ImportTaskContext {
     return {
-      searchTranscription: async (id, query, offset) => {
-        const source = this.sources.find((source) => source.id === id);
-        ensure(
-          source && query.length <= 200 && Number.isInteger(offset) && offset >= 0,
-          'Invalid source search',
-        );
-        const text = source.transcription ?? '';
-        const found = query ? text.toLowerCase().indexOf(query.toLowerCase(), offset) : offset;
-        const start = Math.max(0, (found < 0 ? offset : found) - 200);
-        const content = text.slice(start, start + 6000);
-        await record('search_transcription', content ? 1 : 0, start + 6000 < text.length);
-        return {
-          attachmentId: id,
-          text: content,
-          offset: start,
-          nextOffset: start + 6000 < text.length ? start + 6000 : null,
-        };
-      },
-      searchFieldSets: async (id, terms) => {
-        ensure(id === category, 'Wrong category');
-        const result = await searchFieldSets(this.pool, this.registry, id, terms);
-        result.sets.forEach((set) => retrievedSets?.add(set.id));
-        result.sets.flatMap((set) => set.fields).forEach((field) => retrievedFields?.add(field.id));
-        await record('search_field_sets', result.sets.length, result.truncated);
-        return result;
-      },
-      searchFields: async (labels) => {
-        const result = await searchFields(this.pool, this.registry, labels);
-        result.results
-          .flatMap((result) => result.fields)
-          .forEach((field) => retrievedFields?.add(field.id));
-        await record('search_fields', result.results.length, result.truncated);
-        return result;
-      },
+      ...this.context,
+      categoryId,
+      sources: this.sources.map((source) => ({
+        attachmentId: source.id,
+        text: source.transcription ?? '',
+      })),
+      retrievedSetIds,
+      retrievedFieldIds,
+      toolCalls: 0,
+      toolCallLimit: this.config.importToolRounds,
     };
   }
 
@@ -359,8 +329,7 @@ export class ImportWorkflow {
           existingThings: existing,
           thingContextId: this.job.targetThingId,
         },
-        this.tools(this.job.targetThingId ? (await this.thing()).categoryId : ''),
-        this.context,
+        this.createTaskContext(this.job.targetThingId ? (await this.thing()).categoryId : ''),
       );
       ensure(!this.job.targetThingId || !result.contradiction, 'wrong_thing');
       const selected = [...result.candidates].sort((a, b) => b.strength - a.strength)[0];
@@ -734,8 +703,7 @@ export class ImportWorkflow {
               identifiers: source.identifierObservations,
             },
           },
-          this.tools(thing.categoryId),
-          this.context,
+          this.createTaskContext(thing.categoryId),
         );
       } catch (error) {
         if (error instanceof UsagePersistenceError) throw error;
@@ -799,8 +767,7 @@ export class ImportWorkflow {
           terms: file.transcriptionTerms,
         })),
       },
-      this.tools(thing.categoryId, retrieved),
-      this.context,
+      this.createTaskContext(thing.categoryId, retrieved),
     );
     ensure(
       selection.setIds.every(
@@ -848,8 +815,7 @@ export class ImportWorkflow {
           })),
           fields,
         },
-        this.tools(thing.categoryId),
-        this.context,
+        this.createTaskContext(thing.categoryId),
       );
       ensure(
         result.pinnedFields.every((pin) =>
@@ -940,8 +906,7 @@ export class ImportWorkflow {
               attachmentId: source.id,
               text: source.transcription!.slice(offset, offset + 20000),
             },
-            this.tools(thing.categoryId, undefined, retrieved),
-            this.context,
+            this.createTaskContext(thing.categoryId, undefined, retrieved),
           );
           result.findings = mapValidEvidence(result.findings, (value) => {
             ensure(value.attachmentId === source.id, 'Wrong additional source');
@@ -1025,120 +990,47 @@ export class ImportWorkflow {
   private async recommend() {
     await this.stage('RECOMMENDING', 'RECOMMENDING');
     const thing = await this.thing();
-    const sourceKey = 'sourceRecommendations:' + this.sourceFingerprint();
-    if (
-      this.sources.length &&
-      this.ai.recommendFromSources &&
-      !this.job.workflow.done.includes(sourceKey)
-    ) {
-      let result: SourceRecommendations | undefined;
-      try {
-        result = await this.ai.recommendFromSources(
-          {
-            thing: {
-              name: thing.name,
-              categoryId: thing.categoryId,
-              identifiers: identifierValues(thing.data, this.registry),
-            },
-            fields: [
-              ...Object.values(thing.data.values).flatMap((values) => Object.entries(values)),
-              ...Object.entries(thing.data.standalone),
-            ].map(([id, field]) => {
-              const definition = this.registry.fields.get(id);
-              return {
-                id,
-                label: definition?.name ?? id,
-                description: definition?.description ?? '',
-                schema: definition?.schema ?? null,
-                value: field.value,
-              };
-            }),
-            sources: this.sources.map((file) => ({
-              attachmentId: file.id,
-              summary: file.transcriptionSummary,
-              terms: file.transcriptionTerms,
-            })),
-            existingTasks: await activityDb.existingTasks(this.pool, this.job.ownerId, thing.id),
-            existingPurchasables: await purchasablesDb.existingPurchasables(
-              this.pool,
-              this.job.ownerId,
-              thing.id,
-            ),
-          },
-          this.tools(thing.categoryId),
-          this.context,
-        );
-
-        // Validate each suggestion independently so a rejected citation does not discard its peers.
-        const cite = <T extends { sourceRefs: SourceRef[] }>(item: T): T => {
-          ensure(item.sourceRefs.length > 0, 'Invalid source evidence');
-          return { ...item, sourceRefs: item.sourceRefs.map((ref) => this.evidence(ref)) };
-        };
-        result.tasks = mapValidEvidence(result.tasks, cite);
-        result.purchasables = mapValidEvidence(result.purchasables, cite);
-        for (const task of result.tasks)
-          ensure(
-            task.title.length <= 200 && task.description.length <= 4000,
-            'Invalid recommendation',
-          );
-        for (const product of result.purchasables) {
-          ensure(
-            product.name.length <= 200 && product.description.length <= 4000,
-            'Invalid recommendation',
-          );
-          const merchantUrl = product.merchantUrl;
-          if (merchantUrl)
-            ensure(
-              publicUrl(merchantUrl) &&
-                product.sourceRefs.some((ref) => ref.quote?.includes(merchantUrl)),
-              'Uncited purchase URL',
-            );
-        }
-      } catch (error) {
-        if (error instanceof UsagePersistenceError) throw error;
-        this.context.signal.throwIfAborted();
-        result = undefined;
-        const reason = getImportFailureReason(error);
-        await this.warning(sourceKey, null, 'RESEARCH_FAILED', reason);
-      }
-      if (result) {
-        await this.commit(sourceKey, async (db, current) => {
-          for (const id of new Set(
-            [...result.tasks, ...result.purchasables].flatMap((value) =>
-              value.sourceRefs.map((ref) => ref.attachmentId),
-            ),
-          )) {
-            ensure(id, 'Invalid source evidence');
-            await this.assertSourceCurrent(db, current, id);
-          }
-          for (const task of result.tasks) {
-            await activityDb.saveSuggestedTask(db, current.ownerId, current.id, {
-              title: task.title,
-              description: task.description,
-              sourceRefs: task.sourceRefs,
-            });
-          }
-          for (const product of result.purchasables) {
-            const merchantUrl = product.merchantUrl;
-            if (!merchantUrl) continue;
-            await purchasablesDb.saveSuggestedPurchasable(db, current.ownerId, current.id, {
-              kind: product.kind,
-              name: product.name,
-              description: product.description,
-              merchantUrl,
-              sourceRefs: product.sourceRefs,
-            });
-          }
-        });
-      }
-    }
     const research = {
-      name: this.job.workflow.selected?.attachmentIds.length ? thing.name : undefined,
+      name: thing.name,
       categoryId: thing.categoryId,
       knownFields: publicFields(thing.data, this.registry),
+      fields: [
+        ...Object.values(thing.data.values).flatMap((values) => Object.entries(values)),
+        ...Object.entries(thing.data.standalone),
+      ].map(([id, field]) => {
+        const definition = this.registry.fields.get(id);
+        return {
+          id,
+          label: definition?.name ?? id,
+          description: definition?.description ?? '',
+          schema: definition?.schema ?? null,
+          value: field.value,
+        };
+      }),
+      sources: this.sources.map((file) => ({
+        attachmentId: file.id,
+        summary: file.transcriptionSummary,
+        terms: file.transcriptionTerms,
+      })),
       referenceUrls: [
         ...new Set(this.sources.flatMap((file) => (file.sourceUrl ? [file.sourceUrl] : []))),
       ],
+    } satisfies RecommendationInput;
+
+    // Validate each suggestion independently so a rejected citation does not discard its peers.
+    const cite = <T extends { sourceRefs: SourceRef[] }>(item: T): T => {
+      ensure(item.sourceRefs.length > 0, 'Invalid source evidence');
+      return {
+        ...item,
+        sourceRefs: item.sourceRefs.map((ref) => {
+          if (ref.attachmentId) return this.evidence(ref);
+          ensure(
+            ref.url && publicUrl(ref.url) && ref.quote?.trim() && ref.quote.length <= 2000,
+            'Invalid source evidence',
+          );
+          return ref;
+        }),
+      };
     };
     const [tasks, purchasables] = await Promise.allSettled([
       this.job.workflow.done.includes('tasks')
@@ -1148,10 +1040,19 @@ export class ImportWorkflow {
             .then((existingTasks) =>
               this.ai.suggestTasks(
                 { ...research, existingTasks },
-                this.context,
+                this.createTaskContext(thing.categoryId),
                 this.config.discoverySearchCalls,
               ),
-            ),
+            )
+            .then((result) => ({
+              items: mapValidEvidence(result.items, (task) => {
+                ensure(
+                  task.title.length <= 200 && task.description.length <= 4000,
+                  'Invalid recommendation',
+                );
+                return cite(task);
+              }),
+            })),
       this.job.workflow.done.includes('purchasables')
         ? undefined
         : purchasablesDb
@@ -1159,10 +1060,20 @@ export class ImportWorkflow {
             .then((existingPurchasables) =>
               this.ai.findPurchasables(
                 { ...research, existingPurchasables },
-                this.context,
+                this.createTaskContext(thing.categoryId),
                 this.config.discoverySearchCalls,
               ),
-            ),
+            )
+            .then((result) => ({
+              items: mapValidEvidence(result.items, (product) => {
+                ensure(
+                  product.name.length <= 200 && product.description.length <= 4000,
+                  'Invalid recommendation',
+                );
+                ensure(publicUrl(product.merchantUrl), 'Uncited purchase URL');
+                return cite(product);
+              }),
+            })),
     ]);
     this.context.signal.throwIfAborted();
 
@@ -1173,21 +1084,27 @@ export class ImportWorkflow {
     ] as const) {
       if (result.status === 'rejected') {
         if (result.reason instanceof UsagePersistenceError) throw result.reason;
-        await this.warning(stage);
+        await this.warning(stage, null, 'RESEARCH_FAILED', getImportFailureReason(result.reason));
       }
     }
     if (tasks.status === 'fulfilled' && tasks.value) {
       const result = tasks.value;
       await this.commit('tasks', async (db, current) => {
-        for (const task of result.items)
+        for (const task of result.items) {
+          for (const ref of task.sourceRefs)
+            if (ref.attachmentId) await this.assertSourceCurrent(db, current, ref.attachmentId);
           await activityDb.saveSuggestedTask(db, current.ownerId, current.id, task);
+        }
       });
     }
     if (purchasables.status === 'fulfilled' && purchasables.value) {
       const result = purchasables.value;
       await this.commit('purchasables', async (db, current) => {
-        for (const product of result.items)
+        for (const product of result.items) {
+          for (const ref of product.sourceRefs)
+            if (ref.attachmentId) await this.assertSourceCurrent(db, current, ref.attachmentId);
           await purchasablesDb.saveSuggestedPurchasable(db, current.ownerId, current.id, product);
+        }
       });
     }
   }

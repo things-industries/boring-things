@@ -1,7 +1,6 @@
 /** Defines application Import inputs, results, usage and workflow capability contracts. */
 
 import type { PublicField } from '../public-fields.js';
-import type { FieldSearchLabel } from '../registry/registry.js';
 import type { FieldDefinition, Schema, Value } from '../../../../shared/model.js';
 import type { AiContext } from '../../providers/ai/types.js';
 import type { FieldProposal } from '../thing-fields.js';
@@ -19,6 +18,8 @@ export function getImportFailureReason(error: unknown): string {
     'Wrong additional source',
     'Invalid source evidence',
     'Invalid recommendation',
+    'Uncited recommendation source',
+    'Uncited purchasable',
     'Uncited purchase URL',
     'Invalid source page',
     'Quote does not match source page',
@@ -118,16 +119,26 @@ export interface Discovery {
   rejectedDocumentUrls?: string[];
 }
 
-export interface TaskResearch extends Pick<ResearchThing, 'name' | 'categoryId' | 'knownFields'> {
-  referenceUrls: string[];
-  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
-}
-
-export interface PurchasableResearch extends Pick<
+export interface RecommendationInput extends Pick<
   ResearchThing,
   'name' | 'categoryId' | 'knownFields'
 > {
   referenceUrls: string[];
+  fields: {
+    id: string;
+    label: string;
+    description: string;
+    schema: FieldDefinition['schema'] | null;
+    value: Value | null;
+  }[];
+  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
+}
+
+export interface TaskResearch extends RecommendationInput {
+  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
+}
+
+export interface PurchasableResearch extends RecommendationInput {
   existingPurchasables: Pick<Schema['Purchasable'], 'name' | 'kind'>[];
 }
 
@@ -152,9 +163,13 @@ export class UsagePersistenceError extends Error {
   }
 }
 
-export interface RegistryTools {
-  searchFieldSets(categoryId: string, terms: string[]): Promise<unknown>;
-  searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
+export interface ImportTaskContext extends AiContext {
+  categoryId: string;
+  sources: Pick<ImportSourceText, 'attachmentId' | 'text'>[];
+  retrievedSetIds: Set<string>;
+  retrievedFieldIds: Set<string>;
+  toolCalls: number;
+  toolCallLimit: number;
 }
 
 export interface ResearchThing {
@@ -208,34 +223,18 @@ export interface AdditionalInformationInput {
 export interface ImportAi {
   assessResource?(
     input: ResourceApplicabilityInput,
-    tools: WorkflowTools,
-    context: AiContext,
+    context: ImportTaskContext,
   ): Promise<ResourceApplicability>;
-  recommendFromSources?(
-    input: SourceRecommendationsInput,
-    tools: WorkflowTools,
-    context: AiContext,
-  ): Promise<SourceRecommendations>;
-  resolveThing?(
-    input: ResolutionInput,
-    tools: WorkflowTools,
-    context: AiContext,
-  ): Promise<ResolutionResult>;
-  populateFields?(
-    input: PopulationInput,
-    tools: WorkflowTools,
-    context: AiContext,
-  ): Promise<PopulationResult>;
+  resolveThing?(input: ResolutionInput, context: ImportTaskContext): Promise<ResolutionResult>;
+  populateFields?(input: PopulationInput, context: ImportTaskContext): Promise<PopulationResult>;
   additionalInformation?(
     input: AdditionalInformationInput,
-    tools: WorkflowTools,
-    context: AiContext,
+    context: ImportTaskContext,
   ): Promise<AdditionalInformationResult>;
   summarizeAttachment(text: string, context: AiContext): Promise<AttachmentSummary>;
   selectFieldSets(
     extractedThing: ExtractedThing,
-    tools: RegistryTools,
-    context: AiContext,
+    context: ImportTaskContext,
   ): Promise<{ setIds: string[] }>;
   findResources(
     research: ResearchThing,
@@ -244,12 +243,12 @@ export interface ImportAi {
   ): Promise<Discovery>;
   suggestTasks(
     research: TaskResearch,
-    context: AiContext,
+    context: ImportTaskContext,
     searchCalls?: number,
   ): Promise<TaskSuggestions>;
   findPurchasables(
     research: PurchasableResearch,
-    context: AiContext,
+    context: ImportTaskContext,
     searchCalls?: number,
   ): Promise<PurchasableSuggestions>;
 }
@@ -320,13 +319,6 @@ export interface AdditionalInformationResult {
   })[];
 }
 
-export interface SourceRecommendations {
-  tasks: TaskSuggestions['items'];
-  purchasables: (Omit<PurchasableSuggestions['items'][number], 'merchantUrl'> & {
-    merchantUrl: string | null;
-  })[];
-}
-
 export interface ResourceApplicabilityInput {
   categoryId: string;
   knownFields: KnownResearchField[];
@@ -336,28 +328,6 @@ export interface ResourceApplicabilityInput {
   };
 }
 
-export interface SourceRecommendationsInput {
-  thing: AdditionalInformationInput['thing'];
-  fields: {
-    id: string;
-    label: string;
-    description: string;
-    schema: FieldDefinition['schema'] | null;
-    value: Value | null;
-  }[];
-  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
-  existingTasks: TaskResearch['existingTasks'];
-  existingPurchasables: PurchasableResearch['existingPurchasables'];
-}
-export interface WorkflowTools {
-  searchTranscription(
-    attachmentId: string,
-    query: string,
-    offset: number,
-  ): Promise<{ attachmentId: string; text: string; offset: number; nextOffset: number | null }>;
-  searchFields(labels: FieldSearchLabel[]): Promise<unknown>;
-  searchFieldSets(categoryId: string, terms: string[]): Promise<unknown>;
-}
 export interface ResolutionInput {
   sources: (Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
     identifiers: IdentifierObservation[];

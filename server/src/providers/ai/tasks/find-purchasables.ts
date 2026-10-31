@@ -2,18 +2,28 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
-import { AiTask } from './task.js';
-import { thingResearchInstructions, purchasableRecommendationInstructions } from '../prompts.js';
+import type { AiConfig } from '../types.js';
+import {
+  RecommendationTask,
+  recommendationSourcesSchema,
+  recommendationInstructions,
+} from './recommendation.js';
 import type {
   PurchasableResearch,
   PurchasableSuggestions,
+  ImportTaskContext,
 } from '../../../application/import/types.js';
-import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
 
 import { createObjectSchema } from '../schemas.js';
+
+const purchasableRecommendationInstructions = `Name each purchasable with its basic item name, usually 2–5 words. Omit the Thing's name, brands, model and product codes, part numbers and quantities. Keep only qualifiers needed to distinguish it from other purchasables, such as "Solid baking tray", "Deep baking tray" or "Wire baking shelf". Other suitable names include "Cleaning gel", "Detergent tablets" and "Water filter".
+Describe why the item is useful and when the owner should buy it. Aim for one sentence of 15–30 words, using only benefits and buying situations justified by the evidence. Mention included components or quantities only when they affect the buying decision. Include a compatibility restriction only when it affects the owner's choice. Keep product identifiers and compatibility evidence in source quotations. Keep quotations verbatim.
+Examples:
+- "Bosch Cleaning Gel for Ovens 00312324 (200 ml)" becomes "Cleaning gel": "Removes burnt-on food and grease from the oven interior, racks and baking trays."
+- "Bosch Universal Oven Pan 11029049" becomes "Solid baking tray": "For baking, roasting and catching drips when grilling; useful when you need a deeper tray."
+- "Bosch Multi-use Wire Shelf 00577170" becomes "Wire baking shelf": "Supports dishes and baking trays when you need an additional or replacement shelf."`;
 
 export const schema = createObjectSchema(
   {
@@ -47,24 +57,11 @@ export const schema = createObjectSchema(
           merchantUrl: {
             type: 'string',
             description:
-              'Direct purchase page URL observed through web search (min 1 char, max 2000 chars).',
+              'Direct purchase page URL observed through web search or printed in cited Attachment content (min 1 char, max 2000 chars).',
             minLength: 1,
             maxLength: 2000,
           },
-          sourceUrl: {
-            type: 'string',
-            description:
-              'URL observed through web search establishing compatibility (min 1 char, max 2000 chars).',
-            minLength: 1,
-            maxLength: 2000,
-          },
-          quote: {
-            type: 'string',
-            description:
-              'Supporting excerpt establishing model, variant, part number or technical compatibility (min 1 char, max 2000 chars).',
-            minLength: 1,
-            maxLength: 2000,
-          },
+          sourceRefs: recommendationSourcesSchema,
         },
         'One compatible product with observed purchase and evidence URLs.',
       ),
@@ -85,56 +82,51 @@ function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: numb
     utilities:
       'Usually no purchasables; include only products required or supported by the service documentation.',
   };
-  const subject = {
-    name: research.name,
-    categoryId: research.categoryId,
-    knownFields: research.knownFields,
-    referenceUrls: research.referenceUrls,
-  };
-  return ` Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(subject)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs an observed direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Every merchantUrl and sourceUrl must be observed through web search. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
+  return ` Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Use sourceRefs from linked Attachments or observed public sources for compatibility evidence. A merchantUrl must be observed through web search or printed in a cited Attachment passage. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
-export class FindPurchasablesTask extends AiTask<
+export class FindPurchasablesTask extends RecommendationTask<
   components['schemas']['PurchasableSuggestions'],
   PurchasableSuggestions
 > {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'purchasable_suggestions';
-  protected instructions = `${thingResearchInstructions} ${purchasableRecommendationInstructions}`;
+  protected instructions = `${recommendationInstructions} ${purchasableRecommendationInstructions}`;
   protected schema = schema;
 
   constructor(
     config: AiConfig,
     private input: PurchasableResearch,
-    private searchCalls: number,
+    searchCalls: number,
   ) {
-    super(config);
+    super(config, searchCalls);
   }
 
-  // Researches public fields and returns cited suggestions.
-  async run(context: AiContext) {
-    if (!this.input.knownFields.length) return { items: [] };
+  // Reads attachments and researches missing evidence before returning cited suggestions.
+  async run(context: ImportTaskContext) {
+    this.registerSourceTool(context);
+    if (!this.input.knownFields.length && !this.input.sources.length) return { items: [] };
     const response = await this.execute(
       findPurchasablesPrompt(this.input, this.searchCalls),
       context,
-      createWebSearchOptions(this.searchCalls),
     );
-    const { sources } = await readWebResult(response, context, this.searchCalls);
-    return this.processResponse(response, sources);
+    return this.processResponse(response);
   }
 
   // Checks observed sources and converts model citations into application references.
-  private processResponse(response: Response, sources: string[]): PurchasableSuggestions {
+  private processResponse(response: Response): PurchasableSuggestions {
     const result = this.parseOutput(response);
     return {
       items: result.items
         .map((item) => {
+          const sourceRefs = this.getSourceRefs(item.sourceRefs);
           ensure(
             publicUrl(item.merchantUrl) &&
-              publicUrl(item.sourceUrl) &&
-              sources.includes(item.merchantUrl) &&
-              sources.includes(item.sourceUrl),
+              (this.observedUrls.has(item.merchantUrl) ||
+                sourceRefs.some(
+                  (ref) => ref.attachmentId && ref.quote?.includes(item.merchantUrl),
+                )),
             'Uncited purchasable',
           );
           return {
@@ -142,7 +134,7 @@ export class FindPurchasablesTask extends AiTask<
             name: item.name,
             description: item.description,
             merchantUrl: item.merchantUrl,
-            sourceRefs: [{ url: item.sourceUrl, quote: item.quote }],
+            sourceRefs,
           };
         })
         .filter(

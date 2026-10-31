@@ -1,7 +1,7 @@
 /** Assembles Import AI tasks behind the application's import capability contract. */
 
 import type { EnvConfig } from '../../config.js';
-import type { AiContext, AiTurnCompleted } from './types.js';
+import type { AiContext, AiTurnCompleted, RegistryResources } from './types.js';
 import type {
   ImportAi,
   Source,
@@ -14,7 +14,6 @@ import { ResolveThingTask } from './tasks/resolve-thing.js';
 import { PopulateFieldsTask } from './tasks/populate-fields.js';
 import { AdditionalInformationTask } from './tasks/additional-information.js';
 import { ResourceApplicabilityTask } from './tasks/resource-applicability.js';
-import { SourceRecommendationsTask } from './tasks/source-recommendations.js';
 import { SelectFieldSetsTask } from './tasks/select-field-sets.js';
 import { SummarizeAttachmentTask } from './tasks/summarize-attachment.js';
 import { ExtractSourceTask } from './tasks/extract-source.js';
@@ -28,35 +27,27 @@ export class OpenAiImports implements ImportAi {
     private config: EnvConfig,
     private onTurnCompleted?: AiTurnCompleted,
     private readPage = readResourcePage,
+    private registryResources?: RegistryResources,
   ) {}
 
-  resolveThing: NonNullable<ImportAi['resolveThing']> = (input, tools, context) =>
-    new ResolveThingTask(this.config, input, tools)
+  resolveThing: NonNullable<ImportAi['resolveThing']> = (input, context) =>
+    new ResolveThingTask(this.config, input).onTurnCompleted(this.onTurnCompleted).run(context);
+
+  populateFields: NonNullable<ImportAi['populateFields']> = (input, context) =>
+    new PopulateFieldsTask(this.config, input).onTurnCompleted(this.onTurnCompleted).run(context);
+
+  additionalInformation: NonNullable<ImportAi['additionalInformation']> = (input, context) =>
+    new AdditionalInformationTask(this.config, input, this.registryResources)
       .onTurnCompleted(this.onTurnCompleted)
       .run(context);
 
-  populateFields: NonNullable<ImportAi['populateFields']> = (input, tools, context) =>
-    new PopulateFieldsTask(this.config, input, tools)
+  assessResource: NonNullable<ImportAi['assessResource']> = (input, context) =>
+    new ResourceApplicabilityTask(this.config, input)
       .onTurnCompleted(this.onTurnCompleted)
       .run(context);
 
-  additionalInformation: NonNullable<ImportAi['additionalInformation']> = (input, tools, context) =>
-    new AdditionalInformationTask(this.config, input, tools)
-      .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
-
-  assessResource: NonNullable<ImportAi['assessResource']> = (input, tools, context) =>
-    new ResourceApplicabilityTask(this.config, input, tools)
-      .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
-
-  recommendFromSources: NonNullable<ImportAi['recommendFromSources']> = (input, tools, context) =>
-    new SourceRecommendationsTask(this.config, input, tools)
-      .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
-
-  selectFieldSets: NonNullable<ImportAi['selectFieldSets']> = (input, tools, context) =>
-    new SelectFieldSetsTask(this.config, input, tools)
+  selectFieldSets: NonNullable<ImportAi['selectFieldSets']> = (input, context) =>
+    new SelectFieldSetsTask(this.config, input, this.registryResources)
       .onTurnCompleted(this.onTurnCompleted)
       .run(context);
 

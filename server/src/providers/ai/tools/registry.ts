@@ -1,10 +1,17 @@
-/** Adapts shared transcription and registry retrieval capabilities into model function tools. */
+/** Registry tools, search category fieldsets and field definitions and record retrieved metadata. */
 
 import type { FunctionTool } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { RegistryTools, WorkflowTools } from '../../../application/import/types.js';
+import type { ImportTaskContext } from '../../../application/import/types.js';
+import type { RegistryResources } from '../types.js';
+import type { FieldSearchLabel } from '../../../application/registry/registry.js';
+import {
+  searchFields as findFields,
+  searchFieldSets as findFieldSets,
+} from '../../../application/registry/index.js';
+import { ensure } from '../../../application/errors.js';
 import { createObjectSchema } from '../schemas.js';
-import { createTool } from './tool.js';
+import { createTool, recordToolCall } from './tool.js';
 
 export const search_field_sets = {
   type: 'function',
@@ -67,54 +74,54 @@ export const search_fields = {
   ),
 } satisfies FunctionTool;
 
-export const search_transcription = {
-  type: 'function',
-  name: 'search_transcription',
-  description: 'Search supplied Attachment transcriptions for bounded cited passages.',
-  strict: true,
-  parameters: createObjectSchema(
-    {
-      attachmentId: {
-        description: 'Supplied Attachment ID.',
-        type: 'string',
-      },
-      query: {
-        description: 'Search phrase, or empty text for the beginning.',
-        type: 'string',
-      },
-      offset: {
-        description: 'Character offset for reading the next source section.',
-        type: 'integer',
-        minimum: 0,
-      },
-    },
-    'Source search arguments.',
-  ),
-} satisfies FunctionTool;
+// Searches category fieldsets and records the definitions available to proposal validation.
+export async function searchFieldSets(
+  context: ImportTaskContext,
+  resources: RegistryResources | undefined,
+  categoryId: string,
+  terms: string[],
+) {
+  ensure(categoryId === context.categoryId, 'Wrong category');
+  ensure(resources, 'Registry is unavailable');
+  const result = await findFieldSets(resources.db, resources.registry, categoryId, terms);
+  result.sets.forEach((set) => context.retrievedSetIds.add(set.id));
+  result.sets
+    .flatMap((set) => set.fields)
+    .forEach((field) => context.retrievedFieldIds.add(field.id));
+  await recordToolCall(context, 'search_field_sets', result.sets.length, result.truncated);
+  return result;
+}
 
-// Gives tasks access to saved passages within their authorised source scope.
-export function createTranscriptionTool(tools: Pick<WorkflowTools, 'searchTranscription'>) {
-  return createTool<components['schemas']['search_transcription']>(
-    search_transcription,
+// Searches field definitions and records the fields available to proposal validation.
+export async function searchFields(
+  context: ImportTaskContext,
+  resources: RegistryResources | undefined,
+  labels: FieldSearchLabel[],
+) {
+  ensure(resources, 'Registry is unavailable');
+  const result = await findFields(resources.db, resources.registry, labels);
+  result.results
+    .flatMap((result) => result.fields)
+    .forEach((field) => context.retrievedFieldIds.add(field.id));
+  await recordToolCall(context, 'search_fields', result.results.length, result.truncated);
+  return result;
+}
+
+// Gives the model a validated field search tool using the provider's registry resources.
+export function createFieldsTool(context: ImportTaskContext, resources?: RegistryResources) {
+  return createTool<components['schemas']['search_fields']>(search_fields, async (args) => ({
+    output: await searchFields(context, resources, args.labels),
+  }));
+}
+
+// Gives the model a validated fieldset search tool using the provider's registry resources.
+export function createFieldSetsTool(context: ImportTaskContext, resources?: RegistryResources) {
+  return createTool<components['schemas']['search_field_sets']>(
+    search_field_sets,
     async (args) => ({
-      output: await tools.searchTranscription(args.attachmentId, args.query, args.offset),
+      output: await searchFieldSets(context, resources, args.categoryId, args.terms),
     }),
   );
 }
 
-// Gives tasks access to retrieved field definitions.
-export function createFieldsTool(tools: Pick<RegistryTools, 'searchFields'>) {
-  return createTool<components['schemas']['search_fields']>(search_fields, async (args) => ({
-    output: await tools.searchFields(args.labels),
-  }));
-}
-
-// Gives tasks access to category fieldsets.
-export function createFieldSetsTool(tools: Pick<RegistryTools, 'searchFieldSets'>) {
-  return createTool<components['schemas']['search_field_sets']>(
-    search_field_sets,
-    async (args) => ({ output: await tools.searchFieldSets(args.categoryId, args.terms) }),
-  );
-}
-
-export const registryFunctions = [search_field_sets, search_fields, search_transcription];
+export const registryFunctions = [search_field_sets, search_fields];

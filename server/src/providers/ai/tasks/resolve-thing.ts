@@ -1,15 +1,15 @@
 /** Thing resolution task, proposes candidates and identifier matches from saved sources. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { thingImportInstructions } from '../prompts.js';
 import type {
   ResolutionInput,
   ResolutionResult,
-  WorkflowTools,
+  ImportTaskContext,
 } from '../../../application/import/types.js';
-import { createTranscriptionTool } from '../tools/registry.js';
+import { createTranscriptionTool } from '../tools/transcription.js';
 
 import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
 
@@ -90,7 +90,8 @@ export const schema = createObjectSchema(
 
 export class ResolveThingTask extends AiTask<
   components['schemas']['Resolution'],
-  ResolutionResult
+  ResolutionResult,
+  ImportTaskContext
 > {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
@@ -101,14 +102,13 @@ export class ResolveThingTask extends AiTask<
   constructor(
     config: AiConfig,
     private input: ResolutionInput,
-    tools: WorkflowTools,
   ) {
     super(config);
-    this.tools = [createTranscriptionTool(tools)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  async run(context: AiContext) {
+  async run(context: ImportTaskContext) {
+    this.tools = [createTranscriptionTool(context)];
     return this.parseOutput(
       await this.execute(
         [

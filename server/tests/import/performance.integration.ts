@@ -3,10 +3,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
+import { randomUUID } from 'node:crypto';
 import { createCanvas } from '@napi-rs/canvas';
 import { startTestApp, type TestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
+
+import { searchTranscription } from '../../src/providers/ai/tools/transcription.js';
 
 // Waits for a fixture Import or Recommendation to reach its persisted outcome.
 async function waitForImport(env: TestApp, id: string) {
@@ -85,8 +88,13 @@ test('product photos remain display assets while uploaded photos still receive t
       "update bt.attachments set transcription_status='COMPLETE',transcription='Display text' where id=$1",
       [photoId],
     );
-    ai.recommendFromSources = async () => {
-      throw new Error('Photo became recommendation evidence');
+    ai.suggestTasks = async ({ sources }) => {
+      assert.equal(sources.length, 0, 'Photo became task evidence');
+      return { items: [] };
+    };
+    ai.findPurchasables = async ({ sources }) => {
+      assert.equal(sources.length, 0, 'Photo became purchasable evidence');
+      return { items: [] };
     };
     const refresh = await request('POST', `/api/things/${thingId}:recommend`);
     const refreshed = await waitForImport(env, refresh.json<Schema['ImportAccepted']>().importId);
@@ -127,10 +135,11 @@ test('product photos remain display assets while uploaded photos still receive t
 });
 
 // Sequential public research delayed independent suggestions and risked losing concurrent usage writes.
-test('public research overlaps, saves successful work and retries only its failed operation', async () => {
+test('recommendations read attachments, overlap, save successful work and retry only the failed task', async () => {
   const env = await startTestApp();
   try {
     const ai: ImportAi = env.importAi;
+    const source = randomUUID();
     let release!: () => void;
     const bothStarted = new Promise<void>((resolve) => {
       release = resolve;
@@ -148,7 +157,14 @@ test('public research overlaps, saves successful work and retries only its faile
         }),
       ]);
     };
-    ai.suggestTasks = async (_input, context) => {
+    ai.suggestTasks = async (input, context) => {
+      assert.deepEqual(
+        input.sources.map((item) => item.attachmentId),
+        [source],
+      );
+      assert.ok(
+        (await searchTranscription(context, source, 'Wash', 0)).text.includes('Wash the tray.'),
+      );
       taskCalls++;
       await awaitOtherSearch();
       await context.record({ inputTokens: 2 });
@@ -157,12 +173,19 @@ test('public research overlaps, saves successful work and retries only its faile
           {
             title: 'Clean the tray',
             description: 'Wash the tray.',
-            sourceRefs: [{ url: 'https://maker.example/care' }],
+            sourceRefs: [{ attachmentId: source, quote: 'Wash the tray.' }],
           },
         ],
       };
     };
-    ai.findPurchasables = async (_input, context) => {
+    ai.findPurchasables = async (input, context) => {
+      assert.deepEqual(
+        input.sources.map((item) => item.attachmentId),
+        [source],
+      );
+      assert.ok(
+        (await searchTranscription(context, source, 'Model', 0)).text.includes('Model X1 tray.'),
+      );
       productCalls++;
       if (failProduct) await awaitOtherSearch();
       await context.record({ inputTokens: 3 });
@@ -174,7 +197,10 @@ test('public research overlaps, saves successful work and retries only its faile
             name: 'Baking tray',
             description: 'Model X1 tray.',
             merchantUrl: 'https://maker.example/tray',
-            sourceRefs: [{ url: 'https://maker.example/oven' }],
+            sourceRefs: [
+              { attachmentId: source, quote: 'Model X1 tray.' },
+              { url: 'https://maker.example/tray', quote: 'Replacement baking tray.' },
+            ],
           },
         ],
       };
@@ -191,6 +217,15 @@ test('public research overlaps, saves successful work and retries only its faile
       categoryId: 'appliances',
     });
     const thingId = created.json<Schema['Thing']>().id;
+    await env.pool.query(
+      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
+       select $1,owner_id,'manual.txt','text/plain',1,'fixture-manual','Wash the tray. Model X1 tray.','COMPLETE' from bt.things where id=$2`,
+      [source, thingId],
+    );
+    await env.pool.query(
+      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      [source, thingId],
+    );
     const submitted = await request(`/api/things/${thingId}:recommend`);
     const id = submitted.json<Schema['ImportAccepted']>().importId;
     const job = await waitForImport(env, id);
@@ -213,6 +248,15 @@ test('public research overlaps, saves successful work and retries only its faile
       (await env.pool.query('select 1 from bt.purchasables where thing_id=$1', [thingId])).rowCount,
       1,
     );
+    const product = await env.pool.query(
+      'select merchant_url,source_refs from bt.purchasables where thing_id=$1',
+      [thingId],
+    );
+    assert.equal(product.rows[0].merchant_url, 'https://maker.example/tray');
+    assert.deepEqual(product.rows[0].source_refs, [
+      { attachmentId: source, quote: 'Model X1 tray.' },
+      { url: 'https://maker.example/tray', quote: 'Replacement baking tray.' },
+    ]);
   } finally {
     await env.close();
   }
