@@ -6,6 +6,158 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Summary, terms, identifiers and metadata of one Attachment. */
+        AttachmentSummary: {
+            /** @description Source-wide summary of up to 2,000 characters, or null when unreadable. */
+            summary: string | null;
+            /** @description Up to 20 source-wide terms without private identifiers, each up to 200 characters. */
+            terms: string[];
+            /**
+             * @description Outcome of reading the source.
+             * @enum {string}
+             */
+            status: "COMPLETE" | "EMPTY" | "PARTIAL" | "INSUFFICIENT_LANGUAGE";
+            /** @description Source display metadata. */
+            metadata: {
+                /** @description Short descriptive display title based on the content or visible purpose, such as 'Data plate photo', 'Product photo' or 'Receipt from Amazon', excluding account numbers, serial numbers and secrets (min 1 char, max 200 chars). */
+                title: string | null;
+                /**
+                 * @description Classification of the document by its purpose: MANUAL for operation or care instructions, RECEIPT for proof of purchase, INVOICE for a payment request, INSTALLATION_GUIDE for setup instructions, SPECIFICATION for technical data, or OTHER for another document type; null when the type is unknown.
+                 * @enum {string|null}
+                 */
+                documentType: "MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER" | null;
+                /** @description Manufacturer, retailer or organisation that issued the document, as supported by the source; null when unknown (min 1 char, max 200 chars). */
+                publisher: string | null;
+                /**
+                 * Format: date
+                 * @description Original issue date printed in the document, formatted YYYY-MM-DD; null for missing or incomplete dates. A receipt's purchase date may serve as its document date; website update dates do not establish the document date.
+                 */
+                documentDate: string | null;
+            } | null;
+            /** @description Up to 30 identifier observations copied from the source. */
+            identifiers: {
+                /** @description Printed identifier label or a short description. */
+                label: string;
+                /** @description Raw identifier string retaining leading zeroes. */
+                value: string;
+                /** @description Original one-based page number, or null for unpaginated text. */
+                page: number | null;
+                /** @description Verbatim passage showing the identifier. */
+                quote: string;
+            }[];
+        };
+        /** @description Candidate identity and matching decision. */
+        Resolution: {
+            /** @description Up to 10 candidate descriptions; the application processes one. */
+            candidates: {
+                /** @description Short Thing name without private identifiers. */
+                name: string;
+                /** @description Recognised category ID. */
+                categoryId: string;
+                /** @description Up to 20 relevant Thing terms. */
+                terms: string[];
+                /** @description Up to 30 evidenced identifiers. */
+                identifiers: {
+                    /** @description Category-valid registry identifier field ID. */
+                    fieldId: string;
+                    /** @description Observed identifier as a string. */
+                    value: string;
+                    /** @description Attachment ID copied from the supplied source. */
+                    attachmentId: string;
+                    /** @description Original one-based page number, or null for unpaginated text. */
+                    page: number | null;
+                    /** @description Verbatim source passage, up to 2000 characters. */
+                    quote: string;
+                }[];
+                /** @description Contributing Attachment IDs. */
+                attachmentIds: string[];
+                /** @description Relative evidence strength from 0 to 1. */
+                strength: number;
+                /** @description Owned Thing ID from the supplied matching candidates, or null. */
+                matchedThingId: string | null;
+            }[];
+            /** @description Whether the sources contradict the explicitly supplied Thing context. */
+            contradiction: boolean;
+        };
+        /** @description Applicability and public identifier coverage of one saved resource. */
+        ResourceApplicability: {
+            /** @description Source applies to the supplied Thing class and variant. */
+            applicable: boolean;
+            /** @description Cited public identifiers covered by this resource. */
+            identifiers: {
+                /** @description Registry identifier field ID. */
+                fieldId: string;
+                /** @description Printed identifier value. */
+                value: string;
+                /** @description Attachment ID copied from the supplied source. */
+                attachmentId: string;
+                /** @description Original one-based page number, or null for unpaginated text. */
+                page: number | null;
+                /** @description Verbatim source passage, up to 2000 characters. */
+                quote: string;
+            }[];
+        };
+        /** @description Cited values for enabled Thing Fields. */
+        Population: {
+            /** @description Up to 20 values for the supplied field targets. */
+            values: {
+                /** @description Requested field set ID, or null for a standalone field. */
+                fieldSetId: string | null;
+                /** @description Requested registry field ID. */
+                fieldId: string;
+                value: string | number | boolean | {
+                    /** @description Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero. */
+                    amountMinor: number;
+                    /**
+                     * @description ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent.
+                     * @enum {string}
+                     */
+                    currency: "GBP" | "EUR" | "USD";
+                };
+                /** @description Attachment ID copied from the supplied source. */
+                attachmentId: string;
+                /** @description Original one-based page number, or null for unpaginated text. */
+                page: number | null;
+                /** @description Verbatim source passage, up to 2000 characters. */
+                quote: string;
+            }[];
+            /** @description Up to three useful requested fields to highlight. */
+            pinnedFields: {
+                /** @description Requested field set ID or null. */
+                fieldSetId: string | null;
+                /** @description Requested registry field ID. */
+                fieldId: string;
+            }[];
+        };
+        /** @description Important additional information. */
+        AdditionalInformation: {
+            /** @description Up to 10 significant findings outside the supplied fields. */
+            findings: {
+                /** @description Useful field label, up to 160 characters. */
+                label: string;
+                /** @description Retrieved registry field ID, or null for a custom field. */
+                fieldId: string | null;
+                value: string | number | boolean | {
+                    /** @description Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero. */
+                    amountMinor: number;
+                    /**
+                     * @description ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent.
+                     * @enum {string}
+                     */
+                    currency: "GBP" | "EUR" | "USD";
+                };
+                /** @description Whether this finding contains sensitive information. */
+                sensitive: boolean;
+                /** @description Why the information matters to operating, maintaining or administering the Thing. */
+                reason: string;
+                /** @description Attachment ID copied from the supplied source. */
+                attachmentId: string;
+                /** @description Original one-based page number, or null for unpaginated text. */
+                page: number | null;
+                /** @description Verbatim source passage, up to 2000 characters. */
+                quote: string;
+            }[];
+        };
         /** @description Transcription, document metadata and source-supported Things extracted from the uploaded material. */
         Extraction: {
             /** @description Display metadata for the uploaded source, including a descriptive title for photographs and notes. */
@@ -27,6 +179,15 @@ export interface components {
             } | null;
             /** @description Source transcription preserving labels, identifiers and surrounding context; empty when supplied text is retained directly. */
             text: string;
+            /** @description Short source-wide description of the document's content; null when the content cannot be read. */
+            summary: string | null;
+            /** @description Source-wide search terms without private identifiers, with at most 20 terms of at most 200 characters each. */
+            terms: string[];
+            /**
+             * @description Outcome of reading English content: complete, partly readable, no readable content, or insufficient English content.
+             * @enum {string}
+             */
+            transcriptionStatus: "COMPLETE" | "EMPTY" | "PARTIAL" | "INSUFFICIENT_LANGUAGE";
             /** @description Up to four distinct Things that can be identified in the source, with facts grouped by the thing they describe.  Identifying one thing in the source is typical. */
             candidates: {
                 /** @description Generated identifier unique within this extraction. */
@@ -66,34 +227,6 @@ export interface components {
         Selection: {
             /** @description Eligible field-set IDs returned by search_field_sets, including mandatory included sets and applicable considerAlongside suggestions; an empty array when no set applies. */
             setIds: string[];
-        };
-        /** @description Facts derived from a source document, mapped to fields in known and selected fieldsets or known fields from the field registry. */
-        Mapping: {
-            /** @description Mappings for this set of facts, supported by clearly observed relationships between the fact and the definition of the target field. */
-            values: {
-                /** @description ID copied from the supplied fact batch for the fact supporting this value. */
-                factId: string;
-                /** @description ID of the field set containing this field; null for a standalone field definition returned by search_fields. */
-                fieldSetId: string | null;
-                /** @description Field definition ID copied from the selected set definitions or search_fields results. The field must belong to the specified set when fieldSetId is present. */
-                fieldId: string;
-                /** @description Value of the referenced fact, satisfying the target field schema, format and units, with its meaning and identifiers preserved and money or unit conversions supported by the source. */
-                value: string | number | boolean | {
-                    /** @description Non-negative amount in pence or cents, expressed as the supported major-unit amount multiplied by 100, including zero. */
-                    amountMinor: number;
-                    /**
-                     * @description ISO currency code supported by the source: GBP, EUR or USD, with symbols resolved from source context. Facts or mapped values with an unestablished currency are absent.
-                     * @enum {string}
-                     */
-                    currency: "GBP" | "EUR" | "USD";
-                };
-                /** @description Summary-field suggestion flag, with true indicating a useful summary field that is likely to be frequently consulted.   Top candidates for pins are, for physical objects: the model number, serial number; for insurance: a regular payment amount, expiry or renewal date, key entitlement and excess amounts; for memberships/subscriptions: a membership tier or benefit level, expiry/renewal date, cancellation policy.  At most three suggestions. */
-                pin: boolean;
-            }[];
-            /** @description IDs of unmatched facts with identifiable value in operating, maintaining, identifying or administering the Thing. */
-            customFactIds: string[];
-            /** @description IDs of facts without established practical meaning or relevance to the Thing. */
-            discardedFactIds: string[];
         };
         /** @description Cited reference documents, a product photograph and identity supported by the research report and supplied retrieved URLs. */
         Discovery: {
@@ -192,14 +325,24 @@ export interface components {
         TaskSuggestions: {
             /** @description Up to eight distinct supported tasks; empty when none are established. */
             items: {
-                /** @description Short action title naming the task (min 1 char, max 200 chars). */
+                /** @description Verb and object naming the work, with only qualifiers needed to identify it (min 1 char, max 200 chars). */
                 title: string;
-                /** @description Supported instructions, intervals and conditions, with no inferred next date (min 1 char, max 4000 chars). */
+                /** @description Source-supported frequency, triggers, methods, precautions and evidence requirements, with no inferred next date (min 1 char, max 4000 chars). */
                 description: string;
-                /** @description Supporting URL observed through web search (min 1 char, max 2000 chars). */
-                sourceUrl: string;
-                /** @description Supporting excerpt from the public source establishing task applicability (min 1 char, max 2000 chars). */
-                quote: string;
+                /** @description Attachment passages or observed public sources establishing applicability, at least one. */
+                sourceRefs: ({
+                    /** @description Attachment ID copied from the supplied source. */
+                    attachmentId: string;
+                    /** @description Original one-based page number, or null for unpaginated text. */
+                    page: number | null;
+                    /** @description Verbatim source passage, up to 2000 characters. */
+                    quote: string;
+                } | {
+                    /** @description Public source URL observed through web search, 1–2000 characters. */
+                    url: string;
+                    /** @description Supporting excerpt establishing applicability, 1–2000 characters. */
+                    quote: string;
+                })[];
             }[];
         };
         /** @description Supported consumables and accessories with purchase pages and compatibility evidence. */
@@ -211,16 +354,26 @@ export interface components {
                  * @enum {string}
                  */
                 kind: "CONSUMABLE" | "ACCESSORY";
-                /** @description Source-supported product name, retaining any manufacturer part number (min 1 char, max 200 chars). */
+                /** @description Basic item name with only qualifiers needed to distinguish products (min 1 char, max 200 chars). */
                 name: string;
-                /** @description Purpose and compatibility explanation supported by retrieved evidence (min 1 char, max 4000 chars). */
+                /** @description Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words (min 1 char, max 4000 chars). */
                 description: string;
-                /** @description Direct purchase page URL observed through web search (min 1 char, max 2000 chars). */
+                /** @description Direct purchase page URL observed through web search or printed in cited Attachment content (min 1 char, max 2000 chars). */
                 merchantUrl: string;
-                /** @description URL observed through web search establishing compatibility (min 1 char, max 2000 chars). */
-                sourceUrl: string;
-                /** @description Supporting excerpt establishing model, variant, part number or technical compatibility (min 1 char, max 2000 chars). */
-                quote: string;
+                /** @description Attachment passages or observed public sources establishing applicability, at least one. */
+                sourceRefs: ({
+                    /** @description Attachment ID copied from the supplied source. */
+                    attachmentId: string;
+                    /** @description Original one-based page number, or null for unpaginated text. */
+                    page: number | null;
+                    /** @description Verbatim source passage, up to 2000 characters. */
+                    quote: string;
+                } | {
+                    /** @description Public source URL observed through web search, 1–2000 characters. */
+                    url: string;
+                    /** @description Supporting excerpt establishing applicability, 1–2000 characters. */
+                    quote: string;
+                })[];
             }[];
         };
         /** @description Category and source-supported terms used to find eligible field sets. */
@@ -239,6 +392,15 @@ export interface components {
                 /** @description Surrounding source text explaining the label, subject and units, limited to the context needed to identify the field and distinguish similar registry fields. */
                 context: string;
             }[];
+        };
+        /** @description Source search arguments. */
+        search_transcription: {
+            /** @description Supplied Attachment ID. */
+            attachmentId: string;
+            /** @description Search phrase, or empty text for the beginning. */
+            query: string;
+            /** @description Character offset for reading the next source section. */
+            offset: number;
         };
         /** @description Search text used to find the owner's Things. */
         search_things: {

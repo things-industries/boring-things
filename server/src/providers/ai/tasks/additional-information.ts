@@ -1,0 +1,90 @@
+/** Additional information task, identifies source facts beyond the selected Thing fields. */
+
+import type { components } from '../schema-types.js';
+import type { AiConfig, RegistryResources } from '../types.js';
+import { AiTask } from './task.js';
+import { thingImportInstructions } from '../prompts.js';
+import type {
+  AdditionalInformationInput,
+  AdditionalInformationResult,
+  ImportTaskContext,
+} from '../../../application/import/types.js';
+import { createFieldsTool, createFieldSetsTool } from '../tools/registry.js';
+
+import { createTranscriptionTool } from '../tools/transcription.js';
+import { createObjectSchema, valueSchema, sourceEvidenceProperties } from '../schemas.js';
+
+export const schema = createObjectSchema(
+  {
+    findings: {
+      description: 'Up to 10 significant findings outside the supplied fields.',
+      type: 'array',
+      maxItems: 10,
+      items: createObjectSchema(
+        {
+          label: {
+            description: 'Useful field label, up to 160 characters.',
+            type: 'string',
+          },
+          fieldId: {
+            description: 'Retrieved registry field ID, or null for a custom field.',
+            type: ['string', 'null'],
+          },
+          value: valueSchema,
+          sensitive: {
+            description: 'Whether this finding contains sensitive information.',
+            type: 'boolean',
+          },
+          reason: {
+            description:
+              'Why the information matters to operating, maintaining or administering the Thing.',
+            type: 'string',
+          },
+          ...sourceEvidenceProperties,
+        },
+        'Significant additional source information.',
+      ),
+    },
+  },
+  'Important additional information.',
+);
+
+export class AdditionalInformationTask extends AiTask<
+  components['schemas']['AdditionalInformation'],
+  AdditionalInformationResult,
+  ImportTaskContext
+> {
+  protected readonly model: string = 'gpt-6.1-sol';
+  protected readonly effort = 'low';
+  protected task = 'additional_information';
+  protected instructions = thingImportInstructions;
+  protected schema = schema;
+
+  constructor(
+    config: AiConfig,
+    private input: AdditionalInformationInput,
+    private registryResources?: RegistryResources,
+  ) {
+    super(config);
+  }
+
+  // Runs the task over the supplied Thing and source context.
+  async run(context: ImportTaskContext) {
+    this.tools = [
+      createTranscriptionTool(context),
+      createFieldsTool(context, this.registryResources),
+      createFieldSetsTool(context, this.registryResources),
+    ];
+    return this.parseOutput(
+      await this.execute(
+        [
+          {
+            role: 'user',
+            content: `Find only significant information missing from the supplied Thing fields. It must matter to identifying, operating, maintaining or administering this Thing. Use search_fields before proposing a custom field. Ignore incidental text and unexplained markings. Explain why each finding matters, preserve sensitivity and cite verbatim source passages. Input: ${JSON.stringify(this.input)}`,
+          },
+        ],
+        context,
+      ),
+    );
+  }
+}

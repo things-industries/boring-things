@@ -5,8 +5,6 @@
 
 import { createChatActivity } from './messages.js';
 import type pg from 'pg';
-import { Ajv } from 'ajv';
-import addFormats from 'ajv-formats';
 import type { Schema } from '../../../../shared/model.js';
 import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
@@ -15,7 +13,7 @@ import type { ChatAi, ChatToolResult, ResearchAnswer, ChatFailure } from './type
 import { chatThingContext } from './context.js';
 import { mergeResourceCards } from '../../../../shared/resource-cards.js';
 import { blankUsage } from '../import/types.js';
-import { chatFunctions, type ChatToolInputs } from '../../contracts/chat-tools.js';
+import type { ChatToolCall, ChatTools } from './types.js';
 import * as conversationsDb from '../../db/entities/conversations.js';
 import type { ChatJob } from '../../db/entities/conversations.js';
 import * as thingsDb from '../../db/entities/things.js';
@@ -25,12 +23,6 @@ import { awaitWithSignal } from '../../lib/abort.js';
 import { publicFields } from '../public-fields.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import type { ApplicationEvents } from '../events.js';
-
-const ajv = new Ajv({ strict: false });
-
-addFormats.default(ajv);
-
-const validators = new Map(chatFunctions.map((f) => [f.name, ajv.compile(f.parameters)]));
 
 interface LiveMessage {
   messageId: string;
@@ -80,7 +72,7 @@ export class Assistant {
     const live = { messageId: job.id, text: '' };
     this.live.set(key, live);
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.chatTimeoutMs)]);
-    const usage = job.usage ?? blankUsage(this.config.openaiModel);
+    const usage = job.usage ?? blankUsage();
     const started = Date.now();
     const elapsed = usage.elapsedMs;
     let cards: Schema['ResourceCard'][] = [];
@@ -127,34 +119,32 @@ export class Assistant {
       return chatThingContext(thing, resources);
     };
 
-    const execute = async (name: string, args: unknown): Promise<ChatToolResult> => {
+    const execute = async ({ name, args }: ChatToolCall): Promise<ChatToolResult> => {
       signal.throwIfAborted();
       ensure(++calls <= this.config.chatToolCalls, 'tool_limit', 'UNAVAILABLE');
-      ensure(validators.get(name)?.(args), 'Invalid assistant tool arguments');
-      const a = args as Record<string, string>;
       let output: unknown;
 
       if (name === 'search_things') {
-        const items = await conversationsDb.searchChatThings(this.pool, job.ownerId, a['query']);
+        const items = await conversationsDb.searchChatThings(this.pool, job.ownerId, args.query);
         items.slice(0, 20).forEach((i) => allowedResources.add('thing:' + i.id));
         output = { items: items.slice(0, 20), truncated: items.length > 20 };
       } else if (name === 'read_thing')
-        output = allowedThings.has(a['thingId'])
-          ? { thingId: a['thingId'], alreadyRead: true }
-          : await readThing(a['thingId']);
+        output = allowedThings.has(args.thingId)
+          ? { thingId: args.thingId, alreadyRead: true }
+          : await readThing(args.thingId);
       else if (name === 'read_attachment') {
-        ensure(allowedResources.has('attachment:' + a['attachmentId']), 'Read its Thing first');
-        const includeImages = (args as { includeImages: boolean | null }).includeImages === true;
-        const fileKey = JSON.stringify([a['attachmentId'], includeImages]);
+        ensure(allowedResources.has('attachment:' + args.attachmentId), 'Read its Thing first');
+        const includeImages = args.includeImages === true;
+        const fileKey = JSON.stringify([args.attachmentId, includeImages]);
         if (retrievedFiles.has(fileKey)) {
           await record({ toolCalls: [{ name, resultCount: 1, truncated: false }] });
-          return { output: { attachmentId: a['attachmentId'], alreadyRead: true } };
+          return { output: { attachmentId: args.attachmentId, alreadyRead: true } };
         }
         ensure(files < 3, 'Attachment tool limit');
         const file = await conversationsDb.getOwnedChatAttachmentOrThrow(
           this.pool,
           job.ownerId,
-          a['attachmentId'],
+          args.attachmentId,
         );
         ensure(file && file.byteSize <= this.config.maxUploadBytes, 'Attachment unavailable');
         files++;
@@ -186,11 +176,11 @@ export class Assistant {
         };
       } else if (name === 'research') {
         ensure(!researched && this.ai, 'Research unavailable or budget used');
-        const thing = allowedThings.get(a['thingId']);
+        const thing = allowedThings.get(args.thingId);
         ensure(thing, 'Read the Thing first');
         const stored = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, thing.id);
         const fields = publicFields(stored.data, this.registry);
-        const question = a['question'].trim();
+        const question = args.question.trim();
         ensure(question, 'Research question cannot be blank');
         researched = true;
         const researchKey = JSON.stringify(['research', thing.id, question]);
@@ -225,8 +215,11 @@ export class Assistant {
         }
         output = { ...found, sources: found.sources.slice(0, 3) };
       } else if (name === 'create_event' || name === 'create_issue') {
-        ensure(allowedThings.has(a['thingId']), 'Read the Thing first');
-        ensure(a['title'].trim(), 'Title cannot be blank');
+        ensure(allowedThings.has(args.thingId), 'Read the Thing first');
+        ensure(
+          args.title.trim() && args.title.length <= 200 && args.description.length <= 4000,
+          'Invalid activity details',
+        );
         ensure(
           job.toolResults.some((result) => result.card) || cards.length < 24,
           'Assistant card limit',
@@ -237,9 +230,9 @@ export class Assistant {
           job,
           name,
           {
-            thingId: a['thingId'],
-            title: a['title'],
-            description: a['description'],
+            thingId: args.thingId,
+            title: args.title,
+            description: args.description,
           },
           signal,
         );
@@ -250,7 +243,7 @@ export class Assistant {
         output = saved.result;
         this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       } else if (name === 'show_cards') {
-        const selected = (args as ChatToolInputs['show_cards']).cards;
+        const selected = args.cards;
         const selectedCards: Schema['ResourceCard'][] = [];
         const selectedRefs: Schema['SourceRef'][] = [];
 
@@ -308,9 +301,10 @@ export class Assistant {
       return { output };
     };
 
-    const executeTool = async (name: string, args: unknown): Promise<ChatToolResult> => {
+    const executeTool: ChatTools['execute'] = async (name, args) => {
       try {
-        return await execute(name, args);
+        // The generic capability contract ties each name to its argument type.
+        return await execute({ name, args } as ChatToolCall);
       } catch (error) {
         signal.throwIfAborted();
         if (
@@ -347,7 +341,7 @@ export class Assistant {
             completedWrites: job.toolResults.filter((r) => r.key.startsWith('create_')),
             activeThing,
           },
-          { definitions: chatFunctions, execute: executeTool },
+          { execute: executeTool },
           {
             signal,
             record,

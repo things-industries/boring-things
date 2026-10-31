@@ -28,8 +28,10 @@ import { Assistant } from './application/conversations/assistant.js';
 import { createAi } from './providers/ai/index.js';
 import type { ChatAi } from './application/conversations/types.js';
 import type { ImportAi } from './application/import/types.js';
+import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
 import { ApplicationEvents } from './application/events.js';
+import * as googleVision from './providers/google-vision/index.js';
 
 // Allow overriding of dependencies for testing
 export interface BuildAppOptions {
@@ -40,6 +42,8 @@ export interface BuildAppOptions {
   logger?: boolean;
   importAi?: ImportAi;
   chatAi?: ChatAi;
+  importWorkflow?: import('./application/import/workflow.js').WorkflowOptions;
+  readImageText?: typeof googleVision.readImageText;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -76,11 +80,17 @@ export async function buildApp(options: BuildAppOptions = {}) {
       return { status: 'ok' };
     });
 
-    const { importAi, chatAi } = createAi(config, options, (usage) =>
-      app.log.info(
-        { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
-        'AI turn completed',
-      ),
+    // Registry definitions are cached at startup; restart the server after changing seeded metadata.
+    const registry = await loadRegistry(dbPool);
+    const { importAi, chatAi } = createAi(
+      config,
+      options,
+      (usage) =>
+        app.log.info(
+          { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
+          'AI turn completed',
+        ),
+      { db: dbPool, registry },
     );
     await app.register(routes.configRoutes, {
       config: {
@@ -95,8 +105,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
       },
     });
 
-    // Registry definitions are cached at startup; restart the server after changing seeded metadata.
-    const registry = await loadRegistry(dbPool);
     const blobs = options.blobs ?? createBlobs(config);
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const events = new ApplicationEvents();
@@ -105,7 +113,35 @@ export async function buildApp(options: BuildAppOptions = {}) {
       app.log.error(failure, 'Assistant response failed'),
     );
     const runner = new JobRunner(
-      [assistant, new ImportProcessor(dbPool, registry, blobs, importAi, config, events)],
+      [
+        assistant,
+        new AttachmentTranscriptionProcessor(
+          dbPool,
+          blobs,
+          importAi,
+          config,
+          events,
+          options.readImageText ??
+            (async (content, key, signal) => {
+              const started = Date.now();
+              const text = await googleVision.readImageText(content, key, signal);
+              app.log.info(
+                { metrics: { elapsedMs: Date.now() - started, imageCount: 1 } },
+                'Google Vision OCR completed',
+              );
+              return text;
+            }),
+        ),
+        new ImportProcessor(
+          dbPool,
+          registry,
+          blobs,
+          importAi,
+          config,
+          events,
+          options.importWorkflow,
+        ),
+      ],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
       jobLeaseDb.jobLease(dbPool, () => {
         // Stop immediately: another instance may recover jobs after this session loses its lock.
@@ -151,6 +187,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
         blobs,
         config,
         events,
+        runner,
+        importEnabled: !!importAi,
       });
       await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
       await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });

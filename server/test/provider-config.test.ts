@@ -7,16 +7,13 @@ import { ApplicationError } from '../src/application/errors.js';
 
 test('missing AI configuration disables both capabilities without a fake fallback', () => {
   const config = readConfig();
-  for (const [openaiApiKey, openaiModel] of [
-    ['', ''],
-    ['synthetic-key', ''],
-    ['', 'synthetic-model'],
-  ]) {
-    assert.deepEqual(createAi({ ...config, openaiApiKey, openaiModel }), {
-      importAi: undefined,
-      chatAi: undefined,
-    });
-  }
+  assert.deepEqual(createAi({ ...config, openaiApiKey: '' }), {
+    importAi: undefined,
+    chatAi: undefined,
+  });
+  const configured = createAi({ ...config, openaiApiKey: 'synthetic-key' });
+  assert.ok(configured.importAi);
+  assert.ok(configured.chatAi);
 });
 
 test('missing authentication configuration denies access', async () => {

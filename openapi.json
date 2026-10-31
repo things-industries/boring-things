@@ -907,8 +907,13 @@
       "post": {
         "operationId": "uploadAttachment",
         "summary": "Upload attachment",
-        "description": "Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.",
+        "description": "Uploads one file and queues Attachment transcription. An optional Thing ID links it to that Thing. Create an Import separately to process one or more uploaded Attachments together. File size, media type and content must satisfy the limits returned by getConfig.",
         "tags": ["Attachments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/attachmentThingId"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1157,7 +1162,7 @@
       "put": {
         "operationId": "linkAttachment",
         "summary": "Link attachment",
-        "description": "Links an attachment to a Thing. Repeating an existing link succeeds. Returns 409 while the Thing has an active import.",
+        "description": "Links an Attachment and schedules a restricted Import when the link is new. Repeating an existing link succeeds. Returns 409 while the Thing has an active Import.",
         "tags": ["Attachments"],
         "parameters": [
           {
@@ -1199,7 +1204,7 @@
       "delete": {
         "operationId": "unlinkAttachment",
         "summary": "Unlink attachment",
-        "description": "Removes the link between an attachment and a Thing, retaining the attachment. Returns 409 while the Thing has an active import.",
+        "description": "Removes the owner-scoped link and records that automatic work must not restore it.",
         "tags": ["Attachments"],
         "parameters": [
           {
@@ -1939,26 +1944,25 @@
         ]
       }
     },
-    "/api/things:import": {
+    "/api/imports": {
       "post": {
-        "operationId": "startImport",
-        "summary": "Start import",
-        "description": "Queues document processing for an uploaded attachment and links it to the target Thing. Omitting thingId creates a placeholder Thing. Returns 409 if the target already has an active import.",
+        "operationId": "createImport",
+        "summary": "Start an Import",
+        "description": "References one to ten owned Attachments. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.",
         "tags": ["Imports"],
-        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportStart"
+                "$ref": "#/components/schemas/ImportSubmission"
               }
             }
           }
         },
         "responses": {
           "202": {
-            "description": "Success",
+            "description": "Accepted",
             "content": {
               "application/json": {
                 "schema": {
@@ -2038,34 +2042,24 @@
         ]
       }
     },
-    "/api/imports/{id}:confirm": {
-      "post": {
-        "operationId": "confirmImport",
-        "summary": "Confirm import",
-        "description": "Selects detected Things to import and resumes processing. Each selection can update an existing Thing or create one. Returns 409 unless the import is awaiting selection.",
+    "/api/imports/{id}/stream": {
+      "get": {
+        "operationId": "streamImport",
+        "summary": "Stream Import progress",
+        "description": "Streams owner-scoped revisioned Import snapshots, including progress before any Thing exists.",
         "tags": ["Imports"],
         "parameters": [
           {
             "$ref": "#/components/parameters/resourceId"
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ImportConfirmation"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Import snapshots; event: import.snapshot; id: revision.",
             "content": {
-              "application/json": {
+              "text/event-stream": {
                 "schema": {
-                  "$ref": "#/components/schemas/Import"
+                  "type": "string"
                 }
               }
             }
@@ -2075,9 +2069,6 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
           },
           "422": {
             "$ref": "#/components/responses/InvalidInput"
@@ -2328,6 +2319,55 @@
           }
         }
       }
+    },
+    "/api/things/{thingId}:recommend": {
+      "post": {
+        "operationId": "recommendThing",
+        "summary": "Refresh recommendations for one Thing",
+        "description": "Start Recommendation directly using current Thing fields and linked evidence.",
+        "tags": ["Imports"],
+        "parameters": [
+          {
+            "name": "thingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportAccepted"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2416,6 +2456,15 @@
           "url": {
             "type": "string",
             "format": "uri"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Specialist provider that supplied this evidence."
+          },
+          "retrievedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the provider evidence was retrieved."
           }
         },
         "additionalProperties": false
@@ -2529,6 +2578,9 @@
           "instanceSpecific": {
             "type": "boolean",
             "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          },
+          "identifierKind": {
+            "$ref": "#/components/schemas/IdentifierKindEnum"
           }
         },
         "additionalProperties": false
@@ -2605,6 +2657,13 @@
           "instanceSpecific": {
             "type": "boolean",
             "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          },
+          "identifierKind": {
+            "$ref": "#/components/schemas/IdentifierKindEnum"
+          },
+          "autoPopulate": {
+            "type": "boolean",
+            "description": "Whether automatic processing may populate or update this field. Manual value edits disable it."
           }
         },
         "additionalProperties": false
@@ -2635,7 +2694,8 @@
             "type": "string"
           },
           "eligibility": {
-            "type": "string"
+            "type": ["string", "null"],
+            "description": "Source-facing eligibility statement. Null makes this field set mandatory for its category."
           },
           "keywords": {
             "type": "array",
@@ -2690,7 +2750,8 @@
             "type": "string"
           },
           "eligibility": {
-            "type": "string"
+            "type": ["string", "null"],
+            "description": "Source-facing eligibility statement. Null makes this field set mandatory for its category."
           },
           "keywords": {
             "type": "array",
@@ -2764,6 +2825,10 @@
           "instanceSpecific": {
             "type": "boolean",
             "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          },
+          "autoPopulate": {
+            "type": "boolean",
+            "description": "Whether automatic processing may populate or update this field. Manual value edits disable it."
           }
         },
         "additionalProperties": false
@@ -3105,9 +3170,13 @@
           },
           "import": {
             "type": ["object", "null"],
+            "description": "Import status, detected candidates, resulting Thing IDs and processing details.",
             "required": [
               "id",
               "attachmentId",
+              "attachmentIds",
+              "revision",
+              "sources",
               "thingId",
               "status",
               "candidates",
@@ -3121,8 +3190,28 @@
                 "format": "uuid"
               },
               "attachmentId": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "uuid"
+              },
+              "attachmentIds": {
+                "type": "array",
+                "description": "Uploaded Attachments cited by this Import, in submission order.",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "revision": {
+                "type": "integer",
+                "description": "Persisted revision for progress streams.",
+                "minimum": 1
+              },
+              "sources": {
+                "type": "array",
+                "description": "Current transcription outcomes for referenced Attachments.",
+                "items": {
+                  "$ref": "#/components/schemas/ImportSourceStatus"
+                }
               },
               "thingId": {
                 "type": ["string", "null"],
@@ -3156,6 +3245,13 @@
                 "items": {
                   "$ref": "#/components/schemas/ImportWarning"
                 }
+              },
+              "stage": {
+                "type": ["string", "null"],
+                "description": "Current workflow stage."
+              },
+              "operation": {
+                "$ref": "#/components/schemas/ImportOperationEnum"
               }
             },
             "additionalProperties": false
@@ -3176,7 +3272,7 @@
       "ValuePatch": {
         "type": "object",
         "description": "Update to a field in a set or a standalone field. Null removes its stored value.",
-        "required": ["fieldSetId", "fieldId", "value"],
+        "required": ["fieldSetId", "fieldId"],
         "properties": {
           "fieldSetId": {
             "type": ["string", "null"],
@@ -3190,9 +3286,14 @@
           },
           "value": {
             "$ref": "#/components/schemas/NullableValue"
+          },
+          "autoPopulate": {
+            "type": "boolean",
+            "description": "Explicit permission for future automatic population. A value edit disables population unless supplied."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "minProperties": 3
       },
       "CustomFieldPatch": {
         "type": "object",
@@ -3392,7 +3493,7 @@
       },
       "Attachment": {
         "type": "object",
-        "description": "File metadata, document properties and IDs of linked Things.",
+        "description": "File metadata, document properties and IDs of linked Things. Transcription starts after upload.",
         "required": [
           "id",
           "filename",
@@ -4128,6 +4229,21 @@
         },
         "additionalProperties": false
       },
+      "ImportSourceStatus": {
+        "type": "object",
+        "description": "Transcription progress of an Attachment cited by an Import.",
+        "required": ["attachmentId", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "attachmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttachmentTranscriptionStatusEnum"
+          }
+        }
+      },
       "ImportUsage": {
         "type": "object",
         "description": "AI model, token counts, elapsed time and tool results for a processing attempt.",
@@ -4194,6 +4310,9 @@
         "required": [
           "id",
           "attachmentId",
+          "attachmentIds",
+          "revision",
+          "sources",
           "thingId",
           "status",
           "candidates",
@@ -4207,8 +4326,28 @@
             "format": "uuid"
           },
           "attachmentId": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "uuid"
+          },
+          "attachmentIds": {
+            "type": "array",
+            "description": "Uploaded Attachments cited by this Import, in submission order.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "description": "Persisted revision for progress streams.",
+            "minimum": 1
+          },
+          "sources": {
+            "type": "array",
+            "description": "Current transcription outcomes for referenced Attachments.",
+            "items": {
+              "$ref": "#/components/schemas/ImportSourceStatus"
+            }
           },
           "thingId": {
             "type": ["string", "null"],
@@ -4242,71 +4381,59 @@
             "items": {
               "$ref": "#/components/schemas/ImportWarning"
             }
+          },
+          "stage": {
+            "type": ["string", "null"],
+            "description": "Current workflow stage."
+          },
+          "operation": {
+            "$ref": "#/components/schemas/ImportOperationEnum"
           }
         },
         "additionalProperties": false
       },
-      "ImportStart": {
+      "ImportSubmission": {
         "type": "object",
-        "description": "Attachment to process and an optional existing Thing to update.",
-        "required": ["attachmentId"],
+        "description": "Start an Import using up to ten Attachments and optional Thing context. A contextual Import may have no Attachments; empty input completes without work.",
+        "additionalProperties": false,
+        "required": ["attachmentIds"],
         "properties": {
-          "attachmentId": {
-            "type": "string",
-            "format": "uuid"
+          "attachmentIds": {
+            "type": "array",
+            "description": "One to ten distinct owned Attachment IDs in source order.",
+            "minItems": 0,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           "thingId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Owned Thing receiving relevant evidence; omitted for open identification."
           }
-        },
-        "additionalProperties": false
+        }
       },
       "ImportAccepted": {
         "type": "object",
-        "description": "Queued import ID, target Thing ID and initial status.",
+        "description": "Accepted Import with optional Thing context.",
         "required": ["importId", "thingId", "status"],
+        "additionalProperties": false,
         "properties": {
           "importId": {
             "type": "string",
             "format": "uuid"
           },
           "thingId": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "uuid"
           },
           "status": {
             "$ref": "#/components/schemas/ImportStatusEnum"
           }
-        },
-        "additionalProperties": false
-      },
-      "ImportConfirmation": {
-        "type": "object",
-        "description": "Detected candidates selected for import. Each targetThingId identifies an existing Thing or is null to create one.",
-        "required": ["selections"],
-        "properties": {
-          "selections": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["candidateId", "targetThingId"],
-              "properties": {
-                "candidateId": {
-                  "type": "string"
-                },
-                "targetThingId": {
-                  "type": ["string", "null"],
-                  "format": "uuid"
-                }
-              },
-              "additionalProperties": false
-            },
-            "minItems": 1,
-            "maxItems": 10
-          }
-        },
-        "additionalProperties": false
+        }
       },
       "ResourceCard": {
         "description": "Reference to a Thing, field, attachment, issue, event or product suggestion. Availability indicates whether the referenced record can still be accessed.",
@@ -4718,13 +4845,28 @@
         "description": "Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.",
         "enum": [
           "QUEUED",
+          "WAITING_FOR_TRANSCRIPTION",
           "EXTRACTING",
-          "AWAITING_SELECTION",
           "MAPPING",
           "DISCOVERING",
           "COMPLETE",
           "INCOMPLETE",
-          "FAILED"
+          "FAILED",
+          "RECOMMENDING"
+        ]
+      },
+      "AttachmentTranscriptionStatusEnum": {
+        "type": "string",
+        "description": "Readable-content preparation state of an Attachment.",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "COMPLETE",
+          "EMPTY",
+          "PARTIAL",
+          "SKIPPED",
+          "FAILED",
+          "INSUFFICIENT_LANGUAGE"
         ]
       },
       "MessageRoleEnum": {
@@ -4764,6 +4906,16 @@
           "EXTRACTION_FAILED",
           "RESEARCH_FAILED"
         ]
+      },
+      "IdentifierKindEnum": {
+        "type": "string",
+        "description": "How a registry field identifies a provider, product class or owned instance.",
+        "enum": ["NONE", "GROUP", "CLASS", "INSTANCE"]
+      },
+      "ImportOperationEnum": {
+        "type": "string",
+        "description": "Requested Thing processing capability.",
+        "enum": ["IMPORT", "RECOMMENDATION"]
       }
     },
     "responses": {
@@ -4913,6 +5065,15 @@
           "format": "uuid"
         },
         "description": "Filter by Thing. Missing or inaccessible Things return an empty list."
+      },
+      "attachmentThingId": {
+        "name": "thingId",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Owned Thing that receives this Attachment. Processing is restricted to this Thing."
       },
       "thingIdPath": {
         "name": "thingId",

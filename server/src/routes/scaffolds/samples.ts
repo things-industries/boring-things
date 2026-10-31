@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { route } from '../../contracts/routes.js';
 import { ensure } from '../../application/errors.js';
 import type { ApplicationEvents } from '../../application/events.js';
+import * as thingsDb from '../../db/entities/things.js';
 import * as usersDb from '../../db/entities/users.js';
 
 /**
@@ -35,10 +36,16 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     ) => {
       const patch: ThingPatch = { addFieldSetIds, values };
       const data = patchData(emptyData(), patch, categoryId, registry);
-      const [item] = await database.rows<{ id: string }>(
+      const item = await thingsDb.insertThing(db, owner, {
+        categoryId,
+        name,
+        description: 'Sample data for exploring the interface.',
+        data,
+      });
+      await database.execute(
         db,
-        'insert into bt.things(owner_id,category_id,name,description,data,is_sample) values($1,$2,$3,$4,$5,true) returning id',
-        [owner, categoryId, name, 'Sample data for exploring the interface.', JSON.stringify(data)],
+        'update bt.things set is_sample=true where id=$1 and owner_id=$2',
+        [item.id, owner],
       );
 
       return item.id;
@@ -53,10 +60,10 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     const hob = await add(
       'Kitchen hob',
       'appliances',
-      ['appliances.bsh'],
+      ['appliances.appliance'],
       [
         v('appliances.appliance', 'common.manufacturer', 'Neff'),
-        v('appliances.bsh', 'appliances.zNumber', '00015'),
+        v('appliances.appliance', 'appliances.zNumber', '00015'),
       ],
     );
     await add(

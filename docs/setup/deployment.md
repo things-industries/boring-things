@@ -31,7 +31,7 @@ Use a dedicated project with PostgreSQL 17. Inspect its migration history before
 | `S3_ACCESS_KEY_ID`                                     | Server-side S3 access key                                                                                                    |
 | `S3_SECRET_ACCESS_KEY`                                 | Server-side S3 secret key                                                                                                    |
 | `LOGTO_ENDPOINT`, `LOGTO_APP_ID`, `LOGTO_API_RESOURCE` | Existing Logto configuration                                                                                                 |
-| `OPENAI_API_KEY`, `OPENAI_MODEL`                       | Server-side AI configuration                                                                                                 |
+| `OPENAI_API_KEY`                                       | Server-side AI configuration                                                                                                 |
 
 The Blueprint uses one Free instance in Frankfurt, the nearest available Render region to the initial London Supabase project. Render provides `PORT`; the Blueprint sets `HOST=0.0.0.0` and disables sample data.
 

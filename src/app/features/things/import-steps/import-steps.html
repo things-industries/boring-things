@@ -6,11 +6,14 @@
     @case ('QUEUED') {
       Waiting to start
     }
-    @case ('EXTRACTING') {
-      Reading your source
+    @case ('WAITING_FOR_TRANSCRIPTION') {
+      Reading attachments
     }
-    @case ('AWAITING_SELECTION') {
-      Waiting for your choice
+    @case ('RECOMMENDING') {
+      Finding recommendations
+    }
+    @case ('EXTRACTING') {
+      Identifying your Thing
     }
     @case ('MAPPING') {
       Adding details

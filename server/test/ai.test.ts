@@ -6,12 +6,16 @@ import { PDFDocument } from 'pdf-lib';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
 import { extractedThings, extractionBaseline } from './fixtures/imports.js';
-import * as registrySeedDb from '../src/db/seeds/registry.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
-import type { AiTurnCompleted } from '../src/providers/ai/responses.js';
+import type { AiTurnCompleted } from '../src/providers/ai/types.js';
+import { thingDefinition } from '../src/providers/ai/prompts.js';
 
-const context = () => ({ signal: new AbortController().signal, record: async () => {} });
+import { createImportTaskContext } from './support/import-context.js';
+
+const config = readConfig({ OPENAI_API_KEY: 'test-key' });
+
+const context = createImportTaskContext;
 const jsonResponse = (data: unknown) =>
   new Response(JSON.stringify(data), {
     headers: { 'Content-Type': 'application/json' },
@@ -25,6 +29,11 @@ const output = (data: unknown) => ({
     },
   ],
 });
+const sourceDetails = {
+  summary: 'Synthetic source',
+  terms: [],
+  transcriptionStatus: 'COMPLETE',
+};
 
 test('PDF source text uses one request, retains original pages and skips model transcription', async (t) => {
   const pdf = await PDFDocument.create();
@@ -43,9 +52,11 @@ test('PDF source text uses one request, retains original pages and skips model t
     assert.match(body.input[0].content[0].text, /ignore translated repetitions/);
     const subject = structuredClone(extractedThings.neff);
     subject.facts = [{ ...subject.facts[0], page: 26 }];
-    return jsonResponse(output({ text: '', metadata: null, candidates: [subject] }));
+    return jsonResponse(
+      output({ ...sourceDetails, text: '', metadata: null, candidates: [subject] }),
+    );
   });
-  const result = await new OpenAiImports('test-key', 'fixture').extract(
+  const result = await new OpenAiImports(config).extract(
     {
       filename: 'source.pdf',
       mediaType: 'application/pdf',
@@ -66,6 +77,7 @@ test('camera source extraction requests and returns a descriptive attachment tit
     assert.equal(body.input[0].content[1].type, 'input_image');
     return jsonResponse(
       output({
+        ...sourceDetails,
         text: 'Manufacturer label',
         metadata: {
           title: 'Data plate photo',
@@ -77,7 +89,7 @@ test('camera source extraction requests and returns a descriptive attachment tit
       }),
     );
   });
-  const result = await new OpenAiImports('test-key', 'fixture').extract(
+  const result = await new OpenAiImports(config).extract(
     { filename: 'IMG_1234.png', mediaType: 'image/png', content: Buffer.from('fixture image') },
     ['appliances'],
     context(),
@@ -115,7 +127,7 @@ test('reference extraction consumes page-labelled PDF text with original citatio
       }),
     );
   });
-  const result = await new OpenAiImports('test-key', 'fixture').extractDocument(
+  const result = await new OpenAiImports(config).extractDocument(
     {
       attachmentId: 'document',
       url: 'https://example.com/manual.pdf',
@@ -142,7 +154,7 @@ test('PDFs without embedded text reject excessive pages before calling the model
     return jsonResponse({});
   });
   await assert.rejects(
-    new OpenAiImports('test-key', 'fixture').extract(
+    new OpenAiImports(config).extract(
       {
         filename: 'scan.pdf',
         mediaType: 'application/pdf',
@@ -165,10 +177,15 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
     assert.equal(body.tools, undefined);
     assert.equal(body.text.format.type, 'json_schema');
     return jsonResponse(
-      output({ text: 'Synthetic source', metadata: null, candidates: [subjects[request++]] }),
+      output({
+        ...sourceDetails,
+        text: 'Synthetic source',
+        metadata: null,
+        candidates: [subjects[request++]],
+      }),
     );
   });
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = new OpenAiImports(config);
   for (const { source, expected: subject } of extractionBaseline) {
     const result = await ai.extract(
       { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from(source) },
@@ -180,124 +197,6 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
   assert.equal(request, 3);
 });
 
-test('SDK mapping supplies minimal Thing and field context and retains tool history within each batch', async (t) => {
-  let request = 0;
-  const turns: Parameters<AiTurnCompleted>[0][] = [];
-  const selectedSets = registrySeedDb.sets.filter((set) => set.id === 'appliances.bsh');
-  const fieldResults = { results: [] };
-  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
-    const body = JSON.parse(init.body as string);
-    assert.equal(body.store, false);
-    assert.equal(body.parallel_tool_calls, false);
-    request++;
-    const round = request <= 2 ? 0 : Math.ceil((request - 2) / 2);
-    const toolName = round === 0 ? 'search_field_sets' : 'search_fields';
-    if (round > 0)
-      assert.deepEqual(
-        body.tools.map((tool: { name: string }) => tool.name),
-        ['search_fields'],
-      );
-    if (request % 2 === 1) {
-      assert.equal(body.input.length, 1);
-      if (round > 0) {
-        const prompt = body.input[0].content;
-        assert.match(prompt, /A "?Thing"? is an identifiable/);
-        assert.match(prompt, /selection and mandatory dependencies are already resolved/);
-        assert.match(prompt, /Account for every supplied fact/);
-        const input = JSON.parse(prompt.split('\nInput: ')[1]);
-        assert.deepEqual(input.thing, {
-          name: 'Neff hob',
-          categoryId: 'appliances',
-          terms: ['Neff'],
-        });
-        assert.deepEqual(Object.keys(input.fieldSets[0]).sort(), ['fields', 'id', 'name']);
-        assert.equal(input.fieldSets[0].id, selectedSets[0].id);
-        assert.equal(input.fieldSets[0].name, selectedSets[0].name);
-        assert.equal(input.fieldSets[0].fields.length, selectedSets[0].fields.length);
-        for (const field of input.fieldSets[0].fields) {
-          const definition = selectedSets[0].fields.find((f) => f.id === field.id)!;
-          assert.deepEqual(Object.keys(field).sort(), [
-            'description',
-            'id',
-            'name',
-            'schema',
-            'sensitive',
-          ]);
-          assert.equal(field.description, definition.description);
-          assert.deepEqual(field.schema, definition.schema);
-          assert.equal(field.sensitive, definition.sensitive);
-        }
-        const { page: _page, ...fact } = extractedThings.neff.facts[round - 1];
-        assert.deepEqual(input.facts, [fact]);
-      }
-      return jsonResponse({
-        status: 'completed',
-        output: [
-          {
-            type: 'reasoning',
-            id: `reason-${round}`,
-            summary: [],
-            encrypted_content: `opaque-${round}`,
-          },
-          {
-            type: 'function_call',
-            name: toolName,
-            call_id: `call-${round}`,
-            arguments:
-              round === 0
-                ? '{"categoryId":"appliances","terms":["Neff"]}'
-                : '{"labels":[{"label":"Installer reference","context":""}]}',
-          },
-        ],
-      });
-    }
-    assert.ok(
-      body.input.some(
-        (entry: { encrypted_content?: string }) => entry.encrypted_content === `opaque-${round}`,
-      ),
-    );
-    assert.ok(
-      body.input.some(
-        (entry: { call_id?: string; output?: string }) =>
-          entry.call_id === `call-${round}` &&
-          entry.output === JSON.stringify(round === 0 ? { sets: selectedSets } : fieldResults),
-      ),
-    );
-    return jsonResponse(
-      output(
-        round === 0
-          ? { setIds: ['appliances.bsh'] }
-          : {
-              values: [],
-              customFactIds: [extractedThings.neff.facts[round - 1].id],
-              discardedFactIds: [],
-            },
-      ),
-    );
-  });
-  const tools = {
-    searchFieldSets: async () => ({ sets: selectedSets }),
-    searchFields: async () => fieldResults,
-  };
-  const ai = createAi(
-    readConfig({ OPENAI_API_KEY: 'test-key', OPENAI_MODEL: 'fixture' }),
-    {},
-    (entry) => turns.push(entry),
-  ).importAi!;
-  const selection = await ai.selectFieldSets(extractedThings.neff, tools, context());
-  assert.deepEqual(selection, { setIds: ['appliances.bsh'] });
-  for (const fact of extractedThings.neff.facts)
-    assert.deepEqual(
-      await ai.mapFacts(extractedThings.neff, [fact], selectedSets, tools, context()),
-      { values: [], customFactIds: [fact.id], discardedFactIds: [] },
-    );
-  assert.equal(request, 6);
-  assert.deepEqual(
-    turns.map((turn) => turn.toolCalls),
-    [['search_field_sets'], [], ['search_fields'], [], ['search_fields'], []],
-  );
-});
-
 test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP errors without transport retries', async (t) => {
   const source = {
     filename: 'source.txt',
@@ -307,7 +206,7 @@ test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP
   const fetch = t.mock.method(globalThis, 'fetch', async () =>
     jsonResponse({ status: 'incomplete', output: [] }),
   );
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = new OpenAiImports(config);
   await assert.rejects(ai.extract(source, ['other'], context()), /incomplete/);
   fetch.mock.mockImplementation(async () =>
     jsonResponse({
@@ -323,15 +222,8 @@ test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP
     }),
   );
   await assert.rejects(
-    ai.selectFieldSets(
-      extractedThings.neff,
-      {
-        searchFieldSets: async () => assert.fail('invalid arguments executed'),
-        searchFields: async () => ({}),
-      },
-      context(),
-    ),
-    /Invalid registry tool arguments/,
+    ai.selectFieldSets(extractedThings.neff, context()),
+    /Invalid AI tool arguments/,
   );
   fetch.mock.mockImplementation(
     async () =>
@@ -356,7 +248,7 @@ test('SDK import cancellation reaches the request signal', async (t) => {
       }),
   );
   await assert.rejects(
-    new OpenAiImports('test-key', 'fixture').extract(
+    new OpenAiImports(config).extract(
       { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from('synthetic') },
       ['other'],
       { ...context(), signal: controller.signal },
@@ -423,7 +315,7 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
       { headers: { 'Content-Type': 'application/json' } },
     );
   });
-  const ai = new OpenAiImports('test-key', 'test-model', 12000, 3, 'test-model', async (url) =>
+  const ai = new OpenAiImports(config, undefined, async (url) =>
     url === source
       ? { url, links: [{ url: linkedPdf, context: 'Official user manual for the model' }] }
       : null,
@@ -444,16 +336,72 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
   );
   assert.deepEqual(result, { ...expected, sources: [source, pdf, linkedPdf] });
   assert.equal(requests[0].max_tool_calls, 3);
+  assert.equal(requests[0].model, 'gpt-6.1-sol');
+  assert.deepEqual(requests[0].reasoning, { mode: 'standard', effort: 'medium' });
+  assert.equal(requests[1].model, 'gpt-6-luna');
+  assert.deepEqual(requests[1].reasoning, { mode: 'standard', effort: 'none' });
+  assert.ok(requests.every((request) => !Object.hasOwn(request, 'effort')));
+  assert.deepEqual(
+    usage.flatMap((entry) => entry.entries ?? []).map((entry) => entry.model),
+    ['gpt-6.1-sol', 'gpt-6-luna'],
+  );
   assert.ok(JSON.stringify(requests[1].input).includes(linkedPdf));
   assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
 });
 
-test('SDK document extraction uses the configured model, contained schema and per-task usage without search or write tools', async (t) => {
+// Research omitted the source-derived name, losing the year for models with reused names.
+test('public research keeps the source-derived product generation across its requests', async (t) => {
+  const source = 'https://maker.example/watch-2021';
+  const requests: Record<string, unknown>[] = [];
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    requests.push(body);
+    const response = output(
+      body.text?.format.schema.properties.identity ? { identity: null, items: [] } : { items: [] },
+    );
+    return jsonResponse({
+      ...response,
+      output: [
+        { type: 'web_search_call', action: { sources: [{ url: source }] } },
+        ...response.output,
+      ],
+    });
+  });
+  const research = {
+    id: 'candidate-1',
+    name: 'Example Watch (2021)',
+    categoryId: 'devices',
+    knownFields: [
+      {
+        fieldSetId: null,
+        fieldId: 'common.model',
+        label: 'Model',
+        description: '',
+        value: 'Example Watch',
+      },
+    ],
+    emptyFields: [],
+    referenceUrls: [],
+    fields: [],
+    sources: [],
+  };
+  const ai = new OpenAiImports(config, undefined, async () => null);
+  await ai.findResources(research, context());
+  await ai.suggestTasks({ ...research, existingTasks: [] }, context());
+  await ai.findPurchasables({ ...research, existingPurchasables: [] }, context());
+  assert.equal(requests.length, 4);
+  for (const request of requests) assert.ok(JSON.stringify(request.input).includes(research.name));
+});
+
+test('SDK document extraction uses its task model, contained schema and per-task usage without search or write tools', async (t) => {
   const usage: Partial<Usage>[] = [];
   const turns: Parameters<AiTurnCompleted>[0][] = [];
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
-    assert.equal(body.model, 'document-model');
+    assert.equal(body.model, 'gpt-6-luna');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
+    assert.ok(body.instructions.includes(thingDefinition));
+    assert.ok(JSON.stringify(body.input).includes('Fixture device (2024)'));
     assert.equal(body.store, false);
     assert.equal(body.tools, undefined);
     assert.equal(body.text.format.schema.properties.applicable.type, 'boolean');
@@ -466,15 +414,14 @@ test('SDK document extraction uses the configured model, contained schema and pe
   const ai = createAi(
     readConfig({
       OPENAI_API_KEY: 'test-key',
-      OPENAI_MODEL: 'import-model',
       AI_MAX_OUTPUT_TOKENS: '1000',
-      DOCUMENT_EXTRACTION_MODEL: 'document-model',
     }),
     {},
     (entry) => turns.push(entry),
   ).importAi!;
   const pdf = await PDFDocument.create();
   pdf.addPage();
+  assert.ok(ai instanceof OpenAiImports);
   await ai.extractDocument(
     {
       attachmentId: 'document',
@@ -484,7 +431,13 @@ test('SDK document extraction uses the configured model, contained schema and pe
       content: Buffer.from(await pdf.save()),
       pageCount: 1,
     },
-    { id: 'subject', categoryId: 'devices', knownFields: [], emptyFields: [] },
+    {
+      id: 'subject',
+      name: 'Fixture device (2024)',
+      categoryId: 'devices',
+      knownFields: [],
+      emptyFields: [],
+    },
     [],
     {
       ...context(),
@@ -494,7 +447,7 @@ test('SDK document extraction uses the configured model, contained schema and pe
     },
   );
   assert.equal(usage[0].entries?.[0].task, 'document_extraction');
-  assert.equal(usage[0].entries?.[0].model, 'document-model');
+  assert.equal(usage[0].entries?.[0].model, 'gpt-6-luna');
   assert.equal(usage[0].entries?.[0].inputTokens, 25);
   assert.equal(usage[0].cachedTokens, 5);
   assert.deepEqual(turns, [{ ...usage[0].entries![0], toolCalls: [] }]);
@@ -508,13 +461,14 @@ test('AI attachment metadata validates calendar dates without unknown-format war
   t.mock.method(globalThis, 'fetch', async () =>
     jsonResponse(
       output({
+        ...sourceDetails,
         text: '',
         metadata: { title: null, documentType: null, publisher: null, documentDate },
         candidates: [extractedThings.neff],
       }),
     ),
   );
-  const ai = new OpenAiImports('test-key', 'fixture');
+  const ai = new OpenAiImports(config);
   const source = {
     filename: 'source.txt',
     mediaType: 'text/plain',
@@ -550,6 +504,8 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       },
     ],
     referenceUrls: [url],
+    fields: [],
+    sources: [],
     existingTasks: [{ title: 'Private owner title', status: 'DISMISSED' as const }],
   };
   let sourceUrl: string | null = url;
@@ -562,20 +518,31 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     const body = JSON.parse(init.body as string);
     requests.push(body);
     assert.equal(body.store, false);
+    assert.match(body.instructions, /do not suggest recording model numbers/);
+    assert.match(body.instructions, /Name each task with a verb and its object/);
     assert.match(body.input, /Model A/);
-    assert.ok(!body.input.includes('Private owner title'));
+    assert.ok(body.input.includes('existingTasks'));
+    if (requests.length === 1) assert.ok(body.input.includes('Private owner title'));
     assert.ok(!body.input.includes('Imported facts'));
     const properties = body.text.format.schema.properties.items.items.properties;
     assert.ok(!('factId' in properties));
-    assert.equal(properties.sourceUrl.type, 'string');
-    const response = output({ items: [{ ...item, sourceUrl }] });
+    assert.equal(properties.sourceRefs.type, 'array');
+    const response = output({
+      items: [
+        {
+          title: item.title,
+          description: item.description,
+          sourceRefs: [{ url: sourceUrl, quote: item.quote }],
+        },
+      ],
+    });
     return jsonResponse({
       ...response,
       output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
       usage: { input_tokens: 25, output_tokens: 10 },
     });
   });
-  const ai = new OpenAiImports('test-key', 'import-model');
+  const ai = new OpenAiImports(config);
   const suggestions = await ai.suggestTasks(
     research,
     {
@@ -596,7 +563,10 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(requests[0].max_tool_calls, 2);
   assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
-  assert.deepEqual(requests[0].include, ['web_search_call.action.sources']);
+  assert.deepEqual(requests[0].include, [
+    'reasoning.encrypted_content',
+    'web_search_call.action.sources',
+  ]);
   assert.deepEqual(
     entries.flatMap((entry) => entry.entries ?? []).map((entry) => entry.task),
     ['task_suggestions'],
@@ -610,9 +580,9 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     { items: [] },
   );
   sourceUrl = 'https://invented.example/manual';
-  await assert.rejects(ai.suggestTasks(research, context()), /Uncited task source/);
+  await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
   sourceUrl = 'http://localhost/private';
-  await assert.rejects(ai.suggestTasks(research, context()), /Uncited task source/);
+  await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
   sourceUrl = null;
   await assert.rejects(ai.suggestTasks(research, context()), /Invalid AI output/);
   const before = fetch.mock.callCount();
@@ -627,18 +597,23 @@ test('SDK purchasable research discovers products and purchase links within one 
   const requests: Record<string, unknown>[] = [];
   let product = {
     kind: 'CONSUMABLE',
-    name: 'Filter 0015',
-    description: 'Fits Model A',
+    name: 'Water filter',
+    description: 'Replace the filter when water flow decreases.',
     merchantUrl: url,
-    sourceUrl: url,
-    quote: '0015 fits Model A',
+    sourceRefs: [{ url, quote: '0015 fits Model A' }],
   };
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     requests.push(body);
     assert.match(body.input, /Find useful purchasables/);
+    assert.match(body.instructions, /Name each purchasable with its basic item name/);
+    assert.match(
+      body.instructions,
+      /Describe why the item is useful and when the owner should buy it/,
+    );
     assert.match(body.input, /consumables/);
-    assert.ok(!body.input.includes('Private owner product'));
+    assert.ok(body.input.includes('existingPurchasables'));
+    if (requests.length === 1) assert.ok(body.input.includes('Private owner product'));
     assert.equal(body.text.format.schema.properties.items.type, 'array');
     const response = output({ items: [product] });
     return jsonResponse({
@@ -646,7 +621,7 @@ test('SDK purchasable research discovers products and purchase links within one 
       output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
     });
   });
-  const ai = new OpenAiImports('test-key', 'import-model');
+  const ai = new OpenAiImports(config);
   const research = {
     categoryId: 'appliances',
     knownFields: [
@@ -659,23 +634,28 @@ test('SDK purchasable research discovers products and purchase links within one 
       },
     ],
     referenceUrls: [],
+    fields: [],
+    sources: [],
     existingPurchasables: [{ kind: 'CONSUMABLE' as const, name: 'Private owner product' }],
   };
   assert.deepEqual(await ai.findPurchasables(research, context(), 2), {
     items: [
       {
         kind: 'CONSUMABLE',
-        name: 'Filter 0015',
-        description: 'Fits Model A',
+        name: 'Water filter',
+        description: 'Replace the filter when water flow decreases.',
         merchantUrl: url,
-        sourceRefs: [{ url, quote: product.quote }],
+        sourceRefs: [{ url, quote: product.sourceRefs[0].quote }],
       },
     ],
   });
   assert.equal(fetch.mock.callCount(), 1);
   assert.equal(requests[0].max_tool_calls, 2);
   assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
-  assert.deepEqual(requests[0].include, ['web_search_call.action.sources']);
+  assert.deepEqual(requests[0].include, [
+    'reasoning.encrypted_content',
+    'web_search_call.action.sources',
+  ]);
   assert.deepEqual(
     await ai.findPurchasables(
       { ...research, existingPurchasables: [{ kind: 'CONSUMABLE', name: product.name }] },

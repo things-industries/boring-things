@@ -3,7 +3,17 @@
   @switch (current.status) {
     @case ('FAILED') {
       <bt-notice tone="warning" icon="setupNotice">
-        The import could not finish.
+        @switch (current.error) {
+          @case ('no_thing_identified') {
+            No Thing could be identified from these sources.
+          }
+          @case ('wrong_thing') {
+            The source identifies a different Thing.
+          }
+          @default {
+            The import could not finish.
+          }
+        }
         <span noticeDetail>Your source has been kept.</span>
       </bt-notice>
     }
@@ -13,7 +23,15 @@
         <span noticeDetail>Saved details are available to review.</span>
       </bt-notice>
     }
-    @case ('COMPLETE') {}
+    @case ('COMPLETE') {
+      @if (current.warnings?.length) {
+        <bt-notice tone="warning"
+          >Some research could not finish.<span noticeDetail
+            >Saved details are available to review.</span
+          ></bt-notice
+        >
+      }
+    }
     @default {
       <bt-notice [busy]="true">
         <bt-import-steps class="import-steps" [status]="current.status" />
@@ -22,7 +40,11 @@
     }
   }
 </div>
-@if (current.status === 'FAILED' || current.status === 'INCOMPLETE') {
+@if (
+  current.status === 'FAILED' ||
+  current.status === 'INCOMPLETE' ||
+  (current.status === 'COMPLETE' && current.warnings?.length)
+) {
   <button type="button" class="button-secondary button-sm" [disabled]="busy()" (click)="retry()">
     Retry import
   </button>

@@ -42,6 +42,37 @@ export const categories = names.map(
     }) satisfies Schema['Category'],
 );
 
+// Registry-authored identifier roles keep matching independent of field labels.
+const identifierRoles: Record<string, NonNullable<FieldDefinition['identifierKind']>> = {
+  'common.manufacturer': 'GROUP',
+  'common.serviceProvider': 'GROUP',
+  'membership.provider': 'GROUP',
+  'common.provider': 'GROUP',
+  'insurance.provider': 'GROUP',
+  'devices.imeiLine1': 'INSTANCE',
+  'devices.imeiLine2': 'INSTANCE',
+  'vehicles.frameNumber': 'INSTANCE',
+  'vehicles.hullIdentificationNumber': 'INSTANCE',
+  'vehicles.engineSerialNumber': 'INSTANCE',
+  'subscriptions.domainName': 'CLASS',
+  'common.model': 'CLASS',
+  'common.gtin': 'CLASS',
+  'appliances.productCode': 'CLASS',
+  'appliances.eNumber': 'CLASS',
+  'appliances.pnc': 'CLASS',
+  'common.serialNumber': 'INSTANCE',
+  'appliances.zNumber': 'INSTANCE',
+  'appliances.fdNumber': 'GROUP',
+  'vehicles.registration': 'INSTANCE',
+  'vehicles.registrationCountry': 'GROUP',
+  'vehicles.vin': 'INSTANCE',
+  'common.accountNumber': 'INSTANCE',
+  'common.membershipNumber': 'INSTANCE',
+  'memberships.registrationNumber': 'INSTANCE',
+  'memberships.loyaltyNumber': 'INSTANCE',
+  'insurance.policyNumber': 'INSTANCE',
+};
+
 const field = (
   id: string,
   name: string,
@@ -56,6 +87,7 @@ const field = (
   uiHint: 'TEXT',
   sensitive: false,
   instanceSpecific: true,
+  identifierKind: identifierRoles[id] ?? 'NONE',
   icon: 'fieldDefault',
   ...extra,
 });
@@ -120,6 +152,19 @@ export const fields: FieldDefinition[] = [
     uiHint: 'TEXT',
     icon: 'fieldModel',
   }),
+  field(
+    'common.gtin',
+    'GTIN',
+    { type: 'string', pattern: '^(?:\\d{8}|\\d{12,14})$' },
+    {
+      instanceSpecific: false,
+      description:
+        'EAN, UPC or GTIN product barcode, including leading zeroes. Identifies a product variant, not an individual unit.',
+      keywords: ['GTIN', 'EAN', 'UPC', 'barcode'],
+      uiHint: 'TEXT',
+      icon: 'fieldModel',
+    },
+  ),
   field('common.serialNumber', 'Serial number', undefined, {
     description:
       'Unit serial number explicitly identified as such. Preserve leading zeroes; differently named manufacturer markings such as Z-Nr use their dedicated fields.',
@@ -2774,7 +2819,7 @@ export const fields: FieldDefinition[] = [
 const set = (
   id: string,
   name: string,
-  eligibility: string,
+  eligibility: string | null,
   fieldIds: string[],
   includes: string[] = [],
   alongside: string[] = [],
@@ -2783,7 +2828,7 @@ const set = (
   id,
   categoryId: id.split('.')[0],
   name,
-  eligibility,
+  eligibility: eligibility === 'All things' ? null : eligibility,
   fields: fieldIds.map((id) => fields.find((f) => f.id === id)!),
   includes,
   considerAlongside: alongside,
@@ -2849,6 +2894,7 @@ export const sets: FieldSet[] = [
       'common.model',
       'common.serialNumber',
       'appliances.applianceType',
+      'common.gtin',
       'appliances.productCode',
       'appliances.manufacturedOn',
       'appliances.finish',
@@ -3190,6 +3236,7 @@ export const sets: FieldSet[] = [
       'common.model',
       'common.serialNumber',
       'devices.deviceType',
+      'common.gtin',
       'devices.hardwareRevision',
       'devices.assetTag',
     ],
@@ -4616,6 +4663,53 @@ export const sets: FieldSet[] = [
   ),
 ];
 
+// Gives each category a mandatory identity address before optional fieldset selection.
+for (const category of categories) {
+  const categorySets = sets.filter((entry) => entry.categoryId === category.id);
+  let mandatory = categorySets.find((entry) => entry.eligibility === null);
+  if (!mandatory) {
+    mandatory = set(
+      `${category.id}.identity`,
+      'Identity',
+      null,
+      categorySets
+        .flatMap((entry) => entry.fields)
+        .slice(0, 1)
+        .map((entry) => entry.id),
+    );
+    sets.push(mandatory);
+  }
+  const identifiers = new Map(
+    categorySets
+      .flatMap((entry) => entry.fields)
+      .filter((entry) => entry.identifierKind !== 'NONE')
+      .map((entry) => [entry.id, entry]),
+  );
+  mandatory.fields = [
+    ...new Map(
+      [...mandatory.fields, ...identifiers.values()].map((entry) => [entry.id, entry]),
+    ).values(),
+  ];
+  for (const entry of categorySets)
+    if (entry !== mandatory)
+      entry.fields = entry.fields.filter((field) => !identifiers.has(field.id));
+}
+const emptySets = new Set(
+  sets
+    .filter((entry) => !entry.fields.length && !entry.includes.length && entry.eligibility !== null)
+    .map((entry) => entry.id),
+);
+for (let index = sets.length - 1; index >= 0; index--)
+  if (emptySets.has(sets[index].id)) sets.splice(index, 1);
+for (const entry of sets) {
+  entry.includes = entry.includes.filter(
+    (id) => !emptySets.has(id) && sets.find((set) => set.id === id)?.eligibility !== null,
+  );
+  entry.considerAlongside = entry.considerAlongside.filter(
+    (id) => !emptySets.has(id) && sets.find((set) => set.id === id)?.eligibility !== null,
+  );
+}
+
 export async function seedRegistry(db: Database) {
   // Validate definitions and inclusion dependencies before writing registry metadata.
   new Registry(fields, sets);
@@ -4630,7 +4724,7 @@ export async function seedRegistry(db: Database) {
   for (const f of fields)
     await database.execute(
       db,
-      'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive,icon,instance_specific) values($1,$2,$3,$4,$5,$6,$7,$8,$9) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive,icon=excluded.icon,instance_specific=excluded.instance_specific',
+      'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive,icon,instance_specific,identifier_kind) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive,icon=excluded.icon,instance_specific=excluded.instance_specific,identifier_kind=excluded.identifier_kind',
       [
         f.id,
         f.name,
@@ -4641,6 +4735,7 @@ export async function seedRegistry(db: Database) {
         f.sensitive,
         f.icon ?? null,
         f.instanceSpecific ?? true,
+        f.identifierKind ?? 'NONE',
       ],
     );
 
@@ -4659,4 +4754,7 @@ export async function seedRegistry(db: Database) {
         s.fields.map((f) => f.id),
       ],
     );
+  await database.execute(db, 'delete from bt.field_sets where not(id=any($1::text[]))', [
+    sets.map((set) => set.id),
+  ]);
 }

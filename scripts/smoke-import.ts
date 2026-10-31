@@ -6,12 +6,13 @@ import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
 import * as database from '../server/src/db/connection.js';
+import { loadRegistry } from '../server/src/application/registry/index.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
-assert.ok(config.openaiApiKey && config.openaiModel, 'Set OPENAI_API_KEY and OPENAI_MODEL');
+assert.ok(config.openaiApiKey, 'Set OPENAI_API_KEY');
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -21,66 +22,34 @@ const admin = database.createPool(url.toString());
 url.pathname = '/' + name;
 const pool = database.createPool(url.toString());
 const directory = await mkdtemp(tmpdir() + '/bt-smoke-');
-const ai = new OpenAiImports(
-  config.openaiApiKey,
-  config.openaiModel,
-  config.aiMaxOutputTokens,
-  config.discoverySearchCalls,
-);
+let ai: OpenAiImports;
 const trace: unknown[] = [];
 const recorded: ImportAi = {
+  summarizeAttachment: async (...args) => {
+    const result = await ai.summarizeAttachment(...args);
+    trace.push({ stage: 'summarize-attachment', result });
+    return result;
+  },
+  resolveThing: async (...args) => {
+    const result = await ai.resolveThing(...args);
+    trace.push({ stage: 'identity', result });
+    return result;
+  },
+  selectFieldSets: async (...args) => {
+    const result = await ai.selectFieldSets(...args);
+    trace.push({ stage: 'fieldsets', result });
+    return result;
+  },
+  populateFields: async (...args) => {
+    const result = await ai.populateFields(...args);
+    trace.push({ stage: 'population', result });
+    return result;
+  },
+  additionalInformation: (...args) => ai.additionalInformation(...args),
+  assessResource: (...args) => ai.assessResource(...args),
+  findResources: (...args) => ai.findResources(...args),
   suggestTasks: (...args) => ai.suggestTasks(...args),
   findPurchasables: (...args) => ai.findPurchasables(...args),
-  extractDocument: (...args) => ai.extractDocument(...args),
-  async extract(source, categories, context) {
-    const result = await ai.extract(source, categories, context);
-    trace.push({ stage: 'extraction', result });
-    return result;
-  },
-  async selectFieldSets(candidate, tools, context) {
-    const tracedTools = {
-      async searchFieldSets(category: string, terms: string[]) {
-        const result = await tools.searchFieldSets(category, terms);
-        trace.push({ tool: 'search_field_sets', category, terms, result });
-        return result;
-      },
-      async searchFields(labels: { label: string; context: string }[]) {
-        const result = await tools.searchFields(labels);
-        trace.push({ tool: 'search_fields', labels, result });
-        return result;
-      },
-    };
-    const selection = await ai.selectFieldSets(candidate, tracedTools, context);
-    trace.push({
-      stage: 'field_selection',
-      candidate: candidate.id,
-      result: selection,
-    });
-    return selection;
-  },
-  async mapFacts(thing, facts, selectedSets, tools, context) {
-    const tracedTools = {
-      searchFieldSets: tools.searchFieldSets,
-      async searchFields(labels: { label: string; context: string }[]) {
-        const result = await tools.searchFields(labels);
-        trace.push({ tool: 'search_fields', labels, result });
-        return result;
-      },
-    };
-    const result = await ai.mapFacts(thing, facts, selectedSets, tracedTools, context);
-    trace.push({
-      stage: 'fact_mapping',
-      candidate: thing.id,
-      factIds: facts.map((fact) => fact.id),
-      result,
-    });
-    return result;
-  },
-  async findResources(candidate, context, searchCalls) {
-    const result = await ai.findResources(candidate, context, searchCalls);
-    trace.push({ stage: 'discovery', result });
-    return result;
-  },
 };
 await admin.query(`create database ${name}`);
 let app: Awaited<ReturnType<typeof buildApp>> | undefined;
@@ -89,6 +58,10 @@ try {
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   await database.transaction(pool, registrySeedDb.seedRegistry);
+  ai = new OpenAiImports(config, undefined, undefined, {
+    db: pool,
+    registry: await loadRegistry(pool),
+  });
   app = await buildApp({
     dbPool: pool,
     config: { ...config, blobDirectory: directory },
@@ -97,7 +70,7 @@ try {
   });
   const headers = { authorization: 'Bearer synthetic-local-test' };
   const source =
-    'Synthetic test document. Three separate Things.\n1. Kitchen hob: manufacturer Neff, E-Nr T58TS6BN0/01, Z-Nr 0015, installer reference ABC-12.\n2. Cargo van: payload 1200 kg.\n3. Combined home insurance policy: buildings sum insured GBP 400000; contents sum insured GBP 50000.\n';
+    'Synthetic appliance data plate. Kitchen hob: manufacturer Neff, E-Nr T58TS6BN0/01, Z-Nr 0015. Installer service reference for maintenance appointments: ABC-12.';
   const boundary = 'smoke-boundary';
   const upload = await app.inject({
     method: 'POST',
@@ -111,9 +84,9 @@ try {
   assert.equal(upload.statusCode, 201, upload.body);
   const start = await app.inject({
     method: 'POST',
-    url: '/api/things:import',
+    url: '/api/imports',
     headers,
-    payload: { attachmentId: upload.json().id },
+    payload: { attachmentIds: [upload.json().id] },
   });
   assert.equal(start.statusCode, 202, start.body);
   const accepted = start.json<Schema['ImportAccepted']>();
@@ -132,21 +105,7 @@ try {
       console.log({ status: job!.status, elapsedMs: job!.usage.elapsedMs });
       previous = job!.status;
     }
-    if (job!.status === 'AWAITING_SELECTION') {
-      assert.equal(job!.candidates.length, 3);
-      const confirm: { statusCode: number; body: string } = await app.inject({
-        method: 'POST',
-        url: `/api/imports/${job!.id}:confirm`,
-        headers,
-        payload: {
-          selections: job!.candidates.map((c) => ({
-            candidateId: c.id,
-            targetThingId: null,
-          })),
-        },
-      });
-      assert.equal(confirm.statusCode, 200, confirm.body);
-    } else if (['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(job!.status)) break;
+    if (['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(job!.status)) break;
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   const things = await Promise.all(
@@ -159,7 +118,7 @@ try {
   await mkdir('test-results', { recursive: true });
   await writeFile(
     'test-results/import-smoke.json',
-    JSON.stringify({ model: config.openaiModel, job, things, trace }, null, 2),
+    JSON.stringify({ job, things, trace }, null, 2),
   );
   console.log({
     status: job?.status,
@@ -171,26 +130,8 @@ try {
   assert.equal(job?.status, 'COMPLETE');
   const fields = things.flatMap((t) => t.fieldSets.flatMap((s) => s.fields));
   assert.equal(fields.find((f) => f.id === 'appliances.zNumber')?.value, '0015');
-  assert.ok(
-    things.some(
-      (t) =>
-        t.fieldSets.some((s) => s.id === 'vehicles.van') &&
-        t.fieldSets.some((s) => s.id === 'vehicles.vehicle'),
-    ),
-  );
-  const policy = things.find((t) => t.categoryId === 'insurance')!;
-  assert.deepEqual(
-    policy.fieldSets
-      .find((s) => s.id === 'insurance.buildings')
-      ?.fields.find((f) => f.id === 'insurance.sumInsured')?.value,
-    { amountMinor: 40000000, currency: 'GBP' },
-  );
-  assert.deepEqual(
-    policy.fieldSets
-      .find((s) => s.id === 'insurance.contents')
-      ?.fields.find((f) => f.id === 'insurance.sumInsured')?.value,
-    { amountMinor: 5000000, currency: 'GBP' },
-  );
+  assert.equal(things.length, 1);
+  assert.equal(things[0].categoryId, 'appliances');
   assert.ok(things.some((t) => t.customFields.some((f) => f.value === 'ABC-12')));
   if (process.argv.includes('--assistant')) {
     const thing = things.find((t) => t.categoryId === 'appliances')!;
@@ -225,7 +166,7 @@ try {
           messages.push(message);
           await writeFile(
             'test-results/assistant-smoke.json',
-            JSON.stringify({ model: config.openaiModel, messages }, null, 2),
+            JSON.stringify({ messages }, null, 2),
           );
           console.log({
             assistant: message.status,

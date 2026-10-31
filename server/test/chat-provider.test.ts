@@ -3,14 +3,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import OpenAI from 'openai';
-import { searchWeb, type AiTurnCompleted } from '../src/providers/ai/responses.js';
+import type { AiTurnCompleted } from '../src/providers/ai/types.js';
+import { AiTask } from '../src/providers/ai/tasks/task.js';
+import { createWebSearchOptions, readWebResult } from '../src/providers/ai/tools/web.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
-import { chatFunctions } from '../src/contracts/chat-tools.js';
+import { chatFunctions } from '../src/providers/ai/tasks/assistant.js';
+import type { AiContext } from '../src/providers/ai/types.js';
 import type { Usage } from '../src/application/import/types.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
+const config = readConfig({
+  OPENAI_API_KEY: 'synthetic-key',
+  AI_MAX_OUTPUT_TOKENS: '1000',
+});
+
 const task = {
   thingId: null,
   messages: [{ role: 'USER' as const, content: 'Read the Thing' }],
@@ -69,7 +76,6 @@ test('assistant research answers the supplied question in one bounded request wi
   const ai = createAi(
     readConfig({
       OPENAI_API_KEY: 'synthetic-key',
-      OPENAI_MODEL: 'fixture',
       AI_MAX_OUTPUT_TOKENS: '1000',
       CHAT_TOOL_CALLS: '3',
       DISCOVERY_SEARCH_CALLS: '2',
@@ -108,14 +114,20 @@ test('assistant research answers the supplied question in one bounded request wi
     entries.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.resultCount),
     [100, 1],
   );
-  const discovery = await searchWeb(
-    new OpenAI({ apiKey: 'synthetic-key' }),
-    'fixture',
-    1000,
-    'Find manuals',
-    2,
-    context,
-  );
+  class SourceSearchTask extends AiTask<never, Awaited<ReturnType<typeof readWebResult>>> {
+    protected readonly model = 'gpt-6.1-sol';
+    protected readonly effort = 'low';
+    protected task = 'research';
+    protected instructions = 'Find public manuals.';
+    async run(context: AiContext) {
+      return readWebResult(
+        await this.execute('Find manuals', context, createWebSearchOptions(2)),
+        context,
+        2,
+      );
+    }
+  }
+  const discovery = await new SourceSearchTask(config).run(context);
   assert.ok(discovery.sources.includes(opened));
   assert.ok(discovery.sources.includes(candidates[99].url));
 
@@ -166,6 +178,8 @@ test('Responses streaming collects split frames, passes function results and rec
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
     assert.equal(body.stream, true);
+    assert.equal(body.model, 'gpt-6.1-sol');
+    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
     assert.deepEqual(
       body.tools
         .filter((f: { name: string }) => f.name.startsWith('create_'))
@@ -211,12 +225,11 @@ test('Responses streaming collects split frames, passes function results and rec
       tokens += usage.inputTokens ?? 0;
     },
   };
-  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3, 3, (entry) =>
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 3 }, (entry) =>
     turns.push(entry),
   ).respond(
     task,
     {
-      definitions: chatFunctions,
       execute: async (name, args) => {
         assert.equal(name, 'search_things');
         assert.deepEqual(args, { query: 'hob' });
@@ -237,7 +250,7 @@ test('Responses streaming collects split frames, passes function results and rec
     [
       {
         task: 'assistant_response',
-        model: 'fixture',
+        model: 'gpt-6.1-sol',
         inputTokens: 4,
         outputTokens: 2,
         cachedTokens: 0,
@@ -245,7 +258,7 @@ test('Responses streaming collects split frames, passes function results and rec
       },
       {
         task: 'assistant_response',
-        model: 'fixture',
+        model: 'gpt-6.1-sol',
         inputTokens: 6,
         outputTokens: 3,
         cachedTokens: 2,
@@ -259,11 +272,11 @@ test('an interrupted provider stream cannot complete an assistant response', asy
     stream([{ type: 'response.output_text.delta', delta: 'Partial' }]),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1, 3, () =>
+    new OpenAiChat({ ...config, chatToolCalls: 1 }, () =>
       assert.fail('interrupted response logged as complete'),
     ).respond(
       task,
-      { definitions: chatFunctions, execute: async () => ({ output: {} }) },
+      { execute: async () => ({ output: {} }) },
       {
         signal: new AbortController().signal,
         delta: () => {},
@@ -277,21 +290,33 @@ test('an interrupted provider stream cannot complete an assistant response', asy
 test('one AI turn handles multiple tool calls and returns rejected calls for correction', async (t) => {
   let requests = 0;
   const calls: string[] = [];
-  const definitions = chatFunctions.filter((tool) => tool.name === 'show_cards');
   t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
-    assert.deepEqual(body.tools, definitions);
+    assert.deepEqual(body.tools, chatFunctions);
     assert.equal(body.parallel_tool_calls, true);
     requests++;
     if (requests === 1)
       return stream([
         completed(
-          ['rejected', 'valid'].map((id) => ({
-            type: 'function_call',
-            name: 'show_cards',
-            arguments: JSON.stringify({ id }),
-            call_id: id,
-          })),
+          ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'].map(
+            (id) => ({
+              type: 'function_call',
+              name: 'show_cards',
+              arguments: JSON.stringify({
+                cards: [
+                  {
+                    type: 'THING',
+                    id,
+                    fieldSetId: null,
+                    fieldId: null,
+                    customFieldId: null,
+                    page: null,
+                  },
+                ],
+              }),
+              call_id: id,
+            }),
+          ),
         ),
       ]);
     assert.deepEqual(
@@ -305,20 +330,22 @@ test('one AI turn handles multiple tool calls and returns rejected calls for cor
       completed([]),
     ]);
   });
-  const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 3).respond(
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 3 }).respond(
     task,
     {
-      definitions,
       execute: async (_name, args) => {
-        const { id } = args as { id: string };
+        const { id } = (args as { cards: { id: string }[] }).cards[0];
         calls.push(id);
-        return { output: id === 'rejected' ? { error: 'Unknown field' } : { shown: 1 } };
+        return { output: id.endsWith('1') ? { error: 'Unknown field' } : { shown: 1 } };
       },
     },
     { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
   );
   assert.equal(answer, 'The recorded purchase date is 1 October.');
-  assert.deepEqual(calls, ['rejected', 'valid']);
+  assert.deepEqual(calls, [
+    '00000000-0000-4000-8000-000000000001',
+    '00000000-0000-4000-8000-000000000002',
+  ]);
   assert.equal(requests, 2);
 });
 
@@ -338,7 +365,10 @@ test('PDF attachment input preserves text pages and original files for diagrams'
             {
               type: 'function_call',
               name: 'read_attachment',
-              arguments: '{}',
+              arguments: JSON.stringify({
+                attachmentId: '00000000-0000-4000-8000-000000000001',
+                includeImages,
+              }),
               call_id: 'manual',
             },
           ]),
@@ -364,10 +394,9 @@ test('PDF attachment input preserves text pages and original files for diagrams'
         completed([]),
       ]);
     });
-    const answer = await new OpenAiChat('synthetic-key', 'fixture', 1000, 2).respond(
+    const answer = await new OpenAiChat({ ...config, chatToolCalls: 2 }).respond(
       task,
       {
-        definitions: chatFunctions,
         execute: async () => ({
           output: { attachmentId: 'manual' },
           source: { filename: 'manual.pdf', mediaType: 'application/pdf', content, includeImages },
@@ -403,10 +432,9 @@ test('SDK streaming cancellation closes the response and prevents tool execution
       ),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
       task,
       {
-        definitions: chatFunctions,
         execute: async () => assert.fail('tool executed after cancellation'),
       },
       {
@@ -426,10 +454,9 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
       stream([{ type, message: 'private source text' }]),
     );
     await assert.rejects(
-      new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+      new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
         task,
         {
-          definitions: chatFunctions,
           execute: async () => assert.fail('failed response executed a tool'),
         },
         {
@@ -453,14 +480,83 @@ test('SDK HTTP failures retain status without provider error text', async (t) =>
     ),
   );
   await assert.rejects(
-    new OpenAiChat('synthetic-key', 'fixture', 1000, 1).respond(
+    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
       task,
       {
-        definitions: chatFunctions,
         execute: async () => assert.fail('HTTP failure executed a tool'),
       },
       { signal: new AbortController().signal, delta: () => {}, record: async () => {} },
     ),
     { message: 'ai_http_429' },
   );
+});
+
+// Moving argument validation into the task made invalid calls fail before correction was possible.
+test('assistant returns invalid tool arguments for correction before invoking application capabilities', async (t) => {
+  let requests = 0;
+  let executions = 0;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (++requests === 1)
+      return stream([
+        completed([
+          { type: 'function_call', name: 'read_attachment', arguments: '{}', call_id: 'invalid' },
+        ]),
+      ]);
+    assert.equal(executions, 0);
+    assert.deepEqual(
+      body.input
+        .filter((item: { type?: string }) => item.type === 'function_call_output')
+        .map((item: { output: string }) => JSON.parse(item.output)),
+      [{ error: 'Invalid assistant tool arguments' }],
+    );
+    return stream([
+      { type: 'response.output_text.delta', delta: 'Choose a document.' },
+      completed(),
+    ]);
+  });
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 2 }).respond(
+    task,
+    {
+      execute: async () => {
+        executions++;
+        return { output: {} };
+      },
+    },
+    { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
+  );
+  assert.equal(answer, 'Choose a document.');
+  assert.equal(requests, 2);
+});
+
+// Moving validation ahead of application callbacks could bypass their tool-call budget.
+test('invalid assistant tool arguments consume the budget before finalization', async (t) => {
+  let requests = 0;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (++requests === 2) {
+      assert.equal(body.tool_choice, 'none');
+      return stream([
+        { type: 'response.output_text.delta', delta: 'Choose a document.' },
+        completed(),
+      ]);
+    }
+    return stream([
+      completed(
+        ['first', 'second'].map((call_id) => ({
+          type: 'function_call',
+          name: 'read_attachment',
+          arguments: '{}',
+          call_id,
+        })),
+      ),
+    ]);
+  });
+  const answer = await new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+    task,
+    { execute: async () => assert.fail('invalid arguments reached the application') },
+    { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
+  );
+  assert.equal(answer, 'Choose a document.');
+  assert.equal(requests, 2);
 });

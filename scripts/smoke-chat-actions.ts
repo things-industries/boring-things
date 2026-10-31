@@ -3,18 +3,12 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { readConfig } from '../server/src/config.js';
-import { chatFunctions } from '../server/src/contracts/chat-tools.js';
 import { OpenAiChat } from '../server/src/providers/ai/openai-chat.js';
 import type { ChatMessage } from '../server/src/application/conversations/types.js';
 
 const config = readConfig();
-assert.ok(config.openaiApiKey && config.openaiModel, 'Configure the chat provider');
-const ai = new OpenAiChat(
-  config.openaiApiKey,
-  config.openaiModel,
-  config.aiMaxOutputTokens,
-  config.chatToolCalls,
-);
+assert.ok(config.openaiApiKey, 'Configure the chat provider');
+const ai = new OpenAiChat(config);
 const thingId = randomUUID();
 const attachmentId = randomUUID();
 const eventId = randomUUID();
@@ -72,6 +66,7 @@ const cases = [
 const results: object[] = [];
 for (const scenario of cases) {
   const calls: { name: string; args: Record<string, unknown> }[] = [];
+  let model = '';
   let inputTokens = 0;
   let outputTokens = 0;
   const context = {
@@ -111,7 +106,6 @@ for (const scenario of cases) {
         completedWrites: [],
       },
       {
-        definitions: chatFunctions,
         execute: async (name, args) => {
           const input = args as Record<string, unknown>;
           calls.push({ name, args: input });
@@ -149,6 +143,7 @@ for (const scenario of cases) {
         signal: AbortSignal.timeout(config.chatTimeoutMs),
         delta: () => {},
         record: async (usage) => {
+          model = usage.model ?? model;
           inputTokens += usage.inputTokens ?? 0;
           outputTokens += usage.outputTokens ?? 0;
         },
@@ -167,6 +162,7 @@ for (const scenario of cases) {
   }
   results.push({
     name: scenario.name,
+    model,
     passed: !failure,
     answer,
     calls,
@@ -175,9 +171,6 @@ for (const scenario of cases) {
     failure,
   });
   await mkdir('test-results', { recursive: true });
-  await writeFile(
-    'test-results/chat-actions-smoke.json',
-    JSON.stringify({ model: config.openaiModel, results }, null, 2),
-  );
+  await writeFile('test-results/chat-actions-smoke.json', JSON.stringify({ results }, null, 2));
   console.log({ scenario: scenario.name, passed: !failure, inputTokens, outputTokens });
 }

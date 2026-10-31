@@ -1,3 +1,4 @@
+/** Runs persisted job processors independently while retaining one database leader and orderly shutdown. */
 export interface JobProcessor {
   recover(): Promise<void>;
   next(signal: AbortSignal): Promise<boolean>;
@@ -9,7 +10,8 @@ export interface JobLease {
 
 export class JobRunner {
   private stopped = false;
-  private pending?: Promise<void>;
+  private pending = new Map<JobProcessor, Promise<void>>();
+  private activation?: Promise<boolean>;
   private abort = new AbortController();
   private timer?: ReturnType<typeof setInterval>;
   private release?: () => Promise<void>;
@@ -19,29 +21,53 @@ export class JobRunner {
     private reportFailure: ReportJobFailure,
     private lease?: JobLease,
   ) {}
+
+  // Acquires leadership before scheduling processor work.
   async start() {
-    await this.activate();
+    await this.ensureActive();
+    if (this.stopped) return;
     this.timer = setInterval(() => this.wake(), 1000);
     this.timer.unref();
     this.wake();
   }
+
+  // Starts idle processors without interrupting work already running.
   wake() {
-    if (this.stopped || this.pending) return;
-    this.pending = this.drain()
-      .catch(this.reportFailure)
-      .finally(() => {
-        this.pending = undefined;
-      });
+    if (this.stopped) return;
+    void this.ensureActive()
+      .then((active) => {
+        if (!active || this.stopped) return;
+        for (const processor of this.processors) {
+          if (this.pending.has(processor)) continue;
+          const work = this.drain(processor)
+            .catch(this.reportFailure)
+            .finally(() => this.pending.delete(processor));
+          this.pending.set(processor, work);
+        }
+      })
+      .catch(this.reportFailure);
   }
+
+  // Stops every job before allowing another process to acquire leadership.
   async stop() {
     this.stopped = true;
     clearInterval(this.timer);
     this.abort.abort();
-    await this.pending;
+    await this.activation;
+    await Promise.all(this.pending.values());
     await this.release?.();
     this.release = undefined;
   }
 
+  // Shares leadership acquisition and recovery across concurrent wake requests.
+  private ensureActive() {
+    this.activation ??= this.activate().finally(() => {
+      this.activation = undefined;
+    });
+    return this.activation;
+  }
+
+  // Recovers interrupted jobs once after acquiring the database lease.
   private async activate() {
     if (this.recovered) return true;
     if (this.lease) {
@@ -60,15 +86,10 @@ export class JobRunner {
     }
   }
 
-  private async drain() {
-    if (!(await this.activate())) return;
+  // Processes one capability serially while other capabilities continue independently.
+  private async drain(processor: JobProcessor) {
     while (!this.stopped) {
-      let worked = false;
-      for (const processor of this.processors) {
-        if (this.stopped) return;
-        worked = (await processor.next(this.abort.signal)) || worked;
-      }
-      if (!worked) return;
+      if (!(await processor.next(this.abort.signal))) return;
     }
   }
 }

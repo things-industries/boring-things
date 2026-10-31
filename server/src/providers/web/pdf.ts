@@ -90,7 +90,11 @@ async function publicRequest(url: URL, signal: AbortSignal): Promise<IncomingMes
           if (options.all) callback(null, [address]);
           else callback(null, address.address, address.family);
         },
-        headers: { Accept: '*/*', 'Accept-Encoding': 'identity' },
+        headers: {
+          Accept: '*/*',
+          'Accept-Encoding': 'identity',
+          'User-Agent': 'BoringThings/0.1',
+        },
       },
       resolve,
     );

@@ -1,5 +1,7 @@
+/** Logto identity session and API access tokens. */
+
 import { Injectable, inject, signal } from '@angular/core';
-import LogtoClient from '@logto/browser';
+import LogtoClient, { isLogtoRequestError } from '@logto/browser';
 import { Subject } from 'rxjs';
 import { CONFIG } from '../runtime-config';
 import type { UiErrorCode } from '../../interfaces/error.interface';
@@ -62,6 +64,7 @@ export class Auth {
     return landing;
   }
   expireSession() {
+    this.errorState.set('unauthorized');
     this.setSignedIn(false);
   }
   private setSignedIn(value: boolean) {
@@ -69,8 +72,16 @@ export class Auth {
     this.signedInState.set(value);
     this.sessionChanges.next(value);
   }
+  /** Gets an API token and removes credentials when Logto rejects the refresh grant. */
   async token() {
     if (!this.client) throw new UiError('auth-failed');
-    return this.client.getAccessToken(this.config.apiResource);
+    try {
+      return await this.client.getAccessToken(this.config.apiResource);
+    } catch (error) {
+      if (!isLogtoRequestError(error) || error.code !== 'oidc.invalid_grant') throw error;
+
+      await this.client.clearAllTokens();
+      throw new UiError('unauthorized');
+    }
   }
 }

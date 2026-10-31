@@ -52,7 +52,6 @@ test('contract documentation, enum references and path conversion stay consisten
     fastifyPath('/api/things/{id}:reveal-field'),
     '/api/things/:id([^:]+)::reveal-field',
   );
-  assert.equal(fastifyPath('/api/things:import'), '/api/things::import');
   assert.throws(() => schemaRefs({ $ref: 'https://example.com/schema' }), /Unsupported/);
   assert.throws(() => schemaRefs({ $ref: '#/components/schemas/Missing' }), /Unknown/);
   const validate = schemaValidator('Money');

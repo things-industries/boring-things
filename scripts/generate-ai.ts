@@ -1,34 +1,48 @@
-/**
- * Generates provider response and tool-argument types from authored AI schemas; --check detects drift.
- */
+/** Collects task and tool schemas for internal AI type generation and drift checks. */
 
+import { schema as AttachmentSummary } from '../server/src/providers/ai/tasks/summarize-attachment.js';
+import { schema as Resolution } from '../server/src/providers/ai/tasks/resolve-thing.js';
+import { schema as ResourceApplicability } from '../server/src/providers/ai/tasks/resource-applicability.js';
+import { schema as Population } from '../server/src/providers/ai/tasks/populate-fields.js';
+import { schema as AdditionalInformation } from '../server/src/providers/ai/tasks/additional-information.js';
+import { schema as Extraction } from '../server/src/providers/ai/tasks/extract-source.js';
+import { schema as Selection } from '../server/src/providers/ai/tasks/select-field-sets.js';
+import { schema as Discovery } from '../server/src/providers/ai/tasks/find-resources.js';
+import { schema as DocumentExtraction } from '../server/src/providers/ai/tasks/extract-document.js';
+import { schema as TaskSuggestions } from '../server/src/providers/ai/tasks/suggest-tasks.js';
+import { schema as PurchasableSuggestions } from '../server/src/providers/ai/tasks/find-purchasables.js';
+import { search_transcription } from '../server/src/providers/ai/tools/transcription.js';
+import { registryFunctions } from '../server/src/providers/ai/tools/registry.js';
+import { chatFunctions } from '../server/src/providers/ai/tasks/assistant.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import openapiTS, { astToString } from 'openapi-typescript';
-import schemas from '../server/src/providers/ai/schemas.js';
 
+const schemas = {
+  AttachmentSummary,
+  Resolution,
+  ResourceApplicability,
+  Population,
+  AdditionalInformation,
+  Extraction,
+  Selection,
+  Discovery,
+  DocumentExtraction,
+  TaskSuggestions,
+  PurchasableSuggestions,
+  ...Object.fromEntries(
+    [...registryFunctions, search_transcription, ...chatFunctions].map((tool) => [
+      tool.name,
+      tool.parameters,
+    ]),
+  ),
+};
 const generatedTypes = astToString(
   await openapiTS(
     JSON.stringify({
       openapi: '3.1.0',
       info: { title: 'AI provider outputs', version: '1' },
       paths: {},
-      components: {
-        schemas: {
-          Extraction: schemas.$defs.extraction,
-          Selection: schemas.$defs.selection,
-          Mapping: schemas.$defs.mapping,
-          Discovery: schemas.$defs.discovery,
-          DocumentExtraction: schemas.$defs.documentExtraction,
-          TaskSuggestions: schemas.$defs.taskSuggestions,
-          PurchasableSuggestions: schemas.$defs.purchasableSuggestions,
-          ...Object.fromEntries(
-            [...schemas.registryTools, ...schemas.chatTools].map((tool) => [
-              tool.name,
-              tool.parameters,
-            ]),
-          ),
-        },
-      },
+      components: { schemas },
     }),
   ),
 );

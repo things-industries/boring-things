@@ -28,7 +28,6 @@ const config = () => ({
   ...readConfig(),
   blobDirectory: directory,
   openaiApiKey: '',
-  openaiModel: '',
   chatTimeoutMs: 3000,
 });
 const boot = async () => {
@@ -83,7 +82,7 @@ async function setup(owner = 'alice') {
       {
         name: 'Chat Thing',
         categoryId: 'appliances',
-        addFieldSetIds: ['appliances.bsh'],
+        addFieldSetIds: ['appliances.appliance'],
       },
       owner,
     )
@@ -433,7 +432,7 @@ test('custom fields can be cited and rejected card selections save no partial ci
     [thing.id, JSON.stringify([citation])],
   );
   const card = {
-    type: 'FIELD',
+    type: 'FIELD' as const,
     id: thing.id,
     fieldSetId: null,
     fieldId: null,
@@ -554,6 +553,7 @@ test('text-only questions return messages without intent or new activity', async
   for (const resource of ['events', 'issues'])
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
 });
+// Moving tool schemas into tasks left application activity length checks unenforced.
 test('writes require a retrieved owned Thing and valid arguments', async () => {
   const { thing } = await setup();
   const foreign = await setup('bob');
@@ -562,6 +562,7 @@ test('writes require a retrieved owned Thing and valid arguments', async () => {
     { thingId: foreign.thing.id, title: 'Foreign Thing' },
     { title: '   ' },
     { title: 'x'.repeat(201) },
+    { title: 'Check the seal', description: 'x'.repeat(4001) },
   ]) {
     const current = await setup();
     ai.probe = async (_input, execute) => {

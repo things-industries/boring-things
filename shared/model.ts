@@ -8,7 +8,8 @@ export type Thing = Schema['Thing'];
 export type ThingPatch = Schema['ThingPatch'];
 export type SourceRef = Schema['SourceRef'];
 export interface StoredValue {
-  value: Value;
+  value: Value | null;
+  autoPopulate?: boolean;
   origin: Schema['FieldOriginEnum'];
   sourceRefs: SourceRef[];
 }
@@ -17,6 +18,7 @@ export interface LocalField extends StoredValue {
   label: string;
   sensitive: boolean;
   instanceSpecific?: boolean;
+  valueType?: Schema['ValueTypeEnum'];
 }
 export interface ThingData {
   userEdited?: string[];

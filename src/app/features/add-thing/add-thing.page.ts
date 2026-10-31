@@ -55,15 +55,15 @@ export class AddThingPage {
 
   async file(event: Event) {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = Array.from(input.files ?? []);
 
     input.value = '';
-    if (!file || this.busy()) return;
+    if (!files.length || this.busy()) return;
     this.busy.set(true);
 
-    const result = await this.things.startImport(file);
+    const result = await this.things.startImport(files);
 
-    if (result.ok) await this.router.navigate(['/things', result.value.thingId]);
+    if (result.ok) await this.router.navigate(['/imports', result.value.importId]);
     else this.busy.set(false);
   }
 }

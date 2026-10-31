@@ -259,7 +259,7 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
     >
   >(
     db,
-    'select a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count from bt.attachments a join bt.thing_attachments l on l.attachment_id=a.id where l.thing_id=$1 and a.owner_id=$2 order by a.created_at desc,a.id limit 31',
+    'select a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count from bt.attachments a join bt.thing_attachments l on l.attachment_id=a.id where l.thing_id=$1 and l.owner_id=$2 order by a.created_at desc,a.id limit 31',
     [id, owner],
   );
 

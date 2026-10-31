@@ -1,443 +1,101 @@
-// Adapts AI extraction, registry selection, mapping and research, validating model output before use.
+/** Assembles Import AI tasks behind the application's import capability contract. */
 
-import { responseText, searchWeb, requestResponse, type AiTurnCompleted } from './responses.js';
-import { readResourcePage, publicUrl } from '../web/resources.js';
-import OpenAI from 'openai';
+import type { EnvConfig } from '../../config.js';
+import type { AiContext, AiTurnCompleted, RegistryResources } from './types.js';
 import type {
-  Response,
-  ResponseInput,
-  ResponseInputContent,
-  ResponseCreateParamsNonStreaming,
-  Tool,
-} from 'openai/resources/responses/responses';
-import { Ajv } from 'ajv';
-import addFormats from 'ajv-formats';
-import schemas from './schemas.js';
-import type { components } from './schema-types.js';
-import * as prompts from './prompts.js';
-import type {
-  AiContext,
-  ExtractedThing,
-  ResearchThing,
-  Discovery,
-  Extraction,
   ImportAi,
-  Fact,
-  FactMapping,
-  RegistryTools,
   Source,
   ReferenceDocument,
   EmptyResearchField,
-  DocumentExtraction,
-  TaskResearch,
-  TaskSuggestions,
-  PurchasableResearch,
-  PurchasableSuggestions,
+  ResearchThing,
 } from '../../application/import/types.js';
-import { ensure } from '../../application/errors.js';
-import type { FieldSet } from '../../../../shared/model.js';
-import { pdfText } from '../../lib/pdf.js';
-import {
-  DocumentSizeError,
-  maxDocumentBytes,
-  maxDocumentTextLength,
-  maxModelDocumentBytes,
-  maxModelDocumentPages,
-} from '../../lib/document-limits.js';
-
-const ajv = new Ajv({ strict: false });
-addFormats.default(ajv);
-const functions = schemas.registryTools as Tool[];
-type Outputs = components['schemas'];
+import { readResourcePage } from '../web/resources.js';
+import { ResolveThingTask } from './tasks/resolve-thing.js';
+import { PopulateFieldsTask } from './tasks/populate-fields.js';
+import { AdditionalInformationTask } from './tasks/additional-information.js';
+import { ResourceApplicabilityTask } from './tasks/resource-applicability.js';
+import { SelectFieldSetsTask } from './tasks/select-field-sets.js';
+import { SummarizeAttachmentTask } from './tasks/summarize-attachment.js';
+import { ExtractSourceTask } from './tasks/extract-source.js';
+import { ExtractDocumentTask } from './tasks/extract-document.js';
+import { FindResourcesTask } from './tasks/find-resources.js';
+import { SuggestTasksTask } from './tasks/suggest-tasks.js';
+import { FindPurchasablesTask } from './tasks/find-purchasables.js';
 
 export class OpenAiImports implements ImportAi {
-  private client: OpenAI;
   constructor(
-    key: string,
-    private model: string,
-    private maxOutputTokens = 12000,
-    private searchCalls = 3,
-    private documentModel = model,
-    private readPage = readResourcePage,
+    private config: EnvConfig,
     private onTurnCompleted?: AiTurnCompleted,
-  ) {
-    this.client = new OpenAI({ apiKey: key, maxRetries: 0 });
+    private readPage = readResourcePage,
+    private registryResources?: RegistryResources,
+  ) {}
+
+  resolveThing: NonNullable<ImportAi['resolveThing']> = (input, context) =>
+    new ResolveThingTask(this.config, input).onTurnCompleted(this.onTurnCompleted).run(context);
+
+  populateFields: NonNullable<ImportAi['populateFields']> = (input, context) =>
+    new PopulateFieldsTask(this.config, input).onTurnCompleted(this.onTurnCompleted).run(context);
+
+  additionalInformation: NonNullable<ImportAi['additionalInformation']> = (input, context) =>
+    new AdditionalInformationTask(this.config, input, this.registryResources)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+
+  assessResource: NonNullable<ImportAi['assessResource']> = (input, context) =>
+    new ResourceApplicabilityTask(this.config, input)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+
+  selectFieldSets: NonNullable<ImportAi['selectFieldSets']> = (input, context) =>
+    new SelectFieldSetsTask(this.config, input, this.registryResources)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+
+  summarizeAttachment: ImportAi['summarizeAttachment'] = (text, context) =>
+    new SummarizeAttachmentTask(this.config, text)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+  findResources: ImportAi['findResources'] = (
+    input,
+    context,
+    searchCalls = this.config.discoverySearchCalls,
+  ) =>
+    new FindResourcesTask(this.config, input, searchCalls, this.readPage)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+  suggestTasks: ImportAi['suggestTasks'] = (
+    input,
+    context,
+    searchCalls = this.config.discoverySearchCalls,
+  ) =>
+    new SuggestTasksTask(this.config, input, searchCalls)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+  findPurchasables: ImportAi['findPurchasables'] = (
+    input,
+    context,
+    searchCalls = this.config.discoverySearchCalls,
+  ) =>
+    new FindPurchasablesTask(this.config, input, searchCalls)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
+
+  // Exposes source extraction for the existing evaluation and provider checks.
+  extract(source: Source, categories: string[], context: AiContext) {
+    return new ExtractSourceTask(this.config, source, categories)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
   }
 
-  private async requestResponse(
-    conversation: ResponseInput,
-    context: AiContext,
-    extra: Partial<ResponseCreateParamsNonStreaming> & { max_tool_calls?: number } = {},
-    task = 'structured_output',
-  ): Promise<Response> {
-    return requestResponse(
-      this.client,
-      this.model,
-      this.maxOutputTokens,
-      conversation,
-      context,
-      extra,
-      task,
-      this.onTurnCompleted,
-    );
-  }
-
-  private validateOutput<T>(text: string, schema: object): T {
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error('Invalid AI output');
-    }
-    ensure(ajv.validate(schema, data), 'Invalid AI output');
-    return data as T;
-  }
-
-  private outputFormat(schema: object): NonNullable<ResponseCreateParamsNonStreaming['text']> {
-    return {
-      format: {
-        type: 'json_schema',
-        name: 'result',
-        strict: true,
-        schema: schema as Record<string, unknown>,
-      },
-    };
-  }
-
-  private async requestStructuredOutput<T>(
-    conversation: ResponseInput,
-    schema: object,
-    context: AiContext,
-    task = 'structured_output',
-    model = this.model,
-  ): Promise<T> {
-    const result = await this.requestResponse(
-      conversation,
-      context,
-      {
-        text: this.outputFormat(schema),
-        include: ['reasoning.encrypted_content'],
-        model,
-      },
-      task,
-    );
-    return this.validateOutput<T>(responseText(result), schema);
-  }
-
-  private async runRegistryConversation<T>(
-    input: Readonly<ResponseInput>,
-    schema: object,
-    tools: RegistryTools,
-    context: AiContext,
-  ): Promise<T> {
-    const conversation: ResponseInput = [...input];
-    for (let round = 0; round < 32; round++) {
-      const result = await this.requestResponse(
-        conversation,
-        context,
-        {
-          text: this.outputFormat(schema),
-          tools:
-            schema === schemas.$defs.mapping
-              ? functions.filter(
-                  (tool) => tool.type === 'function' && tool.name === 'search_fields',
-                )
-              : functions,
-          parallel_tool_calls: false,
-          include: ['reasoning.encrypted_content'],
-        },
-        schema === schemas.$defs.selection ? 'field_selection' : 'fact_mapping',
-      );
-      conversation.push(...(result.output as ResponseInput));
-      const calls = result.output.filter((o) => o.type === 'function_call');
-      if (!calls.length) return this.validateOutput<T>(responseText(result), schema);
-      ensure(calls.length === 1, 'Invalid registry tool calls');
-      const call = calls[0];
-      const fn = schemas.registryTools.find((f) => f.name === call.name);
-      ensure(fn, 'Unknown registry tool');
-      let args: unknown;
-      try {
-        args = JSON.parse(call.arguments);
-      } catch {
-        throw new Error('Invalid registry tool arguments');
-      }
-      ensure(ajv.validate(fn.parameters, args), 'Invalid registry tool arguments');
-      const output =
-        call.name === 'search_field_sets'
-          ? await tools.searchFieldSets(
-              (args as Outputs['search_field_sets']).categoryId,
-              (args as Outputs['search_field_sets']).terms,
-            )
-          : await tools.searchFields((args as Outputs['search_fields']).labels);
-      conversation.push({
-        type: 'function_call_output',
-        call_id: call.call_id,
-        output: JSON.stringify(output),
-      });
-    }
-    throw new Error('tool_limit');
-  }
-
-  private async sourceInput(source: Source, signal: AbortSignal) {
-    if (source.content.length > maxDocumentBytes)
-      throw new DocumentSizeError(source.content.length, maxDocumentBytes);
-    let text = source.text;
-    let pageCount = source.pageCount;
-    if (source.mediaType === 'application/pdf' && text === undefined)
-      ({ text, pageCount } = await pdfText(source.content, signal));
-    if (source.mediaType === 'text/plain') text = source.content.toString('utf8');
-    let content: ResponseInputContent;
-    if (text?.trim() || source.mediaType === 'text/plain') {
-      if (text!.length > maxDocumentTextLength)
-        throw new DocumentSizeError(text!.length, maxDocumentTextLength);
-      content = { type: 'input_text', text: text! };
-    } else {
-      if (source.content.length > maxModelDocumentBytes)
-        throw new DocumentSizeError(source.content.length, maxModelDocumentBytes);
-      if (source.mediaType === 'application/pdf' && pageCount! > maxModelDocumentPages)
-        throw new DocumentSizeError(pageCount!, maxModelDocumentPages);
-      const data = `data:${source.mediaType};base64,${source.content.toString('base64')}`;
-      content = source.mediaType.startsWith('image/')
-        ? { type: 'input_image', image_url: data, detail: 'auto' }
-        : { type: 'input_file', filename: source.filename, file_data: data };
-      text = undefined;
-    }
-    return { content, text };
-  }
-
-  async extract(source: Source, categories: string[], context: AiContext): Promise<Extraction> {
-    const { content, text } = await this.sourceInput(source, context.signal);
-    const extracted = await this.requestStructuredOutput<Outputs['Extraction']>(
-      [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: prompts.extractSourcePrompt(categories, text !== undefined),
-            },
-            content,
-          ],
-        },
-      ],
-      schemas.$defs.extraction,
-      context,
-      'source_extraction',
-    );
-    return {
-      text: text ?? extracted.text,
-      metadata: extracted.metadata,
-      extractedThings: extracted.candidates,
-    };
-  }
-
-  async selectFieldSets(
-    extractedThing: ExtractedThing,
-    tools: RegistryTools,
-    context: AiContext,
-  ): Promise<{ setIds: string[] }> {
-    return this.runRegistryConversation<Outputs['Selection']>(
-      [{ role: 'user', content: prompts.selectFieldSetsPrompt(extractedThing) }],
-      schemas.$defs.selection,
-      tools,
-      context,
-    );
-  }
-  async mapFacts(
-    thing: ExtractedThing,
-    facts: Fact[],
-    selectedSets: FieldSet[],
-    tools: RegistryTools,
-    context: AiContext,
-  ): Promise<FactMapping> {
-    return this.runRegistryConversation<Outputs['Mapping']>(
-      [{ role: 'user', content: prompts.mapFactsPrompt(thing, facts, selectedSets) }],
-      schemas.$defs.mapping,
-      tools,
-      context,
-    );
-  }
-  async findResources(
-    research: ResearchThing,
-    context: AiContext,
-    searchCalls = this.searchCalls,
-  ): Promise<Discovery> {
-    const { text, sources } = await searchWeb(
-      this.client,
-      this.model,
-      this.maxOutputTokens,
-      prompts.resourceSearchPrompt(research, searchCalls),
-      searchCalls,
-      context,
-      'retrieved',
-      this.onTurnCompleted,
-    );
-    if (!sources.length) return { items: [], sources: [] };
-    const pages = await Promise.all(
-      sources
-        .filter((url) => !/\.(pdf|png|(?:jpg|jpeg)|webp)(?:[?#]|$)/i.test(url))
-        .sort((left, right) => {
-          const relevance = (url: string) =>
-            research.knownFields.filter(
-              ({ value }) =>
-                typeof value === 'string' &&
-                value.length >= 3 &&
-                url
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]/g, '')
-                  .includes(value.toLowerCase().replace(/[^a-z0-9]/g, '')),
-            ).length;
-          return relevance(right) - relevance(left);
-        })
-        .slice(0, 3)
-        .map((url) => this.readPage(url, context.signal)),
-    );
-    const resources = pages.filter((page) => page !== null);
-    sources.push(
-      ...resources
-        .flatMap((page) => page.links.map((link) => link.url))
-        .filter((url) => !sources.includes(url)),
-    );
-    const parsed = await this.requestStructuredOutput<Outputs['Discovery']>(
-      [
-        {
-          role: 'user',
-          content: prompts.structureResearchPrompt(
-            text + '\nRetrieved page links: ' + JSON.stringify(resources),
-            sources,
-            research,
-          ),
-        },
-      ],
-      schemas.$defs.discovery,
-      context,
-      'research_structure',
-    );
-
-    return { ...parsed, sources };
-  }
-  async extractDocument(
+  // Exposes document extraction for the existing evaluation and provider checks.
+  extractDocument(
     document: ReferenceDocument,
     research: ResearchThing,
     targets: EmptyResearchField[],
     context: AiContext,
-  ): Promise<DocumentExtraction> {
-    ensure(targets.length <= 20, 'Document extraction limit exceeded');
-    const { content } = await this.sourceInput(document, context.signal);
-    const result = await this.requestStructuredOutput<Outputs['DocumentExtraction']>(
-      [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: prompts.extractDocumentPrompt(research, targets, document.sourceContext),
-            },
-            content,
-          ],
-        },
-      ],
-      schemas.$defs.documentExtraction,
-      context,
-      'document_extraction',
-      this.documentModel,
-    );
-    return result;
-  }
-
-  async suggestTasks(
-    research: TaskResearch,
-    context: AiContext,
-    searchCalls = this.searchCalls,
-  ): Promise<TaskSuggestions> {
-    if (!research.knownFields.length) return { items: [] };
-    const { text, sources } = await searchWeb(
-      this.client,
-      this.model,
-      this.maxOutputTokens,
-      prompts.suggestTasksPrompt(research, searchCalls),
-      searchCalls,
-      context,
-      'retrieved',
-      this.onTurnCompleted,
-      { text: this.outputFormat(schemas.$defs.taskSuggestions), task: 'task_suggestions' },
-    );
-    const result = this.validateOutput<Outputs['TaskSuggestions']>(
-      text,
-      schemas.$defs.taskSuggestions,
-    );
-    return {
-      items: result.items
-        .map((item) => {
-          ensure(
-            publicUrl(item.sourceUrl) && sources.includes(item.sourceUrl),
-            'Uncited task source',
-          );
-          return {
-            title: item.title,
-            description: item.description,
-            sourceRefs: [{ url: item.sourceUrl, quote: item.quote }],
-          };
-        })
-        .filter(
-          (item) =>
-            !research.existingTasks.some(
-              (task) => task.title.trim().toLowerCase() === item.title.trim().toLowerCase(),
-            ),
-        ),
-    };
-  }
-
-  async findPurchasables(
-    research: PurchasableResearch,
-    context: AiContext,
-    searchCalls = this.searchCalls,
-  ): Promise<PurchasableSuggestions> {
-    if (!research.knownFields.length) return { items: [] };
-    const { text, sources } = await searchWeb(
-      this.client,
-      this.model,
-      this.maxOutputTokens,
-      prompts.findPurchasablesPrompt(research, searchCalls),
-      searchCalls,
-      context,
-      'retrieved',
-      this.onTurnCompleted,
-      {
-        text: this.outputFormat(schemas.$defs.purchasableSuggestions),
-        task: 'purchasable_suggestions',
-      },
-    );
-    const result = this.validateOutput<Outputs['PurchasableSuggestions']>(
-      text,
-      schemas.$defs.purchasableSuggestions,
-    );
-    return {
-      items: result.items
-        .map((item) => {
-          ensure(
-            publicUrl(item.merchantUrl) &&
-              publicUrl(item.sourceUrl) &&
-              sources.includes(item.merchantUrl) &&
-              sources.includes(item.sourceUrl),
-            'Uncited purchasable',
-          );
-          return {
-            kind: item.kind,
-            name: item.name,
-            description: item.description,
-            merchantUrl: item.merchantUrl,
-            sourceRefs: [{ url: item.sourceUrl, quote: item.quote }],
-          };
-        })
-        .filter(
-          (item) =>
-            !research.existingPurchasables.some(
-              (product) =>
-                product.kind === item.kind &&
-                product.name.trim().toLowerCase() === item.name.trim().toLowerCase(),
-            ),
-        ),
-    };
+  ) {
+    return new ExtractDocumentTask(this.config, document, research, targets)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run(context);
   }
 }
