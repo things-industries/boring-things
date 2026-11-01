@@ -228,13 +228,13 @@ export interface components {
             /** @description Eligible field-set IDs returned by search_field_sets, including mandatory included sets and applicable considerAlongside suggestions; an empty array when no set applies. */
             setIds: string[];
         };
-        /** @description Cited reference documents, a product photograph and identity supported by the research report and supplied retrieved URLs. */
+        /** @description Cited reference documents, a product photograph and a display-name suggestion justified by the research report and supplied retrieved URLs. */
         Discovery: {
-            /** @description Source-supported everyday Thing name with evidence identifying the subject; null when the research does not establish the identity. */
+            /** @description Display-name suggestion for the existing Thing with source evidence; null when the research cannot justify a name. */
             identity: {
-                /** @description Short brand or provider plus everyday Thing type, such as "Bosch Oven", excluding model codes, marketing features, serial numbers and secrets. */
+                /** @description Suggested display name for the existing Thing: short brand or provider plus everyday type, such as "Bosch Oven", excluding model codes, marketing features, serial numbers and secrets. */
                 name: string;
-                /** @description URL copied from the supplied retrieved URL list whose content establishes the subject identity and type. */
+                /** @description URL copied from the supplied retrieved URL list whose content justifies the suggested display name. */
                 sourceUrl: string;
             } | null;
             /** @description Up to eight cited reference documents and product photographs supported by retrieved evidence. */

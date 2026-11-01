@@ -505,7 +505,7 @@ export class ImportWorkflow {
       } catch (error) {
         if (error instanceof UsagePersistenceError) throw error;
         this.context.signal.throwIfAborted();
-        await this.warning('research');
+        await this.warning('research', null, 'RESEARCH_FAILED', getImportFailureReason(error));
         return;
       }
       this.job.workflow.discovery = discovery;

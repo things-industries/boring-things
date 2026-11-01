@@ -4,7 +4,7 @@ import type { EnvConfig } from '../../config.js';
 import type { ChatAi } from '../../application/conversations/types.js';
 import type { AiTurnCompleted } from './types.js';
 import { AssistantTask } from './tasks/assistant.js';
-import { ResearchTask } from './tasks/research.js';
+import { AssistantResearchTask } from './tasks/assistant-research.js';
 
 export class OpenAiChat implements ChatAi {
   constructor(
@@ -13,7 +13,7 @@ export class OpenAiChat implements ChatAi {
   ) {}
 
   research: ChatAi['research'] = (question, fields, context) =>
-    new ResearchTask(this.config, question, fields, this.config.discoverySearchCalls)
+    new AssistantResearchTask(this.config, question, fields, this.config.discoverySearchCalls)
       .onTurnCompleted(this.onTurnCompleted)
       .run(context);
   respond: ChatAi['respond'] = (input, tools, context) =>

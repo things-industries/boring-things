@@ -1,4 +1,4 @@
-/** Finds public documents and images, then structures observed resources. */
+/** Finds public documents and images and suggests a display name for an existing Thing. */
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
@@ -21,23 +21,23 @@ export const schema = createObjectSchema(
             name: {
               type: 'string',
               description:
-                'Short brand or provider plus everyday Thing type, such as "Bosch Oven", excluding model codes, marketing features, serial numbers and secrets.',
+                'Suggested display name for the existing Thing: short brand or provider plus everyday type, such as "Bosch Oven", excluding model codes, marketing features, serial numbers and secrets.',
             },
             sourceUrl: {
               type: 'string',
               description:
-                'URL copied from the supplied retrieved URL list whose content establishes the subject identity and type.',
+                'URL copied from the supplied retrieved URL list whose content justifies the suggested display name.',
             },
           },
-          'Everyday name established by a retrieved source for the researched subject.',
+          'Display-name suggestion for the existing Thing, justified by a retrieved source.',
         ),
         {
           type: 'null',
-          description: 'Null when the cited research cannot establish an everyday Thing name.',
+          description: 'Null when the cited research cannot justify a display-name suggestion.',
         },
       ],
       description:
-        'Source-supported everyday Thing name with evidence identifying the subject; null when the research does not establish the identity.',
+        'Display-name suggestion for the existing Thing with source evidence; null when the research cannot justify a name.',
     },
     items: {
       type: 'array',
@@ -88,11 +88,11 @@ export const schema = createObjectSchema(
         'Up to eight cited reference documents and product photographs supported by retrieved evidence.',
     },
   },
-  'Cited reference documents, a product photograph and identity supported by the research report and supplied retrieved URLs.',
+  'Cited reference documents, a product photograph and a display-name suggestion justified by the research report and supplied retrieved URLs.',
 );
 
 // Builds task instructions from the supplied application context.
-function resourceSearchPrompt(research: ResearchThing, searchCalls: number) {
+function createSearchPrompt(research: ResearchThing, searchCalls: number) {
   const subject = {
     name: research.name,
     categoryId: research.categoryId,
@@ -101,18 +101,18 @@ function resourceSearchPrompt(research: ResearchThing, searchCalls: number) {
     rejectedDocuments: research.rejectedDocuments,
     rejectedDocumentUrls: research.rejectedDocumentUrls,
   };
-  return `Research priority: ${categoryResearchPrompt(research.categoryId)} For a physical object, also find one official product photograph showing the matching model and variant. Omit images for nonphysical Things. Public subject context: ${JSON.stringify(subject)}. First fulfil the category research objective. A product data sheet does not fulfil a user-manual objective. Open the official model support page and inspect its downloads, including embedded download links. Respect the supplied documentLimits. Avoid rejectedDocumentUrls. Avoid rejectedDocuments unless a smaller edition is available at another URL. Prefer single-language manuals over multilingual bundles. Verify applicability to the subject, model or product variant, region, language and version where relevant. Prefer official documents. A family document applies only when it covers the subject. Retrieve direct downloadable PDF URLs, including official document CDN links. Do not invent URLs. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Cite each supported resource. Leave unsupported findings absent.`;
+  return `Research priority: ${categoryResearchPrompt(research.categoryId)} For a physical object, also find one official product photograph showing the matching model and variant. Omit images for nonphysical Things. Public subject context: ${JSON.stringify(subject)}. First fulfil the category research objective. Find the full documents required by the category objective. Open the official model or provider support page and inspect its downloads, including embedded download links. Respect the supplied documentLimits. Avoid rejectedDocumentUrls. Avoid rejectedDocuments unless a smaller edition is available at another URL. Prefer single-language manuals over multilingual bundles. Verify applicability to the subject, model or product variant, region, language and version where relevant. Prefer official documents. A family document applies only when it covers the subject. Retrieve direct downloadable PDF URLs, including official document CDN links. Do not invent URLs. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Cite each supported resource. Leave unsupported findings absent.`;
 }
 
 // Builds task instructions from the supplied application context.
-function structureResearchPrompt(report: string, sources: string[], research: ResearchThing) {
-  return `Structure up to 8 supported findings. Research objective: ${categoryResearchPrompt(research.categoryId)}. Public subject: ${JSON.stringify({ name: research.name, knownFields: research.knownFields })}. Include the requested category document and at most one official product photo for a physical object. The retrieved page link catalogue supplies observed URLs and their surrounding page text, including embedded download metadata. Use it to locate the full English manual. Match the source page model even when the linked manual covers a family. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a short brand + everyday product type name such as "Bosch Oven", with sourceUrl proving the identification; otherwise null. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs applicable to the subject and category instruction. Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing applicability. Prefer official documents. A data sheet does not fulfil a manual objective. Image entries link to a product photograph found on an official model page, with sourceUrl proving the matching model and variant. Exclude labels, document scans, logos, icons and unrelated variants. Use null metadata for images. Reference metadata may include title, documentType, publisher and documentDate only when supported by the cited source; unknown properties are null. Do not infer document date from website update dates. Report: ${report}\nRetrieved URLs: ${JSON.stringify(sources)}`;
+function createSelectionPrompt(report: string, sources: string[], research: ResearchThing) {
+  return `Select up to 8 resources justified by the supplied evidence. Research objective: ${categoryResearchPrompt(research.categoryId)}. Public subject: ${JSON.stringify({ name: research.name, knownFields: research.knownFields })}. Include the requested category document and at most one official product photo for a physical object. The retrieved page link catalogue supplies observed URLs and their surrounding page text, including embedded download metadata. Use it to locate the full documents required by the category objective. Verify the subject, model or product variant, region and version against the source page. A family document applies only when it covers the subject. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a display-name suggestion for the existing Thing: a short brand or provider plus everyday type, such as "Bosch Oven", with sourceUrl justifying that name; otherwise null. The Thing has already been resolved; this suggestion only updates its display name. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs applicable to the subject and category instruction. Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing applicability. Prefer official documents. Image entries link to a product photograph found on an official model page, with sourceUrl proving the matching model and variant. Exclude labels, document scans, logos, icons and unrelated variants. Use null metadata for images. Reference metadata may include title, documentType, publisher and documentDate only when supported by the cited source; unknown properties are null. Do not infer document date from website update dates. Report: ${report}\nRetrieved URLs: ${JSON.stringify(sources)}`;
 }
 
 export class FindResourcesTask extends AiTask<components['schemas']['Discovery'], Discovery> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
-  protected task = 'research_structure';
+  protected task = 'find_resources_selection';
   protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'items' as const;
@@ -126,17 +126,17 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
     super(config);
   }
 
-  // Searches public sources before structuring their observed download links.
+  // Searches public sources before selecting resources from observed download links.
   protected async runTask(context: AiContext) {
     const response = await this.requestResponse(
-      resourceSearchPrompt(this.input, this.searchCalls),
+      createSearchPrompt(this.input, this.searchCalls),
       context,
       {
         ...createWebSearchOptions(this.searchCalls),
         instructions: `${thingDefinition} ${webResearchInstructions}`,
       },
       undefined,
-      'research',
+      'find_resources_search',
     );
     const { text, sources } = await readWebResult(response, context, this.searchCalls);
     this.reportMetrics({ sourceCount: sources.length });
@@ -160,30 +160,41 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
         .slice(0, 3)
         .map((url) => this.readPage(url, context.signal)),
     );
-    const resources = pages.filter((page) => page !== null);
+    const resources = pages.flatMap((page) => (page ? [{ ...page, links: [...page.links] }] : []));
     sources.push(
-      ...resources
-        .flatMap((page) => page.links.map((link) => link.url))
-        .filter((url) => !sources.includes(url)),
+      ...new Set(
+        resources
+          .flatMap((page) => page.links.map((link) => link.url))
+          .filter((url) => !sources.includes(url)),
+      ),
     );
-    const result = await this.execute(
-      [
-        {
-          role: 'user',
-          content: structureResearchPrompt(
-            text + '\nRetrieved page links: ' + JSON.stringify(resources),
-            sources,
-            this.input,
-          ),
-        },
-      ],
-      context,
-      { model: 'gpt-6-luna', effort: 'none' },
+    const createInput = () =>
+      createSelectionPrompt(
+        text + '\nRetrieved page links: ' + JSON.stringify(resources),
+        sources,
+        this.input,
+      );
+    const limit = Math.min(
+      this.maxTextCharacters - this.instructions.length,
+      context.maxTextCharacters ?? Infinity,
     );
+    let input = createInput();
+
+    // Fit page context into the request budget while keeping every observed resource URL.
+    while (input.length > limit) {
+      const page = resources.filter((page) => page.links.length).at(-1);
+      if (!page) break;
+      page.links.pop();
+      input = createInput();
+    }
+    const result = await this.execute([{ role: 'user', content: input }], context, {
+      model: 'gpt-6-luna',
+      effort: 'none',
+    });
     return this.processResponse(result, sources);
   }
 
-  // Returns application resources with the observed source catalogue.
+  // Returns selected resources with the observed source catalogue.
   private processResponse(response: Response, sources: string[]): Discovery {
     return { ...this.parseOutput(response), sources };
   }

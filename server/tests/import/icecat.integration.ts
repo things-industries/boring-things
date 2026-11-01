@@ -8,6 +8,7 @@ import type { ResearchThing } from '../../src/application/import/types.js';
 import { startTestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 
+// Resource research discarded its failure reason when recording a retryable warning.
 test('Icecat fields are saved before public research and reused when research is retried', async () => {
   let lookups = 0;
   const provider = new IcecatProvider('fixture-token', async () => {
@@ -30,7 +31,7 @@ test('Icecat fields are saved before public research and reused when research is
         research?.knownFields.find((field) => field.fieldId === 'appliances.supplyVoltage')?.value,
         '240 V',
       );
-      if (++researchCalls === 1) throw new Error('Synthetic research failure');
+      if (++researchCalls === 1) throw new Error('text_limit');
       return { items: [], sources: [] };
     };
     const created = await request('POST', '/api/things', {
@@ -62,6 +63,8 @@ test('Icecat fields are saved before public research and reused when research is
     const first = await wait();
     assert.equal(first.status, 'COMPLETE');
     assert.equal(first.warnings?.length, 1);
+    const checkpoint = await env.pool.query('select workflow from bt.imports where id=$1', [id]);
+    assert.equal(checkpoint.rows[0].workflow.warnings[0].reason, 'text_limit');
     const retry = await request('POST', '/api/imports/' + id + ':retry');
     assert.equal(retry.statusCode, 200, retry.body);
     const completed = await wait();

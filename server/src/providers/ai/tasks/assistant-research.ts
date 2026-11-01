@@ -12,11 +12,11 @@ function chatResearchPrompt(question: string, fields: PublicField[], searchCalls
   return `Answer this question about a product or service: ${JSON.stringify(question)}. Model, product or service details shared across instances: ${JSON.stringify(fields.map(({ label, value }) => ({ label, value })))}. Use these details to identify the subject. Research only the question. Verify applicability and support the answer with at most three relevant sources, preferring official documentation. Explain missing evidence. Never infer personal schedules, individual cover or identifiers from public information. Use at most ${searchCalls} web tool calls including page opens; stop at that limit.`;
 }
 
-export class ResearchTask extends AiTask<never, ResearchAnswer> {
+export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
   protected maxTextCharacters = Infinity;
-  protected task = 'research';
+  protected task = 'assistant_research';
   protected instructions = webResearchInstructions;
 
   constructor(

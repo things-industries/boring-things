@@ -345,6 +345,10 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
     usage.flatMap((entry) => entry.entries ?? []).map((entry) => entry.model),
     ['gpt-6.1-sol', 'gpt-6-luna'],
   );
+  assert.deepEqual(
+    usage.flatMap((entry) => entry.entries ?? []).map((entry) => entry.task),
+    ['find_resources_search', 'find_resources_selection'],
+  );
   assert.ok(JSON.stringify(requests[1].input).includes(linkedPdf));
   assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
 });

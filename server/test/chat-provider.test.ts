@@ -107,11 +107,11 @@ test('assistant research answers the supplied question in one bounded request wi
     sources: cited.slice(0, 3),
   });
   assert.equal(fetch.mock.callCount(), 1);
-  assert.equal(entries[0].entries?.[0].task, 'research');
+  assert.equal(entries[0].entries?.[0].task, 'assistant_research');
   assert.equal(entries[0].cachedTokens, 4);
   assert.equal(turns.length, 1);
   assert.deepEqual(turns[0], {
-    task: 'research',
+    task: 'assistant_research',
     model: 'gpt-6.1-sol',
     toolCalls: ['web_search', 'web_search'],
     metrics: {
