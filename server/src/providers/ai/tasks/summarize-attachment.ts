@@ -80,7 +80,7 @@ export class SummarizeAttachmentTask extends AiTask<
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'summarize_attachment';
-  protected instructions = getPrompt('import-instructions');
+  protected instructions = getPrompt('thing-definition') + getPrompt('import-instructions');
   protected schema = schema;
   protected resultKey = 'identifiers' as const;
 
