@@ -11,7 +11,7 @@ import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { readResourcePage } from '../../web/resources.js';
 import { createObjectSchema, attachmentMetadataSchema } from '../schemas.js';
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     identity: {
       anyOf: [
@@ -108,7 +108,7 @@ function createSelectionPrompt(report: string, sources: string[], research: Rese
   return `Select up to 8 resources justified by the supplied evidence. Research objective: ${categoryResearchPrompt(research.categoryId)}. Public subject: ${JSON.stringify({ name: research.name, knownFields: research.knownFields })}. Include the requested category document and at most one official product photo for a physical object. The retrieved page link catalogue supplies observed URLs and their surrounding page text, including embedded download metadata. Use it to locate the full documents required by the category objective. Verify the subject, model or product variant, region and version against the source page. A family document applies only when it covers the subject. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a display-name suggestion for the existing Thing: a short brand or provider plus everyday type, such as "Bosch Oven", with sourceUrl justifying that name; otherwise null. The Thing has already been resolved; this suggestion only updates its display name. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs applicable to the subject and category instruction. Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing applicability. Prefer official documents. Image entries link to a product photograph found on an official model page, with sourceUrl proving the matching model and variant. Exclude labels, document scans, logos, icons and unrelated variants. Use null metadata for images. Reference metadata may include title, documentType, publisher and documentDate only when supported by the cited source; unknown properties are null. Do not infer document date from website update dates. Report: ${report}\nRetrieved URLs: ${JSON.stringify(sources)}`;
 }
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class FindResourcesTask extends AiTask<Output, Discovery> {
   protected readonly model: string = 'gpt-6.1-sol';
@@ -116,7 +116,7 @@ export class FindResourcesTask extends AiTask<Output, Discovery> {
   private readonly searchCalls = 3;
   protected task = 'find_resources_selection';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'items' as const;
 
   constructor(

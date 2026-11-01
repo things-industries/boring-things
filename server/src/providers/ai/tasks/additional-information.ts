@@ -20,7 +20,7 @@ export interface AdditionalInformationInput {
   text: string;
 }
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     findings: {
       description: 'Up to 10 significant findings outside the supplied fields.',
@@ -55,14 +55,14 @@ export const schema = createObjectSchema(
   'Important additional information.',
 );
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class AdditionalInformationTask extends AiTask<Output, AdditionalInformationResult> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
   protected task = 'additional_information';
   protected instructions = getPrompt('thing-definition') + getPrompt('import-instructions');
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'findings' as const;
 
   constructor(

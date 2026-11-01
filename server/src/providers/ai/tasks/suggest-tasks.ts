@@ -27,7 +27,7 @@ Examples:
 - "Let the interior dry after each programme" is passive waiting advice; omit it from general suggestions.
 Return each underlying action once. When existing tasks are supplied, exclude equivalent actions even when their titles differ, including completed or dismissed tasks.`;
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     items: {
       type: 'array',
@@ -75,7 +75,7 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
   return ` Find useful management tasks for a Thing. Suitable task ideas for this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs and prefer official manufacturer or provider documentation. Establish applicability to the model, variant, region and service version where relevant. Preserve supported instructions, intervals, usage thresholds and conditions. Every task needs supporting evidence of applicability to the thing. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 8 distinct suggested tasks. Every task needs sourceRefs establishing applicability from linked Attachments or observed public sources. Keep secrets and individual identifiers out of task text. Return an empty items array when none are justifiable.  Finding no applicable tasks is a valid outcome.`;
 }
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions> {
   protected readonly model: string = 'gpt-6-luna';
@@ -83,7 +83,7 @@ export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions
   protected readonly searchCalls = 3;
   protected task = 'task_suggestions';
   protected instructions = `${recommendationInstructions} ${taskRecommendationInstructions}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'items' as const;
 
   constructor(

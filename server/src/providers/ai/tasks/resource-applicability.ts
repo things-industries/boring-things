@@ -23,7 +23,7 @@ export interface ResourceApplicabilityInput {
   };
 }
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     applicable: {
       type: 'boolean',
@@ -52,14 +52,14 @@ export const schema = createObjectSchema(
   'Applicability and public identifier coverage of one saved resource.',
 );
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class ResourceApplicabilityTask extends AiTask<Output, ResourceApplicability> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'resource_applicability';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'identifiers' as const;
 
   constructor(

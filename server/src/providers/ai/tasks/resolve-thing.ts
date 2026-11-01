@@ -27,7 +27,7 @@ export interface ResolutionInput {
   thingContextId: string | null;
 }
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     candidates: {
       description: 'Up to 10 candidate descriptions; the application processes one.',
@@ -102,14 +102,14 @@ export const schema = createObjectSchema(
   'Candidate identity and matching decision.',
 );
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class ResolveThingTask extends AiTask<Output, ResolutionResult> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'thing_resolution';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'candidates' as const;
 
   constructor(

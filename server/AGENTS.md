@@ -106,6 +106,8 @@ Test changed business invariants and regressions, particularly cross-owner acces
 
 ## Coding practice and style
 
+- Name schema variables by their purpose, such as `outputSchema` for AI task outputs.
+
 - Place a file level comment at the top of all files explaining what that file is for (max 300 chars)
 - Put line-comments preceding function declarations to explain the purpose or use case for that function, except when extremely obvious. Max 150 chars. Don't name or count callers or call sites.
 - Add line comments to code that merits additional explanation, using concise but readable prose.

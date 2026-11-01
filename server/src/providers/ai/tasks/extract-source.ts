@@ -9,7 +9,7 @@ import { getPrompt } from '../prompts.js';
 import { createSourceInput } from '../sources.js';
 import { createObjectSchema, valueSchema, attachmentMetadataSchema } from '../schemas.js';
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     metadata: {
       description:
@@ -135,14 +135,14 @@ function extractSourcePrompt(categories: string[], extractedText = false) {
   return `Examine the provided source material and extract up to 4 distinct Things with up to 100 facts for each Thing. Assign each Thing exactly one category from the following list: ${categories.join(', ')}. ${extractedText ? "The source text is already extracted: return an empty 'text' property in the extraction." : "Report all readable content from the source in the 'text' property of the extraction."} For each Thing, report a name, assign an appropriate category and list discernable facts about the thing. For each fact, include a verbatim supporting quote (max 2000 characters), page number or null. Use supplied [PDF page N] labels for original page numbers when present in the source; otherwise count pages by their one-based position in the supplied file, independently of any printed page labels. If source is multilingual, ignore translated repetitions, use only the English version. Mark passwords, access codes and other secret facts sensitive. Use a short everyday name for things: brand plus the supported product type, e.g. "Bosch Oven", is good. Avoid model/serial numbers and generic "appliance" when a specific type is evident.  'Terms' are keywords/tags that describe type, brand and model. Extract only facts supported by the source material; don't guess.  Give a source-wide summary and source-wide terms without private identifiers. Report whether English content was fully readable, partly readable, absent, or insufficient because the source has no usable English content. Metadata describes the whole source document. Give every source a short display title describing its content or visible purpose. For a photograph of a manufacturer rating label, use "Data plate photo"; for other photographs or notes, describe what is shown. Preserve the actual document title when useful. Use null for other unsupported metadata properties. Never infer document date from a purchase date unless the source is a receipt for that purchase.`;
 }
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class ExtractSourceTask extends AiTask<Output, Extraction> {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'source_extraction';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'candidates' as const;
 
   constructor(

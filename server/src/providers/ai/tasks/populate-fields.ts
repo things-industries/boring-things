@@ -25,7 +25,7 @@ export interface PopulationInput {
   fields: { fieldSetId: string | null; field: FieldDefinition; value: Value | null }[];
 }
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     values: {
       description: 'Up to 20 values for the supplied field targets.',
@@ -69,14 +69,14 @@ export const schema = createObjectSchema(
   'Cited values for enabled Thing Fields.',
 );
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class PopulateFieldsTask extends AiTask<Output, PopulationResult> {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'field_population';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'values' as const;
 
   constructor(

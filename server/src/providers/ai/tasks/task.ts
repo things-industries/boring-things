@@ -60,7 +60,7 @@ export abstract class AiTask<Output = never, Result = Output> {
   protected readonly maxOutputTokens: number = 12000;
   protected abstract task: string;
   protected abstract instructions: string;
-  protected schema?: Record<string, unknown>;
+  protected outputSchema?: Record<string, unknown>;
   protected resultKey?: keyof Output & string;
   protected tools: TaskTool[] = [];
   protected toolRounds = 31;
@@ -116,14 +116,14 @@ export abstract class AiTask<Output = never, Result = Output> {
       const response = await this.requestResponse(
         conversation,
         {
-          ...(this.schema
+          ...(this.outputSchema
             ? {
                 text: {
                   format: {
                     type: 'json_schema',
                     name: 'result',
                     strict: true,
-                    schema: this.schema,
+                    schema: this.outputSchema,
                   },
                 },
               }
@@ -200,8 +200,8 @@ export abstract class AiTask<Output = never, Result = Output> {
         ? Reflect.get(output, this.resultKey)
         : undefined;
     if (Array.isArray(items)) this.reportMetrics({ aiCount: items.length, validCount: 0 });
-    ensure(this.schema, 'Missing AI output schema');
-    const valid = ajv.compile<Output>(this.schema);
+    ensure(this.outputSchema, 'Missing AI output schema');
+    const valid = ajv.compile<Output>(this.outputSchema);
     ensure(valid(output), 'Invalid AI output');
     if (Array.isArray(items)) this.reportMetrics({ validCount: items.length });
     return output;
@@ -288,7 +288,7 @@ export abstract class AiTask<Output = never, Result = Output> {
         metrics: {
           tokens: [usage.inputTokens, usage.outputTokens],
           elapsedMs: entry.elapsedMs,
-          ...(!this.schema ? { textCharacters: responseText(result).length } : {}),
+          ...(!this.outputSchema ? { textCharacters: responseText(result).length } : {}),
         },
       };
     await context.record({ ...usage, entries: [entry] });

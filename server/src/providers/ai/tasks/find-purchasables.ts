@@ -28,7 +28,7 @@ Examples:
 - "Bosch Universal Oven Pan 11029049" becomes "Solid baking tray": "For baking, roasting and catching drips when grilling; useful when you need a deeper tray."
 - "Bosch Multi-use Wire Shelf 00577170" becomes "Wire baking shelf": "Supports dishes and baking trays when you need an additional or replacement shelf."`;
 
-export const schema = createObjectSchema(
+export const outputSchema = createObjectSchema(
   {
     items: {
       type: 'array',
@@ -88,7 +88,7 @@ function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: numb
   return ` Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Use sourceRefs from linked Attachments or observed public sources for compatibility evidence. A merchantUrl must be observed through web search or printed in a cited Attachment passage. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
-export type Output = FromSchema<typeof schema>;
+export type Output = FromSchema<typeof outputSchema>;
 
 export class FindPurchasablesTask extends RecommendationTask<Output, PurchasableSuggestions> {
   protected readonly model: string = 'gpt-6.1-sol';
@@ -96,7 +96,7 @@ export class FindPurchasablesTask extends RecommendationTask<Output, Purchasable
   protected readonly searchCalls = 3;
   protected task = 'purchasable_suggestions';
   protected instructions = `${recommendationInstructions} ${purchasableRecommendationInstructions}`;
-  protected schema = schema;
+  protected outputSchema = outputSchema;
   protected resultKey = 'items' as const;
 
   constructor(
