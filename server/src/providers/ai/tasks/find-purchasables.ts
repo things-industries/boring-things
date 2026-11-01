@@ -76,7 +76,7 @@ export const outputSchema = createObjectSchema(
 // Builds task instructions from the supplied application context.
 function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: number) {
   const guidance: Record<string, string> = {
-    appliances: 'Useful documented consumables: filters, bags, cartridges and cleaning supplies.',
+    appliances: 'Useful documented consumables (filters, bags, detergent, cartridges), tools (eg. cleaning supplies or special implements), replacement parts, or accessories.',
     devices: 'Compatible accessories: chargers, docks, cases and mounts.',
     vehicles: 'Documented consumables and compatible accessories.',
     memberships: 'Usually no purchasables.',
