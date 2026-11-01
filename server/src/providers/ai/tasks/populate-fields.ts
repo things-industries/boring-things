@@ -4,7 +4,7 @@ import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
 import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions } from '../prompts.js';
 import type {
   PopulationInput,
   PopulationResult,
@@ -66,7 +66,7 @@ export class PopulateFieldsTask extends AiTask<
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'field_population';
-  protected instructions = thingImportInstructions;
+  protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'values' as const;
 

@@ -4,9 +4,8 @@ import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
 import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions, webResearchInstructions } from '../prompts.js';
 import type { ResearchThing, Discovery } from '../../../application/import/types.js';
-import { thingResearchInstructions } from '../prompts.js';
 import { categoryResearchPrompt } from './resource-prompts.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { readResourcePage } from '../../web/resources.js';
@@ -114,7 +113,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'research_structure';
-  protected instructions = thingImportInstructions;
+  protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'items' as const;
 
@@ -132,7 +131,10 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
     const response = await this.requestResponse(
       resourceSearchPrompt(this.input, this.searchCalls),
       context,
-      { ...createWebSearchOptions(this.searchCalls), instructions: thingResearchInstructions },
+      {
+        ...createWebSearchOptions(this.searchCalls),
+        instructions: `${thingDefinition} ${webResearchInstructions}`,
+      },
       undefined,
       'research',
     );

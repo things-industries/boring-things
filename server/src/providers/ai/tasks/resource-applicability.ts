@@ -3,7 +3,7 @@
 import type { components } from '../schema-types.js';
 import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions } from '../prompts.js';
 import type {
   ResourceApplicabilityInput,
   ResourceApplicability,
@@ -50,7 +50,7 @@ export class ResourceApplicabilityTask extends AiTask<
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'resource_applicability';
-  protected instructions = thingImportInstructions;
+  protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'identifiers' as const;
 

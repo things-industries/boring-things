@@ -3,7 +3,7 @@
 import type { components } from '../schema-types.js';
 import type { AiConfig, RegistryResources } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions } from '../prompts.js';
 import type { ExtractedThing, ImportTaskContext } from '../../../application/import/types.js';
 import { createFieldSetsTool } from '../tools/registry.js';
 
@@ -37,7 +37,7 @@ export class SelectFieldSetsTask extends AiTask<
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'field_selection';
-  protected instructions = thingImportInstructions;
+  protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'setIds' as const;
 

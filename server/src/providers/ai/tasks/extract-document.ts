@@ -3,7 +3,7 @@
 import type { components } from '../schema-types.js';
 import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions } from '../prompts.js';
 import type {
   ReferenceDocument,
   ResearchThing,
@@ -120,7 +120,7 @@ export class ExtractDocumentTask extends AiTask<
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'document_extraction';
-  protected instructions = thingImportInstructions;
+  protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'values' as const;
 

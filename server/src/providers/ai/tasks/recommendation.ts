@@ -12,9 +12,9 @@ import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
 import { createSourceRef } from '../sources.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
-import { thingImportInstructions, webResearchInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions, webResearchInstructions } from '../prompts.js';
 
-export const recommendationInstructions = `${thingImportInstructions} ${webResearchInstructions}
+export const recommendationInstructions = `${thingDefinition} ${importInstructions} ${webResearchInstructions}
 Read applicable linked Attachments with search_transcription before searching the web. Use web search when evidence or purchase links are missing. Prefer official manufacturer or provider recommendations. Cite Attachment IDs, original pages and verbatim passages, or observed public URLs and supporting excerpts. Keep secrets and private identifiers out of web queries and recommendation text. Use public model, provider and product details for research. Exclude equivalent existing suggestions, including completed or dismissed tasks. Return fewer recommendations or none when the evidence is insufficient.`;
 
 export const recommendationSourcesSchema = {

@@ -4,7 +4,7 @@ import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
 import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { thingImportInstructions } from '../prompts.js';
+import { thingDefinition, importInstructions } from '../prompts.js';
 import type { Source, Extraction } from '../../../application/import/types.js';
 import { createSourceInput } from '../sources.js';
 
@@ -140,7 +140,7 @@ export class ExtractSourceTask extends AiTask<components['schemas']['Extraction'
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'source_extraction';
-  protected instructions = thingImportInstructions;
+  protected instructions = `${thingDefinition} ${importInstructions}`;
   protected schema = schema;
   protected resultKey = 'candidates' as const;
 
