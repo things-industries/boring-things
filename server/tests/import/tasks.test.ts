@@ -8,12 +8,12 @@ import { OpenAiImports } from '../../src/providers/ai/openai-imports.js';
 import type { PopulationInput, Usage } from '../../src/application/import/types.js';
 import { createImportTaskContext } from '../../test/support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
-import { readConfig } from '../../src/config.js';
+import { setEnvMode } from '../../src/env.js';
 import type { AiTurnCompleted } from '../../src/providers/ai/types.js';
 import { getPrompt } from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
 import { AdditionalInformationTask } from '../../src/providers/ai/tasks/additional-information.js';
-const config = readConfig({ OPENAI_API_KEY: 'fixture-key' });
+setEnvMode('test');
 const definition = fields.find((field) => field.id === 'common.model')!;
 const input: PopulationInput = {
   thing: { id: 'thing', name: 'Fixture oven', categoryId: 'appliances' },
@@ -89,7 +89,7 @@ test('field population awaits source retrieval before continuing the model conve
       },
     ]);
   });
-  const ai = new OpenAiImports(config, (turn) => turns.push(turn));
+  const ai = new OpenAiImports((turn) => turns.push(turn));
   const result = await ai.populateFields(
     input,
     createImportTaskContext({
@@ -131,7 +131,7 @@ test('Thing resolution receives the definition and reports each turn through its
       },
     ]);
   });
-  const task = new ResolveThingTask(config, {
+  const task = new ResolveThingTask({
     sources: [],
     categories: [],
     existingThings: [],
@@ -211,7 +211,7 @@ test('registry tools use provider-bound resources and record retrieved definitio
     ]);
   });
   const resources = { db, registry };
-  const ai = new OpenAiImports(config, undefined, undefined, resources);
+  const ai = new OpenAiImports(undefined, undefined, resources);
   const selectionContext = createContext();
   assert.deepEqual(
     await ai.selectFieldSets(
@@ -257,7 +257,7 @@ test('additional information selects its model and receives Thing instructions',
       { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
     ]);
   });
-  const task = new AdditionalInformationTask(config, {
+  const task = new AdditionalInformationTask({
     thing: input.thing,
     knownFields: [],
     attachmentId: 'source',
@@ -273,7 +273,7 @@ test('an oversized task stops before contacting the model', async (t) => {
     requests++;
     throw new Error('Unexpected request');
   });
-  const ai = new OpenAiImports(config);
+  const ai = new OpenAiImports();
   await assert.rejects(
     ai.populateFields(
       { ...input, sources: [{ attachmentId: 'source', summary: 'x'.repeat(120000), terms: [] }] },
@@ -322,7 +322,7 @@ test('attachment summaries use bounded text requests without requesting or retur
     ]);
   });
   const text = 'x'.repeat(180000);
-  const result = await new OpenAiImports(config, (turn) => turns.push(turn)).summarizeAttachment(
+  const result = await new OpenAiImports((turn) => turns.push(turn)).summarizeAttachment(
     text,
     createContext(),
   );
@@ -345,7 +345,7 @@ test('attachment summaries use bounded text requests without requesting or retur
 
 for (const capability of ['tasks', 'purchasables'] as const) {
   test(`${capability} combine attachment evidence with web research across model turns`, async (t) => {
-    const searchCalls = capability === 'tasks' ? 1 : 2;
+    const webCalls = capability === 'tasks' ? 3 : 2;
     const merchantUrl = 'https://maker.example/cleaner';
     const quote = 'Use seal cleaner SC01 when water alone does not remove dirt.';
     const sourceRefs = [
@@ -387,12 +387,9 @@ for (const capability of ['tasks', 'purchasables'] as const) {
         }
         assert.deepEqual(
           body.tools.map((tool: { type: string }) => tool.type),
-          request === 3 && searchCalls === 1 ? ['function'] : ['function', 'web_search'],
+          request === 3 && webCalls === 3 ? ['function'] : ['function', 'web_search'],
         );
-        assert.equal(
-          body.max_tool_calls,
-          request === 3 ? (searchCalls === 1 ? undefined : 1) : searchCalls,
-        );
+        assert.equal(body.max_tool_calls, request === 3 ? (webCalls === 3 ? undefined : 1) : 3);
         if (request === 1 || request === 2) {
           if (request === 2) {
             assert.equal(reads, 1);
@@ -400,7 +397,10 @@ for (const capability of ['tasks', 'purchasables'] as const) {
           }
           return response([
             ...(request === 2
-              ? [{ type: 'web_search_call', action: { sources: [{ url: merchantUrl }] } }]
+              ? Array.from({ length: webCalls }, () => ({
+                  type: 'web_search_call',
+                  action: { sources: [{ url: merchantUrl }] },
+                }))
               : []),
             {
               type: 'function_call',
@@ -441,22 +441,18 @@ for (const capability of ['tasks', 'purchasables'] as const) {
         if (entry.toolCalls?.some((call) => call.name === 'search_transcription')) reads++;
       },
     };
-    const ai = new OpenAiImports(config);
+    const ai = new OpenAiImports();
     const result =
       capability === 'tasks'
-        ? await ai.suggestTasks({ ...research, existingTasks: [] }, usageContext, searchCalls)
-        : await ai.findPurchasables(
-            { ...research, existingPurchasables: [] },
-            usageContext,
-            searchCalls,
-          );
+        ? await ai.suggestTasks({ ...research, existingTasks: [] }, usageContext)
+        : await ai.findPurchasables({ ...research, existingPurchasables: [] }, usageContext);
     assert.deepEqual(result, { items: [item] });
     assert.equal(fetch.mock.callCount(), 3);
     assert.equal(reads, 2);
     assert.equal(
       entries.flatMap((entry) => entry.toolCalls ?? []).filter((call) => call.name === 'web_search')
         .length,
-      1,
+      webCalls,
     );
     const supplied = JSON.parse(
       JSON.parse(String(fetch.mock.calls[0].arguments[1]?.body))
@@ -474,7 +470,7 @@ test('purchasables can use purchase links printed in attachment evidence without
     const body = JSON.parse(String(options.body));
     assert.deepEqual(
       body.tools.map((tool: { type: string }) => tool.type),
-      ['function'],
+      ['function', 'web_search'],
     );
     return response([
       {
@@ -498,7 +494,7 @@ test('purchasables can use purchase links printed in attachment evidence without
       },
     ]);
   });
-  const result = await new OpenAiImports(config).findPurchasables(
+  const result = await new OpenAiImports().findPurchasables(
     {
       categoryId: 'appliances',
       knownFields: [],
@@ -508,7 +504,6 @@ test('purchasables can use purchase links printed in attachment evidence without
       existingPurchasables: [],
     },
     createContext(),
-    0,
   );
   assert.deepEqual(result.items[0].sourceRefs, [{ attachmentId: 'source', quote }]);
   assert.equal(result.items[0].merchantUrl, merchantUrl);
@@ -568,7 +563,7 @@ test('task recommendations finish from gathered evidence when the tool budget is
       },
     ]);
   });
-  const result = await new OpenAiImports(config).suggestTasks(
+  const result = await new OpenAiImports().suggestTasks(
     {
       name: 'Fixture oven',
       categoryId: 'appliances',
@@ -603,7 +598,7 @@ test('recommendation tools reject attachment IDs outside the run scope', async (
     ]),
   );
   await assert.rejects(
-    new OpenAiImports(config).suggestTasks(
+    new OpenAiImports().suggestTasks(
       {
         name: 'Fixture oven',
         categoryId: 'appliances',

@@ -13,10 +13,9 @@ import type { AiContext } from '../src/providers/ai/types.js';
 import type { Usage } from '../src/application/import/types.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
-const config = readConfig({
-  OPENAI_API_KEY: 'synthetic-key',
-  AI_MAX_OUTPUT_TOKENS: '1000',
-});
+import { setEnvMode } from '../src/env.js';
+setEnvMode('test');
+const config = readConfig();
 
 const task = {
   thingId: null,
@@ -36,7 +35,7 @@ test('assistant research answers the supplied question in one bounded request wi
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
-    assert.equal(body.max_tool_calls, 2);
+    assert.equal(body.max_tool_calls, 3);
     assert.deepEqual(body.tools, [{ type: 'web_search' }]);
     assert.deepEqual(
       body.include,
@@ -75,10 +74,7 @@ test('assistant research answers the supplied question in one bounded request wi
   });
   const ai = createAi(
     readConfig({
-      OPENAI_API_KEY: 'synthetic-key',
-      AI_MAX_OUTPUT_TOKENS: '1000',
       CHAT_TOOL_CALLS: '3',
-      DISCOVERY_SEARCH_CALLS: '2',
     }),
     {},
     (entry) => turns.push(entry),
@@ -132,13 +128,13 @@ test('assistant research answers the supplied question in one bounded request wi
     protected instructions = 'Find public manuals.';
     protected async runTask(context: AiContext) {
       return readWebResult(
-        await this.execute('Find manuals', context, createWebSearchOptions(2)),
+        await this.execute('Find manuals', context, createWebSearchOptions(3)),
         context,
-        2,
+        3,
       );
     }
   }
-  const discovery = await new SourceSearchTask(config).run(context);
+  const discovery = await new SourceSearchTask().run(context);
   assert.ok(discovery.sources.includes(opened));
   assert.ok(discovery.sources.includes(candidates[99].url));
 
@@ -148,7 +144,7 @@ test('assistant research answers the supplied question in one bounded request wi
   fetch.mock.mockImplementation(async () =>
     Response.json({
       status: 'completed',
-      output: Array.from({ length: 3 }, () => ({
+      output: Array.from({ length: 4 }, () => ({
         type: 'web_search_call',
         action: { sources: [] },
       })),

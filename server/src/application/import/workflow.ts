@@ -500,7 +500,6 @@ export class ImportWorkflow {
             emptyFields: [],
           },
           this.context,
-          this.config.discoverySearchCalls,
         );
       } catch (error) {
         if (error instanceof UsagePersistenceError) throw error;
@@ -1041,7 +1040,6 @@ export class ImportWorkflow {
               this.ai.suggestTasks(
                 { ...research, existingTasks },
                 this.createTaskContext(thing.categoryId),
-                this.config.discoverySearchCalls,
               ),
             )
             .then((result) => ({
@@ -1061,7 +1059,6 @@ export class ImportWorkflow {
               this.ai.findPurchasables(
                 { ...research, existingPurchasables },
                 this.createTaskContext(thing.categoryId),
-                this.config.discoverySearchCalls,
               ),
             )
             .then((result) => ({

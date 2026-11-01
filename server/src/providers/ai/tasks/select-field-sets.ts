@@ -1,7 +1,7 @@
 /** Selects category fieldsets through registry retrieval. */
 
 import type { components } from '../schema-types.js';
-import type { AiConfig, RegistryResources } from '../types.js';
+import type { RegistryResources } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type { ExtractedThing, ImportTaskContext } from '../../../application/import/types.js';
@@ -42,11 +42,10 @@ export class SelectFieldSetsTask extends AiTask<
   protected resultKey = 'setIds' as const;
 
   constructor(
-    config: AiConfig,
     private input: ExtractedThing,
     private registryResources?: RegistryResources,
   ) {
-    super(config);
+    super();
   }
 
   // Selects fieldsets without proposing field values.

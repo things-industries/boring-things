@@ -236,20 +236,11 @@ export interface ImportAi {
     extractedThing: ExtractedThing,
     context: ImportTaskContext,
   ): Promise<{ setIds: string[] }>;
-  findResources(
-    research: ResearchThing,
-    context: AiContext,
-    searchCalls?: number,
-  ): Promise<Discovery>;
-  suggestTasks(
-    research: TaskResearch,
-    context: ImportTaskContext,
-    searchCalls?: number,
-  ): Promise<TaskSuggestions>;
+  findResources(research: ResearchThing, context: AiContext): Promise<Discovery>;
+  suggestTasks(research: TaskResearch, context: ImportTaskContext): Promise<TaskSuggestions>;
   findPurchasables(
     research: PurchasableResearch,
     context: ImportTaskContext,
-    searchCalls?: number,
   ): Promise<PurchasableSuggestions>;
 }
 

@@ -53,7 +53,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 
 ## AI imports
 
-Set `OPENAI_API_KEY` in `.env`. Images and PDF pages without embedded text also require `GOOGLE_VISION_API_KEY`. Attachment processing extracts text before the `summarize-attachment` AI task produces summaries, terms, identifiers and metadata. Apply `pnpm db:migrate`, and restart the API. Each AI task declares its model and reasoning settings; see the [task configuration](docs/setup/imports.md#ai-task-configuration). A missing OpenAI key disables import controls; manual editing remains available.
+Set `OPENAI_API_KEY` in `.env`. Images and PDF pages without embedded text also require `GOOGLE_VISION_API_KEY`. Attachment processing extracts text before the `summarize-attachment` AI task produces summaries, terms, identifiers and metadata. Apply `pnpm db:migrate`, and restart the API. Each AI task declares its model and reasoning settings; see the [task configuration](docs/setup/imports.md#ai-task-configuration). The API requires an OpenAI key at startup.
 
 The **Add a thing** screen offers Camera, Photos, Files and Text tiles. Each source is stored privately and starts transcription after upload. The client submits one Import citing the Attachments and shows persisted source outcomes and progress. The Import selects one candidate, matches or creates a Thing, and saves its category identifiers before Research. Fieldset selection and cited population use all applicable linked evidence. Existing owner-entered values and manually cleared fields remain protected.
 
@@ -185,33 +185,30 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 
 ## Configuration
 
-`readConfig(env)` eagerly parses an injectable environment source into `EnvConfig`; production requirements are checked before startup.
+`readConfig(env)` parses application settings into `EnvConfig`. AI provider assembly requires `OPENAI_API_KEY` at startup; each task reads it through `getEnv` when constructed. Tests select synthetic credentials with `setEnvMode('test')`; runtime mode reads the process environment. The base AI task sets limits of 120,000 text characters and 12,000 output tokens; specialised tasks override these settings where needed. Each research task sets its web search limit to three calls in its class.
 
-| Variable                     | Purpose                                                                    |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `DATABASE_URL`               | Backend Postgres connection; local default uses port 55432                 |
-| `LOGTO_ENDPOINT`             | Tenant endpoint, without `/oidc`                                           |
-| `LOGTO_APP_ID`               | SPA application ID; public identifier                                      |
-| `LOGTO_API_RESOURCE`         | API audience; `https://api.boring-things.local`                            |
-| `BLOB_DIRECTORY`             | Local blob directory; default `.data/blobs`                                |
-| `MAX_UPLOAD_BYTES`           | Upload and research document limit; default 100000000                      |
-| `ENABLE_SAMPLE_DATA`         | Enables the authenticated sample-data action; default false                |
-| `GOOGLE_VISION_API_KEY`      | Server-only Google Vision key; required for image and scanned PDF page OCR |
-| `OPENAI_API_KEY`             | Server-only OpenAI credential                                              |
-| `ICECAT_ACCESS_TOKEN`        | Optional Icecat API token; free access covers participating brands         |
-| `IMPORT_MAX_REQUESTS`        | Model request limit per Import or Attachment across retries; default 60    |
-| `IMPORT_MAX_TEXT_CHARACTERS` | Model conversation text limit; default 120000                              |
-| `IMPORT_MAX_RESOURCES`       | Discovered resource limit per Import; default 3                            |
-| `IMPORT_TIMEOUT_MS`          | Import attempt deadline; default 180000                                    |
-| `IMPORT_TOOL_ROUNDS`         | Local tool-call budget per task or batch; default 4                        |
-| `DISCOVERY_TIMEOUT_MS`       | Resource transcription wait deadline; default 90000                        |
-| `DISCOVERY_SEARCH_CALLS`     | Web tool-call budget per import or chat research; default 3                |
-| `CHAT_TIMEOUT_MS`            | Assistant attempt deadline; default 180000                                 |
-| `CHAT_TOOL_CALLS`            | Function-call budget per assistant response; default 12                    |
-| `AI_MAX_OUTPUT_TOKENS`       | Output token limit per provider response; default 12000                    |
-| `HOST`, `PORT`               | API bind address; default `127.0.0.1:3000`                                 |
-| `LOG_LEVEL`                  | Minimum severity; default `info`; use `trace` for requests                 |
-| `LOG_FORMAT`                 | `pretty` locally; `json` when `NODE_ENV=production`                        |
+| Variable                | Purpose                                                                    |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `DATABASE_URL`          | Backend Postgres connection; local default uses port 55432                 |
+| `LOGTO_ENDPOINT`        | Tenant endpoint, without `/oidc`                                           |
+| `LOGTO_APP_ID`          | SPA application ID; public identifier                                      |
+| `LOGTO_API_RESOURCE`    | API audience; `https://api.boring-things.local`                            |
+| `BLOB_DIRECTORY`        | Local blob directory; default `.data/blobs`                                |
+| `MAX_UPLOAD_BYTES`      | Upload and research document limit; default 100000000                      |
+| `ENABLE_SAMPLE_DATA`    | Enables the authenticated sample-data action; default false                |
+| `GOOGLE_VISION_API_KEY` | Server-only Google Vision key; required for image and scanned PDF page OCR |
+| `OPENAI_API_KEY`        | Server-only OpenAI credential; required at startup                         |
+| `ICECAT_ACCESS_TOKEN`   | Optional Icecat API token; free access covers participating brands         |
+| `IMPORT_MAX_REQUESTS`   | Model request limit per Import or Attachment across retries; default 60    |
+| `IMPORT_MAX_RESOURCES`  | Discovered resource limit per Import; default 3                            |
+| `IMPORT_TIMEOUT_MS`     | Import attempt deadline; default 180000                                    |
+| `IMPORT_TOOL_ROUNDS`    | Local tool-call budget per task or batch; default 4                        |
+| `DISCOVERY_TIMEOUT_MS`  | Resource transcription wait deadline; default 90000                        |
+| `CHAT_TIMEOUT_MS`       | Assistant attempt deadline; default 180000                                 |
+| `CHAT_TOOL_CALLS`       | Function-call budget per assistant response; default 12                    |
+| `HOST`, `PORT`          | API bind address; default `127.0.0.1:3000`                                 |
+| `LOG_LEVEL`             | Minimum severity; default `info`; use `trace` for requests                 |
+| `LOG_FORMAT`            | `pretty` locally; `json` when `NODE_ENV=production`                        |
 
 Local server logs use Fastify's [Pino transport support](https://fastify.dev/docs/latest/Reference/Logging/#environment-specific-configuration) with `pino-pretty`: local timestamps, severity, messages and structured context on one line, with process ID and hostname omitted. Production defaults to JSON.
 

@@ -4,14 +4,18 @@ import { readConfig } from '../src/config.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { logtoVerifier } from '../src/providers/auth/logto.js';
 import { ApplicationError } from '../src/application/errors.js';
+import { setEnvMode } from '../src/env.js';
 
-test('missing AI configuration disables both capabilities without a fake fallback', () => {
-  const config = readConfig();
-  assert.deepEqual(createAi({ ...config, openaiApiKey: '' }), {
-    importAi: undefined,
-    chatAi: undefined,
+test('missing AI credentials fail provider assembly before work starts', (t) => {
+  const env = process.env;
+  process.env = { ...env, OPENAI_API_KEY: ' ' };
+  t.after(() => {
+    process.env = env;
+    setEnvMode('runtime');
   });
-  const configured = createAi({ ...config, openaiApiKey: 'synthetic-key' });
+  assert.throws(() => createAi(readConfig()), /Missing OPENAI_API_KEY/);
+  setEnvMode('test');
+  const configured = createAi(readConfig());
   assert.ok(configured.importAi);
   assert.ok(configured.chatAi);
 });

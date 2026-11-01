@@ -2,7 +2,6 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiConfig } from '../types.js';
 import {
   RecommendationTask,
   recommendationSourcesSchema,
@@ -91,17 +90,14 @@ export class FindPurchasablesTask extends RecommendationTask<
 > {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
+  protected readonly searchCalls = 3;
   protected task = 'purchasable_suggestions';
   protected instructions = `${recommendationInstructions} ${purchasableRecommendationInstructions}`;
   protected schema = schema;
   protected resultKey = 'items' as const;
 
-  constructor(
-    config: AiConfig,
-    private input: PurchasableResearch,
-    searchCalls: number,
-  ) {
-    super(config, searchCalls);
+  constructor(private input: PurchasableResearch) {
+    super();
   }
 
   // Reads attachments and researches missing evidence before returning cited suggestions.

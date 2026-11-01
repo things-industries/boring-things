@@ -2,7 +2,6 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiConfig } from '../types.js';
 import {
   RecommendationTask,
   recommendationSourcesSchema,
@@ -81,17 +80,14 @@ export class SuggestTasksTask extends RecommendationTask<
 > {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
+  protected readonly searchCalls = 3;
   protected task = 'task_suggestions';
   protected instructions = `${recommendationInstructions} ${taskRecommendationInstructions}`;
   protected schema = schema;
   protected resultKey = 'items' as const;
 
-  constructor(
-    config: AiConfig,
-    private input: TaskResearch,
-    searchCalls: number,
-  ) {
-    super(config, searchCalls);
+  constructor(private input: TaskResearch) {
+    super();
   }
 
   // Reads attachments and researches missing evidence before returning cited suggestions.

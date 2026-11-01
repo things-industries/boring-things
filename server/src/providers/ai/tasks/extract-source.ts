@@ -2,7 +2,7 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiContext } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type { Source, Extraction } from '../../../application/import/types.js';
@@ -145,11 +145,10 @@ export class ExtractSourceTask extends AiTask<components['schemas']['Extraction'
   protected resultKey = 'candidates' as const;
 
   constructor(
-    config: AiConfig,
     private source: Source,
     private categories: string[],
   ) {
-    super(config);
+    super();
   }
 
   // Reads one source and converts candidates to the application extraction shape.

@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Schema } from '../../../shared/model.js';
 import { FixtureChat } from '../fixtures/chat.js';
+import { FixtureAi } from '../fixtures/imports.js';
+import { loadRegistry } from '../../src/application/registry/index.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
@@ -27,7 +29,6 @@ let base: string;
 const config = () => ({
   ...readConfig(),
   blobDirectory: directory,
-  openaiApiKey: '',
   chatTimeoutMs: 3000,
 });
 const boot = async () => {
@@ -35,6 +36,7 @@ const boot = async () => {
     dbPool: pool,
     config: config(),
     chatAi: ai,
+    importAi: new FixtureAi({ db: pool, registry: await loadRegistry(pool) }),
     verifyIdentity: async (token) => ({ subject: token }),
   });
   base = await app.listen({ host: '127.0.0.1', port: 0 });

@@ -3,7 +3,7 @@
 import type { ResponseInput } from 'openai/resources/responses/responses';
 import type { ImportTaskContext } from '../../../application/import/types.js';
 import type { SourceRef } from '../../../../../shared/model.js';
-import type { AiConfig, AiContext } from '../types.js';
+import type { AiContext } from '../types.js';
 import type { components } from '../schema-types.js';
 import { AiTask, type TaskOptions } from './task.js';
 import { createTranscriptionTool } from '../tools/transcription.js';
@@ -51,15 +51,9 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<
   Result,
   ImportTaskContext
 > {
+  protected abstract readonly searchCalls: number;
   protected observedUrls = new Set<string>();
   private webCalls = 0;
-
-  constructor(
-    config: AiConfig,
-    protected searchCalls: number,
-  ) {
-    super(config);
-  }
 
   // Registers attachment retrieval using the run's authorised source data.
   protected registerSourceTool(context: ImportTaskContext) {

@@ -2,7 +2,7 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiContext } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type { ResearchThing, Discovery } from '../../../application/import/types.js';
@@ -112,18 +112,17 @@ function createSelectionPrompt(report: string, sources: string[], research: Rese
 export class FindResourcesTask extends AiTask<components['schemas']['Discovery'], Discovery> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
+  private readonly searchCalls = 3;
   protected task = 'find_resources_selection';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')}`;
   protected schema = schema;
   protected resultKey = 'items' as const;
 
   constructor(
-    config: AiConfig,
     private input: ResearchThing,
-    private searchCalls: number,
     private readPage = readResourcePage,
   ) {
-    super(config);
+    super();
   }
 
   // Searches public sources before selecting resources from observed download links.

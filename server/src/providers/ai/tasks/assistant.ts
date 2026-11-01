@@ -7,7 +7,6 @@ import type {
   ChatTools,
   ChatToolResult,
 } from '../../../application/conversations/types.js';
-import type { AiConfig } from '../types.js';
 import type { components } from '../schema-types.js';
 import { createObjectSchema } from '../schemas.js';
 import { AiTask } from './task.js';
@@ -231,18 +230,17 @@ function chatContextPrompt(task: ChatInput) {
 export class AssistantTask extends AiTask<never, string, ChatContext> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
-  protected maxTextCharacters = Infinity;
+  protected readonly maxTextCharacters = Infinity;
   protected task = 'assistant_response';
   protected instructions = chatInstructions;
   protected parallelToolCalls = true;
 
   constructor(
-    config: AiConfig,
     private input: ChatInput,
     private capabilities: ChatTools,
     rounds: number,
   ) {
-    super(config);
+    super();
     this.toolRounds = rounds;
   }
 

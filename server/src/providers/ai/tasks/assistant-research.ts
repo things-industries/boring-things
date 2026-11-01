@@ -1,6 +1,6 @@
 /** Answers assistant questions using public fields and observed citations. */
 
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiContext } from '../types.js';
 import type { ResearchAnswer } from '../../../application/conversations/types.js';
 import type { PublicField } from '../../../application/public-fields.js';
 import { AiTask } from './task.js';
@@ -15,17 +15,16 @@ function chatResearchPrompt(question: string, fields: PublicField[], searchCalls
 export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
-  protected maxTextCharacters = Infinity;
+  private readonly searchCalls = 3;
+  protected readonly maxTextCharacters = Infinity;
   protected task = 'assistant_research';
   protected instructions = getPrompt('web-research-instructions');
 
   constructor(
-    config: AiConfig,
     private question: string,
     private fields: PublicField[],
-    private searchCalls: number,
   ) {
-    super(config);
+    super();
   }
 
   // Answers the supplied question and exposes only observed citation URLs.

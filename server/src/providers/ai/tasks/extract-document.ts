@@ -1,7 +1,7 @@
 /** Extracts cited field batches from reference documents for document evaluations. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiContext } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type {
@@ -125,12 +125,11 @@ export class ExtractDocumentTask extends AiTask<
   protected resultKey = 'values' as const;
 
   constructor(
-    config: AiConfig,
     private document: ReferenceDocument,
     private research: ResearchThing,
     private targets: EmptyResearchField[],
   ) {
-    super(config);
+    super();
   }
 
   // Extracts only the requested document field batch.

@@ -1,7 +1,7 @@
 /** Summarizes Attachment text in bounded portions and extracts identifiers and source metadata. */
 
 import type { components } from '../schema-types.js';
-import type { AiContext, AiConfig } from '../types.js';
+import type { AiContext } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type { AttachmentSummary } from '../../../application/import/types.js';
@@ -84,11 +84,8 @@ export class SummarizeAttachmentTask extends AiTask<
   protected schema = schema;
   protected resultKey = 'identifiers' as const;
 
-  constructor(
-    config: AiConfig,
-    private text: string,
-  ) {
-    super(config);
+  constructor(private text: string) {
+    super();
   }
 
   // Summarizes bounded text portions and merges their metadata and identifiers.

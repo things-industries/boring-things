@@ -9,7 +9,8 @@ import type {
   ResponseInput,
   ResponseCreateParamsNonStreaming,
 } from 'openai/resources/responses/responses';
-import type { AiTurnCompleted, AiContext, AiConfig } from '../types.js';
+import type { AiTurnCompleted, AiContext } from '../types.js';
+import { getEnv } from '../../../env.js';
 import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
 
@@ -59,7 +60,8 @@ export abstract class AiTask<
   private pendingTurn?: Parameters<AiTurnCompleted>[0];
   protected abstract readonly model: string;
   protected abstract readonly effort: ReasoningEffort;
-  protected maxTextCharacters: number;
+  protected readonly maxTextCharacters: number = 120000;
+  protected readonly maxOutputTokens: number = 12000;
   protected abstract task: string;
   protected abstract instructions: string;
   protected schema?: Record<string, unknown>;
@@ -68,9 +70,9 @@ export abstract class AiTask<
   protected toolRounds = 31;
   protected parallelToolCalls = false;
 
-  constructor(protected config: AiConfig) {
-    this.client = new OpenAI({ apiKey: config.openaiApiKey, maxRetries: 0 });
-    this.maxTextCharacters = config.importMaxTextCharacters;
+  // Reads credentials when constructing the task so environment setup can finish first.
+  constructor() {
+    this.client = new OpenAI({ apiKey: getEnv('OPENAI_API_KEY'), maxRetries: 0 });
   }
 
   // Runs the task and logs its last response after output validation and conversion.
@@ -235,7 +237,7 @@ export abstract class AiTask<
       store: false,
       instructions: this.instructions,
       input,
-      max_output_tokens: this.config.aiMaxOutputTokens,
+      max_output_tokens: this.maxOutputTokens,
       ...requestOptions,
       reasoning: { mode: 'standard', effort },
     };

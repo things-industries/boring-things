@@ -59,7 +59,7 @@ Identity failures become explained errors. Failed Imports save the stage and a b
 
 Provider log task names follow task filenames using underscores. `find-resources.ts` logs its requests as `find_resources_search` and `find_resources_selection`; `assistant-research.ts` logs delegated chat research as `assistant_research`.
 
-Each task declares its model and reasoning effort in `server/src/providers/ai/tasks/`. The base task sets standard reasoning mode for every request. Credentials and request limits come from server configuration. Task model choices apply to imports, recommendations and chat.
+Each task declares its model and reasoning effort in `server/src/providers/ai/tasks/`. The base task sets standard reasoning mode for every request. The base task reads `OPENAI_API_KEY` through `getEnv` at construction and sets limits. Task classes override shared limits where needed; each research task sets its web search limit to three calls. Application configuration controls workflow budgets and deadlines. Provider assembly rejects missing credentials at startup. Task model choices apply to imports, recommendations and chat.
 
 | Task                                  | Model         | Reasoning effort |
 | ------------------------------------- | ------------- | ---------------- |
@@ -92,14 +92,15 @@ Google Vision completion logs contain elapsed time and image count under `metric
 | Linked-source review        | Twenty per run; additional sources produce a warning                         |
 | Resource discovery          | `IMPORT_MAX_RESOURCES`, default three                                        |
 | Source transcription        | 1,000,000 text characters; original page labels retained                     |
-| Model conversation text     | `IMPORT_MAX_TEXT_CHARACTERS`, default 120,000 characters                     |
+| Model conversation text     | 120,000 characters in the base AI task                                       |
+| Model response output       | 12,000 tokens in the base AI task                                            |
 | Model requests              | `IMPORT_MAX_REQUESTS`, default sixty per Import or Attachment across retries |
 | Local tool calls            | `IMPORT_TOOL_ROUNDS`, default four per task or batch                         |
 | Field population            | Twenty requested fields per batch                                            |
 | Additional information      | 20,000 source characters per batch                                           |
 | Import attempt              | `IMPORT_TIMEOUT_MS`, default 180,000 ms                                      |
 | Resource transcription wait | `DISCOVERY_TIMEOUT_MS`, default 90,000 ms                                    |
-| Public web search           | `DISCOVERY_SEARCH_CALLS`, default three per research operation               |
+| Public web search           | Three calls per research operation, set in each task class                   |
 
 Upload size, PDF parsing and image decoding also use the limits in the retrieval helpers. Request entries record model, token usage and latency; Import usage includes source transcription usage and records tool calls and elapsed time. When a local tool-call limit is reached, the task disables further tools and requests a final answer using the evidence already gathered. Request, text and timeout limits still apply. Other limit failures keep committed work for review or retry with revised configuration.
 

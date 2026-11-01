@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { readConfig } from '../server/src/config.js';
+import { getEnv } from '../server/src/env.js';
 import { ExtractDocumentTask } from '../server/src/providers/ai/tasks/extract-document.js';
 import { Registry } from '../server/src/application/registry/registry.js';
 import { validateDocumentExtraction } from '../server/src/application/import/evidence.js';
@@ -14,8 +14,7 @@ import {
   referenceSet,
 } from '../server/test/fixtures/reference-documents.js';
 
-const config = readConfig();
-assert.ok(config.openaiApiKey, 'Set OPENAI_API_KEY');
+getEnv('OPENAI_API_KEY');
 const models = [
   ...new Set(
     (
@@ -38,6 +37,7 @@ const results: Record<string, unknown>[] = [];
 for (const model of models) {
   class EvaluatedDocumentTask extends ExtractDocumentTask {
     protected readonly model = model;
+    protected readonly maxOutputTokens = 4000;
   }
   for (const fixture of referenceDocumentBaseline) {
     const usage: NonNullable<Usage['entries']> = [];
@@ -66,7 +66,6 @@ for (const model of models) {
     for (; attempts < 2; attempts++) {
       try {
         result = await new EvaluatedDocumentTask(
-          { ...config, aiMaxOutputTokens: 4000 },
           document,
           fixture.research,
           fixture.research.emptyFields,

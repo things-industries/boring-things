@@ -39,7 +39,6 @@ export class ImportProcessor {
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
     let usageWrites = Promise.resolve();
     const context: AiContext = {
-      maxTextCharacters: this.config.importMaxTextCharacters,
       signal,
       beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
       record: async (delta) => {

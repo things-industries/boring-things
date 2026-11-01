@@ -1,7 +1,6 @@
 /** Thing resolution task, proposes candidates and identifier matches from saved sources. */
 
 import type { components } from '../schema-types.js';
-import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type {
@@ -100,11 +99,8 @@ export class ResolveThingTask extends AiTask<
   protected schema = schema;
   protected resultKey = 'candidates' as const;
 
-  constructor(
-    config: AiConfig,
-    private input: ResolutionInput,
-  ) {
-    super(config);
+  constructor(private input: ResolutionInput) {
+    super();
   }
 
   // Runs the task over the supplied Thing and source context.

@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { readConfig } from '../server/src/config.js';
+import { getEnv } from '../server/src/env.js';
 import { OpenAiChat } from '../server/src/providers/ai/openai-chat.js';
 import type { ChatMessage } from '../server/src/application/conversations/types.js';
 
 const config = readConfig();
-assert.ok(config.openaiApiKey, 'Configure the chat provider');
+getEnv('OPENAI_API_KEY');
 const ai = new OpenAiChat(config);
 const thingId = randomUUID();
 const attachmentId = randomUUID();

@@ -1,7 +1,7 @@
 /** Additional information task, identifies source facts beyond the selected Thing fields. */
 
 import type { components } from '../schema-types.js';
-import type { AiConfig, RegistryResources } from '../types.js';
+import type { RegistryResources } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type {
@@ -62,11 +62,10 @@ export class AdditionalInformationTask extends AiTask<
   protected resultKey = 'findings' as const;
 
   constructor(
-    config: AiConfig,
     private input: AdditionalInformationInput,
     private registryResources?: RegistryResources,
   ) {
-    super(config);
+    super();
   }
 
   // Runs the task over the supplied Thing and source context.

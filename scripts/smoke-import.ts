@@ -5,6 +5,7 @@ import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
 import { readConfig } from '../server/src/config.js';
+import { getEnv } from '../server/src/env.js';
 import * as database from '../server/src/db/connection.js';
 import { loadRegistry } from '../server/src/application/registry/index.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
@@ -12,7 +13,7 @@ import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
 const config = readConfig();
-assert.ok(config.openaiApiKey, 'Set OPENAI_API_KEY');
+getEnv('OPENAI_API_KEY');
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
 );
@@ -58,7 +59,7 @@ try {
   for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort())
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   await database.transaction(pool, registrySeedDb.seedRegistry);
-  ai = new OpenAiImports(config, undefined, undefined, {
+  ai = new OpenAiImports(undefined, undefined, {
     db: pool,
     registry: await loadRegistry(pool),
   });

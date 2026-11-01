@@ -2,12 +2,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readConfig } from '../../src/config.js';
+import { setEnvMode } from '../../src/env.js';
 import { FindResourcesTask } from '../../src/providers/ai/tasks/find-resources.js';
 
 // Page catalogues exceeded the text limit and repeated resource URLs across retrieved pages.
 test('resource research structures large page catalogues within the request text limits', async (t) => {
-  const config = readConfig({ OPENAI_API_KEY: 'fixture-key' });
+  setEnvMode('test');
   const pages = [1, 2, 3].map((page) => `https://maker.example/model/page-${page}`);
   const photo = 'https://maker.example/photo-1-0.webp';
   const expected = {
@@ -30,7 +30,7 @@ test('resource research structures large page catalogues within the request text
     if (requests === 2) {
       const input = body.input[0].content;
       assert.ok(input.length <= 90000);
-      assert.ok(input.length + body.instructions.length <= config.importMaxTextCharacters);
+      assert.ok(input.length + body.instructions.length <= 120000);
       assert.ok(input.includes(photo));
     }
     return Response.json({
@@ -52,9 +52,7 @@ test('resource research structures large page catalogues within the request text
     });
   });
   const task = new FindResourcesTask(
-    config,
     { id: 'fixture', categoryId: 'appliances', knownFields: [], emptyFields: [] },
-    3,
     async (url) => ({
       url,
       links: Array.from({ length: 30 }, (_, index) => ({

@@ -54,7 +54,6 @@ export class AttachmentTranscriptionProcessor {
       const content = Buffer.concat(chunks);
       ensure(content.length <= maxDocumentBytes, 'Attachment too large', 'TOO_LARGE');
       const context = {
-        maxTextCharacters: this.config.importMaxTextCharacters,
         signal,
         beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
         record: async (delta: Partial<import('./types.js').Usage>) => {

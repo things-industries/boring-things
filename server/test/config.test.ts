@@ -67,8 +67,6 @@ test('workflow limits reject invalid values and retain numeric defaults', () => 
     'IMPORT_TIMEOUT_MS',
     'IMPORT_TOOL_ROUNDS',
     'DISCOVERY_TIMEOUT_MS',
-    'DISCOVERY_SEARCH_CALLS',
-    'AI_MAX_OUTPUT_TOKENS',
     'MAX_UPLOAD_BYTES',
   ]) {
     for (const value of ['', 'no', '0', '-1', '1.5', 'Infinity', '9007199254740992'])

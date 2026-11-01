@@ -1,7 +1,6 @@
 /** Resource applicability task, checks public document coverage for a Thing class and variant. */
 
 import type { components } from '../schema-types.js';
-import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type {
@@ -54,11 +53,8 @@ export class ResourceApplicabilityTask extends AiTask<
   protected schema = schema;
   protected resultKey = 'identifiers' as const;
 
-  constructor(
-    config: AiConfig,
-    private input: ResourceApplicabilityInput,
-  ) {
-    super(config);
+  constructor(private input: ResourceApplicabilityInput) {
+    super();
   }
 
   // Runs the task over the supplied Thing and source context.

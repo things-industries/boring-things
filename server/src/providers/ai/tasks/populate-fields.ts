@@ -2,7 +2,6 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { components } from '../schema-types.js';
-import type { AiConfig } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import type {
@@ -70,11 +69,8 @@ export class PopulateFieldsTask extends AiTask<
   protected schema = schema;
   protected resultKey = 'values' as const;
 
-  constructor(
-    config: AiConfig,
-    private input: PopulationInput,
-  ) {
-    super(config);
+  constructor(private input: PopulationInput) {
+    super();
   }
 
   // Runs the task over the supplied Thing and source context.
