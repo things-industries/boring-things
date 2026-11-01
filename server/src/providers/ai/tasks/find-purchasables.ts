@@ -78,7 +78,7 @@ function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: numb
   const guidance: Record<string, string> = {
     appliances: 'Useful documented consumables (filters, bags, detergent, cartridges), tools (eg. cleaning supplies or special implements), replacement parts, or accessories.',
     devices: 'Compatible accessories: chargers, docks, cases and mounts.',
-    vehicles: 'Documented consumables and compatible accessories.',
+    vehicles: 'Documented consumables and compatible accessories.  Commonly useful products include oil, filters, wiper blades, bulbs and batteries.  Common accessories include roof racks, cargo carriers, bike racks, and towing hitches.',
     memberships: 'Usually no purchasables.',
     subscriptions: 'Usually no purchasables.',
     insurance: 'Usually no purchasables.',
