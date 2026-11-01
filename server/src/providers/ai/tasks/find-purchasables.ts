@@ -73,19 +73,17 @@ export const outputSchema = createObjectSchema(
   'Supported consumables and accessories with purchase pages and compatibility evidence.',
 );
 
+const guidance: Record<string, string> = {
+  appliances:
+    'Useful documented consumables (filters, bags, detergent, cartridges), tools (eg. cleaning supplies or special implements), replacement parts, or accessories.',
+  devices: 'Compatible accessories: chargers, docks, cases and mounts.',
+  vehicles:
+    'Documented consumables and compatible accessories.  Commonly useful products include oil, filters, wiper blades, bulbs and batteries.  Common accessories include roof racks, cargo carriers, bike racks, and towing hitches.',
+};
+
 // Builds task instructions from the supplied application context.
 function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: number) {
-  const guidance: Record<string, string> = {
-    appliances: 'Useful documented consumables (filters, bags, detergent, cartridges), tools (eg. cleaning supplies or special implements), replacement parts, or accessories.',
-    devices: 'Compatible accessories: chargers, docks, cases and mounts.',
-    vehicles: 'Documented consumables and compatible accessories.  Commonly useful products include oil, filters, wiper blades, bulbs and batteries.  Common accessories include roof racks, cargo carriers, bike racks, and towing hitches.',
-    memberships: 'Usually no purchasables.',
-    subscriptions: 'Usually no purchasables.',
-    insurance: 'Usually no purchasables.',
-    utilities:
-      'Usually no purchasables; include only products required or supported by the service documentation.',
-  };
-  return ` Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Use sourceRefs from linked Attachments or observed public sources for compatibility evidence. A merchantUrl must be observed through web search or printed in a cited Attachment passage. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
+  return `Find items or services online (with links to purchase) that a user might want to purchase for their Thing. About the Thing: ${JSON.stringify(research)}. Suitable ideas for purchasables in the ${research.categoryId} category include: ${guidance[research.categoryId]} Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Use sourceRefs from linked Attachments or observed public sources for compatibility evidence. A merchantUrl must be observed through web search or printed in a cited Attachment passage. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;
@@ -108,6 +106,7 @@ export class FindPurchasablesTask extends RecommendationTask<Output, Purchasable
 
   // Reads attachments and researches missing evidence before returning cited suggestions.
   protected async runTask() {
+    if (!Object.hasOwn(guidance, this.input.categoryId)) return { items: [] };
     if (!this.input.knownFields.length && !this.input.sources.length) return { items: [] };
     const response = await this.execute(findPurchasablesPrompt(this.input, this.searchCalls));
     return this.processResponse(response);

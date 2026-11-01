@@ -470,6 +470,30 @@ for (const capability of ['tasks', 'purchasables'] as const) {
   });
 }
 
+test('purchasable research skips categories without guidance without making AI requests', async (t) => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('Unexpected AI request');
+  });
+  const ai = new OpenAiImports();
+  for (const categoryId of ['memberships', 'subscriptions', 'insurance', 'utilities', 'unknown']) {
+    assert.deepEqual(
+      await ai.findPurchasables(
+        {
+          categoryId,
+          knownFields: [],
+          fields: [],
+          sources: input.sources,
+          referenceUrls: [],
+          existingPurchasables: [],
+        },
+        createContext(),
+      ),
+      { items: [] },
+    );
+  }
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
 test('purchasables can use purchase links printed in attachment evidence without web search', async (t) => {
   const merchantUrl = 'https://maker.example/cleaner';
   const quote = 'Use cleaner C1: ' + merchantUrl;
