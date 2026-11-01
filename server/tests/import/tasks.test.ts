@@ -10,7 +10,7 @@ import { createImportTaskContext } from '../../test/support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
 import { readConfig } from '../../src/config.js';
 import type { AiTurnCompleted } from '../../src/providers/ai/types.js';
-import { thingDefinition } from '../../src/providers/ai/prompts.js';
+import { getPrompt } from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
 import { AdditionalInformationTask } from '../../src/providers/ai/tasks/additional-information.js';
 const config = readConfig({ OPENAI_API_KEY: 'fixture-key' });
@@ -41,7 +41,7 @@ test('field population awaits source retrieval before continuing the model conve
     retrieved = false;
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
-    assert.ok(body.instructions.includes(thingDefinition));
+    assert.ok(body.instructions.includes(getPrompt('thing-definition')));
     assert.equal(body.model, 'gpt-6-luna');
     assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
     requests++;
@@ -123,7 +123,7 @@ test('Thing resolution receives the definition and reports each turn through its
     const body = JSON.parse(String(options.body));
     assert.equal(body.model, 'gpt-6.1-sol');
     assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'medium' });
-    assert.ok(body.instructions.includes(thingDefinition));
+    assert.ok(body.instructions.includes(getPrompt('thing-definition')));
     return response([
       {
         type: 'message',
@@ -252,7 +252,7 @@ test('additional information selects its model and receives Thing instructions',
     const body = JSON.parse(String(options.body));
     assert.equal(body.model, 'gpt-6.1-sol');
     assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
-    assert.ok(body.instructions.includes(thingDefinition));
+    assert.ok(body.instructions.includes(getPrompt('thing-definition')));
     return response([
       { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
     ]);
@@ -374,7 +374,7 @@ for (const capability of ['tasks', 'purchasables'] as const) {
       async (_url: unknown, options: RequestInit) => {
         const body = JSON.parse(String(options.body));
         const request = fetch.mock.callCount() + 1;
-        assert.ok(body.instructions.includes(thingDefinition));
+        assert.ok(body.instructions.includes(getPrompt('thing-definition')));
         if (capability === 'tasks') {
           assert.match(body.instructions, /do not suggest recording model numbers/);
           assert.match(body.instructions, /Name each task with a verb and its object/);

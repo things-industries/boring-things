@@ -1,18 +1,7 @@
-/** Loads shared Thing definitions and evidence rules from Markdown files. */
+/** Loads shared AI prompt content from Markdown files. */
 
 import { readFileSync } from 'node:fs';
 
-export const thingDefinition = readFileSync(
-  new URL('./prompt-content/thing-definition.md', import.meta.url),
-  'utf8',
-).trim();
-
-export const webResearchInstructions = readFileSync(
-  new URL('./prompt-content/web-research-instructions.md', import.meta.url),
-  'utf8',
-).trim();
-
-export const importInstructions = readFileSync(
-  new URL('./prompt-content/import-instructions.md', import.meta.url),
-  'utf8',
-).trim();
+// Reads a named Markdown prompt relative to this module.
+export const getPrompt = (name: string) =>
+  readFileSync(new URL(`./prompt-content/${name}.md`, import.meta.url), 'utf8').trim() + '\n\n';

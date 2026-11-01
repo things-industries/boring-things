@@ -3,7 +3,7 @@
 import type { components } from '../schema-types.js';
 import type { AiContext, AiConfig } from '../types.js';
 import { AiTask } from './task.js';
-import { importInstructions } from '../prompts.js';
+import { getPrompt } from '../prompts.js';
 import type { AttachmentSummary } from '../../../application/import/types.js';
 import { ensure } from '../../../application/errors.js';
 
@@ -80,7 +80,7 @@ export class SummarizeAttachmentTask extends AiTask<
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'summarize_attachment';
-  protected instructions = importInstructions;
+  protected instructions = getPrompt('import-instructions');
   protected schema = schema;
   protected resultKey = 'identifiers' as const;
 

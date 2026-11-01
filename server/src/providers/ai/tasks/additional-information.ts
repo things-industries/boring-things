@@ -3,7 +3,7 @@
 import type { components } from '../schema-types.js';
 import type { AiConfig, RegistryResources } from '../types.js';
 import { AiTask } from './task.js';
-import { thingDefinition, importInstructions } from '../prompts.js';
+import { getPrompt } from '../prompts.js';
 import type {
   AdditionalInformationInput,
   AdditionalInformationResult,
@@ -57,7 +57,7 @@ export class AdditionalInformationTask extends AiTask<
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
   protected task = 'additional_information';
-  protected instructions = `${thingDefinition} ${importInstructions}`;
+  protected instructions = getPrompt('thing-definition') + getPrompt('import-instructions');
   protected schema = schema;
   protected resultKey = 'findings' as const;
 

@@ -4,7 +4,7 @@ import type { AiContext, AiConfig } from '../types.js';
 import type { ResearchAnswer } from '../../../application/conversations/types.js';
 import type { PublicField } from '../../../application/public-fields.js';
 import { AiTask } from './task.js';
-import { webResearchInstructions } from '../prompts.js';
+import { getPrompt } from '../prompts.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 
 // Builds task instructions from the supplied application context.
@@ -17,7 +17,7 @@ export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
   protected readonly effort = 'low';
   protected maxTextCharacters = Infinity;
   protected task = 'assistant_research';
-  protected instructions = webResearchInstructions;
+  protected instructions = getPrompt('web-research-instructions');
 
   constructor(
     config: AiConfig,

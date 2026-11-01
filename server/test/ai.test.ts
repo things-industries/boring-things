@@ -9,7 +9,7 @@ import { extractedThings, extractionBaseline } from './fixtures/imports.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
-import { thingDefinition } from '../src/providers/ai/prompts.js';
+import { getPrompt } from '../src/providers/ai/prompts.js';
 
 import { createImportTaskContext } from './support/import-context.js';
 
@@ -404,7 +404,7 @@ test('SDK document extraction uses its task model, contained schema and per-task
     const body = JSON.parse(init.body as string);
     assert.equal(body.model, 'gpt-6-luna');
     assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
-    assert.ok(body.instructions.includes(thingDefinition));
+    assert.ok(body.instructions.includes(getPrompt('thing-definition')));
     assert.ok(JSON.stringify(body.input).includes('Fixture device (2024)'));
     assert.equal(body.store, false);
     assert.equal(body.tools, undefined);
