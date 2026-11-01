@@ -50,11 +50,7 @@ function inputCharacters(input: ResponseInput | string): number {
   }, 0);
 }
 
-export abstract class AiTask<
-  Output = never,
-  Result = Output,
-  Context extends AiContext = AiContext,
-> {
+export abstract class AiTask<Output = never, Result = Output> {
   private client: OpenAI;
   private turnCompleted?: AiTurnCompleted;
   private pendingTurn?: Parameters<AiTurnCompleted>[0];
@@ -71,14 +67,14 @@ export abstract class AiTask<
   protected parallelToolCalls = false;
 
   // Reads credentials when constructing the task so environment setup can finish first.
-  constructor() {
+  constructor(protected readonly context: AiContext) {
     this.client = new OpenAI({ apiKey: getEnv('OPENAI_API_KEY'), maxRetries: 0 });
   }
 
   // Runs the task and logs its last response after output validation and conversion.
-  async run(context: Context): Promise<Result> {
+  async run(): Promise<Result> {
     try {
-      return await this.runTask(context);
+      return await this.runTask();
     } catch (error) {
       if (this.pendingTurn?.metrics.aiCount !== undefined) this.reportMetrics({ validCount: 0 });
       throw error;
@@ -88,7 +84,7 @@ export abstract class AiTask<
   }
 
   // Implements task-specific requests and result conversion.
-  protected abstract runTask(context: Context): Promise<Result>;
+  protected abstract runTask(): Promise<Result>;
 
   // Adds task measurements to the current response without logging its content.
   protected reportMetrics(metrics: Record<string, number>) {
@@ -111,7 +107,6 @@ export abstract class AiTask<
   // Runs model turns and awaits tool results before continuing the conversation.
   protected async execute(
     input: ResponseInput | string,
-    context: AiContext,
     options: TaskOptions = {},
     delta?: (text: string) => void,
   ): Promise<Response> {
@@ -120,7 +115,6 @@ export abstract class AiTask<
     for (let round = 0; round <= this.toolRounds; round++) {
       const response = await this.requestResponse(
         conversation,
-        context,
         {
           ...(this.schema
             ? {
@@ -216,19 +210,15 @@ export abstract class AiTask<
   // Sends streamed or buffered requests through one cancellation, error and usage boundary.
   protected async requestResponse(
     input: ResponseInput | string,
-    context: AiContext,
     options: TaskOptions = {},
     delta?: (text: string) => void,
     task = this.task,
   ): Promise<Response> {
+    const { context } = this;
     this.logTurn();
     context.signal.throwIfAborted();
     const characters = inputCharacters(input);
-    ensure(
-      characters + this.instructions.length <= this.maxTextCharacters &&
-        characters <= (context.maxTextCharacters ?? Infinity),
-      'text_limit',
-    );
+    ensure(characters + this.instructions.length <= this.maxTextCharacters, 'text_limit');
     context.beforeRequest?.();
     const started = Date.now();
     const { effort = this.effort, ...requestOptions } = options;

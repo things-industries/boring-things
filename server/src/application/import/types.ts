@@ -1,9 +1,15 @@
-/** Defines application Import inputs, results, usage and workflow capability contracts. */
+/** Defines shared Import data, usage and application capability contracts using task-owned inputs. */
 
+import type { FieldProposal } from '../thing-fields.js';
 import type { PublicField } from '../public-fields.js';
 import type { FieldDefinition, Schema, Value } from '../../../../shared/model.js';
 import type { AiContext } from '../../providers/ai/types.js';
-import type { FieldProposal } from '../thing-fields.js';
+import type { PopulationInput } from '../../providers/ai/tasks/populate-fields.js';
+import type { ResolutionInput } from '../../providers/ai/tasks/resolve-thing.js';
+import type { ResourceApplicabilityInput } from '../../providers/ai/tasks/resource-applicability.js';
+import type { AdditionalInformationInput } from '../../providers/ai/tasks/additional-information.js';
+import type { TaskResearch } from '../../providers/ai/tasks/suggest-tasks.js';
+import type { PurchasableResearch } from '../../providers/ai/tasks/find-purchasables.js';
 
 // Describes failures using fixed messages and database codes without source or provider content.
 export function getImportFailureReason(error: unknown): string {
@@ -61,14 +67,6 @@ export interface ImportSourceText {
   terms: string[];
 }
 
-export interface AttachmentSummary {
-  summary: string | null;
-  terms: string[];
-  status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
-  identifiers?: IdentifierObservation[];
-  metadata: Schema['AttachmentPatch'] | null;
-}
-
 export interface ExtractedThing {
   id: string;
   name: string;
@@ -79,15 +77,6 @@ export interface ExtractedThing {
   facts: Fact[];
   knownFields?: KnownResearchField[];
   sources?: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
-}
-
-export interface Extraction {
-  text: string;
-  extractedThings: ExtractedThing[];
-  metadata?: Schema['AttachmentPatch'] | null;
-  summary?: string | null;
-  terms?: string[];
-  transcriptionStatus?: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
 }
 
 export interface Source {
@@ -105,52 +94,6 @@ export interface DiscoveryItem {
   url: string;
   sourceUrl: string;
   metadata?: Schema['AttachmentPatch'] | null;
-}
-
-export interface Discovery {
-  items: DiscoveryItem[];
-  sources: string[];
-  identity?: { name: string; sourceUrl: string } | null;
-  documentBatches?: {
-    attachmentId: string;
-    targetKeys: string[];
-  }[];
-  warnings?: DiscoveryWarning[];
-  rejectedDocumentUrls?: string[];
-}
-
-export interface RecommendationInput extends Pick<
-  ResearchThing,
-  'name' | 'categoryId' | 'knownFields'
-> {
-  referenceUrls: string[];
-  fields: {
-    id: string;
-    label: string;
-    description: string;
-    schema: FieldDefinition['schema'] | null;
-    value: Value | null;
-  }[];
-  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
-}
-
-export interface TaskResearch extends RecommendationInput {
-  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
-}
-
-export interface PurchasableResearch extends RecommendationInput {
-  existingPurchasables: Pick<Schema['Purchasable'], 'name' | 'kind'>[];
-}
-
-export interface TaskSuggestions {
-  items: Pick<Schema['Event'], 'title' | 'description' | 'sourceRefs'>[];
-}
-
-export interface PurchasableSuggestions {
-  items: Pick<
-    Schema['Purchasable'],
-    'kind' | 'name' | 'description' | 'merchantUrl' | 'sourceRefs'
-  >[];
 }
 
 export type Usage = Schema['ImportUsage'];
@@ -200,26 +143,6 @@ export interface ReferenceDocument extends Source {
   pageCount: number;
 }
 
-export interface DocumentExtraction {
-  metadata: Schema['AttachmentPatch'] | null;
-  applicable: boolean;
-  applicability: { page: number; quote: string } | null;
-  values: {
-    fieldSetId: string | null;
-    fieldId: string;
-    value: Value;
-    page: number;
-    quote: string;
-  }[];
-}
-
-export interface AdditionalInformationInput {
-  thing: { name: string; categoryId: string; identifiers?: { fieldId: string; value: Value }[] };
-  knownFields: string[];
-  attachmentId: string;
-  text: string;
-}
-
 export interface ImportAi {
   assessResource?(
     input: ResourceApplicabilityInput,
@@ -235,7 +158,7 @@ export interface ImportAi {
   selectFieldSets(
     extractedThing: ExtractedThing,
     context: ImportTaskContext,
-  ): Promise<{ setIds: string[] }>;
+  ): Promise<FieldSetSelection>;
   findResources(research: ResearchThing, context: AiContext): Promise<Discovery>;
   suggestTasks(research: TaskResearch, context: ImportTaskContext): Promise<TaskSuggestions>;
   findPurchasables(
@@ -285,14 +208,18 @@ export interface SourceEvidence {
   quote: string;
 }
 
-export interface ResolutionResult {
-  candidates: Omit<ThingCandidate, 'id'>[];
-  contradiction: boolean;
+export interface FieldSetSelection {
+  setIds: string[];
 }
 
 export interface PopulationResult {
   values: FieldProposal[];
   pinnedFields: Pick<FieldProposal, 'fieldSetId' | 'fieldId'>[];
+}
+
+export interface ResolutionResult {
+  candidates: Omit<ThingCandidate, 'id'>[];
+  contradiction: boolean;
 }
 
 export interface ResourceApplicability {
@@ -310,35 +237,55 @@ export interface AdditionalInformationResult {
   })[];
 }
 
-export interface ResourceApplicabilityInput {
-  categoryId: string;
-  knownFields: KnownResearchField[];
-  identifierFields: FieldDefinition[];
-  source: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
-    identifiers: IdentifierObservation[] | null;
-  };
+export interface TaskSuggestions {
+  items: Pick<Schema['Event'], 'title' | 'description' | 'sourceRefs'>[];
 }
 
-export interface ResolutionInput {
-  sources: (Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
-    identifiers: IdentifierObservation[];
-  })[];
-  categories: { id: string; name: string; description: string; identifiers: FieldDefinition[] }[];
-  existingThings: {
-    id: string;
-    name: string;
-    categoryId: string;
-    identifiers: { fieldId: string; value: Value }[];
-  }[];
-  thingContextId: string | null;
+export interface PurchasableSuggestions {
+  items: Pick<
+    Schema['Purchasable'],
+    'kind' | 'name' | 'description' | 'merchantUrl' | 'sourceRefs'
+  >[];
 }
-export interface PopulationInput {
-  thing: {
-    id: string;
-    name: string;
-    categoryId: string;
-    identifiers?: { fieldId: string; value: Value }[];
-  };
-  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
-  fields: { fieldSetId: string | null; field: FieldDefinition; value: Value | null }[];
+
+export interface AttachmentSummary {
+  summary: string | null;
+  terms: string[];
+  status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
+  identifiers?: IdentifierObservation[];
+  metadata: Schema['AttachmentPatch'] | null;
+}
+
+export interface Extraction {
+  text: string;
+  extractedThings: ExtractedThing[];
+  metadata?: Schema['AttachmentPatch'] | null;
+  summary?: string | null;
+  terms?: string[];
+  transcriptionStatus?: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
+}
+
+export interface DocumentExtraction {
+  metadata: Schema['AttachmentPatch'] | null;
+  applicable: boolean;
+  applicability: { page: number; quote: string } | null;
+  values: {
+    fieldSetId: string | null;
+    fieldId: string;
+    value: Value;
+    page: number;
+    quote: string;
+  }[];
+}
+
+export interface Discovery {
+  items: DiscoveryItem[];
+  sources: string[];
+  identity?: { name: string; sourceUrl: string } | null;
+  documentBatches?: {
+    attachmentId: string;
+    targetKeys: string[];
+  }[];
+  warnings?: DiscoveryWarning[];
+  rejectedDocumentUrls?: string[];
 }

@@ -6,11 +6,8 @@ import * as attachmentsDb from '../../src/db/entities/attachments.js';
 import { setTimeout } from 'node:timers/promises';
 import { startTestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
-import type {
-  ImportAi,
-  ResearchThing,
-  RecommendationInput,
-} from '../../src/application/import/types.js';
+import type { ImportAi, ResearchThing } from '../../src/application/import/types.js';
+import type { RecommendationInput } from '../../src/providers/ai/tasks/recommendation.js';
 
 test('contextual Import and Recommendation preserve owner fields and retry unfinished work', async () => {
   const app = await startTestApp({ importWorkflow: { specialists: [] } });

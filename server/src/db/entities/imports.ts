@@ -3,7 +3,7 @@ import type pg from 'pg';
 import * as database from '../connection.js';
 import type { Database } from '../connection.js';
 import type { Schema } from '../../../../shared/model.js';
-import type { Discovery, ThingCandidate, Usage } from '../../application/import/types.js';
+import type { ThingCandidate, Usage, Discovery } from '../../application/import/types.js';
 import { blankUsage, activeStatuses } from '../../application/import/types.js';
 import { ensure } from '../../application/errors.js';
 import * as thingsDb from './things.js';

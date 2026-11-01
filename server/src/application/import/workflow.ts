@@ -8,13 +8,9 @@ import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
 import { getImportFailureReason, UsagePersistenceError } from './types.js';
-import type {
-  ImportAi,
-  ImportTaskContext,
-  ResolutionInput,
-  ThingCandidate,
-  RecommendationInput,
-} from './types.js';
+import type { ImportAi, ImportTaskContext, ThingCandidate } from './types.js';
+import type { ResolutionInput } from '../../providers/ai/tasks/resolve-thing.js';
+import type { RecommendationInput } from '../../providers/ai/tasks/recommendation.js';
 import type { AiContext } from '../../providers/ai/types.js';
 import type { ImportRow, WorkflowCheckpoint } from '../../db/entities/imports.js';
 import type { Database } from '../../db/connection.js';

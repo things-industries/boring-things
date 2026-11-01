@@ -3,9 +3,9 @@
 import { pauseUntil } from './pause.js';
 import type {
   ExtractedThing,
-  Extraction,
   ImportAi,
   ImportTaskContext,
+  Extraction,
 } from '../../src/application/import/types.js';
 import { searchFields, searchFieldSets } from '../../src/providers/ai/tools/registry.js';
 import type { RegistryResources } from '../../src/providers/ai/types.js';
@@ -93,7 +93,7 @@ export class FixtureAi implements ImportAi {
   }
 
   async resolveThing(
-    input: import('../../src/application/import/types.js').ResolutionInput,
+    input: import('../../src/providers/ai/tasks/resolve-thing.js').ResolutionInput,
     context: ImportTaskContext,
   ) {
     const source = input.sources[0];
@@ -152,7 +152,7 @@ export class FixtureAi implements ImportAi {
   }
 
   async populateFields(
-    input: import('../../src/application/import/types.js').PopulationInput,
+    input: import('../../src/providers/ai/tasks/populate-fields.js').PopulationInput,
     context: ImportTaskContext,
   ): Promise<PopulationResult> {
     await pauseUntil(this.pause, context.signal);
@@ -218,7 +218,7 @@ export class FixtureAi implements ImportAi {
     return { applicable: true, identifiers: [] };
   }
   async additionalInformation(
-    input: import('../../src/application/import/types.js').AdditionalInformationInput,
+    input: import('../../src/providers/ai/tasks/additional-information.js').AdditionalInformationInput,
     context: ImportTaskContext,
   ) {
     if (input.text !== 'neff' || input.knownFields.includes('Installer reference'))

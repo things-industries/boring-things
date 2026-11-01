@@ -1,15 +1,14 @@
 /** Finds public documents and images and suggests a display name for an existing Thing. */
 
+import type { FromSchema } from 'json-schema-to-ts';
+import type { Discovery, ResearchThing } from '../../../application/import/types.js';
 import type { Response } from 'openai/resources/responses/responses';
-import type { components } from '../schema-types.js';
 import type { AiContext } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
-import type { ResearchThing, Discovery } from '../../../application/import/types.js';
 import { categoryResearchPrompt } from './resource-prompts.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { readResourcePage } from '../../web/resources.js';
-
 import { createObjectSchema, attachmentMetadataSchema } from '../schemas.js';
 
 export const schema = createObjectSchema(
@@ -109,7 +108,9 @@ function createSelectionPrompt(report: string, sources: string[], research: Rese
   return `Select up to 8 resources justified by the supplied evidence. Research objective: ${categoryResearchPrompt(research.categoryId)}. Public subject: ${JSON.stringify({ name: research.name, knownFields: research.knownFields })}. Include the requested category document and at most one official product photo for a physical object. The retrieved page link catalogue supplies observed URLs and their surrounding page text, including embedded download metadata. Use it to locate the full documents required by the category objective. Verify the subject, model or product variant, region and version against the source page. A family document applies only when it covers the subject. Every sourceUrl and url must be in the supplied retrieved URL list. Set identity to a display-name suggestion for the existing Thing: a short brand or provider plus everyday type, such as "Bosch Oven", with sourceUrl justifying that name; otherwise null. The Thing has already been resolved; this suggestion only updates its display name. Omit model codes, marketing features and serial numbers from the name. Reference entries MUST link directly to downloadable PDFs applicable to the subject and category instruction. Do not include HTML pages, search snippets or reference notes as attachments. The url is the retrieved PDF URL and sourceUrl is the retrieved page or PDF establishing applicability. Prefer official documents. Image entries link to a product photograph found on an official model page, with sourceUrl proving the matching model and variant. Exclude labels, document scans, logos, icons and unrelated variants. Use null metadata for images. Reference metadata may include title, documentType, publisher and documentDate only when supported by the cited source; unknown properties are null. Do not infer document date from website update dates. Report: ${report}\nRetrieved URLs: ${JSON.stringify(sources)}`;
 }
 
-export class FindResourcesTask extends AiTask<components['schemas']['Discovery'], Discovery> {
+export type Output = FromSchema<typeof schema>;
+
+export class FindResourcesTask extends AiTask<Output, Discovery> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   private readonly searchCalls = 3;
@@ -120,16 +121,16 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
 
   constructor(
     private input: ResearchThing,
+    context: AiContext,
     private readPage = readResourcePage,
   ) {
-    super();
+    super(context);
   }
 
   // Searches public sources before selecting resources from observed download links.
-  protected async runTask(context: AiContext) {
+  protected async runTask() {
     const response = await this.requestResponse(
       createSearchPrompt(this.input, this.searchCalls),
-      context,
       {
         ...createWebSearchOptions(this.searchCalls),
         instructions: `${getPrompt('thing-definition')} ${getPrompt('web-research-instructions')}`,
@@ -137,7 +138,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
       undefined,
       'find_resources_search',
     );
-    const { text, sources } = await readWebResult(response, context, this.searchCalls);
+    const { text, sources } = await readWebResult(response, this.context, this.searchCalls);
     this.reportMetrics({ sourceCount: sources.length });
     if (!sources.length) return { items: [], sources: [] };
     const pages = await Promise.all(
@@ -157,7 +158,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
           return relevance(right) - relevance(left);
         })
         .slice(0, 3)
-        .map((url) => this.readPage(url, context.signal)),
+        .map((url) => this.readPage(url, this.context.signal)),
     );
     const resources = pages.flatMap((page) => (page ? [{ ...page, links: [...page.links] }] : []));
     sources.push(
@@ -173,10 +174,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
         sources,
         this.input,
       );
-    const limit = Math.min(
-      this.maxTextCharacters - this.instructions.length,
-      context.maxTextCharacters ?? Infinity,
-    );
+    const limit = this.maxTextCharacters - this.instructions.length;
     let input = createInput();
 
     // Fit page context into the request budget while keeping every observed resource URL.
@@ -186,7 +184,7 @@ export class FindResourcesTask extends AiTask<components['schemas']['Discovery']
       page.links.pop();
       input = createInput();
     }
-    const result = await this.execute([{ role: 'user', content: input }], context, {
+    const result = await this.execute([{ role: 'user', content: input }], {
       model: 'gpt-6-luna',
       effort: 'none',
     });

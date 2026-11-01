@@ -1,17 +1,21 @@
 /** Shares strict object construction and repeated value, metadata and source-evidence schema fragments. */
 
+import type { JSONSchema } from 'json-schema-to-ts';
+
 // Builds strict object schemas with every declared property required.
-export function createObjectSchema<Properties extends Record<string, unknown>>(
+export function createObjectSchema<const Properties extends Record<string, JSONSchema>>(
   properties: Properties,
   description?: string,
 ) {
+  // Authored property names are the string keys returned by Object.keys.
+  const required = Object.keys(properties) as (keyof Properties & string)[];
   return {
     ...(description ? { description } : {}),
     type: 'object',
     additionalProperties: false,
     properties,
-    required: Object.keys(properties),
-  };
+    required,
+  } as const;
 }
 
 export const sourceEvidenceProperties = {
@@ -27,7 +31,7 @@ export const sourceEvidenceProperties = {
     description: 'Verbatim source passage, up to 2000 characters.',
     type: 'string',
   },
-};
+} as const;
 
 export const valueSchema = {
   anyOf: [
@@ -64,7 +68,7 @@ export const valueSchema = {
       'Source-supported GBP, EUR or USD monetary amount and currency, represented in integer minor units with two decimal places: GBP 12.34 becomes {"amountMinor":1234,"currency":"GBP"}.',
     ),
   ],
-};
+} as const;
 
 export const attachmentMetadataSchema = createObjectSchema(
   {

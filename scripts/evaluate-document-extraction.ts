@@ -7,7 +7,7 @@ import { getEnv } from '../server/src/env.js';
 import { ExtractDocumentTask } from '../server/src/providers/ai/tasks/extract-document.js';
 import { Registry } from '../server/src/application/registry/registry.js';
 import { validateDocumentExtraction } from '../server/src/application/import/evidence.js';
-import type { DocumentExtraction, Usage } from '../server/src/application/import/types.js';
+import type { Usage, DocumentExtraction } from '../server/src/application/import/types.js';
 import {
   referenceDocumentBaseline,
   referenceFields,
@@ -69,12 +69,13 @@ for (const model of models) {
           document,
           fixture.research,
           fixture.research.emptyFields,
-        ).run({
-          signal: AbortSignal.timeout(90000),
-          record: async (delta) => {
-            usage.push(...(delta.entries ?? []));
+          {
+            signal: AbortSignal.timeout(90000),
+            record: async (delta) => {
+              usage.push(...(delta.entries ?? []));
+            },
           },
-        });
+        ).run();
         validateDocumentExtraction(result, document, fixture.research.emptyFields, registry);
         break;
       } catch (error) {

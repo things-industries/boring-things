@@ -5,6 +5,10 @@ import assert from 'node:assert/strict';
 import { setEnvMode } from '../../src/env.js';
 import { FindResourcesTask } from '../../src/providers/ai/tasks/find-resources.js';
 
+class LimitedResourcesTask extends FindResourcesTask {
+  protected override readonly maxTextCharacters = 90000;
+}
+
 // Page catalogues exceeded the text limit and repeated resource URLs across retrieved pages.
 test('resource research structures large page catalogues within the request text limits', async (t) => {
   setEnvMode('test');
@@ -30,7 +34,7 @@ test('resource research structures large page catalogues within the request text
     if (requests === 2) {
       const input = body.input[0].content;
       assert.ok(input.length <= 90000);
-      assert.ok(input.length + body.instructions.length <= 120000);
+      assert.ok(input.length + body.instructions.length <= 90000);
       assert.ok(input.includes(photo));
     }
     return Response.json({
@@ -51,8 +55,9 @@ test('resource research structures large page catalogues within the request text
       ],
     });
   });
-  const task = new FindResourcesTask(
+  const task = new LimitedResourcesTask(
     { id: 'fixture', categoryId: 'appliances', knownFields: [], emptyFields: [] },
+    { signal: new AbortController().signal, record: async () => {} },
     async (url) => ({
       url,
       links: Array.from({ length: 30 }, (_, index) => ({
@@ -64,11 +69,7 @@ test('resource research structures large page catalogues within the request text
       })),
     }),
   );
-  const result = await task.run({
-    signal: new AbortController().signal,
-    maxTextCharacters: 90000,
-    record: async () => {},
-  });
+  const result = await task.run();
   assert.equal(requests, 2);
   assert.deepEqual(result.items, expected.items);
   assert.ok(result.sources.includes(photo));

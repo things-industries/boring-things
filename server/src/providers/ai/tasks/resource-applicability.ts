@@ -1,16 +1,27 @@
 /** Resource applicability task, checks public document coverage for a Thing class and variant. */
 
-import type { components } from '../schema-types.js';
-import { AiTask } from './task.js';
-import { getPrompt } from '../prompts.js';
+import type { FromSchema } from 'json-schema-to-ts';
 import type {
-  ResourceApplicabilityInput,
   ResourceApplicability,
   ImportTaskContext,
+  KnownResearchField,
+  ImportSourceText,
+  IdentifierObservation,
 } from '../../../application/import/types.js';
+import { AiTask } from './task.js';
+import { getPrompt } from '../prompts.js';
 import { createTranscriptionTool } from '../tools/transcription.js';
-
 import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
+import type { FieldDefinition } from '../../../../../shared/model.js';
+
+export interface ResourceApplicabilityInput {
+  categoryId: string;
+  knownFields: KnownResearchField[];
+  identifierFields: FieldDefinition[];
+  source: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
+    identifiers: IdentifierObservation[] | null;
+  };
+}
 
 export const schema = createObjectSchema(
   {
@@ -41,11 +52,9 @@ export const schema = createObjectSchema(
   'Applicability and public identifier coverage of one saved resource.',
 );
 
-export class ResourceApplicabilityTask extends AiTask<
-  components['schemas']['ResourceApplicability'],
-  ResourceApplicability,
-  ImportTaskContext
-> {
+export type Output = FromSchema<typeof schema>;
+
+export class ResourceApplicabilityTask extends AiTask<Output, ResourceApplicability> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'resource_applicability';
@@ -53,23 +62,23 @@ export class ResourceApplicabilityTask extends AiTask<
   protected schema = schema;
   protected resultKey = 'identifiers' as const;
 
-  constructor(private input: ResourceApplicabilityInput) {
-    super();
+  constructor(
+    private input: ResourceApplicabilityInput,
+    context: ImportTaskContext,
+  ) {
+    super(context);
+    this.tools = [createTranscriptionTool(context)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  protected async runTask(context: ImportTaskContext) {
-    this.tools = [createTranscriptionTool(context)];
+  protected async runTask() {
     return this.parseOutput(
-      await this.execute(
-        [
-          {
-            role: 'user',
-            content: `Assess whether this public source applies to the supplied Thing class and variant. Search its transcription. Record only printed group and class identifiers with verbatim quotes, including other models a manual covers. Ignore instance identifiers and credentials. Input: ${JSON.stringify(this.input)}`,
-          },
-        ],
-        context,
-      ),
+      await this.execute([
+        {
+          role: 'user',
+          content: `Assess whether this public source applies to the supplied Thing class and variant. Search its transcription. Record only printed group and class identifiers with verbatim quotes, including other models a manual covers. Ignore instance identifiers and credentials. Input: ${JSON.stringify(this.input)}`,
+        },
+      ]),
     );
   }
 }

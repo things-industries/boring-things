@@ -1,7 +1,7 @@
 /** Answers assistant questions using public fields and observed citations. */
 
-import type { AiContext } from '../types.js';
 import type { ResearchAnswer } from '../../../application/conversations/types.js';
+import type { AiContext } from '../types.js';
 import type { PublicField } from '../../../application/public-fields.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
@@ -23,18 +23,18 @@ export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
   constructor(
     private question: string,
     private fields: PublicField[],
+    context: AiContext,
   ) {
-    super();
+    super(context);
   }
 
   // Answers the supplied question and exposes only observed citation URLs.
-  protected async runTask(context: AiContext) {
+  protected async runTask() {
     const response = await this.execute(
       chatResearchPrompt(this.question, this.fields, this.searchCalls),
-      context,
       createWebSearchOptions(this.searchCalls, 'cited'),
     );
-    const result = await readWebResult(response, context, this.searchCalls, 'cited');
+    const result = await readWebResult(response, this.context, this.searchCalls, 'cited');
     this.reportMetrics({ sourceCount: result.sources.length });
     return result;
   }

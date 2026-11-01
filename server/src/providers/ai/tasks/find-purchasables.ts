@@ -1,21 +1,25 @@
 /** Researches and converts cited findPurchasables results. */
 
+import type { FromSchema } from 'json-schema-to-ts';
+import type {
+  PurchasableSuggestions,
+  ImportTaskContext,
+} from '../../../application/import/types.js';
 import type { Response } from 'openai/resources/responses/responses';
-import type { components } from '../schema-types.js';
 import {
   RecommendationTask,
   recommendationSourcesSchema,
   recommendationInstructions,
 } from './recommendation.js';
-import type {
-  PurchasableResearch,
-  PurchasableSuggestions,
-  ImportTaskContext,
-} from '../../../application/import/types.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
-
 import { createObjectSchema } from '../schemas.js';
+import type { Schema } from '../../../../../shared/model.js';
+import type { RecommendationInput } from './recommendation.js';
+
+export interface PurchasableResearch extends RecommendationInput {
+  existingPurchasables: Pick<Schema['Purchasable'], 'name' | 'kind'>[];
+}
 
 const purchasableRecommendationInstructions = `Name each purchasable with its basic item name, usually 2–5 words. Omit the Thing's name, brands, model and product codes, part numbers and quantities. Keep only qualifiers needed to distinguish it from other purchasables, such as "Solid baking tray", "Deep baking tray" or "Wire baking shelf". Other suitable names include "Cleaning gel", "Detergent tablets" and "Water filter".
 Describe why the item is useful and when the owner should buy it. Aim for one sentence of 15–30 words, using only benefits and buying situations justified by the evidence. Mention included components or quantities only when they affect the buying decision. Include a compatibility restriction only when it affects the owner's choice. Keep product identifiers and compatibility evidence in source quotations. Keep quotations verbatim.
@@ -84,10 +88,9 @@ function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: numb
   return ` Find useful purchasables for a Thing, including their purchase links. Suitable ideas for purchasables in this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Use sourceRefs from linked Attachments or observed public sources for compatibility evidence. A merchantUrl must be observed through web search or printed in a cited Attachment passage. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
-export class FindPurchasablesTask extends RecommendationTask<
-  components['schemas']['PurchasableSuggestions'],
-  PurchasableSuggestions
-> {
+export type Output = FromSchema<typeof schema>;
+
+export class FindPurchasablesTask extends RecommendationTask<Output, PurchasableSuggestions> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected readonly searchCalls = 3;
@@ -96,18 +99,17 @@ export class FindPurchasablesTask extends RecommendationTask<
   protected schema = schema;
   protected resultKey = 'items' as const;
 
-  constructor(private input: PurchasableResearch) {
-    super();
+  constructor(
+    private input: PurchasableResearch,
+    context: ImportTaskContext,
+  ) {
+    super(context);
   }
 
   // Reads attachments and researches missing evidence before returning cited suggestions.
-  protected async runTask(context: ImportTaskContext) {
-    this.registerSourceTool(context);
+  protected async runTask() {
     if (!this.input.knownFields.length && !this.input.sources.length) return { items: [] };
-    const response = await this.execute(
-      findPurchasablesPrompt(this.input, this.searchCalls),
-      context,
-    );
+    const response = await this.execute(findPurchasablesPrompt(this.input, this.searchCalls));
     return this.processResponse(response);
   }
 

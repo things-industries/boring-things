@@ -1,10 +1,6 @@
 import { pauseUntil } from './pause.js';
-import type {
-  ChatAi,
-  ChatInput,
-  ChatContext,
-  ChatTools,
-} from '../../src/application/conversations/types.js';
+import type { ChatAi, ChatContext, ChatTools } from '../../src/application/conversations/types.js';
+import type { ChatInput } from '../../src/providers/ai/tasks/assistant.js';
 export class FixtureChat implements ChatAi {
   constructor(public creation?: 'create_event' | 'create_issue') {}
   calls = 0;

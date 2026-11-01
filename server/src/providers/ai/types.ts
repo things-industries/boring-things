@@ -1,7 +1,6 @@
-/** Defines execution context and usage reporting shared by AI providers and their application callers. */
+/** Defines job execution resources and completion telemetry shared by AI tasks and application callers. */
 
 import type { Schema } from '../../../../shared/model.js';
-
 import type { Database } from '../../db/connection.js';
 import type { Registry } from '../../application/registry/registry.js';
 
@@ -11,9 +10,13 @@ export interface RegistryResources {
 }
 
 export interface AiContext {
+  // Cancels model requests and other work belonging to the job.
   signal: AbortSignal;
+
+  // Consumes the job's shared model-request allowance, including usage from earlier attempts.
   beforeRequest?: () => void;
-  maxTextCharacters?: number;
+
+  // Awaits job-specific usage persistence; completion telemetry uses onTurnCompleted separately.
   record(usage: Partial<Schema['ImportUsage']>): Promise<void>;
 }
 

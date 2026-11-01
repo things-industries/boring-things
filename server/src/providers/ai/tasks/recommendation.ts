@@ -1,10 +1,13 @@
 /** Recommendation execution, shares attachment retrieval, bounded web search and citation conversion. */
 
 import type { ResponseInput } from 'openai/resources/responses/responses';
-import type { ImportTaskContext } from '../../../application/import/types.js';
-import type { SourceRef } from '../../../../../shared/model.js';
-import type { AiContext } from '../types.js';
-import type { components } from '../schema-types.js';
+import type {
+  ImportTaskContext,
+  ResearchThing,
+  ImportSourceText,
+  SourceEvidence,
+} from '../../../application/import/types.js';
+import type { SourceRef, FieldDefinition, Value } from '../../../../../shared/model.js';
 import { AiTask, type TaskOptions } from './task.js';
 import { createTranscriptionTool } from '../tools/transcription.js';
 import { createWebSearchOptions, readWebResult } from '../tools/web.js';
@@ -13,6 +16,21 @@ import { createSourceRef } from '../sources.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
 import { getPrompt } from '../prompts.js';
+
+export interface RecommendationInput extends Pick<
+  ResearchThing,
+  'name' | 'categoryId' | 'knownFields'
+> {
+  referenceUrls: string[];
+  fields: {
+    id: string;
+    label: string;
+    description: string;
+    schema: FieldDefinition['schema'] | null;
+    value: Value | null;
+  }[];
+  sources: Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'>[];
+}
 
 export const recommendationInstructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')} ${getPrompt('web-research-instructions')}
 Read applicable linked Attachments with search_transcription before searching the web. Use web search when evidence or purchase links are missing. Prefer official manufacturer or provider recommendations. Cite Attachment IDs, original pages and verbatim passages, or observed public URLs and supporting excerpts. Keep secrets and private identifiers out of web queries and recommendation text. Use public model, provider and product details for research. Exclude equivalent existing suggestions, including completed or dismissed tasks. Return fewer recommendations or none when the evidence is insufficient.`;
@@ -44,26 +62,22 @@ export const recommendationSourcesSchema = {
       ),
     ],
   },
-};
+} as const;
 
-export abstract class RecommendationTask<Output, Result> extends AiTask<
-  Output,
-  Result,
-  ImportTaskContext
-> {
+export abstract class RecommendationTask<Output, Result> extends AiTask<Output, Result> {
   protected abstract readonly searchCalls: number;
   protected observedUrls = new Set<string>();
   private webCalls = 0;
 
   // Registers attachment retrieval using the run's authorised source data.
-  protected registerSourceTool(context: ImportTaskContext) {
+  constructor(context: ImportTaskContext) {
+    super(context);
     this.tools = context.sources.length ? [createTranscriptionTool(context)] : [];
   }
 
   // Adds web search to each turn and accounts for its budget across attachment reads.
   protected override async requestResponse(
     input: ResponseInput | string,
-    context: AiContext,
     options: TaskOptions = {},
     delta?: (text: string) => void,
     task = this.task,
@@ -72,7 +86,6 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<
     const web = createWebSearchOptions(options.tool_choice === 'none' ? 0 : remaining);
     const response = await super.requestResponse(
       input,
-      context,
       {
         ...options,
         ...web,
@@ -82,7 +95,7 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<
       delta,
       task,
     );
-    const { sources } = await readWebResult(response, context, remaining);
+    const { sources } = await readWebResult(response, this.context, remaining);
     this.reportMetrics({ sourceCount: sources.length });
     this.webCalls += response.output.filter((item) => item.type === 'web_search_call').length;
     sources.forEach((url) => this.observedUrls.add(url));
@@ -90,9 +103,7 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<
   }
 
   // Converts attachment citations and checks that public citations were observed during the task.
-  protected getSourceRefs(
-    refs: components['schemas']['TaskSuggestions']['items'][number]['sourceRefs'],
-  ): SourceRef[] {
+  protected getSourceRefs(refs: (SourceEvidence | { url: string; quote: string })[]): SourceRef[] {
     return refs.map((ref) => {
       if ('attachmentId' in ref) return createSourceRef(ref);
       ensure(publicUrl(ref.url) && this.observedUrls.has(ref.url), 'Uncited recommendation source');

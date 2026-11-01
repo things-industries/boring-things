@@ -1,16 +1,31 @@
 /** Thing resolution task, proposes candidates and identifier matches from saved sources. */
 
-import type { components } from '../schema-types.js';
-import { AiTask } from './task.js';
-import { getPrompt } from '../prompts.js';
+import type { FromSchema } from 'json-schema-to-ts';
 import type {
-  ResolutionInput,
   ResolutionResult,
   ImportTaskContext,
+  ImportSourceText,
+  IdentifierObservation,
 } from '../../../application/import/types.js';
+import { AiTask } from './task.js';
+import { getPrompt } from '../prompts.js';
 import { createTranscriptionTool } from '../tools/transcription.js';
-
 import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
+import type { FieldDefinition, Value } from '../../../../../shared/model.js';
+
+export interface ResolutionInput {
+  sources: (Pick<ImportSourceText, 'attachmentId' | 'summary' | 'terms'> & {
+    identifiers: IdentifierObservation[];
+  })[];
+  categories: { id: string; name: string; description: string; identifiers: FieldDefinition[] }[];
+  existingThings: {
+    id: string;
+    name: string;
+    categoryId: string;
+    identifiers: { fieldId: string; value: Value }[];
+  }[];
+  thingContextId: string | null;
+}
 
 export const schema = createObjectSchema(
   {
@@ -87,11 +102,9 @@ export const schema = createObjectSchema(
   'Candidate identity and matching decision.',
 );
 
-export class ResolveThingTask extends AiTask<
-  components['schemas']['Resolution'],
-  ResolutionResult,
-  ImportTaskContext
-> {
+export type Output = FromSchema<typeof schema>;
+
+export class ResolveThingTask extends AiTask<Output, ResolutionResult> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
   protected task = 'thing_resolution';
@@ -99,23 +112,23 @@ export class ResolveThingTask extends AiTask<
   protected schema = schema;
   protected resultKey = 'candidates' as const;
 
-  constructor(private input: ResolutionInput) {
-    super();
+  constructor(
+    private input: ResolutionInput,
+    context: ImportTaskContext,
+  ) {
+    super(context);
+    this.tools = [createTranscriptionTool(context)];
   }
 
   // Runs the task over the supplied Thing and source context.
-  protected async runTask(context: ImportTaskContext) {
-    this.tools = [createTranscriptionTool(context)];
+  protected async runTask() {
     return this.parseOutput(
-      await this.execute(
-        [
-          {
-            role: 'user',
-            content: `Identify candidate Things and give each a relative evidence strength. Associate printed identifiers with supplied category-valid identifier fields. Match only supplied owned Thing IDs using a semantic judgement. Thing context supplies the sole target and attributes ambiguous scraps to it; report contradiction only when source identifiers conflict. A manual's applicable-model list does not establish separate owned Things. Use search_transcription for evidence beyond summaries. Copy verbatim quotes and source IDs. Input: ${JSON.stringify(this.input)}`,
-          },
-        ],
-        context,
-      ),
+      await this.execute([
+        {
+          role: 'user',
+          content: `Identify candidate Things and give each a relative evidence strength. Associate printed identifiers with supplied category-valid identifier fields. Match only supplied owned Thing IDs using a semantic judgement. Thing context supplies the sole target and attributes ambiguous scraps to it; report contradiction only when source identifiers conflict. A manual's applicable-model list does not establish separate owned Things. Use search_transcription for evidence beyond summaries. Copy verbatim quotes and source IDs. Input: ${JSON.stringify(this.input)}`,
+        },
+      ]),
     );
   }
 }

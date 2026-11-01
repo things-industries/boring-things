@@ -9,11 +9,17 @@ import type { Schema } from '../../../../shared/model.js';
 import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
-import type { ChatAi, ChatToolResult, ResearchAnswer, ChatFailure } from './types.js';
+import type {
+  ChatAi,
+  ChatToolResult,
+  ChatFailure,
+  ChatToolCall,
+  ChatTools,
+  ResearchAnswer,
+} from './types.js';
 import { chatThingContext } from './context.js';
 import { mergeResourceCards } from '../../../../shared/resource-cards.js';
 import { blankUsage } from '../import/types.js';
-import type { ChatToolCall, ChatTools } from './types.js';
 import * as conversationsDb from '../../db/entities/conversations.js';
 import type { ChatJob } from '../../db/entities/conversations.js';
 import * as thingsDb from '../../db/entities/things.js';

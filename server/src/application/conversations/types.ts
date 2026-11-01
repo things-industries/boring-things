@@ -7,7 +7,7 @@ import type { Schema } from '../../../../shared/model.js';
 import type { Source } from '../import/types.js';
 import type { AiContext } from '../../providers/ai/types.js';
 import type { PublicField } from '../public-fields.js';
-import type { chatThingContext } from './context.js';
+import type { ChatInput } from '../../providers/ai/tasks/assistant.js';
 
 export interface ChatToolInputs {
   search_things: { query: string };
@@ -46,11 +46,6 @@ export interface ChatFailure {
   message: string;
 }
 
-export interface ResearchAnswer {
-  text: string;
-  sources: string[];
-}
-
 export interface ChatToolResult {
   output: unknown;
   source?: Source & { includeImages?: boolean };
@@ -65,14 +60,12 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface ChatInput {
-  messages: ChatMessage[];
-  thingId: string | null;
-  completedWrites: unknown[];
-  activeThing?: ReturnType<typeof chatThingContext>;
-}
-
 export interface ChatAi {
   research(question: string, fields: PublicField[], context: AiContext): Promise<ResearchAnswer>;
   respond(input: ChatInput, tools: ChatTools, context: ChatContext): Promise<string>;
+}
+
+export interface ResearchAnswer {
+  text: string;
+  sources: string[];
 }

@@ -9,7 +9,6 @@
     "**/.git/**",
     "pnpm-lock.yaml",
     "shared/api.ts",
-    "server/src/providers/ai/schema-types.ts",
     "**/*.png",
     "**/*.svg",
     ".claude/settings.local.json"

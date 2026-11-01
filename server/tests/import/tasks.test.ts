@@ -5,7 +5,8 @@ import pg from 'pg';
 import { Registry } from '../../src/application/registry/registry.js';
 import { createFieldSetsTool } from '../../src/providers/ai/tools/registry.js';
 import { OpenAiImports } from '../../src/providers/ai/openai-imports.js';
-import type { PopulationInput, Usage } from '../../src/application/import/types.js';
+import type { Usage } from '../../src/application/import/types.js';
+import type { PopulationInput } from '../../src/providers/ai/tasks/populate-fields.js';
 import { createImportTaskContext } from '../../test/support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
 import { setEnvMode } from '../../src/env.js';
@@ -131,20 +132,23 @@ test('Thing resolution receives the definition and reports each turn through its
       },
     ]);
   });
-  const task = new ResolveThingTask({
-    sources: [],
-    categories: [],
-    existingThings: [],
-    thingContextId: null,
-  });
+  const task = new ResolveThingTask(
+    {
+      sources: [],
+      categories: [],
+      existingThings: [],
+      thingContextId: null,
+    },
+    createContext(),
+  );
   assert.equal(
     task.onTurnCompleted((turn) => turns.push(turn.task)),
     task,
   );
-  assert.deepEqual(await task.run(createContext()), { candidates: [], contradiction: false });
+  assert.deepEqual(await task.run(), { candidates: [], contradiction: false });
   assert.deepEqual(turns, ['thing_resolution']);
   task.onTurnCompleted();
-  await task.run(createContext());
+  await task.run();
   assert.deepEqual(turns, ['thing_resolution']);
   assert.equal(fetch.mock.callCount(), 2);
 });
@@ -257,13 +261,16 @@ test('additional information selects its model and receives Thing instructions',
       { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
     ]);
   });
-  const task = new AdditionalInformationTask({
-    thing: input.thing,
-    knownFields: [],
-    attachmentId: 'source',
-    text: 'Model AX1',
-  });
-  assert.deepEqual(await task.run(createContext()), { findings: [] });
+  const task = new AdditionalInformationTask(
+    {
+      thing: input.thing,
+      knownFields: [],
+      attachmentId: 'source',
+      text: 'Model AX1',
+    },
+    createContext(),
+  );
+  assert.deepEqual(await task.run(), { findings: [] });
 });
 
 test('an oversized task stops before contacting the model', async (t) => {

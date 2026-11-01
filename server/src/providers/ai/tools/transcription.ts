@@ -1,8 +1,8 @@
 /** Transcription tool, reads bounded passages from authorised source data and records usage. */
 
 import type { FunctionTool } from 'openai/resources/responses/responses';
+import type { FromSchema } from 'json-schema-to-ts';
 import type { ImportTaskContext } from '../../../application/import/types.js';
-import type { components } from '../schema-types.js';
 import { createObjectSchema } from '../schemas.js';
 import { createTool, recordToolCall } from './tool.js';
 import { ensure } from '../../../application/errors.js';
@@ -64,7 +64,7 @@ export async function searchTranscription(
 
 // Gives the model a validated transcription search tool for this task's source scope.
 export function createTranscriptionTool(context: ImportTaskContext) {
-  return createTool<components['schemas']['search_transcription']>(
+  return createTool<FromSchema<typeof search_transcription.parameters>>(
     search_transcription,
     async (args) => ({
       output: await searchTranscription(context, args.attachmentId, args.query, args.offset),

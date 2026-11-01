@@ -1,18 +1,24 @@
 /** Additional information task, identifies source facts beyond the selected Thing fields. */
 
-import type { components } from '../schema-types.js';
-import type { RegistryResources } from '../types.js';
-import { AiTask } from './task.js';
-import { getPrompt } from '../prompts.js';
+import type { FromSchema } from 'json-schema-to-ts';
 import type {
-  AdditionalInformationInput,
   AdditionalInformationResult,
   ImportTaskContext,
 } from '../../../application/import/types.js';
+import type { RegistryResources } from '../types.js';
+import { AiTask } from './task.js';
+import { getPrompt } from '../prompts.js';
 import { createFieldsTool, createFieldSetsTool } from '../tools/registry.js';
-
 import { createTranscriptionTool } from '../tools/transcription.js';
 import { createObjectSchema, valueSchema, sourceEvidenceProperties } from '../schemas.js';
+import type { Value } from '../../../../../shared/model.js';
+
+export interface AdditionalInformationInput {
+  thing: { name: string; categoryId: string; identifiers?: { fieldId: string; value: Value }[] };
+  knownFields: string[];
+  attachmentId: string;
+  text: string;
+}
 
 export const schema = createObjectSchema(
   {
@@ -49,11 +55,9 @@ export const schema = createObjectSchema(
   'Important additional information.',
 );
 
-export class AdditionalInformationTask extends AiTask<
-  components['schemas']['AdditionalInformation'],
-  AdditionalInformationResult,
-  ImportTaskContext
-> {
+export type Output = FromSchema<typeof schema>;
+
+export class AdditionalInformationTask extends AiTask<Output, AdditionalInformationResult> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
   protected task = 'additional_information';
@@ -63,28 +67,26 @@ export class AdditionalInformationTask extends AiTask<
 
   constructor(
     private input: AdditionalInformationInput,
-    private registryResources?: RegistryResources,
+    context: ImportTaskContext,
+    registryResources?: RegistryResources,
   ) {
-    super();
+    super(context);
+    this.tools = [
+      createTranscriptionTool(context),
+      createFieldsTool(context, registryResources),
+      createFieldSetsTool(context, registryResources),
+    ];
   }
 
   // Runs the task over the supplied Thing and source context.
-  protected async runTask(context: ImportTaskContext) {
-    this.tools = [
-      createTranscriptionTool(context),
-      createFieldsTool(context, this.registryResources),
-      createFieldSetsTool(context, this.registryResources),
-    ];
+  protected async runTask() {
     return this.parseOutput(
-      await this.execute(
-        [
-          {
-            role: 'user',
-            content: `Find only significant information missing from the supplied Thing fields. It must matter to identifying, operating, maintaining or administering this Thing. Use search_fields before proposing a custom field. Ignore incidental text and unexplained markings. Explain why each finding matters, preserve sensitivity and cite verbatim source passages. Input: ${JSON.stringify(this.input)}`,
-          },
-        ],
-        context,
-      ),
+      await this.execute([
+        {
+          role: 'user',
+          content: `Find only significant information missing from the supplied Thing fields. It must matter to identifying, operating, maintaining or administering this Thing. Use search_fields before proposing a custom field. Ignore incidental text and unexplained markings. Explain why each finding matters, preserve sensitivity and cite verbatim source passages. Input: ${JSON.stringify(this.input)}`,
+        },
+      ]),
     );
   }
 }

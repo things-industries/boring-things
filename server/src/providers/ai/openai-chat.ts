@@ -13,9 +13,11 @@ export class OpenAiChat implements ChatAi {
   ) {}
 
   research: ChatAi['research'] = (question, fields, context) =>
-    new AssistantResearchTask(question, fields).onTurnCompleted(this.onTurnCompleted).run(context);
-  respond: ChatAi['respond'] = (input, tools, context) =>
-    new AssistantTask(input, tools, this.config.chatToolCalls)
+    new AssistantResearchTask(question, fields, context)
       .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
+      .run();
+  respond: ChatAi['respond'] = (input, tools, context) =>
+    new AssistantTask(input, tools, context, this.config.chatToolCalls)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run();
 }

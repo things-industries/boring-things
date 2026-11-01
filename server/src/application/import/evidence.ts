@@ -1,7 +1,7 @@
 /** Source quotation matching and proposal validation for Imports and document evaluations. */
 
 import type { Registry } from '../registry/registry.js';
-import type { DocumentExtraction, EmptyResearchField, ReferenceDocument } from './types.js';
+import type { EmptyResearchField, ReferenceDocument, DocumentExtraction } from './types.js';
 import { ApplicationError, ensure } from '../errors.js';
 
 // Trims and collapses whitespace in extracted text and evidence values.

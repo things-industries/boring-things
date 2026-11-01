@@ -1,12 +1,15 @@
 /** Selects category fieldsets through registry retrieval. */
 
-import type { components } from '../schema-types.js';
+import type { FromSchema } from 'json-schema-to-ts';
 import type { RegistryResources } from '../types.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
-import type { ExtractedThing, ImportTaskContext } from '../../../application/import/types.js';
+import type {
+  ExtractedThing,
+  ImportTaskContext,
+  FieldSetSelection,
+} from '../../../application/import/types.js';
 import { createFieldSetsTool } from '../tools/registry.js';
-
 import { createObjectSchema } from '../schemas.js';
 
 export const schema = createObjectSchema(
@@ -29,11 +32,9 @@ function selectFieldSetsPrompt(thing: ExtractedThing) {
   return `Fieldsets are groups of properties that should be used together as a unit and applied to a Thing when the fieldset's eligibility criteria are met. **Select fieldsets for this thing using the search_field_sets tool**: search using keywords, filter using eligibility criteria and respect 'includes' (mandatory) and 'considerAlongside' (optional) flags. Prefer the most specific fieldsets. Only IDs returned by tools may be selected. Return fieldsets, not values. Select every applicable fieldset, even when some fields have no extracted values.  Thing: ${JSON.stringify({ name: thing.name, categoryId: thing.categoryId, terms: thing.terms, sources: thing.sources, knownFields: thing.knownFields, facts: thing.facts })}`;
 }
 
-export class SelectFieldSetsTask extends AiTask<
-  components['schemas']['Selection'],
-  components['schemas']['Selection'],
-  ImportTaskContext
-> {
+export type Output = FromSchema<typeof schema>;
+
+export class SelectFieldSetsTask extends AiTask<Output, FieldSetSelection> {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected task = 'field_selection';
@@ -43,18 +44,18 @@ export class SelectFieldSetsTask extends AiTask<
 
   constructor(
     private input: ExtractedThing,
-    private registryResources?: RegistryResources,
+    context: ImportTaskContext,
+    registryResources?: RegistryResources,
   ) {
-    super();
+    super(context);
+    this.tools = [createFieldSetsTool(context, registryResources)];
   }
 
   // Selects fieldsets without proposing field values.
-  protected async runTask(context: ImportTaskContext) {
-    this.tools = [createFieldSetsTool(context, this.registryResources)];
-    const response = await this.execute(
-      [{ role: 'user', content: selectFieldSetsPrompt(this.input) }],
-      context,
-    );
+  protected async runTask() {
+    const response = await this.execute([
+      { role: 'user', content: selectFieldSetsPrompt(this.input) },
+    ]);
     return this.parseOutput(response);
   }
 }

@@ -7,4 +7,3 @@ pnpm-lock.yaml
 supabase/config.toml
 docs/requirements
 docs/meeting-notes
-server/src/providers/ai/schema-types.ts

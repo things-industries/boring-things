@@ -1,7 +1,7 @@
 /** Registry tools, search category fieldsets and field definitions and record retrieved metadata. */
 
 import type { FunctionTool } from 'openai/resources/responses/responses';
-import type { components } from '../schema-types.js';
+import type { FromSchema } from 'json-schema-to-ts';
 import type { ImportTaskContext } from '../../../application/import/types.js';
 import type { RegistryResources } from '../types.js';
 import type { FieldSearchLabel } from '../../../application/registry/registry.js';
@@ -109,19 +109,17 @@ export async function searchFields(
 
 // Gives the model a validated field search tool using the provider's registry resources.
 export function createFieldsTool(context: ImportTaskContext, resources?: RegistryResources) {
-  return createTool<components['schemas']['search_fields']>(search_fields, async (args) => ({
+  return createTool<FromSchema<typeof search_fields.parameters>>(search_fields, async (args) => ({
     output: await searchFields(context, resources, args.labels),
   }));
 }
 
 // Gives the model a validated fieldset search tool using the provider's registry resources.
 export function createFieldSetsTool(context: ImportTaskContext, resources?: RegistryResources) {
-  return createTool<components['schemas']['search_field_sets']>(
+  return createTool<FromSchema<typeof search_field_sets.parameters>>(
     search_field_sets,
     async (args) => ({
       output: await searchFieldSets(context, resources, args.categoryId, args.terms),
     }),
   );
 }
-
-export const registryFunctions = [search_field_sets, search_fields];

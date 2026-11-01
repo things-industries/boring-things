@@ -10,7 +10,6 @@ export default ts.config(
       'test-results/**',
       'playwright-report/**',
       'shared/api.ts',
-      'server/src/providers/ai/schema-types.ts',
       'supabase/**',
     ],
   },

@@ -9,7 +9,6 @@ import { createWebSearchOptions, readWebResult } from '../src/providers/ai/tools
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 import { chatFunctions } from '../src/providers/ai/tasks/assistant.js';
-import type { AiContext } from '../src/providers/ai/types.js';
 import type { Usage } from '../src/application/import/types.js';
 import { createAi } from '../src/providers/ai/index.js';
 import { readConfig } from '../src/config.js';
@@ -126,15 +125,15 @@ test('assistant research answers the supplied question in one bounded request wi
     protected readonly effort = 'low';
     protected task = 'research';
     protected instructions = 'Find public manuals.';
-    protected async runTask(context: AiContext) {
+    protected async runTask() {
       return readWebResult(
-        await this.execute('Find manuals', context, createWebSearchOptions(3)),
-        context,
+        await this.execute('Find manuals', createWebSearchOptions(3)),
+        this.context,
         3,
       );
     }
   }
-  const discovery = await new SourceSearchTask().run(context);
+  const discovery = await new SourceSearchTask(context).run();
   assert.ok(discovery.sources.includes(opened));
   assert.ok(discovery.sources.includes(candidates[99].url));
 

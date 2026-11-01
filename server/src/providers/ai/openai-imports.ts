@@ -29,38 +29,40 @@ export class OpenAiImports implements ImportAi {
   ) {}
 
   resolveThing: NonNullable<ImportAi['resolveThing']> = (input, context) =>
-    new ResolveThingTask(input).onTurnCompleted(this.onTurnCompleted).run(context);
+    new ResolveThingTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
 
   populateFields: NonNullable<ImportAi['populateFields']> = (input, context) =>
-    new PopulateFieldsTask(input).onTurnCompleted(this.onTurnCompleted).run(context);
+    new PopulateFieldsTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
 
   additionalInformation: NonNullable<ImportAi['additionalInformation']> = (input, context) =>
-    new AdditionalInformationTask(input, this.registryResources)
+    new AdditionalInformationTask(input, context, this.registryResources)
       .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
+      .run();
 
   assessResource: NonNullable<ImportAi['assessResource']> = (input, context) =>
-    new ResourceApplicabilityTask(input).onTurnCompleted(this.onTurnCompleted).run(context);
+    new ResourceApplicabilityTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
 
   selectFieldSets: NonNullable<ImportAi['selectFieldSets']> = (input, context) =>
-    new SelectFieldSetsTask(input, this.registryResources)
+    new SelectFieldSetsTask(input, context, this.registryResources)
       .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
+      .run();
 
   summarizeAttachment: ImportAi['summarizeAttachment'] = (text, context) =>
-    new SummarizeAttachmentTask(text).onTurnCompleted(this.onTurnCompleted).run(context);
+    new SummarizeAttachmentTask(text, context).onTurnCompleted(this.onTurnCompleted).run();
   findResources: ImportAi['findResources'] = (input, context) =>
-    new FindResourcesTask(input, this.readPage).onTurnCompleted(this.onTurnCompleted).run(context);
+    new FindResourcesTask(input, context, this.readPage)
+      .onTurnCompleted(this.onTurnCompleted)
+      .run();
   suggestTasks: ImportAi['suggestTasks'] = (input, context) =>
-    new SuggestTasksTask(input).onTurnCompleted(this.onTurnCompleted).run(context);
+    new SuggestTasksTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
   findPurchasables: ImportAi['findPurchasables'] = (input, context) =>
-    new FindPurchasablesTask(input).onTurnCompleted(this.onTurnCompleted).run(context);
+    new FindPurchasablesTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
 
   // Exposes source extraction for the existing evaluation and provider checks.
   extract(source: Source, categories: string[], context: AiContext) {
-    return new ExtractSourceTask(source, categories)
+    return new ExtractSourceTask(source, categories, context)
       .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
+      .run();
   }
 
   // Exposes document extraction for the existing evaluation and provider checks.
@@ -70,8 +72,8 @@ export class OpenAiImports implements ImportAi {
     targets: EmptyResearchField[],
     context: AiContext,
   ) {
-    return new ExtractDocumentTask(document, research, targets)
+    return new ExtractDocumentTask(document, research, targets, context)
       .onTurnCompleted(this.onTurnCompleted)
-      .run(context);
+      .run();
   }
 }

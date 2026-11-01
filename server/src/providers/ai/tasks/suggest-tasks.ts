@@ -1,19 +1,20 @@
 /** Researches and converts cited suggestTasks results. */
 
+import type { FromSchema } from 'json-schema-to-ts';
+import type { TaskSuggestions, ImportTaskContext } from '../../../application/import/types.js';
 import type { Response } from 'openai/resources/responses/responses';
-import type { components } from '../schema-types.js';
 import {
   RecommendationTask,
   recommendationSourcesSchema,
   recommendationInstructions,
 } from './recommendation.js';
-import type {
-  TaskResearch,
-  TaskSuggestions,
-  ImportTaskContext,
-} from '../../../application/import/types.js';
-
 import { createObjectSchema } from '../schemas.js';
+import type { Schema } from '../../../../../shared/model.js';
+import type { RecommendationInput } from './recommendation.js';
+
+export interface TaskResearch extends RecommendationInput {
+  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
+}
 
 const taskRecommendationInstructions = `Select tasks before naming them. Suggest maintenance or administration work that an owner can perform and mark complete as a separate task. Include recurring work and relevant one-off actions, such as submitting an insurance claim. Exclude passive waiting, routine operating advice and recovery advice for exceptional incidents from general suggestions. Boring Things imports and manages the owner's records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising its documents. "Record the appliance model and type" is handled by Boring Things, so omit it. Identification labels and document metadata alone do not justify maintenance or administration tasks. Return fewer tasks or none when the evidence supplies only advice or identifying information.
 Name each task with a verb and its object. Keep a qualifier only when it helps identify the work, such as "dirty" in "Clean dirty door seals". Put supported frequency, triggers, methods, precautions and evidence requirements in the description. Keep the action's meaning when shortening its title.
@@ -74,10 +75,9 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
   return ` Find useful management tasks for a Thing. Suitable task ideas for this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs and prefer official manufacturer or provider documentation. Establish applicability to the model, variant, region and service version where relevant. Preserve supported instructions, intervals, usage thresholds and conditions. Every task needs supporting evidence of applicability to the thing. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 8 distinct suggested tasks. Every task needs sourceRefs establishing applicability from linked Attachments or observed public sources. Keep secrets and individual identifiers out of task text. Return an empty items array when none are justifiable.  Finding no applicable tasks is a valid outcome.`;
 }
 
-export class SuggestTasksTask extends RecommendationTask<
-  components['schemas']['TaskSuggestions'],
-  TaskSuggestions
-> {
+export type Output = FromSchema<typeof schema>;
+
+export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions> {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
   protected readonly searchCalls = 3;
@@ -86,15 +86,17 @@ export class SuggestTasksTask extends RecommendationTask<
   protected schema = schema;
   protected resultKey = 'items' as const;
 
-  constructor(private input: TaskResearch) {
-    super();
+  constructor(
+    private input: TaskResearch,
+    context: ImportTaskContext,
+  ) {
+    super(context);
   }
 
   // Reads attachments and researches missing evidence before returning cited suggestions.
-  protected async runTask(context: ImportTaskContext) {
-    this.registerSourceTool(context);
+  protected async runTask() {
     if (!this.input.knownFields.length && !this.input.sources.length) return { items: [] };
-    const response = await this.execute(suggestTasksPrompt(this.input, this.searchCalls), context);
+    const response = await this.execute(suggestTasksPrompt(this.input, this.searchCalls));
     return this.processResponse(response);
   }
 
