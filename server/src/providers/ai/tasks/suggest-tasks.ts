@@ -16,42 +16,44 @@ export interface TaskResearch extends RecommendationInput {
   existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
 }
 
-const taskRecommendationInstructions = `Select tasks before naming them. Suggest maintenance or administration work that an owner can perform and mark complete as a separate task. Include recurring work and relevant one-off actions, such as submitting an insurance claim. Exclude passive waiting, routine operating advice and recovery advice for exceptional incidents from general suggestions. Boring Things imports and manages the owner's records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising its documents. "Record the appliance model and type" is handled by Boring Things, so omit it. Identification labels and document metadata alone do not justify maintenance or administration tasks. Return fewer tasks or none when the evidence supplies only advice or identifying information.
-Name each task with a verb and its object. Keep a qualifier only when it helps identify the work, such as "dirty" in "Clean dirty door seals". Put supported frequency, triggers, methods, precautions and evidence requirements in the description. Keep the action's meaning when shortening its title.
+const taskRecommendationInstructions = `Select work worth remembering or tracking to completion. Prioritise activities specific to the Thing that help maintain it and are easy to forget, such as running a maintenance programme, replacing a consumable or booking a service. Include recurring work and relevant one-off administration, such as submitting an insurance claim. Exclude extremely obvious actions and work likely to be done very frequently during normal use, such as wiping up spills or removing loose food residues. Boring Things manages records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising documents. Passive waiting and rare incident-recovery advice do not belong in general suggestions.
+Common remedies that nearly every owner is likely to need can also qualify, such as resetting a router. Explain when to use the remedy and its consequences without claiming a fault exists. A common remedy need not depend on a recorded fault.
+Use supplied age, mileage, condition and service history to select applicable work. For example, select the documented car service appropriate to its age and mileage. When these facts are unknown, describe the documented conditions without assuming they apply or that work is due. Require evidence recommending the action for this Thing and its relevant component. A warning or identifying label alone does not establish a maintenance requirement. Use only documented procedures, triggers and intervals.
+Select the overall procedure or outcome as one task. Put preparation, precautions and completion steps in its description. Name each task with a verb and its object, including words needed to identify the procedure. Put timing, frequency and conditions in the description. Keep the action's meaning when shortening its title.
 Examples:
-- "Clean the watch body regularly" becomes "Clean the watch body"; frequency belongs in the description.
-- "Clean the watch band according to its material" becomes "Clean the watch band"; material-specific instructions belong in the description.
-- "Prepare and submit claims with complete evidence" becomes "Submit a claim"; evidence requirements belong in the description.
-- "Clean dirty door seals" is a suitable task title.
-- "Dry the watch and band after liquid exposure" is incident recovery advice; omit it from general suggestions.
-- "Let the interior dry after each programme" is passive waiting advice; omit it from general suggestions.
-Return each underlying action once. When existing tasks are supplied, exclude equivalent actions even when their titles differ, including completed or dismissed tasks.`;
+- "Run the maintenance programme" and "Use the pyrolytic cleaning function" are useful when documented for the Thing.
+- "Remove coarse dirt before pyrolytic cleaning" belongs in the pyrolytic task's description.
+- "Remove food residues before using the oven" is obvious routine care; omit it as a task.
+- "Reset the router" can qualify as a documented common remedy; its description explains the symptoms and procedure.
+- "Submit a claim" names the work; evidence requirements belong in the description.
+Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or dismissed tasks. Return fewer tasks or none when no worthwhile tasks are justified.`;
 
 export const outputSchema = createObjectSchema(
   {
     items: {
       type: 'array',
       maxItems: 8,
-      description: 'Up to eight distinct supported tasks; empty when none are established.',
+      description:
+        'Up to eight distinct tasks worth remembering or tracking; empty when none qualify.',
       items: createObjectSchema(
         {
           title: {
             type: 'string',
             description:
-              'Verb and object naming the work, with only qualifiers needed to identify it (min 1 char, max 200 chars).',
+              'Verb and object naming the procedure or outcome, with timing and conditions in the description (min 1 char, max 200 chars).',
             minLength: 1,
             maxLength: 200,
           },
           description: {
             type: 'string',
             description:
-              'Source-supported frequency, triggers, methods, precautions and evidence requirements, with no inferred next date (min 1 char, max 4000 chars).',
+              'Documented conditions, frequency, preparation, procedure and precautions, accounting for known age and state, with no inferred next date or assumed fault (min 1 char, max 4000 chars).',
             minLength: 1,
             maxLength: 4000,
           },
           sourceRefs: recommendationSourcesSchema,
         },
-        'One task justified by Attachment content or public evidence applicable to the Thing.',
+        'One maintenance procedure, administration action or common remedy justified by evidence applicable to the Thing.',
       ),
     },
   },
@@ -72,7 +74,7 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
     utilities:
       'Required meter readings, tariff reviews and renewal actions supported by the contract.',
   };
-  return ` Find useful management tasks for a Thing. Suitable task ideas for this category of thing include: ${guidance[research.categoryId]} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs and prefer official manufacturer or provider documentation. Establish applicability to the model, variant, region and service version where relevant. Preserve supported instructions, intervals, usage thresholds and conditions. Every task needs supporting evidence of applicability to the thing. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 8 distinct suggested tasks. Every task needs sourceRefs establishing applicability from linked Attachments or observed public sources. Keep secrets and individual identifiers out of task text. Return an empty items array when none are justifiable.  Finding no applicable tasks is a valid outcome.`;
+  return `Find management tasks worth remembering for this Thing. Category guidance: ${guidance[research.categoryId] ?? 'Documented maintenance, administration and common remedies.'} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Establish applicability to the model, variant, region and service version where relevant. Each task needs sourceRefs from linked Attachments or observed public sources recommending the action. Use at most ${searchCalls} web tool calls including page opens; stop at that limit.`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;

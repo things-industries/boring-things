@@ -631,7 +631,7 @@ test('SDK purchasable research discovers products and purchase links within one 
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     requests.push(body);
-    assert.match(body.input, /Find useful purchasables/);
+    assert.match(body.input, /Find items or services online/);
     assert.match(body.instructions, /Name each purchasable with its basic item name/);
     assert.match(
       body.instructions,

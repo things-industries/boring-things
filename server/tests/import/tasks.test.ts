@@ -383,7 +383,10 @@ for (const capability of ['tasks', 'purchasables'] as const) {
         const request = fetch.mock.callCount() + 1;
         assert.ok(body.instructions.includes(getPrompt('thing-definition')));
         if (capability === 'tasks') {
-          assert.match(body.instructions, /do not suggest recording model numbers/);
+          assert.match(
+            body.instructions,
+            /Select work worth remembering or tracking to completion/,
+          );
           assert.match(body.instructions, /Name each task with a verb and its object/);
         } else {
           assert.match(body.instructions, /Name each purchasable with its basic item name/);
@@ -461,12 +464,11 @@ for (const capability of ['tasks', 'purchasables'] as const) {
         .length,
       webCalls,
     );
-    const supplied = JSON.parse(
-      JSON.parse(String(fetch.mock.calls[0].arguments[1]?.body))
-        .input.split('About the thing: ')[1]
-        .split('. Consult')[0],
+    const supplied = JSON.parse(String(fetch.mock.calls[0].arguments[1]?.body));
+    assert.ok(
+      supplied.input.includes(JSON.stringify(research.fields)),
+      'Recommendation input includes the saved field definitions and values',
     );
-    assert.deepEqual(supplied.fields, research.fields);
   });
 }
 
