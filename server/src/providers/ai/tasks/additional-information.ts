@@ -15,8 +15,12 @@ import type { Value } from '../../../../../shared/model.js';
 
 export interface AdditionalInformationInput {
   thing: { name: string; categoryId: string; identifiers?: { fieldId: string; value: Value }[] };
+
+  // Labels of all existing registry and custom fields, including empty fields.
   knownFields: string[];
   attachmentId: string;
+
+  // A portion of the current attachment transcription, up to 20,000 characters.
   text: string;
 }
 

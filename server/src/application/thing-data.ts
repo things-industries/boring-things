@@ -56,7 +56,7 @@ export function patchData(
         id,
         label: `${registry.sets.get(oldId)!.name}: ${definition.name}`,
         sensitive: definition.sensitive,
-        instanceSpecific: definition.instanceSpecific ?? true,
+        scope: definition.scope,
       });
       data.pins = data.pins.map((pin) =>
         pin.fieldSetId === oldId && pin.fieldId === fieldId ? { customFieldId: id } : pin,
@@ -113,10 +113,7 @@ export function patchData(
     ensure(!input.id || data.customFields.some((f) => f.id === input.id), 'Unknown local field');
     const field = {
       ...input,
-      instanceSpecific:
-        input.instanceSpecific ??
-        data.customFields.find((f) => f.id === input.id)?.instanceSpecific ??
-        true,
+      scope: input.scope ?? data.customFields.find((f) => f.id === input.id)?.scope ?? 'INSTANCE',
       id: input.id ?? randomUUID(),
       origin: 'USER' as const,
       autoPopulate: false,
@@ -152,8 +149,6 @@ export function patchData(
 function projectField(definition: FieldDefinition, stored?: StoredValue): Schema['Field'] {
   return {
     ...definition,
-    instanceSpecific: definition.instanceSpecific ?? true,
-    identifierKind: definition.identifierKind ?? 'NONE',
     autoPopulate: stored?.autoPopulate ?? stored?.origin !== 'USER',
     value: definition.sensitive ? null : (stored?.value ?? null),
     masked: definition.sensitive && stored?.value != null,
@@ -179,7 +174,7 @@ export function projectData(
     ),
     customFields: data.customFields.map((f) => ({
       ...f,
-      instanceSpecific: f.instanceSpecific ?? true,
+      scope: f.scope ?? 'INSTANCE',
       valueType:
         f.valueType ??
         ((f.value === null

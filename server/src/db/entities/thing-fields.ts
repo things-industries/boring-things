@@ -111,7 +111,7 @@ export async function identifiers(db: Database, owner: string, categoryId: strin
     db,
     `select f.thing_id,f.field_id,f.value from bt.thing_fields f
      join bt.things t on t.id=f.thing_id join bt.field_definitions d on d.id=f.field_id
-     where f.owner_id=$1 and t.category_id=$2 and d.identifier_kind<>'NONE' and f.value is not null`,
+     where f.owner_id=$1 and t.category_id=$2 and d.is_identifier and f.value is not null`,
     [owner, categoryId],
   );
 }

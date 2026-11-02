@@ -100,10 +100,7 @@ export function identifierValues(data: ThingData, registry: Registry) {
   return [
     ...new Map(
       values.flatMap(([fieldId, stored]) =>
-        stored.value !== null &&
-        ['GROUP', 'CLASS', 'INSTANCE'].includes(
-          registry.fields.get(fieldId)?.identifierKind ?? 'NONE',
-        )
+        stored.value !== null && registry.fields.get(fieldId)?.isIdentifier
           ? [[fieldId, { fieldId, value: stored.value }] as const]
           : [],
       ),

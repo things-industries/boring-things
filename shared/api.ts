@@ -792,7 +792,7 @@ export interface components {
             required?: string[];
             additionalProperties?: boolean;
         };
-        /** @description Reusable field definition with validation rules, display settings and sensitivity. */
+        /** @description Reusable field definition with validation rules, display settings, scope, identifier status and sensitivity. */
         FieldDefinition: {
             id: string;
             name: string;
@@ -803,9 +803,9 @@ export interface components {
             sensitive: boolean;
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
-            identifierKind?: components["schemas"]["IdentifierKindEnum"];
+            scope: components["schemas"]["FieldScopeEnum"];
+            /** @description Whether the field contributes to identifying the Thing, alone or with other identifiers. */
+            isIdentifier: boolean;
         };
         /** @description Field definition with its current value, source information and masking state. */
         Field: {
@@ -822,9 +822,9 @@ export interface components {
             sourceRefs: components["schemas"]["SourceRef"][];
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
-            identifierKind?: components["schemas"]["IdentifierKindEnum"];
+            scope: components["schemas"]["FieldScopeEnum"];
+            /** @description Whether the field contributes to identifying the Thing, alone or with other identifiers. */
+            isIdentifier: boolean;
             /** @description Whether automatic processing may populate or update this field. Manual value edits disable it. */
             autoPopulate?: boolean;
         };
@@ -863,8 +863,7 @@ export interface components {
             origin: components["schemas"]["FieldOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
             valueType: components["schemas"]["ValueTypeEnum"];
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
+            scope: components["schemas"]["FieldScopeEnum"];
             /** @description Whether automatic processing may populate or update this field. Manual value edits disable it. */
             autoPopulate?: boolean;
         };
@@ -1002,15 +1001,14 @@ export interface components {
             /** @description Explicit permission for future automatic population. A value edit disables population unless supplied. */
             autoPopulate?: boolean;
         };
-        /** @description Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific. */
+        /** @description Update to a custom field, including its label, value, sensitivity and optional scope. Omitted scope keeps the existing scope or defaults to INSTANCE. */
         CustomFieldPatch: {
             /** Format: uuid */
             id?: string;
             label: string;
             value: components["schemas"]["Value"];
             sensitive: boolean;
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
+            scope?: components["schemas"]["FieldScopeEnum"];
         };
         /** @description Properties for creating a Thing, including its category and optional fields, tags and pins. */
         ThingCreate: {
@@ -1592,15 +1590,15 @@ export interface components {
          */
         ImportWarningCodeEnum: "SIZE_LIMIT" | "MODEL_INPUT_LIMIT" | "PAGE_BUDGET" | "TIMEOUT" | "UNAVAILABLE" | "EXTRACTION_FAILED" | "RESEARCH_FAILED";
         /**
-         * @description How a registry field identifies a provider, product class or owned instance.
-         * @enum {string}
-         */
-        IdentifierKindEnum: "NONE" | "GROUP" | "CLASS" | "INSTANCE";
-        /**
          * @description Requested Thing processing capability.
          * @enum {string}
          */
         ImportOperationEnum: "IMPORT" | "RECOMMENDATION";
+        /**
+         * @description Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the owned item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.
+         * @enum {string}
+         */
+        FieldScopeEnum: "GROUP" | "CLASS" | "INSTANCE";
     };
     responses: {
         /** @description A valid bearer token is required. */

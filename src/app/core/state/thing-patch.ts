@@ -1,3 +1,5 @@
+/** Applies optimistic Thing edits using the API field contract. */
+
 import type { Schema } from '../../../../shared/model';
 import type { RegistryIndex, ThingDetail, ThingRecord } from '../../interfaces/thing.interface';
 
@@ -109,6 +111,8 @@ function patchDetail(
       id: input.id,
       label: input.label,
       sensitive: input.sensitive,
+      scope:
+        input.scope ?? customFields.find((field) => field.id === input.id)?.scope ?? 'INSTANCE',
       value: input.sensitive ? null : input.value,
       masked: input.sensitive,
       origin: 'USER',

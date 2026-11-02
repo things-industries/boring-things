@@ -41,6 +41,8 @@ Titles name the procedure or outcome with a verb and object, such as **Use the p
 
 `bt.thing_fields` stores values, occurrence addresses, provenance and `auto_populate`. Thing metadata retains fieldset selection, pins and owner decisions. API responses project field occurrences into fieldsets, standalone fields and custom fields.
 
+Field definitions classify attributes by `scope`: `GROUP` for manufacturer/provider attributes, `CLASS` for model/plan attributes, and `INSTANCE` for the owned item, account or agreement. `isIdentifier` marks fields that contribute to Thing identification. Public research uses populated `GROUP` and `CLASS` fields independently of sensitivity. Purchase date, price paid and order reference are `INSTANCE` attributes without an identity role. Custom fields use the same scopes and default to `INSTANCE`; they do not participate in identity matching.
+
 Mandatory fieldsets have null eligibility. Category identifiers have a mandatory occurrence before research. Empty registry fields added manually remain eligible for population. Imported fields are eligible. Manual values and custom fields disable automatic population; manually clearing a registry value retains an empty disabled occurrence. A `ValuePatch` can change `autoPopulate` alone while retaining the value and provenance. Every automatic writer uses the same permission check.
 
 Changing category or removing a populated fieldset preserves values, sensitivity, provenance and pins through custom fields. Owner-removed fieldsets, custom fields and Attachment links are recorded so automatic work cannot restore them.

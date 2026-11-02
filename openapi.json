@@ -2542,8 +2542,18 @@
       },
       "FieldDefinition": {
         "type": "object",
-        "description": "Reusable field definition with validation rules, display settings and sensitivity.",
-        "required": ["id", "name", "description", "keywords", "schema", "uiHint", "sensitive"],
+        "description": "Reusable field definition with validation rules, display settings, scope, identifier status and sensitivity.",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "keywords",
+          "schema",
+          "uiHint",
+          "sensitive",
+          "scope",
+          "isIdentifier"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -2575,12 +2585,12 @@
             "maxLength": 80,
             "pattern": "^[A-Za-z][A-Za-z0-9]*$"
           },
-          "instanceSpecific": {
-            "type": "boolean",
-            "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          "scope": {
+            "$ref": "#/components/schemas/FieldScopeEnum"
           },
-          "identifierKind": {
-            "$ref": "#/components/schemas/IdentifierKindEnum"
+          "isIdentifier": {
+            "type": "boolean",
+            "description": "Whether the field contributes to identifying the Thing, alone or with other identifiers."
           }
         },
         "additionalProperties": false
@@ -2599,7 +2609,9 @@
           "value",
           "masked",
           "origin",
-          "sourceRefs"
+          "sourceRefs",
+          "scope",
+          "isIdentifier"
         ],
         "properties": {
           "id": {
@@ -2654,12 +2666,12 @@
             "maxLength": 80,
             "pattern": "^[A-Za-z][A-Za-z0-9]*$"
           },
-          "instanceSpecific": {
-            "type": "boolean",
-            "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          "scope": {
+            "$ref": "#/components/schemas/FieldScopeEnum"
           },
-          "identifierKind": {
-            "$ref": "#/components/schemas/IdentifierKindEnum"
+          "isIdentifier": {
+            "type": "boolean",
+            "description": "Whether the field contributes to identifying the Thing, alone or with other identifiers."
           },
           "autoPopulate": {
             "type": "boolean",
@@ -2791,7 +2803,8 @@
           "masked",
           "origin",
           "sourceRefs",
-          "valueType"
+          "valueType",
+          "scope"
         ],
         "properties": {
           "id": {
@@ -2822,9 +2835,8 @@
           "valueType": {
             "$ref": "#/components/schemas/ValueTypeEnum"
           },
-          "instanceSpecific": {
-            "type": "boolean",
-            "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          "scope": {
+            "$ref": "#/components/schemas/FieldScopeEnum"
           },
           "autoPopulate": {
             "type": "boolean",
@@ -3297,7 +3309,7 @@
       },
       "CustomFieldPatch": {
         "type": "object",
-        "description": "Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific.",
+        "description": "Update to a custom field, including its label, value, sensitivity and optional scope. Omitted scope keeps the existing scope or defaults to INSTANCE.",
         "required": ["label", "value", "sensitive"],
         "properties": {
           "id": {
@@ -3315,9 +3327,8 @@
           "sensitive": {
             "type": "boolean"
           },
-          "instanceSpecific": {
-            "type": "boolean",
-            "description": "Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true."
+          "scope": {
+            "$ref": "#/components/schemas/FieldScopeEnum"
           }
         },
         "additionalProperties": false
@@ -4907,15 +4918,15 @@
           "RESEARCH_FAILED"
         ]
       },
-      "IdentifierKindEnum": {
-        "type": "string",
-        "description": "How a registry field identifies a provider, product class or owned instance.",
-        "enum": ["NONE", "GROUP", "CLASS", "INSTANCE"]
-      },
       "ImportOperationEnum": {
         "type": "string",
         "description": "Requested Thing processing capability.",
         "enum": ["IMPORT", "RECOMMENDATION"]
+      },
+      "FieldScopeEnum": {
+        "type": "string",
+        "description": "Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the owned item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.",
+        "enum": ["GROUP", "CLASS", "INSTANCE"]
       }
     },
     "responses": {

@@ -45,7 +45,7 @@ Commit field changes and the corresponding Import checkpoint together. Publish p
 
 ### Registry and mandatory identifiers
 
-Field definitions classify identifiers as group, class, instance or non-identifier. Keep sensitivity and public-research eligibility independent of that classification.
+Field definitions use `scope` (`GROUP`, `CLASS`, `INSTANCE`) and `isIdentifier`. Scope describes the attribute’s applicability; identifier status controls Thing identification. Public research uses group/class attributes. Sensitivity governs masking independently. Custom fields default to instance scope.
 
 A fieldset with null eligibility is mandatory for its category. Every category has at least one mandatory fieldset. Ensure those fieldsets exist on Things created manually or through an Import.
 

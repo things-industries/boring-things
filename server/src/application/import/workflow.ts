@@ -279,7 +279,7 @@ export class ImportWorkflow {
               [...this.registry.sets.values()]
                 .filter((set) => set.categoryId === id)
                 .flatMap((set) => set.fields)
-                .filter((field) => (field.identifierKind ?? 'NONE') !== 'NONE')
+                .filter((field) => field.isIdentifier)
                 .map((field) => [field.id, field]),
             ).values(),
           ],
@@ -358,7 +358,7 @@ export class ImportWorkflow {
         const source = this.sources.find((file) => file.id === identifier.attachmentId);
         ensure(
           source?.ownerId !== null ||
-            this.registry.fields.get(identifier.fieldId)?.instanceSpecific === false,
+            ['GROUP', 'CLASS'].includes(this.registry.fields.get(identifier.fieldId)?.scope ?? ''),
           'Public source supplied instance data',
         );
         this.evidence(identifier);
@@ -381,7 +381,9 @@ export class ImportWorkflow {
         });
       else {
         const model = candidate.identifiers.find(
-          (entry) => this.registry.fields.get(entry.fieldId)?.identifierKind === 'CLASS',
+          (entry) =>
+            this.registry.fields.get(entry.fieldId)?.isIdentifier &&
+            this.registry.fields.get(entry.fieldId)?.scope === 'CLASS',
         )?.value;
         const name = await importsDb.findAvailableImportName(
           db,
@@ -476,7 +478,8 @@ export class ImportWorkflow {
     const identifiers = known
       .filter(
         (field) =>
-          this.registry.fields.get(field.fieldId)?.identifierKind === 'CLASS' &&
+          this.registry.fields.get(field.fieldId)?.isIdentifier &&
+          this.registry.fields.get(field.fieldId)?.scope === 'CLASS' &&
           typeof field.value === 'string',
       )
       .map((field) => ({ fieldId: field.fieldId, value: String(field.value) }));
@@ -688,8 +691,8 @@ export class ImportWorkflow {
           {
             categoryId: thing.categoryId,
             knownFields: publicFields(thing.data, this.registry),
-            identifierFields: [...this.registry.fields.values()].filter((field) =>
-              ['CLASS', 'GROUP'].includes(field.identifierKind ?? ''),
+            identifierFields: [...this.registry.fields.values()].filter(
+              (field) => field.isIdentifier && field.scope !== 'INSTANCE',
             ),
             source: {
               attachmentId: source.id,
@@ -711,9 +714,8 @@ export class ImportWorkflow {
       result.identifiers = mapValidEvidence(result.identifiers, (identifier) => {
         ensure(
           identifier.attachmentId === source.id &&
-            ['CLASS', 'GROUP'].includes(
-              this.registry.fields.get(identifier.fieldId)?.identifierKind ?? '',
-            ),
+            this.registry.fields.get(identifier.fieldId)?.isIdentifier &&
+            ['CLASS', 'GROUP'].includes(this.registry.fields.get(identifier.fieldId)?.scope ?? ''),
           'Invalid public identifier',
         );
         this.evidence(identifier);
@@ -834,7 +836,7 @@ export class ImportWorkflow {
         );
         ensure(
           sources.every((source) => source.ownerId !== null) ||
-            this.registry.fields.get(value.fieldId)?.instanceSpecific === false,
+            ['GROUP', 'CLASS'].includes(this.registry.fields.get(value.fieldId)?.scope ?? ''),
           'Public source supplied instance data',
         );
         return {
@@ -969,7 +971,7 @@ export class ImportWorkflow {
                 label: finding.label,
                 value: finding.value,
                 sensitive: finding.sensitive,
-                instanceSpecific: true,
+                scope: 'INSTANCE',
                 origin: 'IMPORT',
                 sourceRefs: refs,
                 autoPopulate: true,

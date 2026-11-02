@@ -42,8 +42,8 @@ export const categories = names.map(
     }) satisfies Schema['Category'],
 );
 
-// Registry-authored identifier roles keep matching independent of field labels.
-const identifierRoles: Record<string, NonNullable<FieldDefinition['identifierKind']>> = {
+// Identifier scopes distinguish manufacturer/provider, model and owned-instance identity.
+const identifierScopes: Record<string, FieldDefinition['scope']> = {
   'common.manufacturer': 'GROUP',
   'common.serviceProvider': 'GROUP',
   'membership.provider': 'GROUP',
@@ -54,7 +54,7 @@ const identifierRoles: Record<string, NonNullable<FieldDefinition['identifierKin
   'vehicles.frameNumber': 'INSTANCE',
   'vehicles.hullIdentificationNumber': 'INSTANCE',
   'vehicles.engineSerialNumber': 'INSTANCE',
-  'subscriptions.domainName': 'CLASS',
+  'subscriptions.domainName': 'INSTANCE',
   'common.model': 'CLASS',
   'common.gtin': 'CLASS',
   'appliances.productCode': 'CLASS',
@@ -62,9 +62,9 @@ const identifierRoles: Record<string, NonNullable<FieldDefinition['identifierKin
   'appliances.pnc': 'CLASS',
   'common.serialNumber': 'INSTANCE',
   'appliances.zNumber': 'INSTANCE',
-  'appliances.fdNumber': 'GROUP',
+  'appliances.fdNumber': 'INSTANCE',
   'vehicles.registration': 'INSTANCE',
-  'vehicles.registrationCountry': 'GROUP',
+  'vehicles.registrationCountry': 'INSTANCE',
   'vehicles.vin': 'INSTANCE',
   'common.accountNumber': 'INSTANCE',
   'common.membershipNumber': 'INSTANCE',
@@ -86,8 +86,8 @@ const field = (
   schema,
   uiHint: 'TEXT',
   sensitive: false,
-  instanceSpecific: true,
-  identifierKind: identifierRoles[id] ?? 'NONE',
+  scope: identifierScopes[id] ?? 'INSTANCE',
+  isIdentifier: Object.hasOwn(identifierScopes, id),
   icon: 'fieldDefault',
   ...extra,
 });
@@ -140,13 +140,13 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldModel',
   }),
   field('common.manufacturer', 'Manufacturer', undefined, {
-    instanceSpecific: false,
+    scope: 'GROUP',
     description: 'Manufacturer.',
     uiHint: 'TEXT',
     icon: 'fieldManufacturer',
   }),
   field('common.model', 'Model', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Manufacturer model name or number.',
     keywords: ['model number', 'model name'],
     uiHint: 'TEXT',
@@ -157,7 +157,7 @@ export const fields: FieldDefinition[] = [
     'GTIN',
     { type: 'string', pattern: '^(?:\\d{8}|\\d{12,14})$' },
     {
-      instanceSpecific: false,
+      scope: 'CLASS',
       description:
         'EAN, UPC or GTIN product barcode, including leading zeroes. Identifies a product variant, not an individual unit.',
       keywords: ['GTIN', 'EAN', 'UPC', 'barcode'],
@@ -212,13 +212,13 @@ export const fields: FieldDefinition[] = [
     { description: 'Extended warranty ends.', uiHint: 'DATE', icon: 'fieldDate' },
   ),
   field('common.supportUrl', 'Support website', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Support website.',
     uiHint: 'TEXT',
     icon: 'fieldSupport',
   }),
   field('common.supportPhone', 'Support phone', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Support phone.',
     uiHint: 'TEXT',
     icon: 'fieldPhone',
@@ -229,20 +229,20 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldSupport',
   }),
   field('common.serviceInterval', 'Service interval', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Documented recurring service interval, including its unit and operating conditions.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('appliances.applianceType', 'Appliance type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Household appliances with a rating plate or product label.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('appliances.productCode', 'Product code', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Manufacturer product or variant code. Use Model when the label identifies the model; retain a separate code only when it has a distinct meaning.',
     keywords: ['product code', 'variant', 'type number'],
@@ -261,7 +261,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldSettings',
   }),
   field('appliances.eNumber', 'E-number (E-Nr)', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'BSH household appliances, including Bosch, Neff and Siemens models, whose rating plate uses the named identifier. Model identifier; retain the slash variant suffix.',
     keywords: ['E-Nr', 'model'],
@@ -283,7 +283,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldSerial',
   }),
   field('appliances.pnc', 'Product number (PNC)', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'AEG, Electrolux or Zanussi appliances whose product label provides a PNC. Retain any variant suffix printed on the label.',
     uiHint: 'TEXT',
@@ -301,228 +301,228 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldService',
   }),
   field('appliances.installationType', 'Installation type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Installed or fitted appliances.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('common.width', 'Width', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Overall width, including its unit. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('common.height', 'Height', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Overall height, including its unit. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('common.depth', 'Depth', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Overall depth, including its unit. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.requiredRecessWidth', 'Required recess width', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Built-in appliances with a specified installation opening width. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.requiredRecessHeight', 'Required recess height', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Built-in appliances with a specified installation opening height. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.requiredRecessDepth', 'Required recess depth', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Built-in appliances with a specified installation opening depth. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.ventilationClearance', 'Ventilation clearance', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Installed or fitted appliances. Appliances with installation clearance requirements. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.supplyVoltage', 'Supply voltage', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electrically powered appliances with manufacturer supply requirements.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.supplyFrequency', 'Supply frequency', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electrically powered appliances with manufacturer supply requirements.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('appliances.ratedInputPower', 'Rated input power', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electrically powered appliances with manufacturer supply requirements.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.electricalConnection', 'Electrical connection', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electrically powered appliances with manufacturer supply requirements.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.requiredCircuitRating', 'Required circuit rating', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Electrically powered appliances with manufacturer supply requirements. Use the installation instructions for the model.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.energyLabelScheme', 'Energy label scheme', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Appliances carrying an energy label. Record the region and scheme so ratings from different scales remain distinguishable.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.energyClass', 'Energy class', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'The overall product energy class where one is given. Keep separate washing and complete wash-and-dry cycle classes in their function fields.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.washingCapacity', 'Washing capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Washing machines and the washing component of washer-dryers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('appliances.maximumSpinSpeed', 'Maximum spin speed', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Washing machines and the washing component of washer-dryers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldAccessCode',
   }),
   field('appliances.washEnergyClass', 'Wash energy class', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Washing machines and the washing component of washer-dryers. Where the energy label gives a separate washing-cycle class.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.washEnergyUse', 'Wash energy use', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       "Washing machines and the washing component of washer-dryers. Retain the label's programme and measurement basis. Retain units, precision and any measurement or allowance basis.",
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.washWaterUse', 'Wash water use', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Washing machines and the washing component of washer-dryers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('appliances.dryingCapacity', 'Drying capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Tumble dryers and the drying component of washer-dryers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('appliances.dryingTechnology', 'Drying technology', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Tumble dryers and the drying component of washer-dryers.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('appliances.washAndDryEnergyClass', 'Wash-and-dry energy class', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Washer-dryers with complete wash-and-dry cycle measurements.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.washAndDryEnergyUse', 'Wash-and-dry energy use', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Washer-dryers with complete wash-and-dry cycle measurements. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.washAndDryWaterUse', 'Wash-and-dry water use', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Washer-dryers with complete wash-and-dry cycle measurements. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('appliances.dishwasherWaterUse', 'Dishwasher water use', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Dishwashers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('appliances.dishwasherEnergyUse', 'Dishwasher energy use', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Dishwashers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.fridgeCapacity', 'Fridge capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Refrigerators and the chilled compartment of fridge-freezers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.waterFilterModel', 'Water filter model', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Refrigerators and the chilled compartment of fridge-freezers. Models with a replaceable drinking-water filter.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('appliances.freezerCapacity', 'Freezer capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Freezers and the frozen compartment of fridge-freezers. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.defrostSystem', 'Defrost system', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Freezers and the frozen compartment of fridge-freezers.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('appliances.mainOvenCapacity', 'Main oven capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Ovens, range cookers and combination ovens with the corresponding cooking component. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.secondOvenCapacity', 'Second oven capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Ovens, range cookers and combination ovens with the corresponding cooking component. Models with a second oven cavity. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.hobType', 'Hob type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Ovens, range cookers and combination ovens with the corresponding cooking component. Models with a hob component.',
     uiHint: 'TEXT',
@@ -540,109 +540,109 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('appliances.outputPower', 'Output power', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Ovens, range cookers and combination ovens with the corresponding cooking component. output power has separate meaning from electrical input power.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('appliances.heatingOutput', 'Heating output', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Boilers, heat pumps, water heaters and air conditioners with the corresponding function. Space-heating equipment. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldTemperature',
   }),
   field('appliances.coolingOutput', 'Cooling output', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Boilers, heat pumps, water heaters and air conditioners with the corresponding function. Equipment providing cooling. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldTemperature',
   }),
   field('appliances.tankCapacity', 'Tank capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Boilers, heat pumps, water heaters and air conditioners with the corresponding function. Equipment with a hot water storage cylinder. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('appliances.fuelType', 'Fuel type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Boilers, heat pumps, water heaters and air conditioners with the corresponding function. Fuel-burning equipment.',
     uiHint: 'TEXT',
     icon: 'fieldFuel',
   }),
   field('appliances.refrigerant', 'Refrigerant', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Boilers, heat pumps, water heaters and air conditioners with the corresponding function. Equipment with a refrigerant circuit.',
     uiHint: 'TEXT',
     icon: 'fieldTemperature',
   }),
   field('appliances.waterTankCapacity', 'Water tank capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Small appliances with the corresponding reservoir, consumable or maintenance requirement. Coffee machines, steam appliances and similar reservoir-equipped products. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('appliances.dustContainerCapacity', 'Dust container capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Small appliances with the corresponding reservoir, consumable or maintenance requirement. Vacuum cleaners and cleaning robots. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('appliances.replacementFilter', 'Replacement filter', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Small appliances with the corresponding reservoir, consumable or maintenance requirement. Vacuum cleaners, purifiers and other appliances using replaceable filters.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
   field('appliances.compatibleConsumable', 'Compatible consumable', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Small appliances with the corresponding reservoir, consumable or maintenance requirement. Products requiring model-specific bags, cartridges or cleaning supplies.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
   field('appliances.cleaningInstructions', 'Cleaning instructions', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Appliances with documented cleaning or descaling requirements.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
   field('appliances.cleaningInterval', 'Cleaning interval', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Appliances with documented cleaning or descaling requirements. Products with a documented recurring cleaning task.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('appliances.descalingInterval', 'Descaling interval', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Appliances with documented cleaning or descaling requirements. Products whose instructions require descaling.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('common.serviceProvider', 'Service provider', undefined, {
-    instanceSpecific: false,
+    scope: 'GROUP',
     description: 'Service provider.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
   field('devices.deviceType', 'Device type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electronic devices with the corresponding identity or ownership detail.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('devices.hardwareRevision', 'Hardware revision', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electronic devices with the corresponding identity or ownership detail.',
     uiHint: 'TEXT',
     icon: 'fieldModel',
@@ -665,28 +665,28 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldModel',
   }),
   field('devices.processor', 'Processor', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Computers, tablets, phones, consoles and network storage with the corresponding specification.',
     uiHint: 'TEXT',
     icon: 'fieldDisplay',
   }),
   field('devices.memory', 'Memory', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Computers, tablets, phones, consoles and network storage with the corresponding specification. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldStorage',
   }),
   field('devices.builtInStorage', 'Built-in storage', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Computers, tablets, phones, consoles and network storage with the corresponding specification. Internal storage capacity as supplied or upgraded. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldStorage',
   }),
   field('devices.expandableStorage', 'Expandable storage', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Computers, tablets, phones, consoles and network storage with the corresponding specification. Models with removable or expandable storage. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -711,39 +711,39 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldSerial',
   }),
   field('devices.simFormat', 'SIM format', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Phones, tablets, wearables and modems with cellular hardware.',
     uiHint: 'TEXT',
     icon: 'fieldNetwork',
   }),
   field('devices.batteryModel', 'Battery model', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Devices with batteries or a charging input. Products with an identifiable replacement battery.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('devices.batteryCapacity', 'Battery capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Devices with batteries or a charging input. Preserve the manufacturer unit, including mAh where used. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('devices.chargingConnector', 'Charging connector', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Devices with batteries or a charging input.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('devices.wiFiStandard', 'Wi-Fi standard', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Network-connected devices with the corresponding interface.',
     uiHint: 'TEXT',
     icon: 'fieldNetwork',
   }),
   field('devices.wiFiBands', 'Wi-Fi bands', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Network-connected devices with the corresponding interface.',
     uiHint: 'TEXT',
     icon: 'fieldNetwork',
@@ -766,66 +766,66 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldNetwork',
   }),
   field('devices.connectionProtocol', 'Connection protocol', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Network-connected devices with the corresponding interface. Smart-home devices with a stated interoperability protocol.',
     uiHint: 'TEXT',
     icon: 'fieldNetwork',
   }),
   field('devices.screenDiagonal', 'Screen diagonal', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Televisions, monitors and devices with integrated displays.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('devices.displayResolution', 'Display resolution', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Televisions, monitors and devices with integrated displays.',
     uiHint: 'TEXT',
     icon: 'fieldDisplay',
   }),
   field('devices.displayConnectors', 'Display connectors', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Televisions, monitors and devices with integrated displays. Devices exposing video input or output ports.',
     uiHint: 'TEXT',
     icon: 'fieldDisplay',
   }),
   field('devices.vesaMountingWidth', 'VESA mounting width', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Displays with a VESA mounting pattern. Horizontal spacing between mounting holes. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('devices.vesaMountingHeight', 'VESA mounting height', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Displays with a VESA mounting pattern. Vertical spacing between mounting holes. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('devices.printTechnology', 'Print technology', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Printers and multifunction devices.',
     uiHint: 'TEXT',
     icon: 'fieldPrint',
   }),
   field('devices.blackCartridge', 'Black cartridge', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Printers and multifunction devices.',
     uiHint: 'TEXT',
     icon: 'fieldPrint',
   }),
   field('devices.colourCartridgeSet', 'Colour cartridge set', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Printers and multifunction devices. Colour printers with separate colour consumables.',
     uiHint: 'TEXT',
     icon: 'fieldPrint',
   }),
   field('devices.maximumPaperSize', 'Maximum paper size', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Printers and multifunction devices.',
     uiHint: 'TEXT',
     icon: 'fieldPrint',
@@ -853,14 +853,14 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('devices.lensMount', 'Lens mount', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Cameras, interchangeable lenses and security cameras with the corresponding feature. Cameras and lenses using an interchangeable mount.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('devices.memoryCardFormat', 'Memory card format', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Cameras, interchangeable lenses and security cameras with the corresponding feature. Devices using removable recording media.',
     uiHint: 'TEXT',
@@ -873,33 +873,33 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldStorage',
   }),
   field('common.weight', 'Weight', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Weight, including its unit.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('devices.ingressProtection', 'Ingress protection', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Portable, outdoor or installed devices with relevant physical specifications. Devices with a manufacturer-declared IP rating.',
     uiHint: 'TEXT',
     icon: 'fieldInsurance',
   }),
   field('devices.operatingTemperature', 'Operating temperature', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Portable, outdoor or installed devices with relevant physical specifications. Devices with a stated operating range. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldTemperature',
   }),
   field('vehicles.vehicleType', 'Vehicle type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Vehicles with the corresponding identity and registration details.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('vehicles.modelYear', 'Model year', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Vehicles with the corresponding identity and registration details.',
     uiHint: 'TEXT',
     icon: 'fieldModel',
@@ -950,59 +950,59 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('vehicles.fuelOrPowerType', 'Fuel or power type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Road motor vehicles with the corresponding operating specification.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('vehicles.transmission', 'Transmission', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Road motor vehicles with the corresponding operating specification.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('vehicles.engineCapacity', 'Engine capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Road motor vehicles with the corresponding operating specification. Vehicles with a combustion engine. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldFuel',
   }),
   field('vehicles.fuelTankCapacity', 'Fuel tank capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Road motor vehicles with the corresponding operating specification. Vehicles with a fuel tank. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('vehicles.emissionStandard', 'Emission standard', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Road motor vehicles with the corresponding operating specification. Vehicles with a declared emissions classification.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('vehicles.frontTyreSpecification', 'Front tyre specification', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Road motor vehicles with the corresponding operating specification.',
     uiHint: 'TEXT',
     icon: 'fieldModel',
   }),
   field('vehicles.rearTyreSpecification', 'Rear tyre specification', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Road motor vehicles with the corresponding operating specification.',
     uiHint: 'TEXT',
     icon: 'fieldModel',
   }),
   field('vehicles.frontTyrePressure', 'Front tyre pressure', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       "Road motor vehicles with the corresponding operating specification. Use the manufacturer's load-specific value. Retain units, precision and any measurement or allowance basis.",
     uiHint: 'TEXT',
     icon: 'fieldVehicle',
   }),
   field('vehicles.rearTyrePressure', 'Rear tyre pressure', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       "Road motor vehicles with the corresponding operating specification. Use the manufacturer's load-specific value. Retain units, precision and any measurement or allowance basis.",
     uiHint: 'TEXT',
@@ -1015,7 +1015,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldSettings',
   }),
   field('vehicles.serviceMileageInterval', 'Service mileage interval', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vehicles subject to the named inspection, registration or maintenance requirement. Vehicles with distance-based maintenance intervals. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1028,104 +1028,104 @@ export const fields: FieldDefinition[] = [
     { description: 'Maximum payload in kilograms.', uiHint: 'NUMBER', icon: 'fieldWeight' },
   ),
   field('vehicles.cargoLength', 'Cargo length', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vans, pickups and other goods-carrying vehicles with manufacturer load specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('vehicles.cargoWidth', 'Cargo width', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vans, pickups and other goods-carrying vehicles with manufacturer load specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('vehicles.cargoWidthBetweenWheelArches', 'Cargo width between wheel arches', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vans, pickups and other goods-carrying vehicles with manufacturer load specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('vehicles.cargoHeight', 'Cargo height', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vans, pickups and other goods-carrying vehicles with manufacturer load specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('vehicles.cargoVolume', 'Cargo volume', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vans, pickups and other goods-carrying vehicles with manufacturer load specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldDimensions',
   }),
   field('vehicles.roofLoadLimit', 'Roof load limit', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vans, pickups and other goods-carrying vehicles with manufacturer load specifications. Vehicles with a stated roof load limit. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('vehicles.maximumAuthorisedMass', 'Maximum authorised mass', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vehicles and trailers with plated mass or towing limits. The permitted total laden vehicle mass. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('vehicles.grossTrainWeight', 'Gross train weight', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vehicles and trailers with plated mass or towing limits. Vehicles with a plated combined vehicle-and-trailer mass limit. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('vehicles.brakedTowingLimit', 'Braked towing limit', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vehicles and trailers with plated mass or towing limits. Vehicles approved to tow a braked trailer. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('vehicles.unbrakedTowingLimit', 'Unbraked towing limit', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Vehicles and trailers with plated mass or towing limits. Vehicles approved to tow an unbraked trailer. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldWeight',
   }),
   field('vehicles.usableTractionBatteryCapacity', 'Usable traction battery capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Battery-electric and plug-in hybrid road vehicles with charging specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('vehicles.acChargingConnector', 'AC charging connector', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Battery-electric and plug-in hybrid road vehicles with charging specifications.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('vehicles.dcChargingConnector', 'DC charging connector', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Battery-electric and plug-in hybrid road vehicles with charging specifications. Vehicles supporting DC charging.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('vehicles.maximumAcChargePower', 'Maximum AC charge power', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Battery-electric and plug-in hybrid road vehicles with charging specifications. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldMoney',
   }),
   field('vehicles.maximumDcChargePower', 'Maximum DC charge power', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Battery-electric and plug-in hybrid road vehicles with charging specifications. Vehicles supporting DC charging. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1165,39 +1165,39 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldDimensions',
   }),
   field('vehicles.brakeType', 'Brake type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Bicycles, cargo cycles and e-bikes with the corresponding specification.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('vehicles.drivetrain', 'Drivetrain', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Bicycles, cargo cycles and e-bikes with the corresponding specification.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('vehicles.cycleBatteryCapacity', 'Cycle battery capacity', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Bicycles, cargo cycles and e-bikes with the corresponding specification. Electrically assisted cycles. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('vehicles.cycleBatteryModel', 'Cycle battery model', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Bicycles, cargo cycles and e-bikes with the corresponding specification. Electrically assisted cycles with identifiable battery packs.',
     uiHint: 'TEXT',
     icon: 'fieldBattery',
   }),
   field('vehicles.finalDrive', 'Final drive', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Motorcycles and scooters with the corresponding service specification.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('vehicles.chainSpecification', 'Chain specification', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Motorcycles and scooters with the corresponding service specification. Vehicles with chain final drive.',
     uiHint: 'TEXT',
@@ -1285,7 +1285,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldMoney',
   }),
   field('membership.provider', 'Provider', undefined, {
-    instanceSpecific: false,
+    scope: 'GROUP',
     description: 'Memberships with provider-managed accounts or agreements.',
     uiHint: 'TEXT',
     icon: 'fieldManufacturer',
@@ -1306,7 +1306,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldEmail',
   }),
   field('common.accountPortal', 'Account portal', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Account portal.',
     uiHint: 'TEXT',
     icon: 'fieldLink',
@@ -1340,14 +1340,14 @@ export const fields: FieldDefinition[] = [
     { description: 'Minimum term ends.', uiHint: 'DATE', icon: 'fieldDate' },
   ),
   field('common.cancellationNotice', 'Cancellation notice', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Cancellation notice. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('common.cancellationInstructions', 'Cancellation instructions', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Cancellation instructions.',
     uiHint: 'TEXT',
     icon: 'fieldPolicy',
@@ -1359,14 +1359,14 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldMembership',
   }),
   field('membership.level', 'Membership type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Memberships issued by museums, clubs, professional bodies, gyms and similar organisations. Provider-defined plan type; possible types include corporate, student and lifetime.',
     uiHint: 'TEXT',
     icon: 'fieldLevel',
   }),
   field('memberships.membershipTier', 'Membership tier', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Memberships issued by museums, clubs, professional bodies, gyms and similar organisations. Where a separate tier or status exists.',
     uiHint: 'TEXT',
@@ -1424,7 +1424,7 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('memberships.includedVenues', 'Included venues', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Museum, gallery, heritage, zoo and attraction memberships with the corresponding benefit.',
     uiHint: 'TEXT',
@@ -1443,21 +1443,21 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldPerson',
   }),
   field('memberships.bookingRequirement', 'Booking requirement', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Museum, gallery, heritage, zoo and attraction memberships with the corresponding benefit.',
     uiHint: 'TEXT',
     icon: 'fieldPolicy',
   }),
   field('memberships.parkingBenefit', 'Parking benefit', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Museum, gallery, heritage, zoo and attraction memberships with the corresponding benefit.',
     uiHint: 'TEXT',
     icon: 'fieldVehicle',
   }),
   field('memberships.reciprocalAccess', 'Reciprocal access', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Museum, gallery, heritage, zoo and attraction memberships with the corresponding benefit.',
     uiHint: 'TEXT',
@@ -1475,14 +1475,14 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldAddress',
   }),
   field('memberships.accessTimes', 'Access times', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Gym, pool, sports club and leisure memberships with access conditions. Memberships with time restrictions.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('memberships.includedClasses', 'Included classes', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Gym, pool, sports club and leisure memberships with access conditions. Plans with a class allowance. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1519,7 +1519,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldSerial',
   }),
   field('memberships.cpdRequirement', 'CPD requirement', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Professional association, union or accreditation memberships with the corresponding requirement. Memberships requiring continuing professional development. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1537,13 +1537,13 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('memberships.borrowingLimit', 'Borrowing limit', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Library and lending-club memberships with borrowing entitlements.',
     uiHint: 'TEXT',
     icon: 'fieldInsurance',
   }),
   field('memberships.standardLoanPeriod', 'Standard loan period', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Library and lending-club memberships with borrowing entitlements. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1599,7 +1599,7 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('common.provider', 'Provider', undefined, {
-    instanceSpecific: false,
+    scope: 'GROUP',
     description: 'Provider.',
     uiHint: 'TEXT',
     icon: 'fieldManufacturer',
@@ -1610,7 +1610,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldModel',
   }),
   field('subscriptions.planName', 'Plan name', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Subscriptions with a named plan and lifecycle terms.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
@@ -1671,7 +1671,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldMoney',
   }),
   field('subscriptions.includedServices', 'Included services', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Streaming video, music and gaming subscriptions with the corresponding entitlement. Bundles with more than one service.',
     uiHint: 'TEXT',
@@ -1689,21 +1689,21 @@ export const fields: FieldDefinition[] = [
     },
   ),
   field('subscriptions.maximumVideoQuality', 'Maximum video quality', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Streaming video, music and gaming subscriptions with the corresponding entitlement. Video plans.',
     uiHint: 'TEXT',
     icon: 'fieldDisplay',
   }),
   field('subscriptions.advertising', 'Advertising', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Streaming video, music and gaming subscriptions with the corresponding entitlement. Plans whose advertising level varies.',
     uiHint: 'TEXT',
     icon: 'fieldDisplay',
   }),
   field('subscriptions.offlineDownloads', 'Offline downloads', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Streaming video, music and gaming subscriptions with the corresponding entitlement. Plans supporting offline content.',
     uiHint: 'TEXT',
@@ -1732,41 +1732,41 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldInsurance',
   }),
   field('subscriptions.licenceType', 'Licence type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Software and cloud subscriptions with user or resource entitlements.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('subscriptions.storageAllowance', 'Storage allowance', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Software and cloud subscriptions with user or resource entitlements. Cloud storage plans; preserve whether limits are per user or shared. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldStorage',
   }),
   field('subscriptions.storageRegion', 'Storage region', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Software and cloud subscriptions with user or resource entitlements. Plans with a selected or contractually specified data region.',
     uiHint: 'TEXT',
     icon: 'fieldStorage',
   }),
   field('subscriptions.usageAllowance', 'Usage allowance', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Software and cloud subscriptions with user or resource entitlements. Metered plans. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldStorage',
   }),
   field('subscriptions.allowanceResets', 'Allowance resets', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Software and cloud subscriptions with user or resource entitlements. Plans with renewing quotas.',
     uiHint: 'TEXT',
     icon: 'fieldRenewal',
   }),
   field('subscriptions.overagePrice', 'Overage price', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Software and cloud subscriptions with user or resource entitlements. Plans charging above the included quota. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1823,14 +1823,14 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldManufacturer',
   }),
   field('subscriptions.hostingPackage', 'Hosting package', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Domain registration, hosting and website subscriptions. Hosting agreements. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
   field('subscriptions.backupRetention', 'Backup retention', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Domain registration, hosting and website subscriptions. Hosting or backup plans with a retention policy. Retain units, precision and any measurement or allowance basis.',
     uiHint: 'TEXT',
@@ -1849,7 +1849,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldService',
   }),
   field('subscriptions.serviceBookingPage', 'Service booking page', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Home monitoring, maintenance and other service subscriptions with scheduled benefits.',
     uiHint: 'TEXT',
@@ -1879,19 +1879,19 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldAddress',
   }),
   field('utilities.serviceType', 'Service type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Utility accounts tied to a supplied property or service location.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
   field('utilities.tariffName', 'Tariff name', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Utility accounts tied to a supplied property or service location.',
     uiHint: 'TEXT',
     icon: 'fieldMoney',
   }),
   field('utilities.tariffType', 'Tariff type', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Utility accounts tied to a supplied property or service location.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
@@ -1924,14 +1924,14 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldMoney',
   }),
   field('utilities.electricitySupplier', 'Electricity supplier', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Electricity supplies, including the electricity component of dual-fuel accounts. Where the service-specific supplier needs identifying.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
   }),
   field('utilities.electricityTariffName', 'Electricity tariff name', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Electricity supplies, including the electricity component of dual-fuel accounts.',
     uiHint: 'TEXT',
     icon: 'fieldPower',
@@ -2047,13 +2047,13 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldPower',
   }),
   field('utilities.gasSupplier', 'Gas supplier', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Gas supplies, including the gas component of dual-fuel accounts.',
     uiHint: 'TEXT',
     icon: 'fieldFuel',
   }),
   field('utilities.gasTariffName', 'Gas tariff name', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Gas supplies, including the gas component of dual-fuel accounts.',
     uiHint: 'TEXT',
     icon: 'fieldFuel',
@@ -2120,13 +2120,13 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldMoney',
   }),
   field('utilities.waterSupplier', 'Water supplier', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Water and wastewater accounts with the corresponding charging basis.',
     uiHint: 'TEXT',
     icon: 'fieldWater',
   }),
   field('utilities.wastewaterProvider', 'Wastewater provider', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Water and wastewater accounts with the corresponding charging basis. Accounts including wastewater services, which may have a different provider.',
     uiHint: 'TEXT',
@@ -2335,13 +2335,13 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldDimensions',
   }),
   field('insurance.provider', 'Insurance provider', undefined, {
-    instanceSpecific: false,
+    scope: 'GROUP',
     description: 'Insurance policies with the corresponding administration or payment detail.',
     uiHint: 'TEXT',
     icon: 'fieldInsurance',
   }),
   field('insurance.underwriter', 'Underwriter', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Insurance policies with the corresponding administration or payment detail. Where the risk carrier differs from the retail provider.',
     uiHint: 'TEXT',
@@ -2414,19 +2414,19 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldPolicy',
   }),
   field('insurance.claimsPhone', 'Claims phone', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Insurance policies with the corresponding administration or payment detail.',
     uiHint: 'TEXT',
     icon: 'fieldPhone',
   }),
   field('insurance.claimsPage', 'Claims page', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description: 'Insurance policies with the corresponding administration or payment detail.',
     uiHint: 'TEXT',
     icon: 'fieldLink',
   }),
   field('insurance.emergencyAssistancePhone', 'Emergency assistance phone', undefined, {
-    instanceSpecific: false,
+    scope: 'CLASS',
     description:
       'Insurance policies with the corresponding administration or payment detail. Policies providing emergency assistance.',
     uiHint: 'TEXT',
@@ -4682,7 +4682,7 @@ for (const category of categories) {
   const identifiers = new Map(
     categorySets
       .flatMap((entry) => entry.fields)
-      .filter((entry) => entry.identifierKind !== 'NONE')
+      .filter((entry) => entry.isIdentifier)
       .map((entry) => [entry.id, entry]),
   );
   mandatory.fields = [
@@ -4724,7 +4724,7 @@ export async function seedRegistry(db: Database) {
   for (const f of fields)
     await database.execute(
       db,
-      'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive,icon,instance_specific,identifier_kind) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive,icon=excluded.icon,instance_specific=excluded.instance_specific,identifier_kind=excluded.identifier_kind',
+      'insert into bt.field_definitions(id,name,description,keywords,schema,ui_hint,sensitive,icon,scope,is_identifier) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict(id) do update set name=excluded.name,description=excluded.description,keywords=excluded.keywords,schema=excluded.schema,ui_hint=excluded.ui_hint,sensitive=excluded.sensitive,icon=excluded.icon,scope=excluded.scope,is_identifier=excluded.is_identifier',
       [
         f.id,
         f.name,
@@ -4734,8 +4734,8 @@ export async function seedRegistry(db: Database) {
         f.uiHint,
         f.sensitive,
         f.icon ?? null,
-        f.instanceSpecific ?? true,
-        f.identifierKind ?? 'NONE',
+        f.scope,
+        f.isIdentifier,
       ],
     );
 

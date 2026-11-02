@@ -166,6 +166,8 @@ test('registry tools use provider-bound resources and record retrieved definitio
         schema: { type: 'string' },
         uiHint: 'TEXT',
         sensitive: false,
+        scope: 'INSTANCE',
+        isIdentifier: false,
       },
     ],
     [

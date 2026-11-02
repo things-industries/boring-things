@@ -74,7 +74,7 @@ test('categories provide a mandatory occurrence for each identification field', 
     for (const field of new Map(
       categorySets.flatMap((set) => set.fields).map((field) => [field.id, field]),
     ).values())
-      if (field.identifierKind !== 'NONE') {
+      if (field.isIdentifier) {
         const occurrences = categorySets.filter((set) =>
           set.fields.some((candidate) => candidate.id === field.id),
         );

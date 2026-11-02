@@ -1,3 +1,5 @@
+/** Shared API aliases and persisted Thing field data. */
+
 import type { components } from './api.js';
 export type Schema = components['schemas'];
 export type Value = Schema['Value'];
@@ -17,7 +19,7 @@ export interface LocalField extends StoredValue {
   id: string;
   label: string;
   sensitive: boolean;
-  instanceSpecific?: boolean;
+  scope?: Schema['FieldScopeEnum'];
   valueType?: Schema['ValueTypeEnum'];
 }
 export interface ThingData {

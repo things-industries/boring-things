@@ -1,3 +1,5 @@
+/** Exercises authenticated API persistence, ownership and import flows with fixture providers. */
+
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
@@ -777,4 +779,40 @@ test('explicit Thing views increment atomically without changing content timesta
       .items.length,
     0,
   );
+});
+
+// Checks that classification changes reach API responses and custom-field persistence.
+test('field scopes and identifier status round-trip through the Thing API', async () => {
+  let thing = await create({
+    categoryId: 'appliances',
+    customFields: [
+      { label: 'Model note', value: 'Public model data', sensitive: false, scope: 'CLASS' },
+      { label: 'Owner note', value: 'Private data', sensitive: false },
+    ],
+  });
+  const fields = thing.fieldSets.flatMap((set) => set.fields);
+  assert.equal(fields.find((field) => field.id === 'common.manufacturer')?.scope, 'GROUP');
+  assert.equal(fields.find((field) => field.id === 'common.model')?.isIdentifier, true);
+  assert.equal(fields.find((field) => field.id === 'common.serialNumber')?.scope, 'INSTANCE');
+  assert.ok(!JSON.stringify(thing).includes('instanceSpecific'));
+  assert.ok(!JSON.stringify(thing).includes('identifierKind'));
+  const custom = thing.customFields.find((field) => field.label === 'Model note')!;
+  assert.equal(custom.scope, 'CLASS');
+  assert.equal(thing.customFields.find((field) => field.label === 'Owner note')?.scope, 'INSTANCE');
+  const edited = await request('PATCH', '/things/' + thing.id, {
+    customFields: [
+      { id: custom.id, label: 'Updated note', value: 'Updated data', sensitive: false },
+    ],
+  });
+  assert.equal(edited.statusCode, 200, edited.body);
+  const saved = await request('GET', '/things/' + thing.id);
+  assert.equal(saved.statusCode, 200, saved.body);
+  thing = saved.json<Schema['Thing']>();
+  assert.equal(thing.customFields.find((field) => field.id === custom.id)?.scope, 'CLASS');
+  const rejected = await request('PATCH', '/things/' + thing.id, {
+    customFields: [
+      { id: custom.id, label: 'Note', value: 'Text', sensitive: false, scope: 'PUBLIC' },
+    ],
+  });
+  assert.equal(rejected.statusCode, 422, rejected.body);
 });
