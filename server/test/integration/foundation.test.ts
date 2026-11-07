@@ -1,13 +1,20 @@
+/** Exercises authenticated API persistence, ownership and import flows with fixture providers. */
+
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
+import { activeStatuses } from '../../src/application/import/types.js';
 import type { FastifyInstance, InjectOptions } from 'fastify';
 import spec from '../../../openapi.json' with { type: 'json' };
 import type { Schema } from '../../../shared/model.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
+import { FixtureAi } from '../fixtures/imports.js';
+import { FixtureChat } from '../fixtures/chat.js';
+import { loadRegistry } from '../../src/application/registry/index.js';
 import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 
@@ -23,6 +30,8 @@ const admin = database.createPool(url.toString());
 url.pathname = '/' + databaseName;
 const pool = database.createPool(url.toString());
 let app: FastifyInstance;
+let importAi: FixtureAi;
+const chatAi = new FixtureChat();
 let directory: string;
 const verifyIdentity = async (token: string) => {
   if (!['alice', 'bob'].includes(token)) throw new Error('bad token');
@@ -58,8 +67,11 @@ before(async () => {
     await pool.query(await readFile(new URL(file, migrations), 'utf8'));
   }
   await database.transaction(pool, registrySeedDb.seedRegistry);
+  importAi = new FixtureAi({ db: pool, registry: await loadRegistry(pool) });
   app = await buildApp({
     dbPool: pool,
+    importAi,
+    chatAi,
     config: {
       ...readConfig(),
       blobDirectory: directory,
@@ -109,7 +121,7 @@ test('reseeding replaces category glyphs and preserves appliance details', async
   ];
   const thing = await create({
     categoryId: 'appliances',
-    addFieldSetIds: ['appliances.bsh', 'appliances.ownership', 'appliances.warranty'],
+    addFieldSetIds: ['appliances.appliance', 'appliances.ownership', 'appliances.warranty'],
     values,
     pinnedFields: [{ fieldSetId: 'appliances.ownership', fieldId: 'common.acquiredOn' }],
   });
@@ -302,6 +314,23 @@ async function upload(content = 'manual', type = 'text/plain', owner = 'alice') 
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="manual.txt"\r\nContent-Type: ${type}\r\n\r\n${content}\r\n--${boundary}--\r\n`,
   });
 }
+// Waits for the Import started by linking an Attachment before the next Thing write.
+async function linkAttachment(id: string, thingId: string, owner = 'alice') {
+  const response = await request('PUT', `/attachments/${id}/things/${thingId}`, undefined, owner);
+  assert.equal(response.statusCode, 204, response.body);
+  const signal = AbortSignal.timeout(10000);
+  while (true) {
+    signal.throwIfAborted();
+    const pending = await pool.query(
+      'select 1 from bt.imports where target_thing_id=$1 and status=any($2)',
+      [thingId, activeStatuses],
+    );
+    if (!pending.rowCount) return;
+    await setTimeout(20, undefined, { signal });
+  }
+}
+
+// Required AI providers start Imports on attachment links, so later writes wait for completion.
 test('list filters omit inaccessible records on every page', async (t) => {
   const alice = await create();
   const bob = await create({}, 'bob');
@@ -318,11 +347,7 @@ test('list filters omit inaccessible records on every page', async (t) => {
     const ownerId = (await request('GET', '/profile', undefined, owner)).json().id;
     for (let index = 0; index < 2; index++) {
       const file = (await upload('manual', 'text/plain', owner)).json<Schema['Attachment']>();
-      assert.equal(
-        (await request('PUT', `/attachments/${file.id}/things/${thing.id}`, undefined, owner))
-          .statusCode,
-        204,
-      );
+      await linkAttachment(file.id, thing.id, owner);
       const ids = [file.id];
       for (const path of ['/issues', '/events']) {
         const response = await request(
@@ -409,11 +434,11 @@ test('shared attachments, authorized downloads, unlinking and retained-import de
   const uploaded = await upload();
   assert.equal(uploaded.statusCode, 201, uploaded.body);
   const file = uploaded.json<Schema['Attachment']>();
-  for (const thing of [a, b])
-    assert.equal(
-      (await request('PUT', `/attachments/${file.id}/things/${thing.id}`)).statusCode,
-      204,
-    );
+  assert.equal(
+    (await request('PATCH', `/things/${a.id}`, { description: 'Owner note' })).statusCode,
+    200,
+  );
+  for (const thing of [a, b]) await linkAttachment(file.id, thing.id);
   assert.equal(
     (await request('GET', `/attachments/${file.id}/content`, undefined, 'bob')).statusCode,
     404,
@@ -570,6 +595,8 @@ test('stored data survives application restart', async () => {
   await app.close();
   app = await buildApp({
     dbPool: pool,
+    importAi,
+    chatAi,
     config: { ...readConfig(), blobDirectory: directory },
     verifyIdentity,
   });
@@ -752,4 +779,40 @@ test('explicit Thing views increment atomically without changing content timesta
       .items.length,
     0,
   );
+});
+
+// Checks that classification changes reach API responses and custom-field persistence.
+test('field scopes and identifier status round-trip through the Thing API', async () => {
+  let thing = await create({
+    categoryId: 'appliances',
+    customFields: [
+      { label: 'Model note', value: 'Public model data', sensitive: false, scope: 'CLASS' },
+      { label: 'Owner note', value: 'Private data', sensitive: false },
+    ],
+  });
+  const fields = thing.fieldSets.flatMap((set) => set.fields);
+  assert.equal(fields.find((field) => field.id === 'common.manufacturer')?.scope, 'GROUP');
+  assert.equal(fields.find((field) => field.id === 'common.model')?.isIdentifier, true);
+  assert.equal(fields.find((field) => field.id === 'common.serialNumber')?.scope, 'INSTANCE');
+  assert.ok(!JSON.stringify(thing).includes('instanceSpecific'));
+  assert.ok(!JSON.stringify(thing).includes('identifierKind'));
+  const custom = thing.customFields.find((field) => field.label === 'Model note')!;
+  assert.equal(custom.scope, 'CLASS');
+  assert.equal(thing.customFields.find((field) => field.label === 'Owner note')?.scope, 'INSTANCE');
+  const edited = await request('PATCH', '/things/' + thing.id, {
+    customFields: [
+      { id: custom.id, label: 'Updated note', value: 'Updated data', sensitive: false },
+    ],
+  });
+  assert.equal(edited.statusCode, 200, edited.body);
+  const saved = await request('GET', '/things/' + thing.id);
+  assert.equal(saved.statusCode, 200, saved.body);
+  thing = saved.json<Schema['Thing']>();
+  assert.equal(thing.customFields.find((field) => field.id === custom.id)?.scope, 'CLASS');
+  const rejected = await request('PATCH', '/things/' + thing.id, {
+    customFields: [
+      { id: custom.id, label: 'Note', value: 'Text', sensitive: false, scope: 'PUBLIC' },
+    ],
+  });
+  assert.equal(rejected.statusCode, 422, rejected.body);
 });

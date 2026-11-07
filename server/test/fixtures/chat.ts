@@ -1,20 +1,13 @@
-import type {
-  ChatAi,
-  ChatInput,
-  ChatContext,
-  ChatToolResult,
-  ChatTools,
-} from '../../src/application/conversations/types.js';
+import { pauseUntil } from './pause.js';
+import type { ChatAi, ChatContext, ChatTools } from '../../src/application/conversations/types.js';
+import type { ChatInput } from '../../src/providers/ai/tasks/assistant.js';
 export class FixtureChat implements ChatAi {
   constructor(public creation?: 'create_event' | 'create_issue') {}
   calls = 0;
   pause?: Promise<void>;
   failOnce = false;
   foreignThing?: string;
-  probe?: (
-    input: ChatInput,
-    execute: (name: string, args: unknown) => Promise<ChatToolResult>,
-  ) => Promise<void>;
+  probe?: (input: ChatInput, execute: ChatTools['execute']) => Promise<void>;
   research: ChatAi['research'] = async () => ({ text: 'Synthetic research answer', sources: [] });
   async respond(input: ChatInput, tools: ChatTools, context: ChatContext) {
     const execute = tools.execute;
@@ -39,7 +32,7 @@ export class FixtureChat implements ChatAi {
       };
       attachments: { id: string }[];
     };
-    await this.pause;
+    await pauseUntil(this.pause, context.signal);
     if (this.creation)
       await execute(this.creation, {
         thingId: thing.id,
@@ -59,7 +52,7 @@ export class FixtureChat implements ChatAi {
         ...(thing.fieldSets.length
           ? [
               {
-                type: 'FIELD',
+                type: 'FIELD' as const,
                 id: thing.id,
                 fieldSetId: thing.fieldSets[0].id,
                 fieldId: thing.fieldSets[0].fields[0].id,
@@ -71,7 +64,7 @@ export class FixtureChat implements ChatAi {
         ...(attachments.length
           ? [
               {
-                type: 'ATTACHMENT',
+                type: 'ATTACHMENT' as const,
                 id: attachments[0].id,
                 fieldSetId: null,
                 fieldId: null,

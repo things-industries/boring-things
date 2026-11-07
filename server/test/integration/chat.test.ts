@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Schema } from '../../../shared/model.js';
 import { FixtureChat } from '../fixtures/chat.js';
+import { FixtureAi } from '../fixtures/imports.js';
+import { loadRegistry } from '../../src/application/registry/index.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
@@ -27,8 +29,6 @@ let base: string;
 const config = () => ({
   ...readConfig(),
   blobDirectory: directory,
-  openaiApiKey: '',
-  openaiModel: '',
   chatTimeoutMs: 3000,
 });
 const boot = async () => {
@@ -36,6 +36,7 @@ const boot = async () => {
     dbPool: pool,
     config: config(),
     chatAi: ai,
+    importAi: new FixtureAi({ db: pool, registry: await loadRegistry(pool) }),
     verifyIdentity: async (token) => ({ subject: token }),
   });
   base = await app.listen({ host: '127.0.0.1', port: 0 });
@@ -83,7 +84,7 @@ async function setup(owner = 'alice') {
       {
         name: 'Chat Thing',
         categoryId: 'appliances',
-        addFieldSetIds: ['appliances.bsh'],
+        addFieldSetIds: ['appliances.appliance'],
       },
       owner,
     )
@@ -433,7 +434,7 @@ test('custom fields can be cited and rejected card selections save no partial ci
     [thing.id, JSON.stringify([citation])],
   );
   const card = {
-    type: 'FIELD',
+    type: 'FIELD' as const,
     id: thing.id,
     fieldSetId: null,
     fieldId: null,
@@ -554,6 +555,7 @@ test('text-only questions return messages without intent or new activity', async
   for (const resource of ['events', 'issues'])
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
 });
+// Moving tool schemas into tasks left application activity length checks unenforced.
 test('writes require a retrieved owned Thing and valid arguments', async () => {
   const { thing } = await setup();
   const foreign = await setup('bob');
@@ -562,6 +564,7 @@ test('writes require a retrieved owned Thing and valid arguments', async () => {
     { thingId: foreign.thing.id, title: 'Foreign Thing' },
     { title: '   ' },
     { title: 'x'.repeat(201) },
+    { title: 'Check the seal', description: 'x'.repeat(4001) },
   ]) {
     const current = await setup();
     ai.probe = async (_input, execute) => {

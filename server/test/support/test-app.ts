@@ -17,6 +17,7 @@ import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
 import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
+import { loadRegistry } from '../../src/application/registry/index.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 
 const appId = 'browser-test';
@@ -27,7 +28,13 @@ const subject = 'browser-alice';
  * so anything waiting on the port finds the state and sample data ready. It requires a fixed port.
  */
 export async function startTestApp(
-  options: { samples?: boolean; port?: number; storageStatePath?: string } = {},
+  options: {
+    samples?: boolean;
+    port?: number;
+    storageStatePath?: string;
+    importWorkflow?: import('../../src/application/import/workflow.js').WorkflowOptions;
+    readImageText?: import('../../src/app.js').BuildAppOptions['readImageText'];
+  } = {},
 ) {
   const port = options.port ?? 0;
   if (options.storageStatePath && !port)
@@ -90,9 +97,16 @@ export async function startTestApp(
       await pool.query(await readFile(new URL(file, migrations), 'utf8'));
     }
     await database.transaction(pool, registrySeedDb.seedRegistry);
-    const importAi = new FixtureAi();
+    const importAi = new FixtureAi({ db: pool, registry: await loadRegistry(pool) });
     const chatAi = new FixtureChat();
-    const app = await buildApp({ dbPool: pool, config, importAi, chatAi });
+    const app = await buildApp({
+      dbPool: pool,
+      config,
+      importAi,
+      chatAi,
+      importWorkflow: { specialists: [], ...options.importWorkflow },
+      readImageText: options.readImageText ?? (async () => 'neff'),
+    });
     cleanup.push(() => app.close());
 
     // Long enough for a reused e2e server; the key only exists for this process.

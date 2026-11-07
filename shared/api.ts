@@ -294,7 +294,7 @@ export interface paths {
         put?: never;
         /**
          * Upload attachment
-         * @description Uploads one file in the multipart file field and returns its metadata. File size, media type and content must satisfy the limits returned by getConfig.
+         * @description Uploads one file and queues Attachment transcription. An optional Thing ID links it to that Thing. Create an Import separately to process one or more uploaded Attachments together. File size, media type and content must satisfy the limits returned by getConfig.
          */
         post: operations["uploadAttachment"];
         delete?: never;
@@ -361,13 +361,13 @@ export interface paths {
         get?: never;
         /**
          * Link attachment
-         * @description Links an attachment to a Thing. Repeating an existing link succeeds. Returns 409 while the Thing has an active import.
+         * @description Links an Attachment and schedules a restricted Import when the link is new. Repeating an existing link succeeds. Returns 409 while the Thing has an active Import.
          */
         put: operations["linkAttachment"];
         post?: never;
         /**
          * Unlink attachment
-         * @description Removes the link between an attachment and a Thing, retaining the attachment. Returns 409 while the Thing has an active import.
+         * @description Removes the owner-scoped link and records that automatic work must not restore it.
          */
         delete: operations["unlinkAttachment"];
         options?: never;
@@ -555,7 +555,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/things:import": {
+    "/api/imports": {
         parameters: {
             query?: never;
             header?: never;
@@ -565,10 +565,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start import
-         * @description Queues document processing for an uploaded attachment and links it to the target Thing. Omitting thingId creates a placeholder Thing. Returns 409 if the target already has an active import.
+         * Start an Import
+         * @description References one to ten owned Attachments. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.
          */
-        post: operations["startImport"];
+        post: operations["createImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -595,20 +595,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/imports/{id}:confirm": {
+    "/api/imports/{id}/stream": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Confirm import
-         * @description Selects detected Things to import and resumes processing. Each selection can update an existing Thing or create one. Returns 409 unless the import is awaiting selection.
+         * Stream Import progress
+         * @description Streams owner-scoped revisioned Import snapshots, including progress before any Thing exists.
          */
-        post: operations["confirmImport"];
+        get: operations["streamImport"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -715,6 +715,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/things/{thingId}:recommend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh recommendations for one Thing
+         * @description Start Recommendation directly using current Thing fields and linked evidence.
+         */
+        post: operations["recommendThing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -741,6 +761,13 @@ export interface components {
             quote?: string;
             /** Format: uri */
             url?: string;
+            /** @description Specialist provider that supplied this evidence. */
+            provider?: string;
+            /**
+             * Format: date-time
+             * @description When the provider evidence was retrieved.
+             */
+            retrievedAt?: string;
         };
         /** @description Reference to a field selected for prominent display on a Thing. */
         Pin: {
@@ -765,7 +792,7 @@ export interface components {
             required?: string[];
             additionalProperties?: boolean;
         };
-        /** @description Reusable field definition with validation rules, display settings and sensitivity. */
+        /** @description Reusable field definition with validation rules, display settings, scope, identifier status and sensitivity. */
         FieldDefinition: {
             id: string;
             name: string;
@@ -776,8 +803,9 @@ export interface components {
             sensitive: boolean;
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
+            scope: components["schemas"]["FieldScopeEnum"];
+            /** @description Whether the field contributes to identifying the Thing, alone or with other identifiers. */
+            isIdentifier: boolean;
         };
         /** @description Field definition with its current value, source information and masking state. */
         Field: {
@@ -794,15 +822,19 @@ export interface components {
             sourceRefs: components["schemas"]["SourceRef"][];
             /** @description Semantic field icon key; the Remix mapping is documented in README.md. Clients may render a generic field icon for missing, null or unrecognised keys. */
             icon?: string | null;
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
+            scope: components["schemas"]["FieldScopeEnum"];
+            /** @description Whether the field contributes to identifying the Thing, alone or with other identifiers. */
+            isIdentifier: boolean;
+            /** @description Whether automatic processing may populate or update this field. Manual value edits disable it. */
+            autoPopulate?: boolean;
         };
         /** @description Category-specific group of field definitions, required dependencies and suggested related sets. */
         FieldSet: {
             id: string;
             categoryId: string;
             name: string;
-            eligibility: string;
+            /** @description Source-facing eligibility statement. Null makes this field set mandatory for its category. */
+            eligibility: string | null;
             keywords: string[];
             includes: string[];
             considerAlongside: string[];
@@ -813,7 +845,8 @@ export interface components {
             id: string;
             categoryId: string;
             name: string;
-            eligibility: string;
+            /** @description Source-facing eligibility statement. Null makes this field set mandatory for its category. */
+            eligibility: string | null;
             keywords: string[];
             includes: string[];
             considerAlongside: string[];
@@ -830,8 +863,9 @@ export interface components {
             origin: components["schemas"]["FieldOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
             valueType: components["schemas"]["ValueTypeEnum"];
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
+            scope: components["schemas"]["FieldScopeEnum"];
+            /** @description Whether automatic processing may populate or update this field. Manual value edits disable it. */
+            autoPopulate?: boolean;
         };
         /** @description Thing category with display settings and the number of your Things in that category. */
         Category: {
@@ -926,11 +960,18 @@ export interface components {
             eventIds: string[];
             purchasableIds: string[];
             conversationIds: string[];
+            /** @description Import status, detected candidates, resulting Thing IDs and processing details. */
             import?: {
                 /** Format: uuid */
                 id: string;
                 /** Format: uuid */
-                attachmentId: string;
+                attachmentId: string | null;
+                /** @description Uploaded Attachments cited by this Import, in submission order. */
+                attachmentIds: string[];
+                /** @description Persisted revision for progress streams. */
+                revision: number;
+                /** @description Current transcription outcomes for referenced Attachments. */
+                sources: components["schemas"]["ImportSourceStatus"][];
                 /** Format: uuid */
                 thingId: string | null;
                 status: components["schemas"]["ImportStatusEnum"];
@@ -940,6 +981,9 @@ export interface components {
                 usage: components["schemas"]["ImportUsage"];
                 /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
                 warnings?: components["schemas"]["ImportWarning"][];
+                /** @description Current workflow stage. */
+                stage?: string | null;
+                operation?: components["schemas"]["ImportOperationEnum"];
             } | null;
             /** @description Number of explicit user views recorded for this Thing. */
             accessCount: number;
@@ -953,17 +997,18 @@ export interface components {
         ValuePatch: {
             fieldSetId: string | null;
             fieldId: string;
-            value: components["schemas"]["NullableValue"];
+            value?: components["schemas"]["NullableValue"];
+            /** @description Explicit permission for future automatic population. A value edit disables population unless supplied. */
+            autoPopulate?: boolean;
         };
-        /** @description Update to a custom field, including its label, value, sensitivity and optional research classification. Omitted classification preserves an existing value or defaults to instance-specific. */
+        /** @description Update to a custom field, including its label, value, sensitivity and optional scope. Omitted scope keeps the existing scope or defaults to INSTANCE. */
         CustomFieldPatch: {
             /** Format: uuid */
             id?: string;
             label: string;
             value: components["schemas"]["Value"];
             sensitive: boolean;
-            /** @description Whether the value belongs to the owned item, account or agreement. Only false values participate in public research; unclassified fields default to true. */
-            instanceSpecific?: boolean;
+            scope?: components["schemas"]["FieldScopeEnum"];
         };
         /** @description Properties for creating a Thing, including its category and optional fields, tags and pins. */
         ThingCreate: {
@@ -1006,7 +1051,7 @@ export interface components {
         RevealResult: {
             value: components["schemas"]["NullableValue"];
         };
-        /** @description File metadata, document properties and IDs of linked Things. */
+        /** @description File metadata, document properties and IDs of linked Things. Transcription starts after upload. */
         Attachment: {
             /** Format: uuid */
             id: string;
@@ -1275,6 +1320,12 @@ export interface components {
             name: string;
             categoryId: string;
         };
+        /** @description Transcription progress of an Attachment cited by an Import. */
+        ImportSourceStatus: {
+            /** Format: uuid */
+            attachmentId: string;
+            status: components["schemas"]["AttachmentTranscriptionStatusEnum"];
+        };
         /** @description AI model, token counts, elapsed time and tool results for a processing attempt. */
         ImportUsage: {
             model: string;
@@ -1295,7 +1346,13 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
-            attachmentId: string;
+            attachmentId: string | null;
+            /** @description Uploaded Attachments cited by this Import, in submission order. */
+            attachmentIds: string[];
+            /** @description Persisted revision for progress streams. */
+            revision: number;
+            /** @description Current transcription outcomes for referenced Attachments. */
+            sources: components["schemas"]["ImportSourceStatus"][];
             /** Format: uuid */
             thingId: string | null;
             status: components["schemas"]["ImportStatusEnum"];
@@ -1305,29 +1362,27 @@ export interface components {
             usage: components["schemas"]["ImportUsage"];
             /** @description Warnings for unfinished optional research. Imported fields and successful documents remain available. */
             warnings?: components["schemas"]["ImportWarning"][];
+            /** @description Current workflow stage. */
+            stage?: string | null;
+            operation?: components["schemas"]["ImportOperationEnum"];
         };
-        /** @description Attachment to process and an optional existing Thing to update. */
-        ImportStart: {
-            /** Format: uuid */
-            attachmentId: string;
-            /** Format: uuid */
+        /** @description Start an Import using up to ten Attachments and optional Thing context. A contextual Import may have no Attachments; empty input completes without work. */
+        ImportSubmission: {
+            /** @description One to ten distinct owned Attachment IDs in source order. */
+            attachmentIds: string[];
+            /**
+             * Format: uuid
+             * @description Owned Thing receiving relevant evidence; omitted for open identification.
+             */
             thingId?: string;
         };
-        /** @description Queued import ID, target Thing ID and initial status. */
+        /** @description Accepted Import with optional Thing context. */
         ImportAccepted: {
             /** Format: uuid */
             importId: string;
             /** Format: uuid */
-            thingId: string;
+            thingId: string | null;
             status: components["schemas"]["ImportStatusEnum"];
-        };
-        /** @description Detected candidates selected for import. Each targetThingId identifies an existing Thing or is null to create one. */
-        ImportConfirmation: {
-            selections: {
-                candidateId: string;
-                /** Format: uuid */
-                targetThingId: string | null;
-            }[];
         };
         /** @description Reference to a Thing, field, attachment, issue, event or product suggestion. Availability indicates whether the referenced record can still be accessed. */
         ResourceCard: {
@@ -1498,7 +1553,12 @@ export interface components {
          * @description Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.
          * @enum {string}
          */
-        ImportStatusEnum: "QUEUED" | "EXTRACTING" | "AWAITING_SELECTION" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED";
+        ImportStatusEnum: "QUEUED" | "WAITING_FOR_TRANSCRIPTION" | "EXTRACTING" | "MAPPING" | "DISCOVERING" | "COMPLETE" | "INCOMPLETE" | "FAILED" | "RECOMMENDING";
+        /**
+         * @description Readable-content preparation state of an Attachment.
+         * @enum {string}
+         */
+        AttachmentTranscriptionStatusEnum: "PENDING" | "PROCESSING" | "COMPLETE" | "EMPTY" | "PARTIAL" | "SKIPPED" | "FAILED" | "INSUFFICIENT_LANGUAGE";
         /**
          * @description Whether a message was written by the user or the assistant.
          * @enum {string}
@@ -1529,6 +1589,16 @@ export interface components {
          * @enum {string}
          */
         ImportWarningCodeEnum: "SIZE_LIMIT" | "MODEL_INPUT_LIMIT" | "PAGE_BUDGET" | "TIMEOUT" | "UNAVAILABLE" | "EXTRACTION_FAILED" | "RESEARCH_FAILED";
+        /**
+         * @description Requested Thing processing capability.
+         * @enum {string}
+         */
+        ImportOperationEnum: "IMPORT" | "RECOMMENDATION";
+        /**
+         * @description Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the owned item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.
+         * @enum {string}
+         */
+        FieldScopeEnum: "GROUP" | "CLASS" | "INSTANCE";
     };
     responses: {
         /** @description A valid bearer token is required. */
@@ -1619,6 +1689,8 @@ export interface components {
         resourceId: string;
         /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
         thingId: string;
+        /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+        attachmentThingId: string;
         /** @description Thing id. */
         thingIdPath: string;
     };
@@ -2189,7 +2261,10 @@ export interface operations {
     };
     uploadAttachment: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+                thingId?: components["parameters"]["attachmentThingId"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2801,7 +2876,7 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    startImport: {
+    createImport: {
         parameters: {
             query?: never;
             header?: never;
@@ -2810,11 +2885,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ImportStart"];
+                "application/json": components["schemas"]["ImportSubmission"];
             };
         };
         responses: {
-            /** @description Success */
+            /** @description Accepted */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -2859,7 +2934,7 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    confirmImport: {
+    streamImport: {
         parameters: {
             query?: never;
             header?: never;
@@ -2869,24 +2944,19 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ImportConfirmation"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Import snapshots; event: import.snapshot; id: revision. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Import"];
+                    "text/event-stream": string;
                 };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];
@@ -3035,6 +3105,34 @@ export interface operations {
             404: components["responses"]["NotFound"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
+        };
+    };
+    recommendThing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

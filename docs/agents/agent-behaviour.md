@@ -60,10 +60,6 @@ State the preference as a rule, not as a record of the conversation it came from
 
 ## Comments
 
-- Use comments sparingly.
-- Only comment what would be hard to understand by reading the code alone.
-- Do not write verbose comments.
-- Adding comments in code should be minimal and only ever describe a method, a function, a class, or a complicated procedure that without a comment would be hard to read or understand.
 - Do not explain the background story of why something was added or changed. The only exception is a workaround for a limitation or bug outside the codebase's control.
 
 ## Writing documents, PRs, issues
