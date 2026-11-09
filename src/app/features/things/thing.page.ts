@@ -57,7 +57,8 @@ import { IssuesStore } from '../../core/state/issues.store';
 import { PurchasablesStore } from '../../core/state/purchasables.store';
 import { TagsStore } from '../../core/state/tags.store';
 import { ThingsStore } from '../../core/state/things.store';
-import { agendaView } from '../../core/state/views/agenda.view';
+import { createClock } from '../../core/state/clock';
+import { agendaView, loadAgenda } from '../../core/state/views/agenda.view';
 import { AttachmentThumbnail } from '../../components/attachment-thumbnail/attachment-thumbnail';
 import { Dialog } from '../../components/dialog/dialog';
 import { ErrorMessage } from '../../components/error-message/error-message';
@@ -76,7 +77,7 @@ import { TaskDialogs } from '../../components/task-dialogs/task-dialogs';
 import { TaskActions } from '../../components/task-list/task-actions';
 import { TaskList } from '../../components/task-list/task-list';
 import { TopBar } from '../../components/top-bar/top-bar';
-import { byPriority, nextItems } from '../../utils/agenda.util';
+import { byImportance, nextItems } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
 import { formatFieldValue } from '../../utils/field.util';
@@ -233,12 +234,12 @@ export class ThingPage {
     ),
   );
 
-  readonly now = new Date();
-  private readonly agenda = agendaView(signal(this.now), this.id);
+  readonly now = createClock();
+  private readonly agenda = agendaView(this.now, this.id);
   readonly upcoming = computed(() => nextItems(this.agenda(), APP_CONFIG.thingTaskLimit));
 
   readonly suggested = computed(() =>
-    byPriority(
+    byImportance(
       (this.tasks.tasksByThing()[this.id()] ?? []).filter((task) => task.status === 'SUGGESTED'),
     ).slice(0, APP_CONFIG.thingTaskLimit),
   );
@@ -261,6 +262,7 @@ export class ThingPage {
   private viewed = new Set<string>();
 
   constructor() {
+    loadAgenda();
     void this.categories.ensureLoaded();
     void this.issues.ensureLoaded();
     void this.tasks.ensureLoaded();
@@ -340,7 +342,7 @@ export class ThingPage {
 
   /** Adds a suggested task to the schedule; the day is chosen for the owner. */
   addTask(id: string) {
-    void this.tasks.add(id);
+    void this.tasks.schedule(id);
   }
 
   saveCategory() {

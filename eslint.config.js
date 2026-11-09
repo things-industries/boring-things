@@ -6,6 +6,8 @@ export default ts.config(
     ignores: [
       'node_modules/**',
       'dist/**',
+      'test-results/**',
+      'playwright-report/**',
       '.angular/**',
       'shared/api.ts',
       'server/src/providers/ai/schema-types.ts',

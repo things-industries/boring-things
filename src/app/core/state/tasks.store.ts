@@ -1,148 +1,75 @@
+/** Persisted Tasks, including successors returned by completion. */
+
 import { computed, inject } from '@angular/core';
-import {
-  patchState,
-  signalStore,
-  withComputed,
-  withFeature,
-  withMethods,
-  withProps,
-  withState,
-} from '@ngrx/signals';
-import type { MutationResult } from '../../interfaces/state.interface';
-import type { TaskRecurrence } from '../../interfaces/task.interface';
+import { signalStore, withComputed, withFeature, withMethods, withProps } from '@ngrx/signals';
+import type { Task, TaskRecurrence } from '../../interfaces/task.interface';
+import { TasksService } from '../data/tasks.service';
 import { groupBy } from '../../utils/collection.util';
-import { dayKey, nextDueOn } from '../../utils/date.util';
-import { isTaskEvent, mockTask } from '../mocks/tasks.mock';
-import { EventsStore } from './events.store';
-import { withSession } from './with-load';
+import { withEntityCollection } from './with-entity-collection';
+import { removing, updating } from './optimistic';
 
-interface TasksState {
-  /** Recurrences changed this session, by task ID; `null` makes a task one-off. */
-  _intervals: Record<string, TaskRecurrence | null>;
-  /** Next occurrence created by completing a recurring task, by the completed task's ID. */
-  _generated: Record<string, string>;
-}
-
-/**
- * Tasks the owner does for their Things. Until #100, Tasks are date-only Events read and written
- * through `EventsStore` and completed by the tasks mock; recurrence changes last for the session.
- */
 export const TasksStore = signalStore(
   { providedIn: 'root' },
-
-  withState<TasksState>({ _intervals: {}, _generated: {} }),
-
-  withProps(() => ({ _events: inject(EventsStore) })),
-
-  withComputed((store) => {
-    const entities = computed(() =>
-      store._events
-        .entities()
-        .filter(isTaskEvent)
-        .flatMap((event) => mockTask(event, store._intervals()) ?? []),
-    );
-
-    return {
-      entities,
-      entityMap: computed(() => Object.fromEntries(entities().map((task) => [task.id, task]))),
-      tasksByThing: computed(() => groupBy(entities(), (task) => task.thingId)),
-      status: computed(() => store._events.status()),
-      error: computed(() => store._events.error()),
-    };
-  }),
-
+  withProps(() => ({ _service: inject(TasksService) })),
+  withFeature((store) =>
+    withEntityCollection<Task>({
+      list: () => store._service.list(),
+      get: (id) => store._service.get(id),
+    }),
+  ),
+  withComputed((store) => ({
+    tasksByThing: computed(() => groupBy(store.entities(), (task) => task.thingId)),
+  })),
   withMethods((store) => ({
-    ensureLoaded: () => store._events.ensureLoaded(),
-
-    reload: () => store._events.reload(),
-
-    /** Completes a task; a recurring task also gets its next occurrence. */
-    async complete(id: string): Promise<MutationResult<unknown>> {
-      const task = store.entityMap()[id];
-      const result = await store._events.update(id, { status: 'COMPLETED' }, 'completeTask');
-
-      if (!result.ok || !task?.recurrence || !task.scheduledOn) return result;
-
-      const next = await store._events.create({
-        thingId: task.thingId,
-        issueId: task.issueId,
-        title: task.title,
-        description: task.description,
-        status: 'SCHEDULED',
-        startsOn: nextDueOn(task.scheduledOn, dayKey(new Date()), task.recurrence),
-      });
-
-      if (next.ok)
-        patchState(store, {
-          _generated: { ...store._generated(), [id]: next.value.id },
-          _intervals:
-            id in store._intervals()
-              ? { ...store._intervals(), [next.value.id]: store._intervals()[id] }
-              : store._intervals(),
-        });
-      return next;
-    },
-
-    /** Reopens a completed task and removes the occurrence completing it created, if unchanged. */
-    async reopen(id: string): Promise<MutationResult<unknown>> {
-      const task = store.entityMap()[id];
-      const result = await store._events.update(
-        id,
-        { status: 'SCHEDULED', startsOn: task?.scheduledOn ?? null, startsAt: null },
-        'reopenTask',
+    async complete(id: string) {
+      const result = await store.mutate('completeTask', [], () =>
+        store._service.change(id, 'complete'),
       );
-      const generatedId = store._generated()[id];
-      const generated = generatedId ? store.entityMap()[generatedId] : undefined;
-
-      if (!result.ok || !generated) return result;
-
-      patchState(store, {
-        _generated: Object.fromEntries(
-          Object.entries(store._generated()).filter(([completed]) => completed !== id),
-        ),
-      });
-      if (generated.status !== 'SCHEDULED') return result;
-      return store._events.update(
-        generated.id,
-        { status: 'DISMISSED', startsOn: null, startsAt: null },
-        'reopenTask',
-      );
-    },
-
-    /** Adds a suggested task to the schedule. Until #100 picks the day, it is scheduled for today. */
-    add: (id: string) =>
-      store._events.update(
-        id,
-        { status: 'SCHEDULED', startsOn: dayKey(new Date()), startsAt: null },
-        'addTask',
-      ),
-
-    /** Moves a task to another day and sets or clears its recurrence. */
-    async reschedule(id: string, scheduledOn: string, recurrence: TaskRecurrence | null) {
-      const previous = store._intervals();
-
-      patchState(store, { _intervals: { ...previous, [id]: recurrence } });
-
-      const result = await store._events.update(
-        id,
-        { status: 'SCHEDULED', startsOn: scheduledOn, startsAt: null },
-        'rescheduleTask',
-      );
-
-      if (!result.ok) patchState(store, { _intervals: previous });
+      if (result.ok)
+        store.receive([
+          result.value.task,
+          ...(result.value.nextTask ? [result.value.nextTask] : []),
+        ]);
       return result;
     },
-
-    /** Takes a task off the schedule and returns it to the Thing's suggestions. */
-    unschedule: (id: string) =>
-      store._events.update(
-        id,
-        { status: 'SUGGESTED', startsOn: null, startsAt: null },
+    async schedule(id: string) {
+      const result = await store.mutate('addTask', [], () => store._service.change(id, 'accept'));
+      if (result.ok) store.receive([result.value.task]);
+      return result;
+    },
+    async close(id: string) {
+      const result = await store.mutate('saveChanges', [], () =>
+        store._service.change(id, 'close'),
+      );
+      if (result.ok) store.receive([result.value.task]);
+      return result;
+    },
+    reschedule(
+      id: string,
+      scheduledOn: string | null,
+      deadlineOn: string | null,
+      recurrence: TaskRecurrence | null,
+    ) {
+      const patch = { scheduledOn, deadlineOn, recurrence };
+      return store.mutate(
+        'rescheduleTask',
+        [
+          store.stage(
+            id,
+            updating((task) => ({ ...task, ...patch })),
+          ),
+        ],
+        () => store._service.update(id, patch),
+        { confirm: (task) => task, refetch: () => store.loadOne(id) },
+      );
+    },
+    remove(id: string) {
+      return store.mutate(
         'unscheduleTask',
-      ),
-
-    _reset: () => patchState(store, { _intervals: {}, _generated: {} }),
+        [store.stage(id, removing)],
+        () => store._service.remove(id),
+        { confirm: () => null, refetch: () => store.loadOne(id) },
+      );
+    },
   })),
-
-  withFeature((store) => withSession(store._reset)),
 );

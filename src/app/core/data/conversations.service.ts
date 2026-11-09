@@ -22,7 +22,11 @@ export class ConversationsService {
   }
 
   create(body: Schema['ConversationInput']) {
-    return this.client.POST('/api/conversations', { body }).then(apiData);
+    return this.client
+      .POST('/api/conversations', {
+        body: { ...body, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      })
+      .then(apiData);
   }
 
   send(id: string, body: Schema['MessageInput']) {

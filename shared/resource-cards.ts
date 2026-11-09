@@ -24,9 +24,11 @@ export function mergeResourceCards(
                 ? card.attachmentId
                 : card.type === 'EVENT'
                   ? card.eventId
-                  : card.type === 'ISSUE'
-                    ? card.issueId
-                    : card.purchasableId,
+                  : card.type === 'TASK'
+                    ? card.taskId
+                    : card.type === 'ISSUE'
+                      ? card.issueId
+                      : card.purchasableId,
           ]);
     const previous = merged.get(key);
     if (card.type === 'ATTACHMENT') {

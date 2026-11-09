@@ -65,7 +65,7 @@ export interface Discovery {
 
 export interface TaskResearch extends Pick<ResearchThing, 'categoryId' | 'knownFields'> {
   referenceUrls: string[];
-  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
+  existingTasks: Pick<Schema['Task'], 'title' | 'status'>[];
 }
 
 export interface PurchasableResearch extends Pick<ResearchThing, 'categoryId' | 'knownFields'> {
@@ -74,7 +74,13 @@ export interface PurchasableResearch extends Pick<ResearchThing, 'categoryId' | 
 }
 
 export interface TaskSuggestions {
-  items: Pick<Schema['Event'], 'title' | 'description' | 'sourceRefs'>[];
+  items: (Pick<Schema['Task'], 'title' | 'description' | 'sourceRefs'> &
+    Partial<
+      Pick<
+        Schema['Task'],
+        'importance' | 'recurrence' | 'scheduledOn' | 'deadlineOn' | 'completionActions'
+      >
+    >)[];
 }
 
 export interface PurchasableSuggestions {

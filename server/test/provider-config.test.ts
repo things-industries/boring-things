@@ -13,6 +13,7 @@ test('missing AI configuration disables both capabilities without a fake fallbac
     ['', 'synthetic-model'],
   ]) {
     assert.deepEqual(createAi({ ...config, openaiApiKey, openaiModel }), {
+      taskScheduler: undefined,
       importAi: undefined,
       chatAi: undefined,
     });

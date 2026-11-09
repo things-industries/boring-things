@@ -27,7 +27,7 @@ import { MenuItem } from '../menu/menu-item';
 const actionIcons: Record<CompletionAction['type'], string> = {
   CHAT: 'followUpChat',
   UPDATE_FIELD: 'followUpField',
-  ADD_DOCUMENT: 'followUpDocument',
+  ADD_ATTACHMENT: 'followUpDocument',
   RESOLVE_ISSUE: 'followUpResolve',
 };
 
@@ -73,6 +73,7 @@ export class TaskCard {
   readonly asked = output<void>();
   readonly rescheduled = output<void>();
   readonly removed = output<void>();
+  readonly dismissed = output<void>();
 
   readonly title = computed(() => itemTitle(this.item()));
 
@@ -84,14 +85,14 @@ export class TaskCard {
   });
 
   /** Tasks, and events with completion actions, can be checked off. */
-  readonly checkable = computed(() => this.item().type === 'TASK' || this.actions().length > 0);
+  readonly checkable = computed(() => this.item().type === 'TASK');
 
-  readonly done = computed(() => isDone(this.item()));
+  readonly done = computed(() => isDone(this.item(), this.now()));
 
   readonly critical = computed(() => {
     const item = this.item();
 
-    return item.type === 'TASK' && item.task.priority === 'CRITICAL';
+    return item.type === 'TASK' && item.task.importance === 'CRITICAL';
   });
 
   readonly timeLine = computed(() => timeLine(this.item(), this.now()));

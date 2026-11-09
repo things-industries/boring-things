@@ -200,6 +200,59 @@ export interface components {
                 sourceUrl: string;
                 /** @description Supporting excerpt from the public source establishing task applicability (min 1 char, max 2000 chars). */
                 quote: string;
+                /**
+                 * @description Prominence and ordering within a day, independent of scheduling.
+                 * @enum {string}
+                 */
+                importance: "CRITICAL" | "IMPORTANT" | "RECOMMENDED" | "NICE_TO_HAVE";
+                /** @description Evidence-based recurrence; a repeating task has at least one date. */
+                recurrence: {
+                    interval: number;
+                    /**
+                     * @description Calendar unit for task recurrence.
+                     * @enum {string}
+                     */
+                    unit: "DAY" | "WEEK" | "MONTH" | "YEAR";
+                    /**
+                     * @description Completion date or planned deadline used for recurrence.
+                     * @enum {string}
+                     */
+                    from: "COMPLETION" | "DEADLINE";
+                } | null;
+                /**
+                 * Format: date
+                 * @description Task scheduledOn.
+                 */
+                scheduledOn: string | null;
+                /**
+                 * Format: date
+                 * @description Task deadlineOn.
+                 */
+                deadlineOn: string | null;
+                /** @description Followups to offer after completion, using only retrieved field and issue addresses. */
+                completionActions: ({
+                    /** @constant */
+                    type: "CHAT";
+                    label: string;
+                    prompt: string | null;
+                } | {
+                    /** @constant */
+                    type: "UPDATE_FIELD";
+                    label: string;
+                    fieldSetId: string | null;
+                    fieldId: string | null;
+                    /** Format: uuid */
+                    customFieldId: string | null;
+                } | {
+                    /** @constant */
+                    type: "ADD_ATTACHMENT";
+                    label: string;
+                    documentType: ("MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER") | null;
+                } | {
+                    /** @constant */
+                    type: "RESOLVE_ISSUE";
+                    label: string;
+                })[];
             }[];
         };
         /** @description Supported consumables and accessories with purchase pages and compatibility evidence. */
@@ -273,17 +326,116 @@ export interface components {
             /** @description Public research question about the product or service, with no instance-specific facts or secrets (min 1 char, max 2000 chars). */
             question: string;
         };
-        /** @description Suggested maintenance Event requested by the user for a Thing already read. */
-        create_event: {
+        /** @description User-requested Task with unknown dates set to null. */
+        create_task: {
             /**
              * Format: uuid
-             * @description UUID of the previously read Thing for which the user requested this task.
+             * @description Task thingId.
              */
             thingId: string;
-            /** @description Short action title describing the user-requested maintenance or servicing task (min 1 char, max 200 chars). */
+            /**
+             * Format: uuid
+             * @description Task issueId.
+             */
+            issueId: string | null;
+            /** @description Task title. */
             title: string;
-            /** @description Task details and relevant instructions supported by the conversation and retrieved evidence; empty text when no further details are supported. The owner schedules the suggested Event (max 4000 chars). */
+            /** @description Task description. */
             description: string;
+            /**
+             * @description Prominence and ordering within a day, independent of scheduling.
+             * @enum {string}
+             */
+            importance: "CRITICAL" | "IMPORTANT" | "RECOMMENDED" | "NICE_TO_HAVE";
+            /**
+             * Format: date
+             * @description Task scheduledOn.
+             */
+            scheduledOn: string | null;
+            /**
+             * Format: date
+             * @description Task deadlineOn.
+             */
+            deadlineOn: string | null;
+            /** @description Evidence-based recurrence; a repeating task has at least one date. */
+            recurrence: {
+                interval: number;
+                /**
+                 * @description Calendar unit for task recurrence.
+                 * @enum {string}
+                 */
+                unit: "DAY" | "WEEK" | "MONTH" | "YEAR";
+                /**
+                 * @description Completion date or planned deadline used for recurrence.
+                 * @enum {string}
+                 */
+                from: "COMPLETION" | "DEADLINE";
+            } | null;
+            /** @description Followups to offer after completion, using only retrieved field and issue addresses. */
+            completionActions: ({
+                /** @constant */
+                type: "CHAT";
+                label: string;
+                prompt: string | null;
+            } | {
+                /** @constant */
+                type: "UPDATE_FIELD";
+                label: string;
+                fieldSetId: string | null;
+                fieldId: string | null;
+                /** Format: uuid */
+                customFieldId: string | null;
+            } | {
+                /** @constant */
+                type: "ADD_ATTACHMENT";
+                label: string;
+                documentType: ("MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER") | null;
+            } | {
+                /** @constant */
+                type: "RESOLVE_ISSUE";
+                label: string;
+            })[];
+        };
+        /** @description Appointment for a retrieved Thing. */
+        create_event: {
+            /** Format: uuid */
+            thingId: string;
+            /** Format: uuid */
+            issueId: string | null;
+            title: string;
+            description: string;
+            /** Format: date-time */
+            startsAt: string | null;
+            /**
+             * Format: date
+             * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
+             */
+            startsOn: string | null;
+            /** Format: date-time */
+            endsAt: string | null;
+            completionActions: ({
+                /** @constant */
+                type: "CHAT";
+                label: string;
+                prompt: string | null;
+            } | {
+                /** @constant */
+                type: "UPDATE_FIELD";
+                label: string;
+                fieldSetId: string | null;
+                fieldId: string | null;
+                /** Format: uuid */
+                customFieldId: string | null;
+            } | {
+                /** @constant */
+                type: "ADD_ATTACHMENT";
+                label: string;
+                documentType: ("MANUAL" | "RECEIPT" | "INVOICE" | "INSTALLATION_GUIDE" | "SPECIFICATION" | "OTHER") | null;
+            } | {
+                /** @constant */
+                type: "RESOLVE_ISSUE";
+                label: string;
+            })[];
         };
         /** @description Open Issue requested by the user for a Thing already read. */
         create_issue: {
@@ -305,7 +457,7 @@ export interface components {
                  * @description Resource kind corresponding to the retrieved resource being cited: THING, FIELD, ATTACHMENT, ISSUE, EVENT or PURCHASABLE.
                  * @enum {string}
                  */
-                type: "THING" | "FIELD" | "ATTACHMENT" | "ISSUE" | "EVENT" | "PURCHASABLE";
+                type: "THING" | "FIELD" | "ATTACHMENT" | "ISSUE" | "EVENT" | "PURCHASABLE" | "TASK";
                 /**
                  * Format: uuid
                  * @description UUID copied from tool results: the containing Thing's UUID for FIELD, or the cited resource's UUID for every other type.

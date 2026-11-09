@@ -12,6 +12,10 @@ import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import { mergeResourceCards } from '../../../../shared/resource-cards.js';
 import type { Database } from '../connection.js';
+import * as activityDb from './activity.js';
+import * as tasksDb from './tasks.js';
+import { getLocalDate } from '../../application/task-recurrence.js';
+import { randomUUID } from 'node:crypto';
 import * as thingsDb from './things.js';
 import { ensure } from '../../application/errors.js';
 import type { RouteTypes } from '../../contracts/routes.js';
@@ -63,9 +67,13 @@ export async function getOwnedConversationOrThrow(
   id: string,
   lock = false,
 ) {
-  const [item] = await database.rows<{ id: string; thingId: string | null }>(
+  const [item] = await database.rows<{
+    id: string;
+    thingId: string | null;
+    activityContext: unknown;
+  }>(
     db,
-    `select id,thing_id from bt.conversations where id=$1 and owner_id=$2${lock ? ' for update' : ''}`,
+    `select id,thing_id,activity_context from bt.conversations where id=$1 and owner_id=$2${lock ? ' for update' : ''}`,
     [id, owner],
   );
   ensure(item, 'Conversation not found', 'NOT_FOUND');
@@ -104,9 +112,11 @@ export async function getOwnedConversationSnapshot(
             ? 'attachments'
             : card.type === 'EVENT'
               ? 'events'
-              : card.type === 'ISSUE'
-                ? 'issues'
-                : 'purchasables';
+              : card.type === 'TASK'
+                ? 'tasks'
+                : card.type === 'ISSUE'
+                  ? 'issues'
+                  : 'purchasables';
 
       const key = card.type === 'FIELD' ? 'thingId' : `${card.type.toLowerCase()}Id`;
       const value = (card as unknown as Record<string, unknown>)[key];
@@ -267,12 +277,13 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
 
   for (const [kind, table] of [
     ['event', 'events'],
+    ['task', 'tasks'],
     ['issue', 'issues'],
     ['purchasable', 'purchasables'],
   ] as const) {
     records[table] = await database.rows<{ id: string }>(
       db,
-      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ''}`}${kind === 'event' ? ',starts_at,starts_on::text,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
+      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ',issue_id'}`}${kind === 'event' ? ',starts_at,starts_on::text,ends_at,closed_at,completion_actions,source_refs' : kind === 'task' ? ',importance,scheduled_on::text,deadline_on::text,recurrence,completion_actions,completed_at,closed_at,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
       [id, owner],
     );
   }
@@ -280,6 +291,7 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
   return {
     attachments: attachments.slice(0, 30),
     events: records.events.slice(0, 30),
+    tasks: records.tasks.slice(0, 30),
     issues: records.issues.slice(0, 30),
     purchasables: records.purchasables.slice(0, 30),
     truncated: attachments.length > 30 || Object.values(records).some((v) => v.length > 30),
@@ -310,14 +322,51 @@ export async function createConversation(
   owner: string,
   input: Schema['ConversationInput'],
 ): Promise<Schema['Conversation']> {
-  const { thingId } = input;
+  let { thingId } = input;
   return database.transaction(pool, async (db) => {
+    ensure(!(input.taskId && input.eventId), 'Choose one task or event');
+    const activity = input.taskId
+      ? await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId)
+      : input.eventId
+        ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', input.eventId)
+        : null;
+    ensure(input.actionIndex === undefined || activity, 'Chat followup needs a task or event');
+    if (activity) {
+      ensure(!thingId || thingId === activity.thingId, 'Thing does not match item');
+      thingId = activity.thingId;
+    }
+    const action =
+      input.actionIndex === undefined ? null : activity?.completionActions[input.actionIndex];
+    if (input.actionIndex !== undefined) {
+      ensure(activity?.status !== 'CLOSED' && action?.type === 'CHAT', 'Chat followup unavailable');
+      ensure(
+        activity &&
+          ('completedAt' in activity
+            ? !!activity.completedAt
+            : activity.startsAt
+              ? new Date(activity.endsAt ?? activity.startsAt) <= new Date()
+              : !!activity.startsOn &&
+                activity.startsOn < getLocalDate(new Date(), input.timeZone ?? 'UTC')),
+        'Item has not ended',
+      );
+    }
+    const issue = activity?.issueId
+      ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', activity.issueId)
+      : null;
+    const context = activity ? { item: activity, issue } : null;
     if (thingId) await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
     const [item] = await database.rows<{ id: string }>(
       db,
-      'insert into bt.conversations(owner_id,thing_id,id) values($1,$2,coalesce($3::uuid,gen_random_uuid())) returning id',
-      [owner, thingId ?? null, input.id],
+      'insert into bt.conversations(owner_id,thing_id,id,activity_context) values($1,$2,coalesce($3::uuid,gen_random_uuid()),$4) returning id',
+      [owner, thingId ?? null, input.id, JSON.stringify(context)],
     );
+    if (action?.type === 'CHAT' && action.prompt?.trim()) {
+      await database.execute(
+        db,
+        "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
+        [item.id, randomUUID(), action.prompt.trim()],
+      );
+    }
     if (thingId) await thingsDb.bumpThing(db, owner, thingId);
     return getOwnedConversationSnapshot(db, owner, item.id);
   });

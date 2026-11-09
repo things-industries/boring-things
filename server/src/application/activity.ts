@@ -1,7 +1,12 @@
+/** Issue and Event mutations, including closure of work linked to resolved issues. */
+
 import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import * as activityDb from '../db/entities/activity.js';
 import * as thingsDb from '../db/entities/things.js';
+import * as database from '../db/connection.js';
+import type { Registry } from './registry/registry.js';
+import { validateFollowups } from './activity-followups.js';
 import { ensure } from './errors.js';
 
 export async function writeIssue(
@@ -10,12 +15,14 @@ export async function writeIssue(
   input: Schema['IssueInput'] | Schema['IssuePatch'],
   id?: string,
 ): Promise<Schema['Issue']> {
-  const existing = id
-    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: true })
+  let existing = id
+    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: false })
     : undefined;
   const thingId = existing?.thingId ?? ('thingId' in input ? input.thingId : undefined);
   ensure(thingId, 'Thing is required');
   await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+  if (id)
+    existing = await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: true });
   const title = (input.title ?? existing?.title ?? '').trim();
   ensure(title, 'Title cannot be blank');
   const status = input.status ?? existing?.status ?? 'OPEN';
@@ -35,6 +42,18 @@ export async function writeIssue(
     },
     id,
   );
+  if (status === 'RESOLVED') {
+    await database.execute(
+      db,
+      "update bt.tasks set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
+      [owner, item.id],
+    );
+    await database.execute(
+      db,
+      "update bt.events set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
+      [owner, item.id],
+    );
+  }
   await thingsDb.bumpThing(db, owner, thingId);
   return item;
 }
@@ -42,27 +61,40 @@ export async function writeEvent(
   db: Database,
   owner: string,
   input: Schema['EventInput'] | Schema['EventPatch'],
+  registry: Registry,
   id?: string,
 ): Promise<Schema['Event']> {
-  const existing = id
-    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', id, { lock: true })
+  let existing = id
+    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', id, { lock: false })
     : undefined;
   const thingId = existing?.thingId ?? ('thingId' in input ? input.thingId : undefined);
   ensure(thingId, 'Thing is required');
   await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+  if (id)
+    existing = await activityDb.getOwnedActivityOrThrow(db, owner, 'events', id, { lock: true });
   const title = (input.title ?? existing?.title ?? '').trim();
   ensure(title, 'Title cannot be blank');
-  const status = input.status ?? existing?.status ?? 'SUGGESTED';
+  const status = existing?.status ?? ('status' in input ? input.status : undefined) ?? 'SCHEDULED';
   const startsAt = input.startsAt === undefined ? (existing?.startsAt ?? null) : input.startsAt;
   const startsOn = input.startsOn === undefined ? (existing?.startsOn ?? null) : input.startsOn;
   ensure(!(startsAt && startsOn), 'Choose one schedule');
   const issueId = input.issueId === undefined ? (existing?.issueId ?? null) : input.issueId;
-  ensure(status !== 'SCHEDULED' || startsAt || startsOn, 'Scheduled events need a date');
-  if (issueId)
-    ensure(
-      (await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', issueId)).thingId === thingId,
-      'Issue must belong to this Thing',
-    );
+  ensure(startsAt || startsOn, 'Events need a date');
+  const endsAt = input.endsAt === undefined ? (existing?.endsAt ?? null) : input.endsAt;
+  ensure(
+    !endsAt || (startsAt && Date.parse(endsAt) >= Date.parse(startsAt)),
+    'End time must follow the timed start',
+  );
+  const completionActions = input.completionActions ?? existing?.completionActions ?? [];
+  await validateFollowups(
+    db,
+    owner,
+    thingId,
+    issueId,
+    completionActions,
+    registry,
+    status === 'CLOSED',
+  );
   const item = await activityDb.saveEvent(
     db,
     owner,
@@ -75,8 +107,9 @@ export async function writeEvent(
       startsAt,
       startsOn,
       issueId,
-      completedAt:
-        status === 'COMPLETED' ? (existing?.completedAt ?? new Date().toISOString()) : null,
+      endsAt,
+      completionActions,
+      closedAt: existing?.closedAt ?? (status === 'CLOSED' ? new Date().toISOString() : null),
     },
     id,
   );

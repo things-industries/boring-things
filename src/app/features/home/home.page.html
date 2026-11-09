@@ -135,7 +135,7 @@
                 @if (done) {
                   <span class="visually-hidden">(done)</span>
                 }
-                @if (item.type === 'TASK' && item.task.priority === 'CRITICAL') {
+                @if (item.type === 'TASK' && item.task.importance === 'CRITICAL') {
                   <ng-icon class="home-today-flag" name="taskCritical" aria-hidden="true" />
                   <span class="visually-hidden">(critical)</span>
                 }

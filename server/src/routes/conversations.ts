@@ -31,8 +31,14 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   );
 
   route(app, 'POST', '/api/conversations', async (req, reply) => {
+    ensure(
+      req.body.actionIndex === undefined || enabled,
+      'Assistant is not configured',
+      'UNAVAILABLE',
+    );
     const result = await conversationsDb.createConversation(db, req.ownerId, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    runner.wake();
     return reply.code(201).send(result);
   });
 

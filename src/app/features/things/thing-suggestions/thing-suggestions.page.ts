@@ -6,11 +6,11 @@ import { ErrorMessage } from '../../../components/error-message/error-message';
 import { ScrollContainer } from '../../../components/scroll-container/scroll-container';
 import { SuggestedTask } from '../../../components/suggested-task/suggested-task';
 import { TopBar } from '../../../components/top-bar/top-bar';
-import { byPriority } from '../../../utils/agenda.util';
+import { byImportance } from '../../../utils/agenda.util';
 import { RowSkeleton } from '../row-skeleton/row-skeleton';
 import { routeThing } from '../thing-loader';
 
-/** A Thing's suggested tasks by priority, each ready to add to its tasks. */
+/** A Thing's suggested tasks by importance, each ready to add to its tasks. */
 @Component({
   selector: 'bt-thing-suggestions',
   imports: [RouterLink, ErrorMessage, RowSkeleton, ScrollContainer, SuggestedTask, TopBar],
@@ -28,7 +28,7 @@ export class ThingSuggestionsPage {
   readonly error = computed(() => this.current.error() ?? this.collections.error());
 
   readonly suggested = computed(() =>
-    byPriority(
+    byImportance(
       (this.tasks.tasksByThing()[this.id()] ?? []).filter((task) => task.status === 'SUGGESTED'),
     ),
   );
@@ -40,6 +40,6 @@ export class ThingSuggestionsPage {
 
   /** Adds a suggested task to the schedule; the day is chosen for the owner. */
   add(id: string) {
-    void this.tasks.add(id);
+    void this.tasks.schedule(id);
   }
 }

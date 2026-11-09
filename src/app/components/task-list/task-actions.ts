@@ -1,73 +1,70 @@
+/** Actions shared by Task and Event cards and their followup dialogs. */
+
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { mockChatDraft } from '../../core/mocks/tasks.mock';
 import { EventsStore } from '../../core/state/events.store';
 import { IssuesStore } from '../../core/state/issues.store';
 import { TasksStore } from '../../core/state/tasks.store';
+import { ThingsStore } from '../../core/state/things.store';
 import type { AgendaItem, CompletionAction, Task } from '../../interfaces/task.interface';
-import { itemTitle } from '../../utils/agenda.util';
 import type { FollowUpRequest } from '../follow-up-dialog/follow-up-dialog';
 
-/**
- * What agenda cards do, and the dialogs they open. A page that lists tasks provides it and renders
- * `bt-task-dialogs` once; `bt-agenda` provides its own.
- */
 @Injectable()
 export class TaskActions {
   private tasks = inject(TasksStore);
   private events = inject(EventsStore);
   private issues = inject(IssuesStore);
+  private things = inject(ThingsStore);
   private router = inject(Router);
-
   readonly rescheduling = signal<Task | null>(null);
   readonly answering = signal<FollowUpRequest | null>(null);
 
-  /** Checks an item off, or reopens it. */
+  /** Completes an active Task once. */
   toggle(item: AgendaItem) {
-    if (item.type === 'TASK') {
-      const { id, status } = item.task;
-
-      void (status === 'COMPLETED' ? this.tasks.reopen(id) : this.tasks.complete(id));
-    } else if (item.type === 'EVENT') {
-      const { id, status } = item.event;
-
-      void (status === 'COMPLETED'
-        ? this.events.update(id, { status: 'SCHEDULED' })
-        : this.events.complete(id));
-    }
+    if (item.type === 'TASK' && item.task.status === 'ACTIVE')
+      void this.tasks.complete(item.task.id);
   }
 
-  /** Opens a new Thing chat about the item and its issue, following up on `action` if given. */
+  /** Starts a new conversation with server-validated item and followup context. */
   ask(item: AgendaItem, action: Extract<CompletionAction, { type: 'CHAT' }> | null = null) {
-    const issueId = itemIssueId(item);
-    const issueTitle = (issueId && this.issues.entityMap()[issueId]?.title) || null;
-
+    const actions =
+      item.type === 'TASK'
+        ? item.task.completionActions
+        : item.type === 'EVENT'
+          ? item.event.completionActions
+          : [];
+    const context =
+      item.type === 'TASK'
+        ? { taskId: item.task.id }
+        : item.type === 'EVENT'
+          ? { eventId: item.event.id }
+          : {};
     void this.router.navigate(['/things', item.thingId, 'chat'], {
-      queryParams: { draft: mockChatDraft(itemTitle(item), issueTitle, action) },
+      queryParams: { ...context, ...(action ? { actionIndex: actions.indexOf(action) } : {}) },
     });
   }
 
-  /** Takes a completion action: a chat, resolving the item's issue, or a field or document dialog. */
-  answer(item: AgendaItem, action: CompletionAction) {
-    const issueId = itemIssueId(item);
-
+  /** Runs one followup without dismissing the remaining options. */
+  async answer(item: AgendaItem, action: CompletionAction) {
+    const issueId =
+      item.type === 'TASK' ? item.task.issueId : item.type === 'EVENT' ? item.event.issueId : null;
     if (action.type === 'CHAT') this.ask(item, action);
     else if (action.type === 'RESOLVE_ISSUE') {
-      if (issueId) void this.issues.resolve(issueId);
-    } else this.answering.set({ thingId: item.thingId, action });
+      if (issueId) await this.issues.resolve(issueId);
+    } else {
+      await this.things.loadOne(item.thingId);
+      this.answering.set({ thingId: item.thingId, action });
+    }
   }
 
   reschedule(item: AgendaItem) {
     if (item.type === 'TASK') this.rescheduling.set(item.task);
   }
-
-  /** Returns a task to its Thing's suggestions. */
   remove(item: AgendaItem) {
-    if (item.type === 'TASK') void this.tasks.unschedule(item.task.id);
+    if (item.type === 'TASK') void this.tasks.remove(item.task.id);
   }
-}
-
-function itemIssueId(item: AgendaItem): string | null {
-  if (item.type === 'TASK') return item.task.issueId;
-  return item.type === 'EVENT' ? item.event.issueId : null;
+  close(item: AgendaItem) {
+    if (item.type === 'TASK') void this.tasks.close(item.task.id);
+    else if (item.type === 'EVENT') void this.events.close(item.event.id);
+  }
 }

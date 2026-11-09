@@ -1,7 +1,7 @@
 @let t = task();
-<bt-list-row [title]="t.title" [icon]="badge().icon" [tone]="badge().tone">
+<bt-list-row [title]="t.title" icon="taskOther" tone="neutral">
   <span rowSubtitle class="suggested-task-meta">
-    <bt-priority-tag [priority]="t.priority" />
+    <bt-importance-tag [importance]="t.importance" />
     @if (t.recurrence; as recurrence) {
       @let unit = recurrence.unit.toLowerCase();
       <span>

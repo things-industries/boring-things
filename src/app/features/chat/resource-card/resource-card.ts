@@ -38,7 +38,7 @@ import {
   upcomingEvent,
 } from '../../../core/app-icons';
 import { AttachmentsService } from '../../../core/data/attachments.service';
-import { mockEventRecurrence } from '../../../core/mocks/event-recurrence.mock';
+import { TasksStore } from '../../../core/state/tasks.store';
 import { mockIssueKinds } from '../../../core/mocks/issue-kind.mock';
 import { mockSavedDocument } from '../../../core/mocks/saved-document.mock';
 import { Toasts } from '../../../core/services/toasts.service';
@@ -58,7 +58,6 @@ import type { UiErrorCode } from '../../../interfaces/error.interface';
 import { RelativeTimePipe } from '../../../pipes/relative-time.pipe';
 import { attachmentBadge, attachmentFormat } from '../../../utils/attachment.util';
 import { errorCode } from '../../../utils/error.util';
-import { taskBadges } from '../../../utils/event.util';
 import { fieldIcon } from '../../../utils/field-icon.util';
 import { formatFieldValue } from '../../../utils/field.util';
 import { issueBadges } from '../../../utils/issue.util';
@@ -114,6 +113,7 @@ export class ResourceCard {
   private things = inject(ThingsStore);
   private categories = inject(CategoriesStore);
   private attachments = inject(AttachmentsStore);
+  private tasks = inject(TasksStore);
   private events = inject(EventsStore);
   private issues = inject(IssuesStore);
   private purchasables = inject(PurchasablesStore);
@@ -121,7 +121,7 @@ export class ResourceCard {
   private toasts = inject(Toasts);
 
   readonly card = input.required<Schema['ResourceCard']>();
-  readonly schedule = output<Schema['Event']>();
+  readonly schedule = output<Schema['Task']>();
   readonly status = signal<CardStatus>('idle');
 
   /** ID of the image attachment whose content failed to load, shown as a download row instead. */
@@ -129,7 +129,6 @@ export class ResourceCard {
   readonly attachmentBadge = attachmentBadge;
   readonly attachmentFormat = attachmentFormat;
   readonly issueBadges = issueBadges;
-  readonly taskBadges = taskBadges;
   readonly fieldIcon = fieldIcon;
   readonly formatValue = formatFieldValue;
 
@@ -178,7 +177,12 @@ export class ResourceCard {
     const card = this.card();
     const event = card.type === 'EVENT' ? this.events.entityMap()[card.eventId] : undefined;
 
-    return event ? mockEventRecurrence(event) : null;
+    return event ?? null;
+  });
+
+  readonly task = computed(() => {
+    const card = this.card();
+    return card.type === 'TASK' ? (this.tasks.entityMap()[card.taskId] ?? null) : null;
   });
 
   readonly issue = computed(() => {
@@ -204,6 +208,7 @@ export class ResourceCard {
     if (card.type === 'FIELD') return !!this.thing()?.detail;
     if (card.type === 'ATTACHMENT') return !!this.file();
     if (card.type === 'EVENT') return !!this.event();
+    if (card.type === 'TASK') return !!this.task();
     if (card.type === 'ISSUE') return !!this.issue();
     return !!this.purchasable();
   });
@@ -242,6 +247,8 @@ export class ResourceCard {
         return this.things.loadOne(card.thingId);
       case 'ATTACHMENT':
         return this.attachments.loadOne(card.attachmentId);
+      case 'TASK':
+        return this.tasks.loadOne(card.taskId);
       case 'EVENT':
         return this.events.loadOne(card.eventId);
       case 'ISSUE':
@@ -256,7 +263,7 @@ export class ResourceCard {
   }
 
   complete(id: string) {
-    void this.events.complete(id);
+    void this.tasks.complete(id);
   }
 
   async download(file: Schema['Attachment']) {

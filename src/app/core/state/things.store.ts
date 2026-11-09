@@ -20,6 +20,8 @@ import { groupBy } from '../../utils/collection.util';
 import { errorCode } from '../../utils/error.util';
 import { AttachmentsStore, unlinking } from './attachments.store';
 import { ConversationsStore } from './conversations.store';
+import { TasksStore } from './tasks.store';
+import { ThingDatesStore } from './thing-dates.store';
 import { EventsStore } from './events.store';
 import { IssuesStore } from './issues.store';
 import { removing, updating } from './optimistic';
@@ -52,6 +54,8 @@ export const ThingsStore = signalStore(
     _registry: inject(RegistryStore),
     _issues: inject(IssuesStore),
     _events: inject(EventsStore),
+    _tasks: inject(TasksStore),
+    _dates: inject(ThingDatesStore),
     _attachments: inject(AttachmentsStore),
     _purchasables: inject(PurchasablesStore),
     _conversations: inject(ConversationsStore),
@@ -132,7 +136,10 @@ export const ThingsStore = signalStore(
           [step],
           () => store._service.update(id, patch).then(thingRecord),
           {
-            confirm: (thing) => (previous) => keepNewer(previous, thing),
+            confirm: (thing) => {
+              void store._dates.reload();
+              return (previous) => keepNewer(previous, thing);
+            },
             refetch: () => store.loadOne(id),
           },
         );
@@ -144,6 +151,7 @@ export const ThingsStore = signalStore(
           ...(store._issues.issuesByThing()[id] ?? []).map((c) =>
             store._issues.stage(c.id, removing),
           ),
+          ...(store._tasks.tasksByThing()[id] ?? []).map((c) => store._tasks.stage(c.id, removing)),
           ...(store._events.eventsByThing()[id] ?? []).map((c) =>
             store._events.stage(c.id, removing),
           ),
@@ -212,7 +220,13 @@ export const ThingsStore = signalStore(
               if (previous !== undefined && thing.revision < previous) return;
               store.setConfirmed(id, thingRecord(thing));
               if (previous === undefined || thing.revision === previous) return;
-              for (const child of [store._issues, store._events, store._attachments])
+              for (const child of [
+                store._issues,
+                store._events,
+                store._tasks,
+                store._dates,
+                store._attachments,
+              ])
                 if (child.status() !== 'idle') void child.reload();
               void store._purchasables.loadForThing(id);
             },
@@ -250,9 +264,13 @@ export const ThingsStore = signalStore(
 
       /** Reloads Things and every child collection already loaded. */
       reloadWithChildren() {
-        const children = [store._issues, store._events, store._attachments].filter(
-          (child) => child.status() !== 'idle',
-        );
+        const children = [
+          store._issues,
+          store._events,
+          store._tasks,
+          store._dates,
+          store._attachments,
+        ].filter((child) => child.status() !== 'idle');
 
         return Promise.all([store.reload(), ...children.map((child) => child.reload())]);
       },

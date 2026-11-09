@@ -376,6 +376,11 @@ export class OpenAiImports implements ImportAi {
           return {
             title: item.title,
             description: item.description,
+            importance: item.importance,
+            recurrence: item.recurrence,
+            scheduledOn: item.scheduledOn,
+            deadlineOn: item.deadlineOn,
+            completionActions: item.completionActions,
             sourceRefs: [{ url: item.sourceUrl, quote: item.quote }],
           };
         })

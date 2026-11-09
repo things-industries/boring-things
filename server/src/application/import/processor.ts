@@ -1,3 +1,5 @@
+import { validateTaskSchedule } from '../task-recurrence.js';
+import { validateFollowups } from '../activity-followups.js';
 import * as attachmentsDb from '../../db/entities/attachments.js';
 import * as registryDb from '../../db/entities/registry.js';
 
@@ -262,6 +264,21 @@ export class ImportProcessor {
               taskContext.signal,
             )
           ).items;
+          for (const task of tasks) {
+            validateTaskSchedule({
+              scheduledOn: task.scheduledOn ?? null,
+              deadlineOn: task.deadlineOn ?? null,
+              recurrence: task.recurrence ?? null,
+            });
+            await validateFollowups(
+              this.pool,
+              job.ownerId,
+              thing.id,
+              null,
+              task.completionActions ?? [],
+              this.registry,
+            );
+          }
         } else {
           products = (
             await awaitWithSignal(

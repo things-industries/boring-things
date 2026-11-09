@@ -2,9 +2,8 @@ import { Component, inject, input, linkedSignal, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TasksStore } from '../../core/state/tasks.store';
 import { Dialog } from '../dialog/dialog';
-import type { EventRecurrence } from '../../interfaces/event.interface';
+import type { TaskInterval } from '../../interfaces/task.interface';
 import type { Task, TaskRecurrence } from '../../interfaces/task.interface';
-import { dayKey } from '../../utils/date.util';
 
 let nextId = 0;
 
@@ -23,27 +22,28 @@ export class RescheduleDialog {
   readonly task = input<Task | null>(null);
   readonly closed = output<void>();
   // Each opening sets `task`, which resets the form to the task's schedule.
-  readonly date = linkedSignal(() => this.task()?.scheduledOn ?? dayKey(new Date()));
+  readonly date = linkedSignal(() => this.task()?.scheduledOn ?? '');
+  readonly deadline = linkedSignal(() => this.task()?.deadlineOn ?? '');
   readonly repeats = linkedSignal(() => !!this.task()?.recurrence);
   readonly interval = linkedSignal(() => this.task()?.recurrence?.interval ?? 1);
-  readonly unit = linkedSignal<EventRecurrence['unit']>(
+  readonly unit = linkedSignal<TaskInterval['unit']>(
     () => this.task()?.recurrence?.unit ?? 'MONTH',
   );
   readonly from = linkedSignal<TaskRecurrence['from']>(
     () => this.task()?.recurrence?.from ?? 'COMPLETION',
   );
-  readonly units: EventRecurrence['unit'][] = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
+  readonly units: TaskInterval['unit'][] = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
   readonly formId = `reschedule-task-${nextId++}`;
 
   /** The unit's name, plural unless the interval is one. */
-  unitName(unit: EventRecurrence['unit']) {
+  unitName(unit: TaskInterval['unit']) {
     const name = unit.toLowerCase();
 
     return this.interval() === 1 ? name : `${name}s`;
   }
 
   /** The unit's name as a select option, capitalised. */
-  unitOption(unit: EventRecurrence['unit']) {
+  unitOption(unit: TaskInterval['unit']) {
     const name = this.unitName(unit);
 
     return name[0].toUpperCase() + name.slice(1);
@@ -61,20 +61,25 @@ export class RescheduleDialog {
   /** Whether the form can be saved: a date, and a whole interval of at least one when repeating. */
   valid() {
     return (
-      !!this.date() &&
-      (!this.repeats() || (Number.isInteger(this.interval()) && this.interval() >= 1))
+      (!this.date() || !this.deadline() || this.date() <= this.deadline()) &&
+      (!this.repeats() ||
+        (!!(this.date() || this.deadline()) &&
+          Number.isInteger(this.interval()) &&
+          this.interval() >= 1 &&
+          (this.from() !== 'DEADLINE' || !!this.deadline())))
     );
   }
 
-  save() {
+  async save() {
     const task = this.task();
 
     if (!task || !this.valid()) return;
-    void this.tasks.reschedule(
+    const result = await this.tasks.reschedule(
       task.id,
-      this.date(),
+      this.date() || null,
+      this.deadline() || null,
       this.repeats() ? { interval: this.interval(), unit: this.unit(), from: this.from() } : null,
     );
-    this.close();
+    if (result.ok) this.close();
   }
 }

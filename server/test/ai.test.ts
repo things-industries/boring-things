@@ -550,11 +550,16 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       },
     ],
     referenceUrls: [url],
-    existingTasks: [{ title: 'Private owner title', status: 'DISMISSED' as const }],
+    existingTasks: [{ title: 'Private owner title', status: 'CLOSED' as const }],
   };
   let sourceUrl: string | null = url;
   const item = {
     title: 'Clean the filter',
+    importance: 'RECOMMENDED' as const,
+    recurrence: null,
+    scheduledOn: null,
+    deadlineOn: null,
+    completionActions: [],
     description: 'Clean every six months.',
     quote: 'Clean every six months.',
   };
@@ -588,6 +593,11 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   );
   assert.deepEqual(suggestions.items, [
     {
+      importance: item.importance,
+      recurrence: null,
+      scheduledOn: null,
+      deadlineOn: null,
+      completionActions: [],
       title: item.title,
       description: item.description,
       sourceRefs: [{ url, quote: item.quote }],
@@ -604,7 +614,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   assert.equal(entries.flatMap((entry) => entry.toolCalls ?? []).length, 1);
   assert.deepEqual(
     await ai.suggestTasks(
-      { ...research, existingTasks: [{ title: item.title, status: 'DISMISSED' }] },
+      { ...research, existingTasks: [{ title: item.title, status: 'CLOSED' }] },
       context(),
     ),
     { items: [] },

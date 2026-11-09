@@ -1393,7 +1393,7 @@
       "patch": {
         "operationId": "patchIssue",
         "summary": "Patch issue",
-        "description": "Updates selected issue properties. Resolving an open issue records the resolution time; reopening it removes that timestamp. Null removes the status text or due date.",
+        "description": "Updates selected Issue properties. Resolving the Issue closes all linked Tasks and Events and returns the affected records. Reopening leaves linked work closed. Null removes status text or due date.",
         "tags": ["Activity"],
         "parameters": [
           {
@@ -1416,7 +1416,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Issue"
+                  "$ref": "#/components/schemas/IssueChange"
                 }
               }
             }
@@ -1451,7 +1451,7 @@
       "get": {
         "operationId": "listEvents",
         "summary": "List events",
-        "description": "Lists events by schedule, earliest first, then ID, with unscheduled events last. Filters can select a Thing, status or date range. Date-only events sort at midnight in timeZone. Range bounds are inclusive: timed events use instants, and date-only events use the calendar date of each bound in timeZone.",
+        "description": "Lists owner-scoped Events by schedule and ID, with optional status, Thing and inclusive date bounds. Ended Events with pending followups are included before the lower bound. Date-only schedules use timeZone.",
         "tags": ["Activity"],
         "parameters": [
           {
@@ -1533,7 +1533,7 @@
       "post": {
         "operationId": "createEvent",
         "summary": "Create event",
-        "description": "Creates an event for a Thing, with status SUGGESTED by default. Scheduled events require a date or timestamp. A linked issue must belong to the same Thing. Accepts an optional client-generated UUID; an ID already in use returns 409.",
+        "description": "Creates an event with a start date or timestamp and optional followups.",
         "tags": ["Activity"],
         "requestBody": {
           "required": true,
@@ -1586,7 +1586,7 @@
       "get": {
         "operationId": "getEvent",
         "summary": "Get event",
-        "description": "Returns an event with its schedule, completion timestamp and supporting sources.",
+        "description": "Returns owner-scoped appointments, visits and deliveries.",
         "tags": ["Activity"],
         "parameters": [
           {
@@ -1629,7 +1629,7 @@
       "patch": {
         "operationId": "patchEvent",
         "summary": "Patch event",
-        "description": "Updates selected event properties. When switching between a date and timestamp, set the previous schedule property to null. Scheduled events require one schedule value. A linked issue must belong to the same Thing.",
+        "description": "Updates selected event properties. Null removes optional values. End time requires a timed start and cannot precede it.",
         "tags": ["Activity"],
         "parameters": [
           {
@@ -2327,6 +2327,574 @@
             "$ref": "#/components/responses/ServerError"
           }
         }
+      }
+    },
+    "/api/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "summary": "List tasks",
+        "description": "Lists owner-scoped Tasks by schedule and ID. Date bounds include active carryover, undated Tasks and completed followups. Status and Thing filters apply before pagination.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/thingId"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Inclusive calendar range; active carryover and pending followups are included."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Inclusive calendar range; active carryover and pending followups are included."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TaskStatusEnum"
+            },
+            "description": "Task status."
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createTask",
+        "summary": "Create task",
+        "description": "Create task.",
+        "tags": ["Activity"],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}": {
+      "get": {
+        "operationId": "getTask",
+        "summary": "Get task",
+        "description": "Get task.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchTask",
+        "summary": "Update task",
+        "description": "Update task.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPatch"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTask",
+        "summary": "Delete task",
+        "description": "Delete task.",
+        "tags": ["Activity"],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ]
+      }
+    },
+    "/api/tasks/{id}:accept": {
+      "post": {
+        "operationId": "acceptTask",
+        "summary": "Accept task",
+        "description": "Accepts a suggestion after the scheduling AI task chooses dates from its saved context. Unknown dates stay null. Provider failures leave the suggestion unchanged.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskChange"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskActionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}:complete": {
+      "post": {
+        "operationId": "completeTask",
+        "summary": "Complete task",
+        "description": "Completes an active Task at the current server time and creates one successor when recurring. Retries return the completed Task with nextTask null. Completion cannot be undone.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskChange"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskActionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}:close": {
+      "post": {
+        "operationId": "closeTask",
+        "summary": "Close task",
+        "description": "Close task.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskChange"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskActionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}:close": {
+      "post": {
+        "operationId": "closeEvent",
+        "summary": "Close event",
+        "description": "Close event.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ]
+      }
+    },
+    "/api/thing-dates": {
+      "get": {
+        "operationId": "listThingDates",
+        "summary": "List future Thing dates",
+        "description": "List future Thing dates.",
+        "tags": ["Activity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThingDateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/thingId"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Inclusive calendar range; active carryover and pending followups are included."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Inclusive calendar range; active carryover and pending followups are included."
+          },
+          {
+            "name": "timeZone",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "UTC",
+              "maxLength": 100
+            }
+          }
+        ]
       }
     }
   },
@@ -3590,7 +4158,7 @@
       },
       "Event": {
         "type": "object",
-        "description": "Task or reminder for a Thing, with its schedule, completion time and supporting sources. SCHEDULED requires either startsOn or startsAt; other statuses allow neither. Both schedule properties cannot have a value together.",
+        "description": "Appointment, visit or delivery with one start date or timestamp and independent followups.",
         "required": [
           "id",
           "thingId",
@@ -3599,10 +4167,12 @@
           "description",
           "status",
           "startsAt",
-          "completedAt",
           "sourceRefs",
           "isSample",
-          "startsOn"
+          "startsOn",
+          "endsAt",
+          "completionActions",
+          "closedAt"
         ],
         "properties": {
           "id": {
@@ -3630,10 +4200,6 @@
             "type": ["string", "null"],
             "format": "date-time"
           },
-          "completedAt": {
-            "type": ["string", "null"],
-            "format": "date-time"
-          },
           "sourceRefs": {
             "type": "array",
             "items": {
@@ -3647,13 +4213,28 @@
             "type": ["string", "null"],
             "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
             "format": "date"
+          },
+          "endsAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletionAction"
+            },
+            "maxItems": 12
+          },
+          "closedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
           }
         },
         "additionalProperties": false
       },
       "EventInput": {
         "type": "object",
-        "description": "Properties for creating an event for a Thing. Status defaults to SUGGESTED. SCHEDULED requires either startsOn or startsAt; both schedule properties cannot have a value together.",
+        "description": "Appointment, visit or delivery with one start date or timestamp and independent followups.",
         "required": ["thingId", "title"],
         "properties": {
           "id": {
@@ -3689,13 +4270,24 @@
             "type": ["string", "null"],
             "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
             "format": "date"
+          },
+          "endsAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletionAction"
+            },
+            "maxItems": 12
           }
         },
         "additionalProperties": false
       },
       "EventPatch": {
         "type": "object",
-        "description": "Selected event properties to update. Null removes an optional issue link or schedule value. SCHEDULED requires either startsOn or startsAt; when switching, set the previous schedule property to null.",
+        "description": "Appointment, visit or delivery with one start date or timestamp and independent followups.",
         "properties": {
           "issueId": {
             "type": ["string", "null"],
@@ -3710,9 +4302,6 @@
             "type": "string",
             "maxLength": 4000
           },
-          "status": {
-            "$ref": "#/components/schemas/EventStatusEnum"
-          },
           "startsAt": {
             "type": ["string", "null"],
             "format": "date-time"
@@ -3721,6 +4310,17 @@
             "type": ["string", "null"],
             "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
             "format": "date"
+          },
+          "endsAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletionAction"
+            },
+            "maxItems": 12
           }
         },
         "additionalProperties": false
@@ -3942,7 +4542,7 @@
       },
       "ConversationInput": {
         "type": "object",
-        "description": "Optional ID and Thing context for a new conversation.",
+        "description": "New conversation with optional Thing, Task or Event context and a CHAT followup index.",
         "properties": {
           "id": {
             "type": "string",
@@ -3952,6 +4552,24 @@
           "thingId": {
             "type": ["string", "null"],
             "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actionIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 11
+          },
+          "timeZone": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Local calendar timezone for date-only Event followup eligibility."
           }
         },
         "additionalProperties": false
@@ -4467,6 +5085,25 @@
               }
             },
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Task card.",
+            "required": ["type", "taskId"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "TASK"
+              },
+              "taskId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "available": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
           }
         ]
       },
@@ -4658,6 +5295,446 @@
         },
         "additionalProperties": false
       },
+      "TaskRecurrence": {
+        "type": "object",
+        "description": "Interval and reference policy for generating the next task.",
+        "required": ["interval", "unit", "from"],
+        "properties": {
+          "interval": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "unit": {
+            "$ref": "#/components/schemas/RecurrenceUnitEnum"
+          },
+          "from": {
+            "$ref": "#/components/schemas/RecurrenceFromEnum"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CompletionAction": {
+        "description": "Independent followup offered after completion or the end of an event.",
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Followup offered after the item ends.",
+            "required": ["type", "label", "prompt"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "CHAT"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "prompt": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Followup offered after the item ends.",
+            "required": ["type", "label", "fieldSetId", "fieldId", "customFieldId"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "UPDATE_FIELD"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "fieldSetId": {
+                "type": ["string", "null"]
+              },
+              "fieldId": {
+                "type": ["string", "null"]
+              },
+              "customFieldId": {
+                "type": ["string", "null"],
+                "format": "uuid"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Followup offered after the item ends.",
+            "required": ["type", "label", "documentType"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "ADD_ATTACHMENT"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "documentType": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AttachmentDocumentTypeEnum"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "Followup offered after the item ends.",
+            "required": ["type", "label"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "RESOLVE_ISSUE"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "TaskInput": {
+        "type": "object",
+        "description": "Properties for creating a suggested or active task. Recurrence requires a date; DEADLINE requires deadlineOn.",
+        "required": ["thingId", "title"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "issueId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "importance": {
+            "$ref": "#/components/schemas/TaskImportanceEnum"
+          },
+          "scheduledOn": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "deadlineOn": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletionAction"
+            },
+            "maxItems": 12
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskInitialStatusEnum"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskPatch": {
+        "type": "object",
+        "description": "Selected task properties to update. Null removes optional dates, recurrence or the issue link. Edits affect this occurrence only.",
+        "properties": {
+          "issueId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "importance": {
+            "$ref": "#/components/schemas/TaskImportanceEnum"
+          },
+          "scheduledOn": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "deadlineOn": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletionAction"
+            },
+            "maxItems": 12
+          }
+        },
+        "additionalProperties": false
+      },
+      "Task": {
+        "type": "object",
+        "description": "User action for a Thing, with optional schedule, deadline, recurrence and followups.",
+        "required": [
+          "id",
+          "thingId",
+          "issueId",
+          "title",
+          "description",
+          "importance",
+          "scheduledOn",
+          "deadlineOn",
+          "recurrence",
+          "completionActions",
+          "status",
+          "completedAt",
+          "closedAt",
+          "referenceTaskId",
+          "sourceRefs",
+          "isSample"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "issueId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "importance": {
+            "$ref": "#/components/schemas/TaskImportanceEnum"
+          },
+          "scheduledOn": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "deadlineOn": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompletionAction"
+            },
+            "maxItems": 12
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatusEnum"
+          },
+          "completedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "referenceTaskId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRef"
+            }
+          },
+          "isSample": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskList": {
+        "type": "object",
+        "description": "Page of tasks accessible to the owner.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskChange": {
+        "type": "object",
+        "description": "Task lifecycle result, including the next occurrence when one was created.",
+        "required": ["task", "nextTask"],
+        "properties": {
+          "task": {
+            "$ref": "#/components/schemas/Task"
+          },
+          "nextTask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Task"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskActionInput": {
+        "type": "object",
+        "description": "Local calendar timezone for accepting or completing a task.",
+        "properties": {
+          "timeZone": {
+            "type": "string",
+            "maxLength": 100,
+            "default": "UTC"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IssueChange": {
+        "type": "object",
+        "description": "Issue update and the tasks and events closed by its resolution.",
+        "required": ["issue", "tasks", "events"],
+        "properties": {
+          "issue": {
+            "$ref": "#/components/schemas/Issue"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ThingDate": {
+        "type": "object",
+        "description": "Future date derived from a populated Thing field.",
+        "required": ["thingId", "fieldSetId", "fieldId", "customFieldId", "label", "date"],
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fieldSetId": {
+            "type": ["string", "null"]
+          },
+          "fieldId": {
+            "type": ["string", "null"]
+          },
+          "customFieldId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ThingDateList": {
+        "type": "object",
+        "description": "Page of upcoming date fields.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThingDate"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
       "IssueStatusEnum": {
         "type": "string",
         "description": "Whether an issue is open or resolved.",
@@ -4665,8 +5742,8 @@
       },
       "EventStatusEnum": {
         "type": "string",
-        "description": "Whether an event is suggested, scheduled, completed or dismissed.",
-        "enum": ["SUGGESTED", "SCHEDULED", "COMPLETED", "DISMISSED"]
+        "description": "Scheduled event or event closed to further followups.",
+        "enum": ["SCHEDULED", "CLOSED"]
       },
       "PurchasableKindEnum": {
         "type": "string",
@@ -4711,7 +5788,7 @@
       "ValueTypeEnum": {
         "type": "string",
         "description": "Data type of a custom field value.",
-        "enum": ["STRING", "NUMBER", "BOOLEAN", "MONEY"]
+        "enum": ["STRING", "NUMBER", "BOOLEAN", "MONEY", "DATE"]
       },
       "ImportStatusEnum": {
         "type": "string",
@@ -4764,6 +5841,31 @@
           "EXTRACTION_FAILED",
           "RESEARCH_FAILED"
         ]
+      },
+      "TaskStatusEnum": {
+        "type": "string",
+        "description": "Task lifecycle status. Accepted tasks cannot become suggestions again.",
+        "enum": ["SUGGESTED", "ACTIVE", "COMPLETED", "CLOSED"]
+      },
+      "TaskImportanceEnum": {
+        "type": "string",
+        "description": "Prominence and ordering within a day, independent of scheduling.",
+        "enum": ["CRITICAL", "IMPORTANT", "RECOMMENDED", "NICE_TO_HAVE"]
+      },
+      "RecurrenceUnitEnum": {
+        "type": "string",
+        "description": "Calendar unit for task recurrence.",
+        "enum": ["DAY", "WEEK", "MONTH", "YEAR"]
+      },
+      "RecurrenceFromEnum": {
+        "type": "string",
+        "description": "Completion date or planned deadline used for recurrence.",
+        "enum": ["COMPLETION", "DEADLINE"]
+      },
+      "TaskInitialStatusEnum": {
+        "type": "string",
+        "description": "Initial task status.",
+        "enum": ["SUGGESTED", "ACTIVE"]
       }
     },
     "responses": {

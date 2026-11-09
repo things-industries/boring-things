@@ -1,27 +1,29 @@
 @let action = request()?.action;
 <bt-dialog [title]="action?.label ?? ''" [open]="!!action" (closed)="close()">
   <form [id]="formId" class="follow-up-form" (ngSubmit)="save()">
-    @if (action?.type === 'ADD_DOCUMENT') {
+    @if (action?.type === 'ADD_ATTACHMENT') {
       <div class="follow-up-file">
         <button type="button" class="button-secondary button-sm" (click)="picker.click()">
-          Choose document
+          Choose attachment
         </button>
         <input
           #picker
           hidden
           type="file"
-          aria-label="Choose a document"
+          aria-label="Choose an attachment"
           (change)="chooseFile($event)"
         />
-        <span class="text-primary-muted">{{ file()?.name ?? 'No document chosen' }}</span>
+        <span class="text-primary-muted">{{ file()?.name ?? 'No attachment chosen' }}</span>
       </div>
     } @else if (target(); as target) {
       <label class="follow-up-field"
-        >{{ target.field.name }}
+        >{{ target.field?.name ?? target.custom?.label }}
         <input
           name="value"
           required
-          [type]="target.field.uiHint === 'DATE' ? 'date' : 'text'"
+          [type]="
+            target.field?.uiHint === 'DATE' || target.custom?.valueType === 'DATE' ? 'date' : 'text'
+          "
           [ngModel]="draft()"
           (ngModelChange)="draft.set($event)"
         />
@@ -39,7 +41,7 @@
       [disabled]="!ready() || busy() || (action?.type === 'UPDATE_FIELD' && !target())"
       [attr.aria-busy]="busy()"
     >
-      {{ action?.type === 'ADD_DOCUMENT' ? 'Upload' : 'Save' }}
+      {{ action?.type === 'ADD_ATTACHMENT' ? 'Upload' : 'Save' }}
     </button>
   </div>
 </bt-dialog>

@@ -11,8 +11,11 @@
       @case ('ATTACHMENT') {
         This document is no longer available.
       }
-      @case ('EVENT') {
+      @case ('TASK') {
         This task is no longer available.
+      }
+      @case ('EVENT') {
+        This event is no longer available.
       }
       @case ('ISSUE') {
         This issue is no longer available.
@@ -107,66 +110,59 @@
       </bt-list-row>
     }
   }
-} @else if (c.type === 'EVENT') {
-  @if (event(); as event) {
-    @if (event.status === 'SCHEDULED') {
-      @let start = event.startsOn ?? event.startsAt ?? '';
-      <bt-event-card [title]="event.title" icon="upcomingEvent" [link]="['/things', event.thingId]">
-        <span rowSubtitle
-          >Due {{ start | date: 'd MMM y' }} · {{ start | relativeTime }}
-          @if (event.isSample) {
-            · Sample
-          }
-        </span>
+} @else if (c.type === 'TASK') {
+  @if (task(); as task) {
+    <bt-list-row
+      class="resource-row"
+      [title]="task.title"
+      icon="taskOther"
+      [link]="['/things', task.thingId]"
+    >
+      <span rowSubtitle
+        >{{
+          task.status === 'SUGGESTED'
+            ? 'Suggested task'
+            : task.status === 'ACTIVE'
+              ? 'Active task'
+              : task.status === 'COMPLETED'
+                ? 'Completed'
+                : 'Closed'
+        }}
+        @if (task.isSample) {
+          · Sample
+        }
+      </span>
+      @if (task.status === 'SUGGESTED') {
         <button
           rowTrailing
           type="button"
           btIconButton
-          variant="plain"
-          icon="complete"
-          [label]="'Mark complete: ' + event.title"
-          (click)="complete(event.id)"
+          icon="scheduleTask"
+          [label]="'Add to tasks: ' + task.title"
+          (click)="schedule.emit(task)"
         ></button>
-      </bt-event-card>
-    } @else {
-      @let badge = taskBadges[event.kind];
-      <bt-list-row
-        class="resource-row"
-        [title]="event.title"
-        [icon]="event.status === 'COMPLETED' ? 'complete' : badge.icon"
-        [tone]="event.status === 'COMPLETED' ? 'accent' : badge.tone"
-        [link]="['/things', event.thingId]"
-      >
-        <span rowSubtitle>
-          @if (event.status === 'COMPLETED') {
-            Completed
-          } @else if (event.recurrence; as recurrence) {
-            @let unit = recurrence.unit.toLowerCase();
-            @if (recurrence.interval === 1) {
-              Once a {{ unit }}
-            } @else {
-              Once every {{ recurrence.interval }} {{ unit }}s
-            }
-          } @else {
-            Suggested task
-          }
-          @if (event.isSample) {
-            · Sample
-          }
-        </span>
-        @if (event.status === 'SUGGESTED') {
-          <button
-            rowTrailing
-            type="button"
-            btIconButton
-            variant="accent"
-            icon="scheduleTask"
-            [label]="'Add to tasks: ' + event.title"
-            (click)="schedule.emit(event)"
-          ></button>
+      } @else if (task.status === 'ACTIVE') {
+        <button
+          rowTrailing
+          type="button"
+          btIconButton
+          icon="complete"
+          [label]="'Mark complete: ' + task.title"
+          (click)="complete(task.id)"
+        ></button>
+      }
+    </bt-list-row>
+  }
+} @else if (c.type === 'EVENT') {
+  @if (event(); as event) {
+    <bt-event-card [title]="event.title" icon="upcomingEvent" [link]="['/things', event.thingId]">
+      <span rowSubtitle
+        >{{ event.startsAt ?? event.startsOn | date: 'd MMM y' }}
+        @if (event.isSample) {
+          · Sample
         }
-      </bt-list-row>
-    }
+      </span>
+    </bt-event-card>
   }
 } @else if (c.type === 'ISSUE') {
   @if (issue(); as issue) {

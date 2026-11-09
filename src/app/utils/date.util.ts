@@ -11,8 +11,7 @@ import {
   parseISO,
   startOfDay,
 } from 'date-fns';
-import type { EventRecurrence } from '../interfaces/event.interface';
-import type { TaskRecurrence } from '../interfaces/task.interface';
+import type { TaskInterval } from '../interfaces/task.interface';
 export function localDateTimeToUtc(value: string): string | null {
   const date = parseISO(value);
   return isValid(date) ? date.toISOString() : null;
@@ -91,15 +90,6 @@ export function dayKey(value: Date | string): string {
 const addUnit = { DAY: addDays, WEEK: addWeeks, MONTH: addMonths, YEAR: addYears };
 
 /** The calendar date one recurrence interval after `day`. */
-export function addRecurrence(day: string, { interval, unit }: EventRecurrence): string {
+export function addRecurrence(day: string, { interval, unit }: TaskInterval): string {
   return dayKey(addUnit[unit](parseISO(day), interval));
-}
-
-/** Due date of the task that follows one due on `scheduledOn` and completed on `completedOn`. */
-export function nextDueOn(
-  scheduledOn: string,
-  completedOn: string,
-  recurrence: TaskRecurrence,
-): string {
-  return addRecurrence(recurrence.from === 'DUE_DATE' ? scheduledOn : completedOn, recurrence);
 }

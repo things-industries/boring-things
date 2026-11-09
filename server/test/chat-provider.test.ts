@@ -170,7 +170,7 @@ test('Responses streaming collects split frames, passes function results and rec
       body.tools
         .filter((f: { name: string }) => f.name.startsWith('create_'))
         .map((f: { name: string }) => f.name),
-      ['create_event', 'create_issue'],
+      ['create_task', 'create_event', 'create_issue'],
     );
     requests++;
     if (requests === 1)

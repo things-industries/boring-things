@@ -251,7 +251,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
     text: 'Create a filter check',
     requestId: randomUUID(),
   };
-  ai.creation = 'create_event';
+  ai.creation = 'create_task';
   ai.failOnce = true;
   assert.equal(
     (await request('POST', `/conversations/${chat.id}/messages`, input)).statusCode,
@@ -267,9 +267,9 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
       message: 'assistant_failed',
     },
   ]);
-  assert.equal(failed.message.cards.filter((c) => c.type === 'EVENT').length, 1);
-  const events = (await request('GET', `/events?thingId=${thing.id}`)).json<{
-    items: Schema['Event'][];
+  assert.equal(failed.message.cards.filter((c) => c.type === 'TASK').length, 1);
+  const events = (await request('GET', `/tasks?thingId=${thing.id}`)).json<{
+    items: Schema['Task'][];
   }>();
   assert.equal(events.items.length, 1);
   assert.equal(
@@ -280,7 +280,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   assert.equal(complete.message.status, 'COMPLETE');
   assert.equal(complete.chat.messages.length, 2);
   assert.equal(complete.message.text, 'The saved details are ready.');
-  assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 1);
+  assert.equal((await request('GET', `/tasks?thingId=${thing.id}`)).json().items.length, 1);
   const calls = ai.calls;
   await request('POST', `/conversations/${chat.id}/messages`, input);
   assert.equal(ai.calls, calls);
@@ -306,7 +306,7 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   );
   assert.equal((await wait(chat.id)).chat.messages.length, 4);
   const updated = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
-  assert.equal(updated.eventIds.length, 1);
+  assert.equal(updated.eventIds.length, 0);
   assert.equal(updated.issueIds.length, 1);
   assert.ok(updated.revision > thing.revision);
   for (const path of [`/conversations/${chat.id}`, `/conversations/${chat.id}/stream`])
@@ -318,9 +318,8 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   const startsAt = '2026-10-01T09:00:00.000Z';
   assert.equal(
     (
-      await request('PATCH', `/events/${events.items[0].id}`, {
-        status: 'SCHEDULED',
-        startsAt,
+      await request('PATCH', `/tasks/${events.items[0].id}`, {
+        scheduledOn: startsAt.slice(0, 10),
       })
     ).statusCode,
     200,
@@ -485,7 +484,7 @@ test('custom fields can be cited and rejected card selections save no partial ci
   assert.deepEqual(result.message.sourceRefs, []);
 });
 test('restart retains activity and marks interrupted messages retryable', async () => {
-  ai.creation = 'create_event';
+  ai.creation = 'create_task';
   const { chat, thing } = await setup();
   const input = {
     text: 'Create maintenance',
@@ -511,12 +510,12 @@ test('restart retains activity and marks interrupted messages retryable', async 
     (await request('GET', `/conversations?thingId=${thing.id}`)).json(),
     beforeRetry,
   );
-  assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 1);
+  assert.equal((await request('GET', `/tasks?thingId=${thing.id}`)).json().items.length, 1);
 });
 
 test('deadline prevents a late model-selected write', async () => {
   const { thing, chat } = await setup();
-  ai.creation = 'create_event';
+  ai.creation = 'create_task';
   let release!: () => void;
   ai.pause = new Promise((r) => {
     release = r;
@@ -529,7 +528,7 @@ test('deadline prevents a late model-selected write', async () => {
   release();
   ai.pause = undefined;
   await new Promise((r) => setTimeout(r, 50));
-  assert.equal((await request('GET', `/events?thingId=${thing.id}`)).json().items.length, 0);
+  assert.equal((await request('GET', `/tasks?thingId=${thing.id}`)).json().items.length, 0);
 });
 test('text-only questions return messages without intent or new activity', async () => {
   const { thing, chat } = await setup();
@@ -551,7 +550,7 @@ test('text-only questions return messages without intent or new activity', async
   const result = await wait(chat.id);
   assert.equal(result.message.status, 'COMPLETE');
   assert.ok(result.chat.messages.every((message) => !Object.hasOwn(message, 'intent')));
-  for (const resource of ['events', 'issues'])
+  for (const resource of ['tasks', 'issues'])
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
 });
 test('writes require a retrieved owned Thing and valid arguments', async () => {
@@ -591,7 +590,7 @@ test('writes require a retrieved owned Thing and valid arguments', async () => {
 });
 test('one creation spans both tools and targets, including retries after a completed write', async () => {
   const other = await setup();
-  for (const first of ['create_event', 'create_issue'] as const) {
+  for (const first of ['create_task', 'create_issue'] as const) {
     for (const change of ['type', 'target'] as const) {
       const { thing, chat } = await setup();
       const input = { text: 'Add the requested activity', requestId: randomUUID() };
@@ -605,11 +604,26 @@ test('one creation spans both tools and targets, including retries after a compl
         assert.equal(context.completedWrites.length, 1);
         await execute('read_thing', { thingId: other.thing.id });
         const args = { thingId: thing.id, title: 'Repeated creation', description: '' };
-        const saved = await execute(first, args);
-        assert.deepEqual(await execute(first, args), saved);
+        const run = (name: string, data: typeof args) =>
+          execute(
+            name,
+            name === 'create_task'
+              ? {
+                  ...data,
+                  issueId: null,
+                  importance: 'RECOMMENDED',
+                  recurrence: null,
+                  scheduledOn: null,
+                  deadlineOn: null,
+                  completionActions: [],
+                }
+              : data,
+          );
+        const saved = await run(first, args);
+        assert.deepEqual(await run(first, args), saved);
         replayed = true;
-        const rejected = await execute(
-          change === 'type' ? (first === 'create_event' ? 'create_issue' : 'create_event') : first,
+        const rejected = await run(
+          change === 'type' ? (first === 'create_task' ? 'create_issue' : 'create_task') : first,
           {
             ...args,
             thingId: change === 'target' ? other.thing.id : thing.id,
@@ -620,8 +634,8 @@ test('one creation spans both tools and targets, including retries after a compl
       await request('POST', `/conversations/${chat.id}/messages`, input);
       assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
       assert.equal(replayed, true);
-      for (const resource of ['events', 'issues']) {
-        const expected = (first === 'create_event' ? 'events' : 'issues') === resource ? 1 : 0;
+      for (const resource of ['tasks', 'issues']) {
+        const expected = (first === 'create_task' ? 'tasks' : 'issues') === resource ? 1 : 0;
         assert.equal(
           (await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length,
           expected,
@@ -800,7 +814,7 @@ test('question-based research is cited, has no resource writes and is reused aft
   assert.equal(result.message.status, 'COMPLETE');
   assert.equal(research.mock.callCount(), 1);
   assert.deepEqual(await resources(), before);
-  for (const resource of ['purchasables', 'events', 'issues'])
+  for (const resource of ['purchasables', 'tasks', 'issues'])
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
   assert.deepEqual(result.message.sourceRefs, []);
 

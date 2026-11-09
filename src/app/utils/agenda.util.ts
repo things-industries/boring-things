@@ -1,23 +1,24 @@
+/** Timeline placement, ordering and followup eligibility for Tasks, Events and Thing dates. */
+
 import { addDays, parseISO } from 'date-fns';
-import type { EventRecurrence } from '../interfaces/event.interface';
+import type { TaskInterval } from '../interfaces/task.interface';
 import type {
   Agenda,
   AgendaDay,
   AgendaItem,
   Appointment,
   Task,
-  TaskPriority,
+  TaskImportance,
   ThingDate,
 } from '../interfaces/task.interface';
 import { dayKey, daysUntil } from './date.util';
 
-export const priorityRank: Record<TaskPriority, number> = {
+export const importanceRank: Record<TaskImportance, number> = {
   CRITICAL: 0,
   IMPORTANT: 1,
   RECOMMENDED: 2,
   NICE_TO_HAVE: 3,
 };
-
 export interface AgendaInput {
   tasks: Task[];
   events: Appointment[];
@@ -25,202 +26,159 @@ export interface AgendaInput {
   thingNames: Record<string, string>;
 }
 
-/** Whether an open task has passed its deadline, or its day when it has no deadline. */
-export function isOverdue(task: Task, today: string): boolean {
-  const due = task.deadlineOn ?? task.scheduledOn;
-
-  return task.status !== 'SUGGESTED' && !!due && due < today;
+/** Only active tasks with passed deadlines are overdue. */
+export function isOverdue(task: Task, today: string) {
+  return task.status === 'ACTIVE' && !!task.deadlineOn && task.deadlineOn < today;
 }
 
-/**
- * Where a scheduled or completed task sits. An open task from an earlier day rolls into today; a
- * completed one stays there only on the day it was completed.
- */
-function placeTask(task: Task, today: string): AgendaItem | null {
-  if (task.status === 'SUGGESTED' || !task.scheduledOn) return null;
-
-  const past = task.scheduledOn < today;
-
-  if (
-    past &&
-    task.status === 'COMPLETED' &&
-    (!task.completedAt || dayKey(task.completedAt) < today)
-  )
-    return null;
-  return {
-    type: 'TASK',
-    key: `task:${task.id}`,
-    thingId: task.thingId,
-    day: past ? today : task.scheduledOn,
-    overdue: isOverdue(task, today),
-    task,
-  };
+/** Whether an appointment has ended, without changing its stored status. */
+export function hasEventEnded(event: Appointment, now = new Date()) {
+  return event.startsAt
+    ? parseISO(event.endsAt ?? event.startsAt) <= now
+    : !!event.startsOn && event.startsOn < dayKey(now);
 }
 
-/**
- * Where an appointment sits. A past one with completion actions shows today while it is open, or on
- * the day it was completed.
- */
-function placeEvent(event: Appointment, today: string): AgendaItem | null {
-  const start = event.startsAt ?? event.startsOn;
-
-  if (!start || (event.status !== 'SCHEDULED' && event.status !== 'COMPLETED')) return null;
-
-  const day = event.startsAt ? dayKey(event.startsAt) : start;
-  const item = (overdue: boolean): AgendaItem => ({
-    type: 'EVENT',
-    key: `event:${event.id}`,
-    thingId: event.thingId,
-    day: overdue ? today : day,
-    overdue,
-    event,
-  });
-
-  if (day >= today) return item(false);
-  if (!event.completionActions.length) return null;
-  if (event.status === 'SCHEDULED') return item(true);
-  return event.completedAt && dayKey(event.completedAt) === today ? item(true) : null;
+/** Whether a Task is completed or an Event has ended. */
+export function isDone(item: AgendaItem, now = new Date()) {
+  return item.type === 'TASK'
+    ? !!item.task.completedAt
+    : item.type === 'EVENT' && hasEventEnded(item.event, now);
 }
 
-function placeThingDate(
-  thingDate: ThingDate,
-  thingNames: Record<string, string>,
-  today: string,
-): AgendaItem | null {
-  const thingName = thingNames[thingDate.thingId];
-
-  if (thingDate.date < today || thingName === undefined) return null;
-  return {
-    type: 'THING_DATE',
-    key: `date:${thingDate.thingId}:${thingDate.fieldId}`,
-    thingId: thingDate.thingId,
-    day: thingDate.date,
-    overdue: false,
-    thingDate,
-    thingName,
-  };
+/** The item's own title. */
+export function itemTitle(item: AgendaItem) {
+  return item.type === 'TASK'
+    ? item.task.title
+    : item.type === 'EVENT'
+      ? item.event.title
+      : item.thingDate.label;
 }
 
-/** Events and Thing dates first, then tasks, then overdue items; see `compareItems`. */
-function group(item: AgendaItem): number {
-  if (item.overdue) return 2;
-  return item.type === 'TASK' ? 1 : 0;
+/** Places unscheduled and overdue work at the top of Today. */
+function group(item: AgendaItem) {
+  return item.type === 'TASK' && (item.overdue || !item.task.scheduledOn)
+    ? 0
+    : item.type === 'TASK'
+      ? 2
+      : 1;
 }
 
-/** Start time for ordering; all-day items sort first. */
-function startTime(item: AgendaItem): number {
-  return item.type === 'EVENT' && item.event.startsAt ? parseISO(item.event.startsAt).getTime() : 0;
-}
-
-/** Overdue events lead the overdue block, as events lead the day. */
-function rank(item: AgendaItem): number {
-  return item.type === 'TASK' ? priorityRank[item.task.priority] + 1 : 0;
-}
-
-/** Whether a task or appointment has been checked off. */
-export function isDone(item: AgendaItem): boolean {
-  if (item.type === 'TASK') return item.task.status === 'COMPLETED';
-  return item.type === 'EVENT' && item.event.status === 'COMPLETED';
-}
-
-/** An item's own title; a Thing date's is its field label. */
-export function itemTitle(item: AgendaItem): string {
-  if (item.type === 'TASK') return item.task.title;
-  if (item.type === 'EVENT') return item.event.title;
-  return item.thingDate.label;
-}
-
-/** Day this item was due, for ordering overdue items oldest first. */
-function dueDay(item: AgendaItem): string {
-  if (item.type === 'TASK') return item.task.deadlineOn ?? item.task.scheduledOn ?? '';
-  if (item.type === 'EVENT') return item.event.startsAt ?? item.event.startsOn ?? '';
-  return item.thingDate.date;
-}
-
-/**
- * Orders a day: events and Thing dates by start time, then tasks by priority, then overdue items by
- * priority and oldest first. Titles break ties.
- */
+/** Orders each day's work by importance and appointments by time. */
 export function compareItems(a: AgendaItem, b: AgendaItem): number {
-  const ga = group(a);
-
-  return (
-    ga - group(b) ||
-    (ga === 0 ? startTime(a) - startTime(b) : rank(a) - rank(b)) ||
-    (ga === 2 ? dueDay(a).localeCompare(dueDay(b)) : 0) ||
-    itemTitle(a).localeCompare(itemTitle(b))
-  );
+  const groupDifference = group(a) - group(b);
+  if (groupDifference) return groupDifference;
+  if (a.type === 'TASK' && b.type === 'TASK')
+    return (
+      importanceRank[a.task.importance] - importanceRank[b.task.importance] ||
+      (a.task.deadlineOn ?? '').localeCompare(b.task.deadlineOn ?? '') ||
+      itemTitle(a).localeCompare(itemTitle(b))
+    );
+  const time = (item: AgendaItem) =>
+    item.type === 'EVENT' && item.event.startsAt ? parseISO(item.event.startsAt).getTime() : 0;
+  return time(a) - time(b) || itemTitle(a).localeCompare(itemTitle(b));
 }
 
-/** Groups tasks, appointments and Thing dates into Today, Tomorrow and later days. */
+/** Combines calendar groups with pending followups from earlier days. */
 export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
-  const today = dayKey(now);
-  const tomorrow = dayKey(addDays(now, 1));
-  const placed = [
-    ...input.tasks.map((task) => placeTask(task, today)),
-    ...input.events.map((event) => placeEvent(event, today)),
-    ...input.thingDates.map((date) => placeThingDate(date, input.thingNames, today)),
-  ].filter((item) => item !== null);
-
+  const today = dayKey(now),
+    tomorrow = dayKey(addDays(now, 1));
+  const placed: AgendaItem[] = [],
+    followups: AgendaItem[] = [];
+  for (const task of input.tasks) {
+    if (task.status === 'SUGGESTED' || task.status === 'CLOSED') continue;
+    const item: AgendaItem = {
+      type: 'TASK',
+      key: `task:${task.id}`,
+      thingId: task.thingId,
+      day: task.scheduledOn && task.scheduledOn > today ? task.scheduledOn : today,
+      overdue: isOverdue(task, today),
+      task,
+    };
+    if (task.status === 'COMPLETED') {
+      if (task.completionActions.length) followups.push({ ...item, day: today });
+    } else placed.push(item);
+  }
+  for (const event of input.events) {
+    if (event.status === 'CLOSED' || (!event.startsAt && !event.startsOn)) continue;
+    const day = event.startsAt ? dayKey(event.startsAt) : event.startsOn!;
+    const item: AgendaItem = {
+      type: 'EVENT',
+      key: `event:${event.id}`,
+      thingId: event.thingId,
+      day,
+      overdue: false,
+      event,
+    };
+    if (hasEventEnded(event, now)) {
+      if (event.completionActions.length) followups.push({ ...item, day: today });
+    } else placed.push(item);
+  }
+  for (const date of input.thingDates) {
+    const name = input.thingNames[date.thingId];
+    if (date.date < today || name === undefined) continue;
+    placed.push({
+      type: 'THING_DATE',
+      key: `date:${date.thingId}:${date.fieldSetId}:${date.fieldId}:${date.customFieldId}`,
+      thingId: date.thingId,
+      day: date.date,
+      overdue: false,
+      thingDate: date,
+      thingName: name,
+    });
+  }
   const days = new Map<string, AgendaItem[]>();
-
   for (const item of placed) days.set(item.day, [...(days.get(item.day) ?? []), item]);
   for (const items of days.values()) items.sort(compareItems);
-
   const upcoming: AgendaDay[] = [...days]
     .filter(([day]) => day > tomorrow)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, items]) => ({ date, items }));
-
-  return { today: days.get(today) ?? [], tomorrow: days.get(tomorrow) ?? [], upcoming };
+  return {
+    today: days.get(today) ?? [],
+    tomorrow: days.get(tomorrow) ?? [],
+    upcoming,
+    followups: followups.sort(compareItems),
+  };
 }
 
-/** The first `limit` items from today on, in agenda order, for previews of the agenda. */
-export function nextItems(agenda: Agenda, limit: number): AgendaItem[] {
+/** First agenda items for Thing previews, including pending followups. */
+export function nextItems(agenda: Agenda, limit: number) {
   return [
+    ...agenda.followups,
     ...agenda.today,
     ...agenda.tomorrow,
     ...agenda.upcoming.flatMap((day) => day.items),
   ].slice(0, limit);
 }
 
-/** Tasks by priority, then title, as suggestions are listed. */
-export function byPriority(tasks: Task[]): Task[] {
+/** Suggestions ordered by importance and title. */
+export function byImportance(tasks: Task[]) {
   return [...tasks].sort(
-    (a, b) => priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title),
+    (a, b) =>
+      importanceRank[a.importance] - importanceRank[b.importance] || a.title.localeCompare(b.title),
   );
 }
 
-/** What an agenda item's meta line shows; the template chooses the copy. */
 export type TimeLine =
   | { type: 'overdue'; days: number }
   | { type: 'countdown'; days: number; date: string }
-  | { type: 'interval'; recurrence: EventRecurrence }
+  | { type: 'interval'; recurrence: TaskInterval }
   | { type: 'time'; start: string; end: string | null }
   | null;
-
-/**
- * Overdue days for an open overdue item; otherwise a deadline countdown or interval for a task, and
- * the time of a timed event.
- */
+/** Deadline, interval or appointment time shown under the item title. */
 export function timeLine(item: AgendaItem, now = new Date()): TimeLine {
   if (item.type === 'TASK') {
-    const { task } = item;
-
-    if (item.overdue && task.status !== 'COMPLETED')
-      return { type: 'overdue', days: -daysUntil(task.deadlineOn ?? task.scheduledOn!, now) };
-    if (task.deadlineOn)
-      return { type: 'countdown', days: daysUntil(task.deadlineOn, now), date: task.deadlineOn };
-    return task.recurrence ? { type: 'interval', recurrence: task.recurrence } : null;
+    if (isOverdue(item.task, dayKey(now)))
+      return { type: 'overdue', days: -daysUntil(item.task.deadlineOn!, now) };
+    if (item.task.deadlineOn)
+      return {
+        type: 'countdown',
+        days: daysUntil(item.task.deadlineOn, now),
+        date: item.task.deadlineOn,
+      };
+    return item.task.recurrence ? { type: 'interval', recurrence: item.task.recurrence } : null;
   }
-
-  if (item.type === 'EVENT') {
-    const { event } = item;
-
-    if (item.overdue && event.status !== 'COMPLETED')
-      return { type: 'overdue', days: -daysUntil(event.startsAt ?? event.startsOn!, now) };
-    return event.startsAt ? { type: 'time', start: event.startsAt, end: event.endsAt } : null;
-  }
-
-  return null;
+  return item.type === 'EVENT' && item.event.startsAt
+    ? { type: 'time', start: item.event.startsAt, end: item.event.endsAt }
+    : null;
 }

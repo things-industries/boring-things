@@ -25,6 +25,8 @@ import { logtoVerifier, type VerifyIdentity } from './providers/auth/logto.js';
 import { loadRegistry } from './application/registry/index.js';
 import { createBlobs, type BlobStorage } from './providers/blobs/index.js';
 import { Assistant } from './application/conversations/assistant.js';
+import taskRoutes from './routes/tasks.js';
+import type { TaskScheduler } from './application/task-scheduling.js';
 import { createAi } from './providers/ai/index.js';
 import type { ChatAi } from './application/conversations/types.js';
 import type { ImportAi } from './application/import/types.js';
@@ -40,6 +42,7 @@ export interface BuildAppOptions {
   logger?: boolean;
   importAi?: ImportAi;
   chatAi?: ChatAi;
+  taskScheduler?: TaskScheduler;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -76,7 +79,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
       return { status: 'ok' };
     });
 
-    const { importAi, chatAi } = createAi(config, options, (usage) =>
+    const { importAi, chatAi, taskScheduler } = createAi(config, options, (usage) =>
       app.log.info(
         { ...usage, totalTokens: usage.inputTokens + usage.outputTokens },
         'AI turn completed',
@@ -152,7 +155,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
         config,
         events,
       });
-      await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
+      await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events, registry });
+      await authenticatedApi.register(taskRoutes, { db: dbPool, events, registry, taskScheduler });
       await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });
       await authenticatedApi.register(routes.conversationRoutes, {
         db: dbPool,

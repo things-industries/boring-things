@@ -46,6 +46,7 @@ export interface ChatMessage {
 }
 
 export interface ChatInput {
+  activityContext?: unknown;
   messages: ChatMessage[];
   thingId: string | null;
   completedWrites: unknown[];

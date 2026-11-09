@@ -11,7 +11,7 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
   const { app, pool, importAi, chatAi, issuer, signToken, accessToken, base } = env;
   let browser: Awaited<ReturnType<typeof launchBrowser>> | undefined;
   try {
-    chatAi.creation = 'create_event';
+    chatAi.creation = 'create_task';
     const other = await generateKeyPair('RS256');
     for (const invalid of [
       await signToken({ audience: 'wrong' }),
@@ -100,16 +100,14 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     ).toHaveCount(1);
     assert.equal(
       (
-        await pool.query('select count(*)::int as count from bt.events where thing_id=$1', [
-          membershipId,
-        ])
+        await pool.query(
+          'select count(*)::int as count from bt.tasks where thing_id=$1 and title=$2',
+          [membershipId, 'Check the filter'],
+        )
       ).rows[0].count,
       1,
     );
-    await chatTask.getByRole('button', { name: 'Schedule: Check the filter' }).click();
-    await page.getByLabel('Date', { exact: true }).fill('2026-10-01');
-    await page.getByLabel('Time (optional)').fill('09:00');
-    await page.getByRole('button', { name: 'Schedule', exact: true }).click();
+    await chatTask.getByRole('button', { name: 'Add to tasks: Check the filter' }).click();
     await expect(
       chatTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
     ).toBeVisible();
@@ -129,21 +127,16 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await page.setViewportSize({ width: 1440, height: 1100 });
     await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Museum membership', level: 1 })).toBeVisible();
-    // The chat's scheduled Event is already in the store, so the Thing shows it without a reload.
-    const filterTask = page.locator('bt-event-card').filter({ hasText: 'Check the filter' });
-    await expect(
-      filterTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
-    ).toBeVisible();
+    const filterTask = page.locator('bt-task-card', { hasText: 'Check the filter' });
+    await expect(filterTask.getByRole('checkbox', { name: 'Check the filter' })).toBeVisible();
     await page.reload();
-    await expect(
-      filterTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
-    ).toBeVisible();
+    await expect(filterTask.getByRole('checkbox', { name: 'Check the filter' })).toBeVisible();
     await expect.poll(accessCount).toBe(4);
     const dateTask = await app.inject({
       method: 'POST',
-      url: '/api/events',
+      url: '/api/tasks',
       headers: { authorization: 'Bearer ' + accessToken },
-      payload: { thingId: membershipId, title: 'Date-only maintenance' },
+      payload: { thingId: membershipId, title: 'Date-only maintenance', status: 'ACTIVE' },
     });
     assert.equal(dateTask.statusCode, 201, dateTask.body);
     const issue = await app.inject({
@@ -159,34 +152,23 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     });
     assert.equal(issue.statusCode, 201, issue.body);
     await page.reload();
-    await page
-      .getByRole('button', { name: 'Schedule: Date-only maintenance', exact: true })
-      .click();
-    await page.getByLabel('Date', { exact: true }).fill('2026-10-18');
-    await page.getByRole('button', { name: 'Schedule', exact: true }).click();
-    const taskCard = page.locator('bt-event-card').filter({ hasText: 'Date-only maintenance' });
-    await expect(taskCard).toContainText('Due 18 Oct 2026');
-    await expect(
-      taskCard.getByRole('button', { name: 'Mark complete: Date-only maintenance' }),
-    ).toBeVisible();
+    const taskCard = page.locator('bt-task-card', { hasText: 'Date-only maintenance' });
+    await taskCard.getByRole('button', { name: 'Actions for Date-only maintenance' }).click();
+    await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
+    await page.getByLabel('Scheduled on').fill('2090-10-18');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(taskCard.getByRole('checkbox', { name: 'Date-only maintenance' })).toBeVisible();
     await expect
       .poll(
         async () =>
           (
             await app.inject({
-              url: '/api/events/' + dateTask.json().id,
+              url: '/api/tasks/' + dateTask.json().id,
               headers: { authorization: 'Bearer ' + accessToken },
             })
-          ).json().startsOn,
+          ).json().scheduledOn,
       )
-      .toBe('2026-10-18');
-    const savedDate = (
-      await app.inject({
-        url: '/api/events/' + dateTask.json().id,
-        headers: { authorization: 'Bearer ' + accessToken },
-      })
-    ).json();
-    assert.equal(savedDate.startsAt, null);
+      .toBe('2090-10-18');
     assert.equal(await accessCount(), 5);
     const issueRow = page.locator('bt-list-row').filter({ hasText: 'Renewal attention' });
     await expect(issueRow).toContainText('Renewal due');

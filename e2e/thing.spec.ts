@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { addDays, format } from 'date-fns';
+
 import { test, expect } from './fixtures.js';
 
 /** A 1×1 PNG served in place of attachment content. */
@@ -255,58 +255,6 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   await page.goto('/things');
   await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
   await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
-});
-
-test('a suggested task is added, and completing it schedules the next one', async ({ page }) => {
-  const url = await createThing(page, `Task dryer ${Date.now()}`);
-  const thingId = url.split('/').pop()!;
-  const eventId = crypto.randomUUID();
-
-  let event = {
-    id: eventId,
-    thingId,
-    issueId: null,
-    title: 'Clean the lint filter',
-    description: 'Every 2 weeks.',
-    status: 'SUGGESTED',
-    startsAt: null,
-    startsOn: null,
-    completedAt: null as string | null,
-    sourceRefs: [],
-    isSample: false,
-  };
-
-  await page.route(/\/api\/events(\?|$)/, async (route) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-
-    const response = await route.fetch();
-    const body = await response.json();
-
-    await route.fulfill({ response, json: { ...body, items: [...body.items, event] } });
-  });
-
-  await page.route(`**/api/events/${eventId}`, async (route) => {
-    event = { ...event, ...route.request().postDataJSON() };
-    if (event.status === 'COMPLETED') event.completedAt = new Date().toISOString();
-    await route.fulfill({ json: event });
-  });
-
-  await page.reload();
-  await expect(
-    page.locator('bt-suggested-task', { hasText: 'Clean the lint filter' }),
-  ).toContainText('Once every 2 weeks');
-  // Adding a task schedules it without asking for a date; until #100 it is due today.
-  await page.getByRole('button', { name: 'Add to tasks: Clean the lint filter' }).click();
-
-  const cards = page.locator('bt-task-card', { hasText: 'Clean the lint filter' });
-
-  await expect(cards).toHaveText([/Today\s+·\s+Every 2 weeks/]);
-  await cards.getByRole('checkbox', { name: 'Clean the lint filter' }).click();
-  // Completing a recurring task schedules its next occurrence; the done one stays for today.
-  await expect(cards).toHaveCount(2);
-  await expect(cards.nth(1)).toContainText(format(addDays(new Date(), 14), 'EEE d MMM'));
-  // The new event changes the Thing, which reloads events while the test ends.
-  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('import steps show while discovering, then the sheet slides up once', async ({ page }) => {

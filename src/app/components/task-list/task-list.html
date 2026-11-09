@@ -8,6 +8,7 @@
         [inThing]="inThing()"
         (toggled)="actions.toggle(item)"
         (removed)="actions.remove(item)"
+        (dismissed)="actions.close(item)"
         (asked)="actions.ask(item)"
         (actionChosen)="actions.answer(item, $event)"
         (rescheduled)="actions.reschedule(item)"

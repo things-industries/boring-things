@@ -6,6 +6,7 @@
     role="checkbox"
     [attr.aria-checked]="done()"
     [attr.aria-label]="title()"
+    [disabled]="done()"
     (click)="toggled.emit()"
   >
     <ng-icon [name]="done() ? 'taskDone' : 'taskOpen'" aria-hidden="true" />
@@ -36,6 +37,9 @@
         <button type="button" class="task-card-action" (click)="actionChosen.emit(action)">
           <ng-icon [name]="actionIcons[action.type]" aria-hidden="true" />
           {{ action.label }}
+          @if (action.type === 'RESOLVE_ISSUE') {
+            <span class="visually-hidden">Closes all work linked to this issue</span>
+          }
         </button>
       }
     </div>
@@ -125,6 +129,9 @@
     }
   }
 </div>
+@if (done()) {
+  <button type="button" class="button-link" (click)="dismissed.emit()">Dismiss</button>
+}
 <bt-menu class="task-card-menu" [label]="'Actions for ' + title()" variant="plain" size="sm">
   <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
   @if (entry.type === 'TASK') {

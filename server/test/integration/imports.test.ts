@@ -1480,22 +1480,22 @@ test('task and purchasable operations checkpoint independently and preserve owne
   const completed = await wait(accepted.importId);
   assert.equal(completed.status, 'COMPLETE');
   assert.equal(completed.warnings?.[0].code, 'RESEARCH_FAILED');
-  const events = (await request('GET', `/events?thingId=${accepted.thingId}`)).json<
-    Schema['EventList']
+  const events = (await request('GET', `/tasks?thingId=${accepted.thingId}`)).json<
+    Schema['TaskList']
   >().items;
   assert.equal(events.length, 1);
   const task = events[0];
   assert.equal(task.status, 'SUGGESTED');
-  assert.equal(task.startsAt, null);
-  assert.equal(task.startsOn, null);
+  assert.equal(task.deadlineOn, null);
+  assert.equal(task.scheduledOn, null);
   assert.equal(task.isSample, false);
   assert.deepEqual(task.sourceRefs, [{ url: taskSource, quote: 'Clean every six months.' }]);
-  assert.equal((await request('GET', `/events/${task.id}`, undefined, 'bob')).statusCode, 404);
-  await request('PATCH', `/events/${task.id}`, {
+  assert.equal((await request('GET', `/tasks/${task.id}`, undefined, 'bob')).statusCode, 404);
+  await request('PATCH', `/tasks/${task.id}`, {
     title: 'Owner task',
     description: 'Owner instructions',
-    status: 'DISMISSED',
   });
+  await request('POST', `/tasks/${task.id}:close`, {});
   fail = false;
   assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
   const retried = await wait(accepted.importId);
@@ -1521,10 +1521,10 @@ test('task and purchasable operations checkpoint independently and preserve owne
   );
   const repeated = await start('Neff hob. Clean every six months.', accepted.thingId);
   assert.equal((await wait(repeated.importId)).status, 'COMPLETE');
-  const preservedTask = (await request('GET', `/events/${task.id}`)).json<Schema['Event']>();
+  const preservedTask = (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>();
   assert.equal(preservedTask.title, 'Owner task');
   assert.equal(preservedTask.description, 'Owner instructions');
-  assert.equal(preservedTask.status, 'DISMISSED');
+  assert.equal(preservedTask.status, 'CLOSED');
   const savedProducts = (await request('GET', `/purchasables?thingId=${accepted.thingId}`)).json<
     Schema['PurchasableList']
   >().items;
@@ -1532,7 +1532,7 @@ test('task and purchasable operations checkpoint independently and preserve owne
   assert.equal(savedProducts[0].name, 'Owner product');
   assert.equal(savedProducts[0].description, 'Owner product notes');
   const detail = (await request('GET', `/things/${accepted.thingId}`)).json<Schema['Thing']>();
-  assert.deepEqual(detail.eventIds, [task.id]);
+  assert.deepEqual(detail.eventIds, []);
   assert.deepEqual(detail.purchasableIds, [items[0].id]);
 });
 
@@ -1563,7 +1563,7 @@ test('task writes and completion checkpoint roll back together on persistence fa
     ],
   }));
   await pool.query(
-    "alter table bt.events add constraint suggestion_rollback_test check (title <> 'Rollback suggestion')",
+    "alter table bt.tasks add constraint suggestion_rollback_test check (title <> 'Rollback suggestion')",
   );
   let accepted: Schema['ImportAccepted'];
   try {
@@ -1576,17 +1576,17 @@ test('task writes and completion checkpoint roll back together on persistence fa
     const [target] = await importsDb.listImportTargets(pool, job);
     assert.equal(target.taskSuggestions, null);
     assert.equal(
-      (await request('GET', `/events?thingId=${accepted.thingId}`)).json<Schema['EventList']>()
-        .items.length,
+      (await request('GET', `/tasks?thingId=${accepted.thingId}`)).json<Schema['TaskList']>().items
+        .length,
       0,
     );
   } finally {
-    await pool.query('alter table bt.events drop constraint suggestion_rollback_test');
+    await pool.query('alter table bt.tasks drop constraint suggestion_rollback_test');
   }
   assert.equal((await request('POST', `/imports/${accepted.importId}:retry`)).statusCode, 200);
   assert.equal((await wait(accepted.importId)).status, 'COMPLETE');
   assert.equal(
-    (await request('GET', `/events?thingId=${accepted.thingId}`)).json<Schema['EventList']>().items
+    (await request('GET', `/tasks?thingId=${accepted.thingId}`)).json<Schema['TaskList']>().items
       .length,
     1,
   );

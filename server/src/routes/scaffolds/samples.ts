@@ -9,6 +9,9 @@ import * as usersDb from '../../db/entities/users.js';
  * sample creation is enabled.
  */
 
+import { format, addDays } from 'date-fns';
+import { randomUUID } from 'node:crypto';
+import * as tasksDb from '../../db/entities/tasks.js';
 import type pg from 'pg';
 import type { Schema, ThingPatch, Value } from '../../../../shared/model.js';
 import { emptyData } from '../../../../shared/model.js';
@@ -59,7 +62,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         v('appliances.neff', 'appliances.zNumber', '00015'),
       ],
     );
-    await add(
+    const van = await add(
       'Weekend van',
       'vehicles',
       ['vehicles.van'],
@@ -83,7 +86,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         }),
       ],
     );
-    await add(
+    const membership = await add(
       'Museum membership',
       'memberships',
       ['memberships.museum', 'memberships.access'],
@@ -107,17 +110,130 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         owner,
       ]);
 
-    await db.query(
-      "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true)",
+    const [issue] = await database.rows<{ id: string }>(
+      db,
+      "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true) returning id",
       [owner, hob],
     );
+    const on = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
+    const chat = (label: string, prompt: string | null = null): Schema['CompletionAction'] => ({
+      type: 'CHAT',
+      label,
+      prompt,
+    });
+    const upload: Schema['CompletionAction'] = {
+      type: 'ADD_ATTACHMENT',
+      label: 'Add the invoice',
+      documentType: 'OTHER',
+    };
+    const addTask = async (
+      thingId: string,
+      title: string,
+      properties: Partial<Schema['Task']> = {},
+    ) =>
+      tasksDb.saveTask(db, owner, {
+        id: randomUUID(),
+        thingId,
+        title,
+        description: 'Sample task for exploring the interface.',
+        issueId: null,
+        status: 'ACTIVE',
+        importance: 'RECOMMENDED',
+        scheduledOn: null,
+        deadlineOn: null,
+        recurrence: null,
+        completionActions: [],
+        completedAt: null,
+        closedAt: null,
+        referenceTaskId: null,
+        sourceRefs: [],
+        isSample: true,
+        ...properties,
+      });
+    await addTask(hob, 'Check the hob manual', { status: 'SUGGESTED' });
+    await addTask(hob, 'Deep clean', {
+      scheduledOn: on(1),
+      recurrence: { interval: 1, unit: 'MONTH', from: 'COMPLETION' },
+      completionActions: [chat('How did it go?')],
+    });
+    await addTask(hob, 'Inspect the cable', { importance: 'NICE_TO_HAVE' });
+    await addTask(van, 'MOT test', {
+      scheduledOn: on(6),
+      deadlineOn: on(20),
+      importance: 'CRITICAL',
+      recurrence: { interval: 1, unit: 'YEAR', from: 'DEADLINE' },
+    });
+    await addTask(insurance, 'Review home cover', { scheduledOn: on(5), importance: 'IMPORTANT' });
+    const policyActions: Schema['CompletionAction'][] = [
+      {
+        type: 'UPDATE_FIELD',
+        label: 'Set the new date',
+        fieldSetId: 'insurance.policy',
+        fieldId: 'insurance.policyEnds',
+        customFieldId: null,
+      },
+      { type: 'ADD_ATTACHMENT', label: 'Add the renewal', documentType: 'OTHER' },
+    ];
+    const [policy] = await database.rows<{ data: ReturnType<typeof emptyData> }>(
+      db,
+      'select data from bt.things where id=$1',
+      [insurance],
+    );
+    const data = patchData(
+      policy.data,
+      { values: [{ fieldSetId: null, fieldId: 'insurance.policyEnds', value: on(30) }] },
+      'insurance',
+      registry,
+    );
+    await db.query('update bt.things set data=$1 where id=$2', [JSON.stringify(data), insurance]);
+    policyActions[0] = {
+      type: 'UPDATE_FIELD',
+      label: 'Set the new date',
+      fieldSetId: null,
+      fieldId: 'insurance.policyEnds',
+      customFieldId: null,
+    };
+    await addTask(insurance, 'Renew the policy', {
+      scheduledOn: on(0),
+      deadlineOn: on(30),
+      importance: 'IMPORTANT',
+      recurrence: { interval: 1, unit: 'YEAR', from: 'DEADLINE' },
+      completionActions: policyActions,
+    });
+    await addTask(membership, 'Renew the membership', {
+      scheduledOn: on(2),
+      importance: 'RECOMMENDED',
+    });
+    await addTask(hob, 'Check the filter', {
+      scheduledOn: on(-3),
+      deadlineOn: on(-1),
+      importance: 'CRITICAL',
+    });
+    await addTask(van, 'Review the service record', {
+      scheduledOn: on(-2),
+      status: 'COMPLETED',
+      completedAt: new Date().toISOString(),
+      completionActions: [upload, chat('Needs more work', 'The vehicle still needs work.')],
+    });
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,description,status,starts_at,is_sample) values($1,$2,'Review home cover','Example reminder. Check the actual renewal date.','SCHEDULED',now()+interval '5 days',true)",
-      [owner, insurance],
+      "insert into bt.events(owner_id,thing_id,issue_id,title,description,status,starts_at,ends_at,completion_actions,is_sample) values($1,$2,$3,'Engineer visit','Sample appointment.','SCHEDULED',now()-interval '2 hours',now()-interval '1 hour',$4,true)",
+      [
+        owner,
+        hob,
+        issue.id,
+        JSON.stringify([
+          { type: 'RESOLVE_ISSUE', label: 'Is it fixed?' },
+          chat('Needs a follow-up', 'The hob still needs work.'),
+        ]),
+      ],
     );
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,description,is_sample) values($1,$2,'Check the hob manual','Example task for exploring maintenance cards.',true)",
-      [owner, hob],
+      "insert into bt.events(owner_id,thing_id,title,status,starts_at,ends_at,completion_actions,is_sample) values($1,$2,'Annual service at the mechanic','SCHEDULED',now()-interval '2 days',now()-interval '47 hours',$3,true)",
+      [
+        owner,
+        van,
+        JSON.stringify([upload, chat('Needs more work', 'The vehicle still needs work.')]),
+      ],
     );
 
     for (const [kind, name] of [

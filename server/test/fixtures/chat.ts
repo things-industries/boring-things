@@ -6,7 +6,7 @@ import type {
   ChatTools,
 } from '../../src/application/conversations/types.js';
 export class FixtureChat implements ChatAi {
-  constructor(public creation?: 'create_event' | 'create_issue') {}
+  constructor(public creation?: 'create_task' | 'create_event' | 'create_issue') {}
   calls = 0;
   pause?: Promise<void>;
   failOnce = false;
@@ -43,8 +43,26 @@ export class FixtureChat implements ChatAi {
     if (this.creation)
       await execute(this.creation, {
         thingId: thing.id,
-        title: this.creation === 'create_event' ? 'Check the filter' : 'Filter needs attention',
+        title: this.creation === 'create_task' ? 'Check the filter' : 'Filter needs attention',
         description: 'Synthetic assistant task',
+        ...(this.creation === 'create_task'
+          ? {
+              issueId: null,
+              importance: 'RECOMMENDED',
+              recurrence: null,
+              scheduledOn: null,
+              deadlineOn: null,
+              completionActions: [],
+            }
+          : this.creation === 'create_event'
+            ? {
+                issueId: null,
+                startsAt: '2026-10-01T09:00:00Z',
+                startsOn: null,
+                endsAt: null,
+                completionActions: [],
+              }
+            : {}),
       });
     await execute('show_cards', {
       cards: [

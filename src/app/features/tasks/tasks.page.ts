@@ -1,4 +1,5 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
+import { createClock } from '../../core/state/clock';
 import { RouterLink } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
 import { openProfile } from '../../core/app-icons';
@@ -20,7 +21,7 @@ import { TermPipe } from '../../pipes/term.pipe';
 export class TasksPage {
   private collections = loadAgenda();
 
-  readonly now = signal(new Date());
+  readonly now = createClock();
   readonly agenda = agendaView(this.now);
   readonly loaded = this.collections.loaded;
   readonly error = this.collections.error;

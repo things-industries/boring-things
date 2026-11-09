@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -28,6 +28,7 @@ import { ProfileStore } from '../../core/state/profile.store';
 import { ThingsStore } from '../../core/state/things.store';
 import { loadCollections } from '../../core/state/load-collections';
 import { categoriesView } from '../../core/state/views/categories.view';
+import { createClock } from '../../core/state/clock';
 import { agendaView, loadAgenda } from '../../core/state/views/agenda.view';
 import { CardGroup } from '../../components/card-group/card-group';
 import { CategoryChip } from '../../components/category-chip/category-chip';
@@ -104,7 +105,7 @@ export class HomePage {
   readonly profile = this.profileStore.profile;
   readonly seeding = this.profileStore.seeding;
   readonly categories = categoriesView();
-  private readonly agenda = agendaView(signal(new Date()));
+  private readonly agenda = agendaView(createClock());
 
   /** Today's items in agenda order: how many are left and overdue, and the first few. */
   readonly today = computed(() => {

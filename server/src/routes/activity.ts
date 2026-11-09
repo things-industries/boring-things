@@ -6,14 +6,19 @@ import { route } from '../contracts/routes.js';
 import * as database from '../db/connection.js';
 import * as activityDb from '../db/entities/activity.js';
 import { writeEvent, writeIssue } from '../application/activity.js';
+import type { Registry } from '../application/registry/registry.js';
+import * as tasksDb from '../db/entities/tasks.js';
+import * as thingsDb from '../db/entities/things.js';
+import { ensure } from '../application/errors.js';
 import type { ApplicationEvents } from '../application/events.js';
 
 interface Options {
   db: pg.Pool;
+  registry: Registry;
   events: ApplicationEvents;
 }
 
-const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events }) => {
+const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events, registry }) => {
   route(app, 'GET', '/api/issues', (req) =>
     activityDb.listActivity(db, req.ownerId, 'issues', req.query),
   );
@@ -32,21 +37,69 @@ const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events }) 
     return reply.code(201).send(result);
   });
   route(app, 'PATCH', '/api/issues/{id}', async (req) => {
-    const result = await database.transaction(db, (tx) =>
-      writeIssue(tx, req.ownerId, req.body, req.params.id),
-    );
+    const result = await database.transaction(db, async (tx) => {
+      const issue = await writeIssue(tx, req.ownerId, req.body, req.params.id);
+      const tasks =
+        issue.status === 'RESOLVED'
+          ? await database.rows<import('../../../shared/model.js').Schema['Task']>(
+              tx,
+              `select ${tasksDb.columns} from bt.tasks where owner_id=$1 and issue_id=$2 and status='CLOSED'`,
+              [req.ownerId, issue.id],
+            )
+          : [];
+      const events =
+        issue.status === 'RESOLVED'
+          ? await database.rows<import('../../../shared/model.js').Schema['Event']>(
+              tx,
+              "select id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,ends_at,closed_at,completion_actions,source_refs,is_sample from bt.events where owner_id=$1 and issue_id=$2 and status='CLOSED'",
+              [req.ownerId, issue.id],
+            )
+          : [];
+      return { issue, tasks, events };
+    });
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
   route(app, 'POST', '/api/events', async (req, reply) => {
-    const result = await database.transaction(db, (tx) => writeEvent(tx, req.ownerId, req.body));
+    const result = await database.transaction(db, (tx) =>
+      writeEvent(tx, req.ownerId, req.body, registry),
+    );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });
   route(app, 'PATCH', '/api/events/{id}', async (req) => {
     const result = await database.transaction(db, (tx) =>
-      writeEvent(tx, req.ownerId, req.body, req.params.id),
+      writeEvent(tx, req.ownerId, req.body, registry, req.params.id),
     );
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    return result;
+  });
+  route(app, 'POST', '/api/events/{id}:close', async (req) => {
+    const result = await database.transaction(db, async (tx) => {
+      const initial = await activityDb.getOwnedActivityOrThrow(
+        tx,
+        req.ownerId,
+        'events',
+        req.params.id,
+      );
+      await thingsDb.getOwnedThingOrThrow(tx, req.ownerId, initial.thingId, { lock: true });
+      const event = await activityDb.getOwnedActivityOrThrow(
+        tx,
+        req.ownerId,
+        'events',
+        req.params.id,
+        { lock: true },
+      );
+      if (event.status === 'CLOSED') return event;
+      ensure(event.startsAt || event.startsOn, 'Event needs a date');
+      await database.execute(
+        tx,
+        "update bt.events set status='CLOSED',closed_at=now() where owner_id=$1 and id=$2",
+        [req.ownerId, event.id],
+      );
+      await thingsDb.bumpThing(tx, req.ownerId, event.thingId);
+      return activityDb.getOwnedActivityOrThrow(tx, req.ownerId, 'events', event.id);
+    });
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });

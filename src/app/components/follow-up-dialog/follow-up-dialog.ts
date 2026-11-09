@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AttachmentsStore } from '../../core/state/attachments.store';
+import { ThingDatesStore } from '../../core/state/thing-dates.store';
 import { ThingsStore } from '../../core/state/things.store';
 import { Dialog } from '../dialog/dialog';
 import type { CompletionAction } from '../../interfaces/task.interface';
@@ -9,7 +10,7 @@ import { fieldValue } from '../../utils/field.util';
 /** A field or document completion action waiting for an answer. */
 export interface FollowUpRequest {
   thingId: string;
-  action: Extract<CompletionAction, { type: 'UPDATE_FIELD' | 'ADD_DOCUMENT' }>;
+  action: Extract<CompletionAction, { type: 'UPDATE_FIELD' | 'ADD_ATTACHMENT' }>;
 }
 
 let nextId = 0;
@@ -25,6 +26,7 @@ let nextId = 0;
   styleUrl: './follow-up-dialog.scss',
 })
 export class FollowUpDialog {
+  private dates = inject(ThingDatesStore);
   private things = inject(ThingsStore);
   private attachments = inject(AttachmentsStore);
   readonly request = input<FollowUpRequest | null>(null);
@@ -40,18 +42,23 @@ export class FollowUpDialog {
 
     if (request?.action.type !== 'UPDATE_FIELD') return null;
 
-    const { fieldId } = request.action;
+    const { fieldId, fieldSetId, customFieldId } = request.action;
     const detail = this.things.entityMap()[request.thingId]?.detail;
-    const set = detail?.fieldSets.find((s) => s.fields.some((f) => f.id === fieldId));
+    const set = detail?.fieldSets.find((s) => s.id === fieldSetId);
     const field = set
       ? set.fields.find((f) => f.id === fieldId)
       : detail?.standaloneFields.find((f) => f.id === fieldId);
 
-    return field ? { field, setId: set?.id ?? null } : null;
+    const custom = customFieldId ? detail?.customFields.find((f) => f.id === customFieldId) : null;
+    return custom
+      ? { custom, field: null, setId: null }
+      : field
+        ? { custom: null, field, setId: set?.id ?? null }
+        : null;
   });
 
   readonly ready = computed(() =>
-    this.request()?.action.type === 'ADD_DOCUMENT' ? !!this.file() : !!this.draft().trim(),
+    this.request()?.action.type === 'ADD_ATTACHMENT' ? !!this.file() : !!this.draft().trim(),
   );
 
   close() {
@@ -72,16 +79,33 @@ export class FollowUpDialog {
     if (!request || !this.ready() || this.busy()) return;
     if (request.action.type === 'UPDATE_FIELD') {
       if (!target) return;
-      void this.things.update(request.thingId, {
-        values: [
-          {
-            fieldSetId: target.setId,
-            fieldId: target.field.id,
-            value: fieldValue(target.field, this.draft().trim(), 'GBP'),
-          },
-        ],
-      });
-      this.close();
+      const result = await this.things.update(
+        request.thingId,
+        target.custom
+          ? {
+              customFields: [
+                {
+                  id: target.custom.id,
+                  label: target.custom.label,
+                  value: this.draft().trim(),
+                  sensitive: target.custom.sensitive,
+                },
+              ],
+            }
+          : {
+              values: [
+                {
+                  fieldSetId: target.setId,
+                  fieldId: target.field.id,
+                  value: fieldValue(target.field, this.draft().trim(), 'GBP'),
+                },
+              ],
+            },
+      );
+      if (result.ok) {
+        await this.dates.reload();
+        this.close();
+      }
       return;
     }
 
@@ -91,6 +115,14 @@ export class FollowUpDialog {
     const result = await this.attachments.upload(file, request.thingId);
 
     this.busy.set(false);
-    if (result.ok) this.close();
+    if (result.ok) {
+      if (request.action.type === 'ADD_ATTACHMENT' && request.action.documentType) {
+        const changed = await this.attachments.update(result.value.id, {
+          documentType: request.action.documentType,
+        });
+        if (!changed.ok) return;
+      }
+      this.close();
+    }
   }
 }

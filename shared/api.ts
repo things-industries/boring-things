@@ -418,7 +418,7 @@ export interface paths {
         head?: never;
         /**
          * Patch issue
-         * @description Updates selected issue properties. Resolving an open issue records the resolution time; reopening it removes that timestamp. Null removes the status text or due date.
+         * @description Updates selected Issue properties. Resolving the Issue closes all linked Tasks and Events and returns the affected records. Reopening leaves linked work closed. Null removes status text or due date.
          */
         patch: operations["patchIssue"];
         trace?: never;
@@ -432,13 +432,13 @@ export interface paths {
         };
         /**
          * List events
-         * @description Lists events by schedule, earliest first, then ID, with unscheduled events last. Filters can select a Thing, status or date range. Date-only events sort at midnight in timeZone. Range bounds are inclusive: timed events use instants, and date-only events use the calendar date of each bound in timeZone.
+         * @description Lists owner-scoped Events by schedule and ID, with optional status, Thing and inclusive date bounds. Ended Events with pending followups are included before the lower bound. Date-only schedules use timeZone.
          */
         get: operations["listEvents"];
         put?: never;
         /**
          * Create event
-         * @description Creates an event for a Thing, with status SUGGESTED by default. Scheduled events require a date or timestamp. A linked issue must belong to the same Thing. Accepts an optional client-generated UUID; an ID already in use returns 409.
+         * @description Creates an event with a start date or timestamp and optional followups.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -456,7 +456,7 @@ export interface paths {
         };
         /**
          * Get event
-         * @description Returns an event with its schedule, completion timestamp and supporting sources.
+         * @description Returns owner-scoped appointments, visits and deliveries.
          */
         get: operations["getEvent"];
         put?: never;
@@ -466,7 +466,7 @@ export interface paths {
         head?: never;
         /**
          * Patch event
-         * @description Updates selected event properties. When switching between a date and timestamp, set the previous schedule property to null. Scheduled events require one schedule value. A linked issue must belong to the same Thing.
+         * @description Updates selected event properties. Null removes optional values. End time requires a timed start and cannot precede it.
          */
         patch: operations["patchEvent"];
         trace?: never;
@@ -709,6 +709,158 @@ export interface paths {
          * @description Records a user opening a Thing page by incrementing accessCount and setting lastViewedAt to the server time. Each successful request counts once, so clients must not automatically retry. Reading or streaming a Thing does not record a view. Recording a view preserves updatedAt and the content revision.
          */
         post: operations["recordThingView"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tasks
+         * @description Lists owner-scoped Tasks by schedule and ID. Date bounds include active carryover, undated Tasks and completed followups. Status and Thing filters apply before pagination.
+         */
+        get: operations["listTasks"];
+        put?: never;
+        /**
+         * Create task
+         * @description Create task.
+         */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get task
+         * @description Get task.
+         */
+        get: operations["getTask"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete task
+         * @description Delete task.
+         */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        /**
+         * Update task
+         * @description Update task.
+         */
+        patch: operations["patchTask"];
+        trace?: never;
+    };
+    "/api/tasks/{id}:accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept task
+         * @description Accepts a suggestion after the scheduling AI task chooses dates from its saved context. Unknown dates stay null. Provider failures leave the suggestion unchanged.
+         */
+        post: operations["acceptTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{id}:complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete task
+         * @description Completes an active Task at the current server time and creates one successor when recurring. Retries return the completed Task with nextTask null. Completion cannot be undone.
+         */
+        post: operations["completeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{id}:close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close task
+         * @description Close task.
+         */
+        post: operations["closeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/{id}:close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close event
+         * @description Close event.
+         */
+        post: operations["closeEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/thing-dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List future Thing dates
+         * @description List future Thing dates.
+         */
+        get: operations["listThingDates"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1085,7 +1237,7 @@ export interface components {
              */
             dueDate?: string | null;
         };
-        /** @description Task or reminder for a Thing, with its schedule, completion time and supporting sources. SCHEDULED requires either startsOn or startsAt; other statuses allow neither. Both schedule properties cannot have a value together. */
+        /** @description Appointment, visit or delivery with one start date or timestamp and independent followups. */
         Event: {
             /** Format: uuid */
             id: string;
@@ -1098,8 +1250,6 @@ export interface components {
             status: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt: string | null;
-            /** Format: date-time */
-            completedAt: string | null;
             sourceRefs: components["schemas"]["SourceRef"][];
             isSample: boolean;
             /**
@@ -1107,8 +1257,13 @@ export interface components {
              * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
              */
             startsOn: string | null;
+            /** Format: date-time */
+            endsAt: string | null;
+            completionActions: components["schemas"]["CompletionAction"][];
+            /** Format: date-time */
+            closedAt: string | null;
         };
-        /** @description Properties for creating an event for a Thing. Status defaults to SUGGESTED. SCHEDULED requires either startsOn or startsAt; both schedule properties cannot have a value together. */
+        /** @description Appointment, visit or delivery with one start date or timestamp and independent followups. */
         EventInput: {
             /**
              * Format: uuid
@@ -1129,14 +1284,16 @@ export interface components {
              * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
              */
             startsOn?: string | null;
+            /** Format: date-time */
+            endsAt?: string | null;
+            completionActions?: components["schemas"]["CompletionAction"][];
         };
-        /** @description Selected event properties to update. Null removes an optional issue link or schedule value. SCHEDULED requires either startsOn or startsAt; when switching, set the previous schedule property to null. */
+        /** @description Appointment, visit or delivery with one start date or timestamp and independent followups. */
         EventPatch: {
             /** Format: uuid */
             issueId?: string | null;
             title?: string;
             description?: string;
-            status?: components["schemas"]["EventStatusEnum"];
             /** Format: date-time */
             startsAt?: string | null;
             /**
@@ -1144,6 +1301,9 @@ export interface components {
              * @description Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.
              */
             startsOn?: string | null;
+            /** Format: date-time */
+            endsAt?: string | null;
+            completionActions?: components["schemas"]["CompletionAction"][];
         };
         /** @description Opportunity to buy a consumable, accessory or upgrade that maintains or improves a Thing, with supporting sources. Merchant actions for samples are disabled. */
         Purchasable: {
@@ -1214,7 +1374,7 @@ export interface components {
             items: components["schemas"]["ConversationSummary"][];
             nextCursor: string | null;
         };
-        /** @description Optional ID and Thing context for a new conversation. */
+        /** @description New conversation with optional Thing, Task or Event context and a CHAT followup index. */
         ConversationInput: {
             /**
              * Format: uuid
@@ -1223,6 +1383,13 @@ export interface components {
             id?: string;
             /** Format: uuid */
             thingId?: string | null;
+            /** Format: uuid */
+            taskId?: string;
+            /** Format: uuid */
+            eventId?: string;
+            actionIndex?: number;
+            /** @description Local calendar timezone for date-only Event followup eligibility. */
+            timeZone?: string;
         };
         /** @description A page of categories. nextCursor is null when no further page is available. */
         CategoryList: {
@@ -1377,6 +1544,12 @@ export interface components {
             /** Format: uuid */
             purchasableId: string;
             available?: boolean;
+        } | {
+            /** @constant */
+            type: "TASK";
+            /** Format: uuid */
+            taskId: string;
+            available?: boolean;
         };
         /** @description User message and request ID. Reuse the ID and text to retry the same message. */
         MessageInput: {
@@ -1449,16 +1622,144 @@ export interface components {
             /** @description Applicable byte, text character or page limit, when known. */
             limit: number | null;
         };
+        /** @description Interval and reference policy for generating the next task. */
+        TaskRecurrence: {
+            interval: number;
+            unit: components["schemas"]["RecurrenceUnitEnum"];
+            from: components["schemas"]["RecurrenceFromEnum"];
+        };
+        /** @description Independent followup offered after completion or the end of an event. */
+        CompletionAction: {
+            /** @constant */
+            type: "CHAT";
+            label: string;
+            prompt: string | null;
+        } | {
+            /** @constant */
+            type: "UPDATE_FIELD";
+            label: string;
+            fieldSetId: string | null;
+            fieldId: string | null;
+            /** Format: uuid */
+            customFieldId: string | null;
+        } | {
+            /** @constant */
+            type: "ADD_ATTACHMENT";
+            label: string;
+            documentType: components["schemas"]["AttachmentDocumentTypeEnum"] | null;
+        } | {
+            /** @constant */
+            type: "RESOLVE_ISSUE";
+            label: string;
+        };
+        /** @description Properties for creating a suggested or active task. Recurrence requires a date; DEADLINE requires deadlineOn. */
+        TaskInput: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            thingId: string;
+            /** Format: uuid */
+            issueId?: string | null;
+            title: string;
+            description?: string;
+            importance?: components["schemas"]["TaskImportanceEnum"];
+            /** Format: date */
+            scheduledOn?: string | null;
+            /** Format: date */
+            deadlineOn?: string | null;
+            recurrence?: components["schemas"]["TaskRecurrence"] | null;
+            completionActions?: components["schemas"]["CompletionAction"][];
+            status?: components["schemas"]["TaskInitialStatusEnum"];
+        };
+        /** @description Selected task properties to update. Null removes optional dates, recurrence or the issue link. Edits affect this occurrence only. */
+        TaskPatch: {
+            /** Format: uuid */
+            issueId?: string | null;
+            title?: string;
+            description?: string;
+            importance?: components["schemas"]["TaskImportanceEnum"];
+            /** Format: date */
+            scheduledOn?: string | null;
+            /** Format: date */
+            deadlineOn?: string | null;
+            recurrence?: components["schemas"]["TaskRecurrence"] | null;
+            completionActions?: components["schemas"]["CompletionAction"][];
+        };
+        /** @description User action for a Thing, with optional schedule, deadline, recurrence and followups. */
+        Task: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            thingId: string;
+            /** Format: uuid */
+            issueId: string | null;
+            title: string;
+            description: string;
+            importance: components["schemas"]["TaskImportanceEnum"];
+            /** Format: date */
+            scheduledOn: string | null;
+            /** Format: date */
+            deadlineOn: string | null;
+            recurrence: components["schemas"]["TaskRecurrence"] | null;
+            completionActions: components["schemas"]["CompletionAction"][];
+            status: components["schemas"]["TaskStatusEnum"];
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            /** Format: uuid */
+            referenceTaskId: string | null;
+            sourceRefs: components["schemas"]["SourceRef"][];
+            isSample: boolean;
+        };
+        /** @description Page of tasks accessible to the owner. */
+        TaskList: {
+            items: components["schemas"]["Task"][];
+            nextCursor: string | null;
+        };
+        /** @description Task lifecycle result, including the next occurrence when one was created. */
+        TaskChange: {
+            task: components["schemas"]["Task"];
+            nextTask: components["schemas"]["Task"] | null;
+        };
+        /** @description Local calendar timezone for accepting or completing a task. */
+        TaskActionInput: {
+            /** @default UTC */
+            timeZone: string;
+        };
+        /** @description Issue update and the tasks and events closed by its resolution. */
+        IssueChange: {
+            issue: components["schemas"]["Issue"];
+            tasks: components["schemas"]["Task"][];
+            events: components["schemas"]["Event"][];
+        };
+        /** @description Future date derived from a populated Thing field. */
+        ThingDate: {
+            /** Format: uuid */
+            thingId: string;
+            fieldSetId: string | null;
+            fieldId: string | null;
+            /** Format: uuid */
+            customFieldId: string | null;
+            label: string;
+            /** Format: date */
+            date: string;
+        };
+        /** @description Page of upcoming date fields. */
+        ThingDateList: {
+            items: components["schemas"]["ThingDate"][];
+            nextCursor: string | null;
+        };
         /**
          * @description Whether an issue is open or resolved.
          * @enum {string}
          */
         IssueStatusEnum: "OPEN" | "RESOLVED";
         /**
-         * @description Whether an event is suggested, scheduled, completed or dismissed.
+         * @description Scheduled event or event closed to further followups.
          * @enum {string}
          */
-        EventStatusEnum: "SUGGESTED" | "SCHEDULED" | "COMPLETED" | "DISMISSED";
+        EventStatusEnum: "SCHEDULED" | "CLOSED";
         /**
          * @description Type of product suggestion: consumable, accessory or upgrade.
          * @enum {string}
@@ -1493,7 +1794,7 @@ export interface components {
          * @description Data type of a custom field value.
          * @enum {string}
          */
-        ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY";
+        ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY" | "DATE";
         /**
          * @description Current stage or outcome of document processing. COMPLETE can include warnings for unfinished optional research.
          * @enum {string}
@@ -1529,6 +1830,31 @@ export interface components {
          * @enum {string}
          */
         ImportWarningCodeEnum: "SIZE_LIMIT" | "MODEL_INPUT_LIMIT" | "PAGE_BUDGET" | "TIMEOUT" | "UNAVAILABLE" | "EXTRACTION_FAILED" | "RESEARCH_FAILED";
+        /**
+         * @description Task lifecycle status. Accepted tasks cannot become suggestions again.
+         * @enum {string}
+         */
+        TaskStatusEnum: "SUGGESTED" | "ACTIVE" | "COMPLETED" | "CLOSED";
+        /**
+         * @description Prominence and ordering within a day, independent of scheduling.
+         * @enum {string}
+         */
+        TaskImportanceEnum: "CRITICAL" | "IMPORTANT" | "RECOMMENDED" | "NICE_TO_HAVE";
+        /**
+         * @description Calendar unit for task recurrence.
+         * @enum {string}
+         */
+        RecurrenceUnitEnum: "DAY" | "WEEK" | "MONTH" | "YEAR";
+        /**
+         * @description Completion date or planned deadline used for recurrence.
+         * @enum {string}
+         */
+        RecurrenceFromEnum: "COMPLETION" | "DEADLINE";
+        /**
+         * @description Initial task status.
+         * @enum {string}
+         */
+        TaskInitialStatusEnum: "SUGGESTED" | "ACTIVE";
     };
     responses: {
         /** @description A valid bearer token is required. */
@@ -2508,7 +2834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Issue"];
+                    "application/json": components["schemas"]["IssueChange"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3035,6 +3361,327 @@ export interface operations {
             404: components["responses"]["NotFound"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of results. */
+                limit?: components["parameters"]["limit"];
+                /** @description Opaque cursor returned by the previous page. */
+                cursor?: components["parameters"]["cursor"];
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
+                thingId?: components["parameters"]["thingId"];
+                /** @description Inclusive calendar range; active carryover and pending followups are included. */
+                from?: string;
+                /** @description Inclusive calendar range; active carryover and pending followups are included. */
+                to?: string;
+                /** @description Task status. */
+                status?: components["schemas"]["TaskStatusEnum"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    patchTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPatch"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    acceptTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskActionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskChange"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    completeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskActionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskChange"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    closeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskActionInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskChange"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    closeEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listThingDates: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of results. */
+                limit?: components["parameters"]["limit"];
+                /** @description Opaque cursor returned by the previous page. */
+                cursor?: components["parameters"]["cursor"];
+                /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
+                thingId?: components["parameters"]["thingId"];
+                /** @description Inclusive calendar range; active carryover and pending followups are included. */
+                from?: string;
+                /** @description Inclusive calendar range; active carryover and pending followups are included. */
+                to?: string;
+                timeZone?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThingDateList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

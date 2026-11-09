@@ -100,11 +100,14 @@ export const ConversationsStore = signalStore(
       return request;
     }
 
-    async function create(thingId: string | null) {
+    async function create(
+      thingId: string | null,
+      context: Pick<Schema['ConversationInput'], 'taskId' | 'eventId' | 'actionIndex'> = {},
+    ) {
       const result = await store.create(
         'startChat',
         { id: crypto.randomUUID(), thingId, messages: [] },
-        () => store._service.create(thingId ? { thingId } : {}),
+        () => store._service.create({ ...context, ...(thingId ? { thingId } : {}) }),
       );
 
       if (result.ok && thingId) setCurrent(thingId, result.value.id);

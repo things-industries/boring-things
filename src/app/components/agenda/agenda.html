@@ -1,5 +1,11 @@
 @let days = agenda();
 <div class="agenda-timeline">
+  @if (days.followups.length) {
+    <section class="agenda-day" aria-label="How did it go?">
+      <h2 class="agenda-day-heading">How did it go?</h2>
+      <bt-task-list [items]="days.followups" [now]="now()" [inThing]="inThing()" />
+    </section>
+  }
   <section class="agenda-day" [attr.aria-labelledby]="id + '-today'">
     <h2 [id]="id + '-today'" class="agenda-day-heading current">Today</h2>
     @if (days.today.length) {

@@ -328,7 +328,11 @@ test('list filters omit inaccessible records on every page', async (t) => {
         const response = await request(
           'POST',
           path,
-          { thingId: thing.id, title: 'List fixture' },
+          {
+            thingId: thing.id,
+            title: 'List fixture',
+            ...(path === '/events' ? { startsOn: '2026-10-01' } : {}),
+          },
           owner,
         );
         assert.equal(response.statusCode, 201, response.body);
@@ -517,10 +521,11 @@ test('activity transitions and conversation/message persistence are owner-scoped
       thingId: thing.id,
       title: 'Task',
       issueId: issue.id,
+      startsOn: '2026-10-01',
     })
   ).json();
   const changed = await request('PATCH', `/events/${event.id}`, {
-    status: 'SCHEDULED',
+    startsOn: null,
     startsAt: '2026-10-01T09:00:00Z',
   });
   assert.equal(changed.statusCode, 200, changed.body);
@@ -589,8 +594,8 @@ test('Issue status text and due dates preserve omission, clear with null and sta
   assert.equal(issue.dueDate, '2026-10-12');
   const path = `/issues/${issue.id}`;
   const changed = await request('PATCH', path, { title: 'Review cover' });
-  assert.equal(changed.json().statusText, 'Renewal due');
-  assert.equal(changed.json().dueDate, '2026-10-12');
+  assert.equal(changed.json().issue.statusText, 'Renewal due');
+  assert.equal(changed.json().issue.dueDate, '2026-10-12');
   for (const dueDate of ['2026-02-30', '2026-10-12T12:00:00Z'])
     assert.equal((await request('PATCH', path, { dueDate })).statusCode, 422);
   assert.equal((await request('PATCH', path, { statusText: 'x'.repeat(501) })).statusCode, 422);
@@ -603,10 +608,10 @@ test('Issue status text and due dates preserve omission, clear with null and sta
     dueDate: null,
     status: 'RESOLVED',
   });
-  assert.equal(cleared.json().statusText, null);
-  assert.equal(cleared.json().dueDate, null);
-  assert.ok(cleared.json().resolvedAt);
-  assert.equal((await request('PATCH', path, { statusText: '' })).json().statusText, '');
+  assert.equal(cleared.json().issue.statusText, null);
+  assert.equal(cleared.json().issue.dueDate, null);
+  assert.ok(cleared.json().issue.resolvedAt);
+  assert.equal((await request('PATCH', path, { statusText: '' })).json().issue.statusText, '');
 });
 
 test('date-only Events retain calendar dates, enforce one schedule and filter mixed schedules by viewer timezone', async () => {
@@ -693,9 +698,9 @@ test('date-only Events retain calendar dates, enforce one schedule and filter mi
   assert.equal(switched.json().startsOn, null);
   const back = await request('PATCH', path, { startsAt: null, startsOn: '2026-10-25' });
   assert.equal(back.statusCode, 200, back.body);
-  const done = await request('PATCH', path, { status: 'COMPLETED' });
+  const done = await request('POST', path + ':close');
   assert.equal(done.json().startsOn, '2026-10-25');
-  assert.ok(done.json().completedAt);
+  assert.ok(done.json().closedAt);
 });
 
 test('explicit Thing views increment atomically without changing content timestamps and support paginated rankings', async () => {

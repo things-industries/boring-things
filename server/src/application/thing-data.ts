@@ -166,9 +166,11 @@ export function projectData(
     customFields: data.customFields.map((f) => ({
       ...f,
       instanceSpecific: f.instanceSpecific ?? true,
-      valueType: (typeof f.value === 'object'
-        ? 'MONEY'
-        : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum'],
+      valueType: (typeof f.value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.value)
+        ? 'DATE'
+        : typeof f.value === 'object'
+          ? 'MONEY'
+          : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum'],
       value: f.sensitive ? null : f.value,
       masked: f.sensitive,
       sourceRefs: f.sensitive ? [] : f.sourceRefs,

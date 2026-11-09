@@ -77,36 +77,5 @@
     @if (event.startsAt) {
       <p class="date">{{ event.startsAt | date: 'medium' }}</p>
     }
-    @if (event.status === 'SUGGESTED') {
-      <label class="compact-label"
-        >Date only<input type="checkbox" #dateOnly (change)="dateInput.value = ''"
-      /></label>
-      <label class="compact-label"
-        >Schedule for<input
-          [type]="dateOnly.checked ? 'date' : 'datetime-local'"
-          #dateInput /></label
-      ><button
-        class="small quiet"
-        [disabled]="busy()"
-        (click)="schedule(event.id, dateInput.value, dateOnly.checked)"
-      >
-        Schedule <ng-icon name="scheduleEvent" aria-hidden="true" />
-      </button>
-    }
-    @if (event.status === 'SCHEDULED') {
-      <button
-        class="small quiet"
-        [disabled]="busy()"
-        (click)="
-          action.emit({
-            kind: 'events',
-            id: event.id,
-            patch: { status: 'COMPLETED' },
-          })
-        "
-      >
-        Mark complete <ng-icon name="complete" aria-hidden="true" />
-      </button>
-    }
   </article>
 }

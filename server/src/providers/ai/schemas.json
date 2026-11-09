@@ -445,9 +445,175 @@
                 "description": "Supporting excerpt from the public source establishing task applicability (min 1 char, max 2000 chars).",
                 "minLength": 1,
                 "maxLength": 2000
+              },
+              "importance": {
+                "type": "string",
+                "description": "Prominence and ordering within a day, independent of scheduling.",
+                "enum": ["CRITICAL", "IMPORTANT", "RECOMMENDED", "NICE_TO_HAVE"]
+              },
+              "recurrence": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "description": "Interval and reference policy for generating the next task.",
+                    "required": ["interval", "unit", "from"],
+                    "properties": {
+                      "interval": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                      },
+                      "unit": {
+                        "type": "string",
+                        "description": "Calendar unit for task recurrence.",
+                        "enum": ["DAY", "WEEK", "MONTH", "YEAR"]
+                      },
+                      "from": {
+                        "type": "string",
+                        "description": "Completion date or planned deadline used for recurrence.",
+                        "enum": ["COMPLETION", "DEADLINE"]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Evidence-based recurrence; a repeating task has at least one date."
+              },
+              "scheduledOn": {
+                "type": ["string", "null"],
+                "format": "date",
+                "description": "Task scheduledOn."
+              },
+              "deadlineOn": {
+                "type": ["string", "null"],
+                "format": "date",
+                "description": "Task deadlineOn."
+              },
+              "completionActions": {
+                "type": "array",
+                "items": {
+                  "description": "Independent followup offered after completion or the end of an event.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "description": "Followup offered after the item ends.",
+                      "required": ["type", "label", "prompt"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "CHAT"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "prompt": {
+                          "type": ["string", "null"]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "description": "Followup offered after the item ends.",
+                      "required": ["type", "label", "fieldSetId", "fieldId", "customFieldId"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "UPDATE_FIELD"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "fieldSetId": {
+                          "type": ["string", "null"]
+                        },
+                        "fieldId": {
+                          "type": ["string", "null"]
+                        },
+                        "customFieldId": {
+                          "type": ["string", "null"],
+                          "format": "uuid"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "description": "Followup offered after the item ends.",
+                      "required": ["type", "label", "documentType"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "ADD_ATTACHMENT"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "documentType": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Document classification, such as a manual, receipt or invoice. Null on an Attachment means unknown.",
+                              "enum": [
+                                "MANUAL",
+                                "RECEIPT",
+                                "INVOICE",
+                                "INSTALLATION_GUIDE",
+                                "SPECIFICATION",
+                                "OTHER"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "description": "Followup offered after the item ends.",
+                      "required": ["type", "label"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "RESOLVE_ISSUE"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "maxItems": 12,
+                "description": "Followups to offer after completion, using only retrieved field and issue addresses."
               }
             },
-            "required": ["title", "description", "sourceUrl", "quote"]
+            "required": [
+              "title",
+              "description",
+              "sourceUrl",
+              "quote",
+              "importance",
+              "recurrence",
+              "scheduledOn",
+              "deadlineOn",
+              "completionActions"
+            ]
           }
         }
       },
@@ -661,32 +827,365 @@
     },
     {
       "type": "function",
-      "name": "create_event",
-      "description": "Creation of a suggested maintenance Event requested by the user in the conversation for an identified task and Thing. Ambiguous requests require a follow-up. Scheduling is left to the user, with no invented date. At most one Event or Issue creation per message, with completed writes reused on retry.",
+      "name": "create_task",
+      "description": "Creation of a suggested user action for a retrieved Thing, with evidence-based importance, recurrence and followups. One Task, Event or Issue creation per message.",
       "strict": true,
       "parameters": {
-        "description": "Suggested maintenance Event requested by the user for a Thing already read.",
+        "description": "User-requested Task with unknown dates set to null.",
         "type": "object",
-        "additionalProperties": false,
         "properties": {
           "thingId": {
             "type": "string",
             "format": "uuid",
-            "description": "UUID of the previously read Thing for which the user requested this task."
+            "description": "Task thingId."
+          },
+          "issueId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Task issueId."
           },
           "title": {
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "Short action title describing the user-requested maintenance or servicing task (min 1 char, max 200 chars)."
+            "description": "Task title."
           },
           "description": {
             "type": "string",
             "maxLength": 4000,
-            "description": "Task details and relevant instructions supported by the conversation and retrieved evidence; empty text when no further details are supported. The owner schedules the suggested Event (max 4000 chars)."
+            "description": "Task description."
+          },
+          "importance": {
+            "type": "string",
+            "description": "Prominence and ordering within a day, independent of scheduling.",
+            "enum": ["CRITICAL", "IMPORTANT", "RECOMMENDED", "NICE_TO_HAVE"]
+          },
+          "scheduledOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Task scheduledOn."
+          },
+          "deadlineOn": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Task deadlineOn."
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "type": "object",
+                "description": "Interval and reference policy for generating the next task.",
+                "required": ["interval", "unit", "from"],
+                "properties": {
+                  "interval": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  },
+                  "unit": {
+                    "type": "string",
+                    "description": "Calendar unit for task recurrence.",
+                    "enum": ["DAY", "WEEK", "MONTH", "YEAR"]
+                  },
+                  "from": {
+                    "type": "string",
+                    "description": "Completion date or planned deadline used for recurrence.",
+                    "enum": ["COMPLETION", "DEADLINE"]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Evidence-based recurrence; a repeating task has at least one date."
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "description": "Independent followup offered after completion or the end of an event.",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label", "prompt"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "CHAT"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "prompt": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label", "fieldSetId", "fieldId", "customFieldId"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "UPDATE_FIELD"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "fieldSetId": {
+                      "type": ["string", "null"]
+                    },
+                    "fieldId": {
+                      "type": ["string", "null"]
+                    },
+                    "customFieldId": {
+                      "type": ["string", "null"],
+                      "format": "uuid"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label", "documentType"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "ADD_ATTACHMENT"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "documentType": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Document classification, such as a manual, receipt or invoice. Null on an Attachment means unknown.",
+                          "enum": [
+                            "MANUAL",
+                            "RECEIPT",
+                            "INVOICE",
+                            "INSTALLATION_GUIDE",
+                            "SPECIFICATION",
+                            "OTHER"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "RESOLVE_ISSUE"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 12,
+            "description": "Followups to offer after completion, using only retrieved field and issue addresses."
           }
         },
-        "required": ["thingId", "title", "description"]
+        "required": [
+          "thingId",
+          "issueId",
+          "title",
+          "description",
+          "importance",
+          "scheduledOn",
+          "deadlineOn",
+          "recurrence",
+          "completionActions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "type": "function",
+      "name": "create_event",
+      "description": "Creation of an appointment, visit or delivery requested by the user. A date or time is required; ask when unknown. One Task, Event or Issue creation per message.",
+      "strict": true,
+      "parameters": {
+        "description": "Appointment for a retrieved Thing.",
+        "type": "object",
+        "properties": {
+          "thingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "issueId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "startsAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "startsOn": {
+            "type": ["string", "null"],
+            "description": "Calendar date for an event without a time. Mutually exclusive with startsAt. When switching, clear the other field explicitly.",
+            "format": "date"
+          },
+          "endsAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "completionActions": {
+            "type": "array",
+            "items": {
+              "description": "Independent followup offered after completion or the end of an event.",
+              "anyOf": [
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label", "prompt"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "CHAT"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "prompt": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label", "fieldSetId", "fieldId", "customFieldId"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "UPDATE_FIELD"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "fieldSetId": {
+                      "type": ["string", "null"]
+                    },
+                    "fieldId": {
+                      "type": ["string", "null"]
+                    },
+                    "customFieldId": {
+                      "type": ["string", "null"],
+                      "format": "uuid"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label", "documentType"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "ADD_ATTACHMENT"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "documentType": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Document classification, such as a manual, receipt or invoice. Null on an Attachment means unknown.",
+                          "enum": [
+                            "MANUAL",
+                            "RECEIPT",
+                            "INVOICE",
+                            "INSTALLATION_GUIDE",
+                            "SPECIFICATION",
+                            "OTHER"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "description": "Followup offered after the item ends.",
+                  "required": ["type", "label"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "RESOLVE_ISSUE"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "thingId",
+          "issueId",
+          "title",
+          "description",
+          "startsAt",
+          "startsOn",
+          "endsAt",
+          "completionActions"
+        ],
+        "additionalProperties": false
       }
     },
     {
@@ -739,7 +1238,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["THING", "FIELD", "ATTACHMENT", "ISSUE", "EVENT", "PURCHASABLE"],
+                  "enum": ["THING", "FIELD", "ATTACHMENT", "ISSUE", "EVENT", "PURCHASABLE", "TASK"],
                   "description": "Resource kind corresponding to the retrieved resource being cited: THING, FIELD, ATTACHMENT, ISSUE, EVENT or PURCHASABLE."
                 },
                 "id": {

@@ -1,8 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TasksStore } from '../../../core/state/tasks.store';
-import { loadCollections } from '../../../core/state/load-collections';
-import { agendaView } from '../../../core/state/views/agenda.view';
+import { createClock } from '../../../core/state/clock';
+import { agendaView, loadAgenda } from '../../../core/state/views/agenda.view';
 import { Agenda } from '../../../components/agenda/agenda';
 import { AgendaSkeleton } from '../../../components/agenda-skeleton/agenda-skeleton';
 import { ErrorMessage } from '../../../components/error-message/error-message';
@@ -20,12 +20,12 @@ import { routeThing } from '../thing-loader';
 export class ThingTasksPage {
   private tasks = inject(TasksStore);
   private current = routeThing();
-  private collections = loadCollections(this.tasks);
+  private collections = loadAgenda();
 
   readonly id = this.current.id;
   readonly thing = this.current.thing;
   readonly missing = this.current.missing;
-  readonly now = signal(new Date());
+  readonly now = createClock();
   readonly agenda = agendaView(this.now, this.id);
   readonly loaded = computed(() => this.current.loaded() && this.collections.loaded());
   readonly error = computed(() => this.current.error() ?? this.collections.error());

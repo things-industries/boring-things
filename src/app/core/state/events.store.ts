@@ -40,7 +40,9 @@ export const EventsStore = signalStore(
         status,
         startsAt: input.startsAt ?? null,
         startsOn: input.startsOn ?? null,
-        completedAt: status === 'COMPLETED' ? new Date().toISOString() : null,
+        endsAt: input.endsAt ?? null,
+        closedAt: status === 'CLOSED' ? new Date().toISOString() : null,
+        completionActions: input.completionActions ?? [],
         sourceRefs: [],
         isSample: false,
       };
@@ -62,17 +64,19 @@ export const EventsStore = signalStore(
   })),
 
   withMethods((store) => ({
-    complete: (id: string) => store.update(id, { status: 'COMPLETED' }, 'completeEvent'),
+    async close(id: string) {
+      const result = await store.mutate('saveChanges', [], () => store._service.close(id));
+      if (result.ok) store.receive([result.value]);
+      return result;
+    },
 
     schedule: (id: string, when: Pick<Schema['EventPatch'], 'startsAt' | 'startsOn'>) =>
-      store.update(id, { status: 'SCHEDULED', ...when }, 'scheduleEvent'),
+      store.update(id, when, 'scheduleEvent'),
   })),
 );
 
 function patchEvent(event: Schema['Event'], patch: Schema['EventPatch']): Schema['Event'] {
   const next = { ...event, ...patch };
 
-  if (patch.status && patch.status !== event.status)
-    next.completedAt = patch.status === 'COMPLETED' ? new Date().toISOString() : null;
   return next;
 }

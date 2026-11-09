@@ -1,277 +1,180 @@
-import type { Page } from '@playwright/test';
-import { addDays, addMonths, format } from 'date-fns';
-import { test, expect } from './fixtures.js';
+/** Task journeys against persisted API records and fixture AI scheduling. */
 
-type Event = Record<string, unknown> & { id: string; status: string };
+import type { Page } from '@playwright/test';
+import { addDays, format } from 'date-fns';
+import { test, expect } from './fixtures.js';
+import type { Schema } from '../shared/model.js';
 
 const day = (offset: number) => format(addDays(new Date(), offset), 'yyyy-MM-dd');
 
-/** Creates a Thing and serves `events` for it alongside the stored ones, applying patches to them. */
-async function withEvents(page: Page, build: (thingId: string) => Event[]) {
-  await page.goto('/things/new/manual');
-  await page.getByRole('textbox', { name: 'Name' }).fill(`Tasks kettle ${Date.now()}`);
-  await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
-  await page.getByRole('button', { name: 'Create thing' }).click();
-  await expect(page.locator('h1')).toContainText('Tasks kettle');
-
-  const thingId = new URL(page.url()).pathname.split('/').pop()!;
-  const events = new Map(build(thingId).map((event) => [event.id, event]));
-
-  await page.route(/\/api\/events(\?|$)/, async (route) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-
-    const response = await route.fetch();
-    const body = await response.json();
-
-    await route.fulfill({
-      response,
-      json: { ...body, items: [...body.items, ...events.values()] },
-    });
-  });
-
-  await page.route(/\/api\/events\/[^/?]+$/, async (route) => {
-    const id = route.request().url().split('/').pop()!;
-    const event = events.get(id);
-
-    if (!event || route.request().method() !== 'PATCH') return route.fallback();
-
-    const next = { ...event, ...route.request().postDataJSON() };
-
-    next.completedAt = next.status === 'COMPLETED' ? new Date().toISOString() : null;
-    events.set(id, next);
-    await route.fulfill({ json: next });
-  });
-
-  return thingId;
+/** Uses the signed browser session for API setup, without intercepting application requests. */
+async function api(page: Page, method: string, path: string, body?: object) {
+  return page.evaluate(
+    async ({ method, path, body }) => {
+      const stored = localStorage.getItem('logto:browser-test:accessToken');
+      const entries = JSON.parse(stored ?? '{}');
+      const session = Object.values(entries)[0] as { token: string };
+      const response = await fetch('/api' + path, {
+        method,
+        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      if (!response.ok)
+        throw new Error(
+          method + ' ' + path + ': ' + response.status + ' ' + (await response.text()),
+        );
+      return response.status === 204 ? null : response.json();
+    },
+    { method, path, body },
+  );
 }
-
-function event(thingId: string, title: string, fields: Record<string, unknown>): Event {
-  return {
-    id: crypto.randomUUID(),
-    thingId,
-    issueId: null,
-    title,
-    description: '',
-    status: 'SCHEDULED',
-    startsAt: null,
-    startsOn: null,
-    completedAt: null,
-    sourceRefs: [],
-    isSample: false,
-    ...fields,
-  };
+async function setup(page: Page) {
+  await page.goto('/tasks');
+  return api(page, 'POST', '/things', {
+    name: 'Tasks kettle ' + Date.now(),
+    categoryId: 'other',
+  }) as Promise<Schema['Thing']>;
 }
-
-// Event reloads may still be in flight through the routes when a test ends.
-test.afterEach(({ page }) => page.unrouteAll({ behavior: 'ignoreErrors' }));
-
 const card = (page: Page, title: string) => page.locator('bt-task-card', { hasText: title });
+const chat = [
+  { type: 'CHAT', label: 'Discuss the result', prompt: 'The filter still needs work.' },
+];
 
-test('Tasks orders a day, completes and reopens a recurring task, reschedules and deletes', async ({
-  page,
-}) => {
-  const tomorrowAt = addDays(new Date(), 1);
-
-  tomorrowAt.setHours(14, 0, 0, 0);
-
-  const thingId = await withEvents(page, (id) => [
-    event(id, 'Descale the kettle', { startsOn: day(-1) }),
-    event(id, 'Oil the hinges', { startsOn: day(0), description: 'Every 12 months.' }),
-    event(id, 'Engineer visit', { startsAt: tomorrowAt.toISOString() }),
-  ]);
-
-  await page.goto(`/things/${thingId}/tasks`);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Tasks kettle');
-
-  const today = page.locator('section', { has: page.getByRole('heading', { name: 'Today' }) });
-  const tomorrow = page.locator('section', {
-    has: page.getByRole('heading', { name: 'Tomorrow' }),
+test('complete recurring work, use followups, dismiss, edit dates and delete', async ({ page }) => {
+  const thing = await setup(page);
+  const task = (await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Inspect the filter',
+    status: 'ACTIVE',
+    scheduledOn: day(-2),
+    deadlineOn: day(-1),
+    importance: 'CRITICAL',
+    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+    completionActions: chat,
+  })) as Schema['Task'];
+  await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Read the manual',
+    status: 'ACTIVE',
   });
-
-  await expect(today.locator('bt-task-card')).toHaveText([/Oil the hinges/, /Descale the kettle/]);
-  await expect(card(page, 'Oil the hinges')).toContainText('Every 12 months');
-  await expect(card(page, 'Descale the kettle')).toContainText('Yesterday');
-  await expect(tomorrow.locator('bt-task-card')).toHaveText([/Engineer visit\s*14:00/]);
-
-  // Completing a recurring task schedules its next occurrence; reopening removes it.
-  const check = today.getByRole('checkbox', { name: 'Oil the hinges' });
-
-  await check.click();
-  await expect(check).toHaveAttribute('aria-checked', 'true');
-  // A Thing's tasks page shows every later day, with no Upcoming toggle.
-  await expect(page.getByRole('button', { name: 'Upcoming' })).toHaveCount(0);
-
-  const next = format(addMonths(new Date(), 12), 'd MMM');
-  const upcoming = page.locator('section', { has: page.getByRole('heading', { name: next }) });
-
-  await expect(upcoming).toBeVisible();
-  await expect(upcoming.locator('bt-task-card', { hasText: 'Oil the hinges' })).toHaveCount(1);
-  await check.click();
-  await expect(check).toHaveAttribute('aria-checked', 'false');
-  await expect(upcoming.locator('bt-task-card', { hasText: 'Oil the hinges' })).toHaveCount(0);
-
-  // Editing the schedule moves the task and sets its interval.
-  await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
+  await page.goto(`/things/${thing.id}/tasks`);
+  await expect(card(page, 'Inspect the filter')).toContainText('Yesterday');
+  await expect(card(page, 'Read the manual')).toBeVisible();
+  await card(page, 'Inspect the filter').getByRole('checkbox').click();
+  const followups = page.getByRole('region', { name: 'How did it go?' });
+  await expect(followups.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
+  await expect(followups.getByRole('checkbox')).toBeDisabled();
+  await page.reload();
+  await expect(followups.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
+  const tasks = (await api(page, 'GET', `/tasks?thingId=${thing.id}`)) as Schema['TaskList'];
+  expect(
+    tasks.items.filter((item) => item.title === task.title && item.status === 'ACTIVE'),
+  ).toHaveLength(1);
+  await followups.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(followups).toHaveCount(0);
+  const completed = (await api(page, 'GET', `/tasks/${task.id}`)) as Schema['Task'];
+  expect(completed.status).toBe('CLOSED');
+  expect(completed.closedAt).toBeTruthy();
+  await card(page, 'Read the manual')
+    .getByRole('button', { name: 'Actions for Read the manual' })
+    .click();
   await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
-
   const dialog = page.getByRole('dialog', { name: 'Edit schedule' });
-
-  await expect(dialog.getByRole('heading', { name: 'Descale the kettle' })).toBeVisible();
-  await page.getByLabel('Next due date').fill(day(1));
-
-  const repeat = page.getByRole('combobox', { name: 'Repeat' });
-
-  await expect(repeat.locator('option:checked')).toHaveText('No');
-  await expect(dialog.getByRole('group', { name: 'Schedule next task from' })).toHaveCount(0);
-  await repeat.selectOption({ label: 'Yes' });
-
-  // Clicking the number selects it, so typing replaces it.
-  const number = page.getByLabel('Number');
-
-  await number.click();
-  await page.keyboard.type('2');
-  await expect(number).toHaveValue('2');
-  await expect(page.getByRole('radio', { name: 'When I complete this task' })).toBeChecked();
-  await expect(dialog).toContainText(
-    'The next task will be due 2 months after you complete this one.',
-  );
-  await page.getByRole('radio', { name: 'The scheduled due date' }).check();
-  await expect(dialog).toContainText(
-    'The next task will be due 2 months after its scheduled due date, even if you finish early or late.',
-  );
-  await page.getByLabel('Unit').selectOption({ label: 'Weeks' });
-  await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(tomorrow.locator('bt-task-card', { hasText: 'Descale the kettle' })).toContainText(
-    'Every 2 weeks',
-  );
-
-  // Reopening shows the saved schedule.
-  await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
-  await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
-  await expect(repeat.locator('option:checked')).toHaveText('Yes');
-  await expect(number).toHaveValue('2');
-  await expect(page.getByRole('radio', { name: 'The scheduled due date' })).toBeChecked();
-
-  // Cancelling drops edits; the next opening starts from the saved schedule.
-  await number.fill('5');
-  await dialog.getByRole('button', { name: 'Cancel' }).click();
-  await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
-  await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
-  await expect(number).toHaveValue('2');
-  await dialog.getByRole('button', { name: 'Cancel' }).click();
-
-  // Deleting returns the task to the Thing's suggestions.
-  await page.getByRole('button', { name: 'Actions for Descale the kettle' }).click();
+  await dialog.getByLabel('Scheduled on').fill(day(1));
+  await dialog.getByLabel('Deadline on').fill(day(4));
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  const tomorrow = page.locator('section', {
+    has: page.getByRole('heading', { name: 'Tomorrow', exact: true }),
+  });
+  await expect(tomorrow.locator('bt-task-card', { hasText: 'Read the manual' })).toBeVisible();
+  await card(page, 'Read the manual')
+    .getByRole('button', { name: 'Actions for Read the manual' })
+    .click();
   await page.getByRole('menuitem', { name: 'Delete task' }).click();
-  await expect(card(page, 'Descale the kettle')).toHaveCount(0);
-  await page.goto(`/things/${thingId}`);
-  await expect(
-    page.getByRole('button', { name: 'Add to tasks: Descale the kettle' }),
-  ).toBeVisible();
+  await expect(card(page, 'Read the manual')).toHaveCount(0);
+  await page.goto(`/things/${thing.id}/suggestions`);
+  await expect(page.getByText('Read the manual', { exact: true })).toHaveCount(0);
 });
 
-test('Tasks always shows Today and Tomorrow, and Upcoming expands', async ({ page }) => {
-  const thingId = await withEvents(page, () => []);
+test('accept an unscheduled suggestion and open a new contextual followup conversation', async ({
+  page,
+}) => {
+  const thing = await setup(page);
+  const task = (await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Check the handle',
+    importance: 'IMPORTANT',
+    completionActions: chat,
+  })) as Schema['Task'];
+  await page.goto(`/things/${thing.id}/suggestions`);
+  await page.getByRole('button', { name: 'Add to tasks: Check the handle' }).click();
+  await expect(page.locator('bt-suggested-task', { hasText: 'Check the handle' })).toHaveCount(0);
+  await page.goto(`/things/${thing.id}/tasks`);
+  await card(page, 'Check the handle').getByRole('checkbox').click();
+  await page.getByRole('button', { name: 'Discuss the result' }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/things/${thing.id}/chat\\?taskId=${task.id}&actionIndex=0`),
+  );
+  await expect(page.getByText('The filter still needs work.', { exact: true })).toBeVisible();
+  await expect(page.getByText('The saved details are ready.', { exact: true })).toBeVisible();
+});
 
-  await page.goto(`/things/${thingId}/tasks`);
+// Splitting Tasks from Events removed implicit Event loading on Thing task pages.
+test('ended Events offer several followups, and issue resolution closes all linked work', async ({
+  page,
+}) => {
+  const thing = await setup(page);
+  const issue = (await api(page, 'POST', '/issues', {
+    thingId: thing.id,
+    title: 'Broken handle',
+  })) as Schema['Issue'];
+  const event = (await api(page, 'POST', '/events', {
+    thingId: thing.id,
+    issueId: issue.id,
+    title: 'Engineer visit',
+    startsAt: '2026-01-01T10:00:00Z',
+    endsAt: '2026-01-01T11:00:00Z',
+    completionActions: [
+      { type: 'ADD_ATTACHMENT', label: 'Add the invoice', documentType: 'OTHER' },
+      ...chat,
+      { type: 'RESOLVE_ISSUE', label: 'Is it fixed?' },
+    ],
+  })) as Schema['Event'];
+  await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    issueId: issue.id,
+    title: 'Call the engineer',
+    status: 'ACTIVE',
+  });
+  await page.goto(`/things/${thing.id}/tasks`);
+  const visit = card(page, 'Engineer visit');
+  await expect(visit.getByRole('checkbox')).toHaveCount(0);
+  await visit.getByRole('button', { name: 'Add the invoice' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add the invoice' });
+  await dialog.getByLabel('Choose an attachment').setInputFiles({
+    name: 'invoice.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Synthetic invoice'),
+  });
+  await dialog.getByRole('button', { name: 'Upload', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(visit.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
+  await visit.getByRole('button', { name: 'Is it fixed?' }).click();
+  await expect(visit).toHaveCount(0);
+  await expect(card(page, 'Call the engineer')).toHaveCount(0);
+  expect(((await api(page, 'GET', `/events/${event.id}`)) as Schema['Event']).status).toBe(
+    'CLOSED',
+  );
+});
+
+test('Today and Tomorrow always appear and Upcoming expands', async ({ page }) => {
+  const thing = await setup(page);
+  await page.goto(`/things/${thing.id}/tasks`);
   await expect(page.getByText('Nothing to do today.')).toBeVisible();
   await expect(page.getByText('Nothing planned for tomorrow.')).toBeVisible();
-  await expect(page.getByText('Nothing else is scheduled.')).toBeVisible();
-
   await page.goto('/tasks');
-
-  const upcoming = page.getByRole('button', { name: 'Upcoming' });
-
+  const upcoming = page.getByRole('button', { name: 'Upcoming', exact: true });
   await expect(upcoming).toHaveAttribute('aria-expanded', 'false');
   await upcoming.click();
   await expect(upcoming).toHaveAttribute('aria-expanded', 'true');
-});
-
-test('A Thing previews its next tasks and suggestions, and lists suggestions by priority', async ({
-  page,
-}) => {
-  const thingId = await withEvents(page, (id) => [
-    event(id, 'Descale the kettle', { startsOn: day(2) }),
-    event(id, 'Polish the lid', { status: 'SUGGESTED' }),
-    event(id, 'Check the smoke alarm', { status: 'SUGGESTED' }),
-    event(id, 'Renew the service plan', { status: 'SUGGESTED' }),
-    event(id, 'Wipe the base', { status: 'SUGGESTED' }),
-  ]);
-
-  await page.reload();
-
-  // Upcoming tasks use the Tasks cards, with the day in place of a day heading.
-  await expect(card(page, 'Descale the kettle')).toContainText(
-    format(addDays(new Date(), 2), 'EEE d MMM'),
-  );
-  await expect(page.locator('bt-suggested-task')).toHaveText([
-    /Check the smoke alarm\s*Critical/,
-    /Renew the service plan\s*Important/,
-    /Wipe the base\s*Recommended/,
-  ]);
-  await page.getByRole('link', { name: 'See all tasks' }).click();
-  await expect(page).toHaveURL(new RegExp(`/things/${thingId}/tasks$`));
-  await expect(card(page, 'Descale the kettle')).toBeVisible();
-
-  await page.goto(`/things/${thingId}`);
-  await page.getByRole('link', { name: 'See all suggested tasks' }).click();
-  await expect(page).toHaveURL(new RegExp(`/things/${thingId}/suggestions$`));
-  await expect(page.locator('bt-suggested-task')).toHaveText([
-    /Check the smoke alarm\s*Critical/,
-    /Renew the service plan\s*Important/,
-    /Wipe the base\s*Recommended/,
-    /Polish the lid\s*Nice to have/,
-  ]);
-  await page.getByRole('button', { name: 'Add to tasks: Wipe the base' }).click();
-  await expect(page.locator('bt-suggested-task')).toHaveCount(3);
-});
-
-test('Home summarises today and opens Tasks', async ({ page }) => {
-  await withEvents(page, (id) => [event(id, 'Descale the kettle', { startsOn: day(-1) })]);
-  await page.goto('/');
-
-  const summary = page.locator('a.home-today');
-
-  await expect(summary).toContainText(/\d+ to do today/);
-  await expect(summary).toContainText(/\d+ overdue/);
-  await expect(summary.getByRole('checkbox')).toHaveCount(0);
-  await summary.click();
-  await expect(page).toHaveURL(/\/tasks$/);
-  await expect(card(page, 'Descale the kettle')).toContainText('Yesterday');
-});
-
-test('A done item offers its completion actions side by side', async ({ page }) => {
-  // Resolving answers from the stored issue without saving, so the sample issue stays open.
-  await page.route(/\/api\/issues\/[^/?]+$/, async (route) => {
-    if (route.request().method() !== 'PATCH') return route.fallback();
-
-    const response = await route.fetch({ method: 'GET', postData: undefined });
-    const issue = await response.json();
-
-    await route.fulfill({
-      json: { ...issue, ...route.request().postDataJSON(), resolvedAt: new Date().toISOString() },
-    });
-  });
-  await page.goto('/tasks');
-
-  const actions = (title: string) =>
-    page.getByRole('group', { name: `Next steps for ${title}` }).getByRole('button');
-
-  // Sample items until #100: a finished service, and an engineer's visit about the hob's issue.
-  await expect(actions('Annual service at the mechanic')).toHaveText([
-    'Add the invoice',
-    'Needs more work',
-  ]);
-  await expect(actions('Engineer visit')).toHaveCount(0);
-  await page.getByRole('checkbox', { name: 'Engineer visit' }).click();
-  await expect(actions('Engineer visit')).toHaveText(['Is it fixed?', 'Needs a follow-up']);
-
-  // Resolving the issue leaves the follow-up chat.
-  await actions('Engineer visit').filter({ hasText: 'Is it fixed?' }).click();
-  await expect(actions('Engineer visit')).toHaveText(['Needs a follow-up']);
-  await actions('Engineer visit').click();
-  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+\/chat\?draft=/);
-  await expect(page.getByLabel('Message', { exact: true })).toHaveValue(
-    'Update on “Engineer visit” about “One ring heats unevenly”: It still needs work: ',
-  );
 });

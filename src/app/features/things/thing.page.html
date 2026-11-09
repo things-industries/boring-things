@@ -242,7 +242,12 @@
                 >
               </bt-section-header>
               @if (upcoming().length) {
-                <bt-task-list [items]="upcoming()" [now]="now" [showDay]="true" [inThing]="true" />
+                <bt-task-list
+                  [items]="upcoming()"
+                  [now]="now()"
+                  [showDay]="true"
+                  [inThing]="true"
+                />
               } @else {
                 <p class="thing-empty">Nothing scheduled.</p>
               }

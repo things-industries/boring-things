@@ -99,8 +99,20 @@ export class ChatPage {
   readonly config = inject(CONFIG);
   private readonly snapshot = inject(ActivatedRoute).snapshot;
   readonly thingId = this.snapshot.paramMap.get('id');
-  /** Opening message from the tasks mock (#100); with it, the Thing chat starts a new conversation. */
-  private readonly draft = this.snapshot.queryParamMap.get('draft');
+  private readonly itemContext: Pick<
+    Schema['ConversationInput'],
+    'taskId' | 'eventId' | 'actionIndex'
+  > = {
+    ...(this.snapshot.queryParamMap.get('taskId')
+      ? { taskId: this.snapshot.queryParamMap.get('taskId')! }
+      : {}),
+    ...(this.snapshot.queryParamMap.get('eventId')
+      ? { eventId: this.snapshot.queryParamMap.get('eventId')! }
+      : {}),
+    ...(this.snapshot.queryParamMap.has('actionIndex')
+      ? { actionIndex: Number(this.snapshot.queryParamMap.get('actionIndex')) }
+      : {}),
+  };
   readonly id = signal<string | null>(null);
   readonly starting = signal(false);
   readonly error = signal<UiErrorCode | null>(null);
@@ -197,9 +209,8 @@ export class ChatPage {
    * composer.
    */
   start() {
-    if (this.draft && this.thingId) {
-      this.text.set(this.draft);
-      void this.open(() => this.conversations.create(this.thingId));
+    if (this.itemContext.taskId || this.itemContext.eventId) {
+      void this.open(() => this.conversations.create(this.thingId, this.itemContext));
       return;
     }
 
@@ -259,7 +270,7 @@ export class ChatPage {
 
   /** Adds a suggested task from a card to the schedule; the day is chosen for the owner. */
   addTask(id: string) {
-    void this.tasks.add(id);
+    void this.tasks.schedule(id);
   }
 
   send() {

@@ -2,13 +2,16 @@
   <form [id]="formId" class="reschedule-form" (ngSubmit)="save()">
     <h3 class="reschedule-task">{{ task()?.title }}</h3>
     <label class="reschedule-field"
-      >Next due date
+      >Scheduled on
+      <input name="date" type="date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+    </label>
+    <label class="reschedule-field"
+      >Deadline on
       <input
-        name="date"
+        name="deadline"
         type="date"
-        required
-        [ngModel]="date()"
-        (ngModelChange)="date.set($event)"
+        [ngModel]="deadline()"
+        (ngModelChange)="deadline.set($event)"
       />
     </label>
     <label class="reschedule-field"
@@ -28,7 +31,6 @@
             min="1"
             step="1"
             inputmode="numeric"
-            required
             aria-label="Number"
             [ngModel]="interval()"
             (ngModelChange)="interval.set($event)"
@@ -64,11 +66,12 @@
             <input
               type="radio"
               name="from"
-              value="DUE_DATE"
+              value="DEADLINE"
+              [disabled]="!deadline()"
               [ngModel]="from()"
               (ngModelChange)="from.set($event)"
             />
-            The scheduled due date
+            The deadline
           </label>
         </div>
         <p class="reschedule-note">
@@ -76,7 +79,7 @@
           {{
             from() === 'COMPLETION'
               ? 'you complete this one.'
-              : 'its scheduled due date, even if you finish early or late.'
+              : 'its deadline, skipping missed occurrences.'
           }}
         </p>
       </div>
