@@ -32,7 +32,7 @@ export class PasteTextPage {
       new File([text], 'pasted-text.txt', { type: 'text/plain' }),
     );
 
-    if (result.ok) await this.router.navigate(['/things', result.value.thingId]);
+    if (result.ok) await this.router.navigate(['/imports', result.value.importId]);
     else this.busy.set(false);
   }
 }

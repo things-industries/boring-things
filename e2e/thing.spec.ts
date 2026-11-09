@@ -72,15 +72,17 @@ test('image attachments show thumbnails in the attachments list and library', as
     attachment('00000000-0000-4000-8000-0000000000b3', 'manual.pdf', 'application/pdf', [thingId]),
     attachment('00000000-0000-4000-8000-0000000000b4', 'spare.png', 'image/png', []),
   ];
+  const contentRequests: string[] = [];
 
   await page.route(/\/api\/attachments(\?|$)/, (route) =>
     route.fulfill({ json: { items: files, nextCursor: null } }),
   );
-  await page.route('**/api/attachments/*/content', (route) =>
-    route.request().url().includes('0000000000b2')
+  await page.route('**/api/attachments/*/content', (route) => {
+    contentRequests.push(route.request().url());
+    return route.request().url().includes('0000000000b2')
       ? route.fulfill({ contentType: 'image/png', body: 'not an image' })
-      : route.fulfill({ contentType: 'image/png', body: png }),
-  );
+      : route.fulfill({ contentType: 'image/png', body: png });
+  });
   await page.reload();
 
   const row = (name: string) => page.locator('bt-list-row').filter({ hasText: name });
@@ -90,9 +92,11 @@ test('image attachments show thumbnails in the attachments list and library', as
   await expect(row('broken.png').locator('bt-attachment-thumbnail bt-icon-badge')).toBeVisible();
   await expect(row('manual.pdf').locator('bt-attachment-thumbnail')).toHaveCount(0);
   await expect(row('manual.pdf').locator('bt-icon-badge')).toBeVisible();
+  expect(contentRequests.some((url) => url.includes('0000000000b4'))).toBe(false);
 
   await page.getByRole('button', { name: 'Add an attachment' }).click();
   await expect(row('spare.png').locator('bt-attachment-thumbnail img')).toBeVisible();
+  expect(contentRequests.filter((url) => url.includes('0000000000b4'))).toHaveLength(1);
 });
 
 test('a Thing image shows no fallback while it loads and shows at once when reopened', async ({
@@ -166,10 +170,13 @@ test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   );
 });
 
+// The population workflow fixture omitted the van payload used by detail actions.
 test('All details deletes a value after confirmation', async ({ page }) => {
   await page.goto('/things/new/text');
   await page.getByRole('textbox', { name: 'Text to import' }).fill('van');
   await page.getByRole('button', { name: 'Import text' }).click();
+  await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'View Thing 1' }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('link', { name: 'See all details' }).click();
 
@@ -213,6 +220,8 @@ test('choosing a detail copies its label and value', async ({ page }) => {
   await page.goto('/things/new/text');
   await page.getByRole('textbox', { name: 'Text to import' }).fill('van');
   await page.getByRole('button', { name: 'Import text' }).click();
+  await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'View Thing 1' }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('button', { name: 'Copy Payload (kg)' }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Payload (kg): 1200');
@@ -359,11 +368,11 @@ test('import steps show while discovering, then the sheet slides up once', async
   await page.goto('/things');
   await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(page.locator('.thing-discovering')).toContainText(
-    'Step 1 of 3: Reading your source',
+    'Step 1 of 4: Identifying your Thing',
   );
   await expect(page.locator('bt-sheet')).toHaveClass(/\barrive\b/);
   await expect(page.locator('bt-hero')).toHaveClass(/\barrive\b/);
-  await expect(page.locator('bt-import-progress')).toContainText('Step 2 of 3: Adding details');
+  await expect(page.locator('bt-import-progress')).toContainText('Step 3 of 4: Adding details');
 
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await page.reload();

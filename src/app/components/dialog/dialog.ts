@@ -5,7 +5,9 @@ import { IconButton } from '../icon-button/icon-button';
 let nextId = 0;
 /**
  * Modal dialog with a title, a close button, projected content and `[dialogActions]`. Content
- * renders only while open. `closed` fires on Escape, a backdrop click or the close button.
+ * displays only while open. Angular still creates projected content in a mounted caller; callers
+ * with costly content should mount the dialog conditionally. `closed` fires on Escape, a backdrop
+ * click or the close button.
  */
 @Component({
   selector: 'bt-dialog',

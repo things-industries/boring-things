@@ -206,9 +206,8 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     for (const label of ['Camera', 'Photos', 'Files']) {
       const button = page.getByRole('button', { name: label, exact: true });
       await expect(button).toBeVisible();
-      await button.focus();
       const chooser = page.waitForEvent('filechooser');
-      await page.keyboard.press('Enter');
+      await button.click();
       await chooser;
     }
     await expect(page.getByRole('link', { name: 'Text', exact: true })).toBeVisible();
@@ -274,18 +273,23 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     assert.equal(downloaded.suggestedFilename(), 'policy.txt');
     assert.equal(await readFile((await downloaded.path())!, 'utf8'), 'policy');
     let releaseImport!: () => void;
+    await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    const sourceAction = page.getByRole('menuitem', {
+      name: 'Add details from a source',
+      exact: true,
+    });
+    await expect(sourceAction).toBeEnabled();
     importAi.pause = new Promise((resolve) => {
       releaseImport = resolve;
     });
-    await page.getByRole('button', { name: 'More actions', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Add details from a source', exact: true }).click();
+    await sourceAction.click();
     await page.getByRole('button', { name: 'Text', exact: true }).click();
     await page.getByLabel('Text to import', { exact: true }).fill('policy');
     await page.getByRole('button', { name: 'Import text', exact: true }).click();
     const progress = page.locator('bt-import-progress bt-notice');
     await expect(progress).toBeVisible();
-    // The fixture pauses while mapping, so the steps settle on the second one.
-    await expect(progress).toContainText('Step 2 of 3: Adding details');
+    // The fixture pauses during population, after identity and research.
+    await expect(progress).toContainText('Step 3 of 4: Adding details');
     await expect(progress).toContainText('You can leave this screen');
     const currentStep = progress.locator('.import-step.current');
     const stepAnimation = () => currentStep.evaluate((el) => getComputedStyle(el).animationName);
@@ -340,6 +344,9 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await page.getByRole('link', { name: 'Text', exact: true }).click();
     await page.getByLabel('Text to import', { exact: true }).fill('neff');
     await page.getByRole('button', { name: 'Import text', exact: true }).click();
+    await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+    await expect(page.getByText('Import complete.', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'View Thing 1', exact: true }).click();
     await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
     await expect(progress).toHaveCount(0);
     await page.getByRole('link', { name: 'See all details', exact: true }).click();

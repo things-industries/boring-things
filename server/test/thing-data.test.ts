@@ -19,7 +19,7 @@ test('mandatory inclusion expands and a required dependency cannot be removed', 
 });
 test('cycles and bad alongside references are rejected', () => {
   const bad = structuredClone(registrySeedDb.sets);
-  bad.find((set) => set.id === 'vehicles.vehicle')!.includes = ['vehicles.van'];
+  bad.find((set) => set.id === 'vehicles.van')!.includes = ['vehicles.van'];
   assert.throws(() => new Registry(registrySeedDb.fields, bad), /cycle/);
   const badLinks = structuredClone(registrySeedDb.sets);
   badLinks[0].considerAlongside = ['missing'];
@@ -93,7 +93,8 @@ test('false, zero and empty strings are values; null clears', () => {
     'memberships',
     registry,
   );
-  assert.equal(data.standalone['common.model'], undefined);
+  assert.equal(data.standalone['common.model'].value, null);
+  assert.equal(data.standalone['common.model'].autoPopulate, false);
 });
 test('identifier types, membership, bounds, dates, enums and money are validated without coercion', () => {
   assert.throws(() => registry.validate('appliances.zNumber', 15), /Invalid value/);

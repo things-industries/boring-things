@@ -3,7 +3,24 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { buildApp } from '../src/app.js';
 import { readConfig } from '../src/config.js';
+import { setEnvMode } from '../src/env.js';
 import { JobRunner } from '../src/application/jobs/runner.js';
+
+setEnvMode('test');
+
+test('missing AI credentials reject startup and close the owned pool', async (t) => {
+  const env = process.env;
+  process.env = { ...env, OPENAI_API_KEY: '' };
+  setEnvMode('runtime');
+  t.after(() => {
+    process.env = env;
+    setEnvMode('test');
+  });
+  t.mock.method(pg.Pool.prototype, 'query', async () => ({ rows: [] }));
+  const end = t.mock.method(pg.Pool.prototype, 'end', async () => {});
+  await assert.rejects(buildApp({ config: readConfig({}) }), /Missing OPENAI_API_KEY/);
+  assert.equal(end.mock.callCount(), 1);
+});
 
 test('failed startup closes owned pools and preserves injected pools', async (t) => {
   const failure = new Error('Registry unavailable');

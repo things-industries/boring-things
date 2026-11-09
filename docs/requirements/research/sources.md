@@ -127,3 +127,10 @@ The sources below establish representative distinctions and applicability across
 - pgvector: https://pgxn.org/dist/vector/
 - TrueLayer Open Banking overview: https://docs.truelayer.com/docs/what-is-open-banking
 - WHATWG HTML Server-sent events: https://html.spec.whatwg.org/multipage/server-sent-events.html
+
+## Icecat specialist lookup
+
+<!-- cspell:ignore PFL MQD -->
+
+- [Icecat Product JSON manual](https://iceclog.com/manual-for-icecat-json-product-requests/) (checked 27 October 2026): token authentication, GTIN and brand/product-code lookup, stable feature IDs, and Open Icecat coverage and error codes.
+- API checks on 27 October 2026 using free access: Philips `50PFL5008T/12` returned Icecat ID `18253015` and GTIN `8712581669904`; that GTIN returned the same product. Philips `HD9650/99` returned ID `43102279`, GTIN `8710103850304`, dimensions, finish, voltage and power. Shortened `50PFL5008T` and an invented product returned code 8 (absent); Apple `MQD32LL/A` returned code 14 (publication/access restriction). These checks establish account access for the tested products, not coverage of every product from those brands.

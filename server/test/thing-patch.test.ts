@@ -1,3 +1,5 @@
+/** Checks optimistic Thing patches against the server field contract. */
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Schema } from '../../shared/model.js';
@@ -11,6 +13,8 @@ const definition = (id: string, sensitive = false): Schema['FieldDefinition'] =>
   keywords: [],
   schema: { type: 'string' },
   uiHint: 'TEXT',
+  scope: 'INSTANCE',
+  isIdentifier: false,
   sensitive,
 });
 
@@ -98,4 +102,19 @@ test('a Thing summary without detail takes only the scalar changes', () => {
 
   assert.equal(next.name, 'Oven');
   assert.equal(next.detail, undefined);
+});
+
+test('optimistic custom-field edits keep scope unless the patch changes it', () => {
+  const input = {
+    id: 'custom',
+    label: 'Note',
+    value: 'Text',
+    sensitive: false,
+    scope: 'CLASS' as const,
+  };
+  const created = applyThingPatch(thing, { customFields: [input] }, registry);
+  for (const scope of [undefined, 'GROUP', 'INSTANCE'] as const) {
+    const edited = applyThingPatch(created, { customFields: [{ ...input, scope }] }, registry);
+    assert.equal(edited.detail?.customFields[0].scope, scope ?? 'CLASS');
+  }
 });

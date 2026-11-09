@@ -53,6 +53,12 @@ export const routes: Routes = [
       import('./features/add-thing/manual-thing/manual-thing.page').then((m) => m.ManualThingPage),
   },
   {
+    path: 'imports/:id',
+    title: 'Import progress',
+    canActivate: [authenticated],
+    loadComponent: () => import('./features/imports/import.page').then((m) => m.ImportPage),
+  },
+  {
     path: 'things/:id',
     canActivate: [authenticated],
     loadComponent: () => import('./features/things/thing.page').then((m) => m.ThingPage),

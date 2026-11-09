@@ -1,14 +1,24 @@
-import { ApiError } from '../../utils/error.util';
+/** HTTP client with session expiry handling and paginated response helpers. */
+
+import { ApiError, UiError } from '../../utils/error.util';
 import type { ApiAuth } from '../../interfaces/api.interface';
 import { APP_CONFIG } from '../app.config';
 import createClient, { type ClientOptions } from 'openapi-fetch';
 import type { paths } from '../../../../shared/api';
 
+/** Creates a client that obtains authentication for each request. */
 export function createApiClient(auth?: ApiAuth, options: ClientOptions = {}) {
   const client = createClient<paths>({ cache: 'no-store', ...options });
   client.use({
     async onRequest({ request }) {
-      if (auth) request.headers.set('Authorization', `Bearer ${await auth.token()}`);
+      if (auth) {
+        try {
+          request.headers.set('Authorization', `Bearer ${await auth.token()}`);
+        } catch (error) {
+          if (error instanceof UiError && error.code === 'unauthorized') auth.onUnauthorized();
+          throw error;
+        }
+      }
       return request;
     },
     async onResponse({ response }) {

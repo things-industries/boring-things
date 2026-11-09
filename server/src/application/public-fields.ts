@@ -1,3 +1,5 @@
+/** Selects populated group and class attributes for public research. */
+
 import type { ThingData, Value } from '../../../shared/model.js';
 import type { Registry } from './registry/registry.js';
 
@@ -10,12 +12,13 @@ export interface PublicField {
   value: Value;
 }
 
+// Selects group and class values without changing their sensitivity or identifier status.
 export function publicFields(data: ThingData, registry: Registry): PublicField[] {
   const fields: PublicField[] = [];
   const add = (fieldSetId: string | null, fieldId: string) => {
     const definition = registry.fields.get(fieldId);
     const stored = fieldSetId ? data.values[fieldSetId]?.[fieldId] : data.standalone[fieldId];
-    if (definition?.instanceSpecific === false && stored?.value != null)
+    if (definition && definition.scope !== 'INSTANCE' && stored?.value != null)
       fields.push({
         fieldSetId,
         fieldId,
@@ -28,7 +31,7 @@ export function publicFields(data: ThingData, registry: Registry): PublicField[]
     for (const field of registry.sets.get(setId)?.fields ?? []) add(setId, field.id);
   for (const id of Object.keys(data.standalone)) add(null, id);
   for (const field of data.customFields)
-    if (field.instanceSpecific === false && field.value != null)
+    if (['GROUP', 'CLASS'].includes(field.scope ?? 'INSTANCE') && field.value != null)
       fields.push({
         fieldSetId: null,
         fieldId: field.id,
