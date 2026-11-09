@@ -21,7 +21,7 @@ The pinned packages use Langfuse 6.1.1, OpenTelemetry Node SDK 0.223.0 and OpenT
 
 ## Views and reports
 
-Run `pnpm metrics:dashboard` to create or update **Import costs and timing** for the configured environment. The command prints its URL. The dashboard contains:
+Run `pnpm metrics:dashboard` to create or update the shared **Import costs and timing** dashboard. The command prints its URL. Use the dashboard's environment selector to view `development`, `production` or setup checks. Widgets follow that selector; keep environment filters at dashboard level because widget environment filters override it. The dashboard contains:
 
 - Known charges by task and provider, in USD.
 - Input and output tokens by task. Input totals include cached input tokens.

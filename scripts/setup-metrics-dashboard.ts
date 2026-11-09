@@ -1,4 +1,4 @@
-/** Creates or updates the Langfuse import dashboard for the selected telemetry environment. */
+/** Creates or updates the Langfuse import dashboard with environment selection in the dashboard. */
 
 import { LangfuseClient } from '@langfuse/client';
 import { getEnv } from '../server/src/env.js';
@@ -7,18 +7,16 @@ getEnv('LANGFUSE_PUBLIC_KEY');
 getEnv('LANGFUSE_SECRET_KEY');
 const client = new LangfuseClient();
 const api = client.api.unstable;
-const environment =
-  process.env.LANGFUSE_TRACING_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
-const name = `Import costs and timing (${environment})`;
+const name = 'Import costs and timing';
 type Widget = Parameters<typeof api.dashboardWidgets.create>[0];
+const importFilter: Widget['filters'][number] = {
+  column: 'traceName',
+  type: 'stringOptions',
+  operator: 'any of',
+  value: ['process_import', 'process_attachment'],
+};
 const filters: Widget['filters'] = [
-  { column: 'environment', type: 'string', operator: '=', value: environment },
-  {
-    column: 'traceName',
-    type: 'stringOptions',
-    operator: 'any of',
-    value: ['process_import', 'process_attachment'],
-  },
+  importFilter,
   { column: 'type', type: 'stringOptions', operator: 'any of', value: ['GENERATION', 'TOOL'] },
 ];
 const definitions: Widget[] = [
@@ -56,8 +54,7 @@ const definitions: Widget[] = [
     metrics: [{ measure: 'latency', agg: 'p95' }],
     view: 'observations',
     filters: [
-      filters[0],
-      filters[1],
+      importFilter,
       { column: 'name', type: 'string', operator: 'starts with', value: 'execute_' },
     ],
   },
