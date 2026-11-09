@@ -3,9 +3,13 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { ensure } from '../../application/errors.js';
 import { maxDocumentTextLength } from '../../lib/document-limits.js';
+import * as metrics from '../../metrics.js';
 
 // Base64 and request metadata must fit Google's 10 MB JSON request limit.
 const maxImageBytes = 7_000_000;
+
+// Standard per-image rate before the account's free allowance and volume discounts.
+const imageCostUsd = 0.0015;
 
 // Reads image text using Google Vision; failures never fall back to another provider.
 export async function readImageText(
@@ -38,45 +42,50 @@ export async function readImageText(
     }
   }
   ensure(imageBytes.length <= maxImageBytes, 'OCR image too large', 'TOO_LARGE');
-  const response = await fetch('https://vision.googleapis.com/v1/images:annotate', {
-    method: 'POST',
-    redirect: 'error',
-    signal,
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      requests: [
-        {
-          image: { content: imageBytes.toString('base64') },
-          features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
-        },
-      ],
-    }),
-  });
-  ensure(response.ok, `google_vision_http_${response.status}`, 'UNAVAILABLE');
-  const body: unknown = await response.json();
-  ensure(
-    body !== null &&
-      typeof body === 'object' &&
-      'responses' in body &&
-      Array.isArray(body.responses) &&
-      body.responses.length === 1,
-    'Invalid Google Vision response',
+  return metrics.withProviderCall(
+    { task: 'google_vision_ocr', provider: 'google_vision', units: 1, costUsd: imageCostUsd },
+    async () => {
+      const response = await fetch('https://vision.googleapis.com/v1/images:annotate', {
+        method: 'POST',
+        redirect: 'error',
+        signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: { content: imageBytes.toString('base64') },
+              features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
+            },
+          ],
+        }),
+      });
+      ensure(response.ok, `google_vision_http_${response.status}`, 'UNAVAILABLE');
+      const body: unknown = await response.json();
+      ensure(
+        body !== null &&
+          typeof body === 'object' &&
+          'responses' in body &&
+          Array.isArray(body.responses) &&
+          body.responses.length === 1,
+        'Invalid Google Vision response',
+      );
+      const result: unknown = body.responses[0];
+      ensure(
+        result !== null && typeof result === 'object' && !('error' in result),
+        'Google Vision OCR failed',
+        'UNAVAILABLE',
+      );
+      if (!('fullTextAnnotation' in result)) return '';
+      const annotation = result.fullTextAnnotation;
+      ensure(
+        annotation !== null &&
+          typeof annotation === 'object' &&
+          'text' in annotation &&
+          typeof annotation.text === 'string' &&
+          annotation.text.length <= maxDocumentTextLength,
+        'Invalid Google Vision text',
+      );
+      return annotation.text;
+    },
   );
-  const result: unknown = body.responses[0];
-  ensure(
-    result !== null && typeof result === 'object' && !('error' in result),
-    'Google Vision OCR failed',
-    'UNAVAILABLE',
-  );
-  if (!('fullTextAnnotation' in result)) return '';
-  const annotation = result.fullTextAnnotation;
-  ensure(
-    annotation !== null &&
-      typeof annotation === 'object' &&
-      'text' in annotation &&
-      typeof annotation.text === 'string' &&
-      annotation.text.length <= maxDocumentTextLength,
-    'Invalid Google Vision text',
-  );
-  return annotation.text;
 }

@@ -13,6 +13,7 @@ import type { AiTurnCompleted, AiContext } from '../types.js';
 import { getEnv } from '../../../env.js';
 import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
+import * as metrics from '../../../metrics.js';
 
 export type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reasoning'> & {
   effort?: ReasoningEffort;
@@ -20,6 +21,9 @@ export type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reaso
 
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
+
+// Standard web-search call fee; search-content tokens are priced separately by the model.
+const webSearchCallCostUsd = 0.01;
 
 // Extracts response text independently of SDK convenience properties.
 export function responseText(result: Response) {
@@ -74,7 +78,7 @@ export abstract class AiTask<Output = never, Result = Output> {
   // Runs the task and logs its last response after output validation and conversion.
   async run(): Promise<Result> {
     try {
-      return await this.runTask();
+      return await metrics.withTask(this.task, () => this.runTask());
     } catch (error) {
       if (this.pendingTurn?.metrics.aiCount !== undefined) this.reportMetrics({ validCount: 0 });
       throw error;
@@ -260,6 +264,7 @@ export abstract class AiTask<Output = never, Result = Output> {
       reasoning: { mode: 'standard', effort },
     };
     let result: Response | undefined;
+    let tokenUsage: metrics.ProviderCall['usage'];
     try {
       if (delta) {
         const stream = await this.client.responses.create(
@@ -271,7 +276,12 @@ export abstract class AiTask<Output = never, Result = Output> {
           for (let event = await events.next(); !event.done; event = await events.next()) {
             context.signal.throwIfAborted();
             if (event.value.type === 'response.output_text.delta') delta(event.value.delta);
-            if (event.value.type === 'response.completed') result = event.value.response;
+            if (
+              event.value.type === 'response.completed' ||
+              event.value.type === 'response.failed' ||
+              event.value.type === 'response.incomplete'
+            )
+              result = event.value.response;
             if (['error', 'response.failed', 'response.incomplete'].includes(event.value.type))
               throw new Error('chat_provider_failed');
           }
@@ -293,13 +303,40 @@ export abstract class AiTask<Output = never, Result = Output> {
             ? 'chat_provider_failed'
             : 'ai_provider_failed',
       );
+    } finally {
+      tokenUsage = result?.usage
+        ? {
+            inputTokens: result.usage.input_tokens,
+            outputTokens: result.usage.output_tokens,
+            cachedTokens: result.usage.input_tokens_details?.cached_tokens ?? 0,
+          }
+        : undefined;
+      metrics.recordProviderCall({
+        task,
+        provider: 'openai',
+        model: result?.model || parameters.model,
+        requestId: result?.id,
+        serviceTier: result?.service_tier,
+        startedAt: started,
+        status: result?.status === 'completed' ? 'success' : 'error',
+        usage: tokenUsage,
+      });
+      for (const call of result?.output ?? []) {
+        if (call.type !== 'web_search_call') continue;
+        metrics.recordProviderCall({
+          task,
+          provider: 'openai',
+          operation: 'web_search',
+          units: 1,
+          costUsd: call.status === 'completed' ? webSearchCallCostUsd : undefined,
+          status: call.status === 'completed' ? 'success' : 'error',
+        });
+      }
     }
     ensure(result, 'AI response incomplete');
     const usage = {
       model: parameters.model,
-      inputTokens: result.usage?.input_tokens ?? 0,
-      outputTokens: result.usage?.output_tokens ?? 0,
-      cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
+      ...(tokenUsage ?? { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }),
     };
     const entry = { ...usage, task, elapsedMs: Date.now() - started };
     if (result.status === 'completed')

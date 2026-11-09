@@ -10,6 +10,7 @@ import { blankUsage, getImportFailureReason, UsagePersistenceError } from './typ
 import * as importsDb from '../../db/entities/imports.js';
 import { ImportWorkflow, type WorkflowOptions } from './workflow.js';
 import { ensure } from '../errors.js';
+import * as metrics from '../../metrics.js';
 
 export class ImportProcessor {
   constructor(
@@ -29,7 +30,8 @@ export class ImportProcessor {
 
   // Runs one queued Import or Recommendation through the shared execution lifecycle.
   async next(shutdown: AbortSignal) {
-    if (!this.ai) return false;
+    const ai = this.ai;
+    if (!ai) return false;
     const job = await importsDb.getNextQueuedImport(this.pool);
     if (!job || !(await importsDb.markImportStarted(this.pool, job))) return false;
     const usage = job.usage ?? blankUsage();
@@ -61,17 +63,19 @@ export class ImportProcessor {
       },
     };
     try {
-      await new ImportWorkflow(
-        this.pool,
-        this.registry,
-        this.blobs,
-        this.ai,
-        this.config,
-        this.events,
-        job,
-        context,
-        this.options,
-      ).run();
+      await metrics.withJob('import', job.id, () =>
+        new ImportWorkflow(
+          this.pool,
+          this.registry,
+          this.blobs,
+          ai,
+          this.config,
+          this.events,
+          job,
+          context,
+          this.options,
+        ).run(),
+      );
     } catch (error) {
       const current = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
       const code = shutdown.aborted

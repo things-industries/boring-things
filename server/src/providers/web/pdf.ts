@@ -10,6 +10,7 @@ import { BlockList, isIP } from 'node:net';
 import { ensure } from '../../application/errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { DocumentSizeError } from '../../lib/document-limits.js';
+import * as metrics from '../../metrics.js';
 
 const blocked = new BlockList();
 
@@ -120,20 +121,26 @@ export async function downloadResource(
 
   for (let redirects = 0; redirects <= 3; redirects++) {
     signal.throwIfAborted();
-    const response = await request(url, signal);
-
+    const startedAt = Date.now();
+    let status: metrics.ProviderCall['status'] = 'error';
+    let response: IncomingMessage | undefined;
     try {
+      response = await request(url, signal);
       if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
         ensure(redirects < 3 && response.headers.location, 'Document redirect limit');
         // Every redirect is a new untrusted target and must pass URL and connection-time DNS checks again.
         url = documentUrl(new URL(response.headers.location, url).href);
+        status = 'success';
         continue;
       }
 
       ensure(response.statusCode === 200, 'Document download failed');
       const type = response.headers['content-type']?.split(';')[0].trim().toLowerCase();
 
-      if (type && mediaTypes.length && !mediaTypes.includes(type)) return null;
+      if (type && mediaTypes.length && !mediaTypes.includes(type)) {
+        status = 'success';
+        return null;
+      }
 
       ensure(
         !response.headers['content-encoding'] ||
@@ -156,9 +163,17 @@ export async function downloadResource(
       }
 
       const content = Buffer.concat(chunks);
+      status = 'success';
       return { content, mediaType: type ?? '', url: url.href };
     } finally {
-      response.destroy();
+      response?.destroy();
+      metrics.recordProviderCall({
+        task: 'download_resource',
+        provider: 'web',
+        costUsd: 0,
+        startedAt,
+        status,
+      });
     }
   }
 
