@@ -32,6 +32,7 @@ import type { ChatAi } from './application/conversations/types.js';
 import type { ImportAi } from './application/import/types.js';
 import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
+import * as metrics from './metrics.js';
 import { ApplicationEvents } from './application/events.js';
 import * as googleVision from './providers/google-vision/index.js';
 
@@ -58,6 +59,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
     logController: new RequestLogController(),
     bodyLimit: 1048576,
   });
+
+  // Close hooks run in reverse order: stop jobs and database work before flushing telemetry.
+  app.addHook('onClose', metrics.shutdownMetrics);
 
   // Close the database pool on shutdown only when buildApp created it.
   if (!options.dbPool) app.addHook('onClose', () => dbPool.end());

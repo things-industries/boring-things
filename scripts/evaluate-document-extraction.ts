@@ -1,5 +1,8 @@
 // Paid evaluation using labelled synthetic documents; no application records are accessed.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { LangfuseClient } from '@langfuse/client';
+import * as metrics from '../server/src/metrics.js';
 import { isDeepStrictEqual } from 'node:util';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
@@ -34,118 +37,183 @@ const rates: Record<string, { input: number; cached: number; output: number }> =
 for (const model of models) assert.ok(rates[model], `Supply DOCUMENT_EVAL_RATES for ${model}`);
 const registry = new Registry(referenceFields, [referenceSet]);
 const results: Record<string, unknown>[] = [];
-for (const model of models) {
+
+// Evaluates one authored document fixture with the selected task model.
+async function evaluateDocument(
+  model: string,
+  fixture: (typeof referenceDocumentBaseline)[number],
+) {
   class EvaluatedDocumentTask extends ExtractDocumentTask {
     protected readonly model = model;
     protected readonly maxOutputTokens = 4000;
   }
-  for (const fixture of referenceDocumentBaseline) {
-    const usage: NonNullable<Usage['entries']> = [];
-    let content = Buffer.from(fixture.pages.join('\n'));
-    if (fixture.mediaType === 'application/pdf') {
-      const pdf = await PDFDocument.create();
-      const font = await pdf.embedFont(StandardFonts.Helvetica);
-      for (const text of fixture.pages) {
-        const page = pdf.addPage();
-        page.drawText(text, { x: 40, y: 750, size: 11, font, maxWidth: 510, lineHeight: 18 });
-      }
-      content = Buffer.from(await pdf.save());
+  const usage: NonNullable<Usage['entries']> = [];
+  let content = Buffer.from(fixture.pages.join('\n'));
+  if (fixture.mediaType === 'application/pdf') {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    for (const text of fixture.pages) {
+      const page = pdf.addPage();
+      page.drawText(text, { x: 40, y: 750, size: 11, font, maxWidth: 510, lineHeight: 18 });
     }
-    const document = {
-      attachmentId: fixture.id,
-      url: 'https://example.com/' + fixture.id,
-      filename: fixture.id + (fixture.mediaType === 'application/pdf' ? '.pdf' : '.txt'),
-      mediaType: fixture.mediaType,
-      content,
-      pageCount: fixture.pages.length,
-    };
-    const started = Date.now();
-    let result: DocumentExtraction | undefined;
-    let failure: string | undefined;
-    let attempts = 0;
-    for (; attempts < 2; attempts++) {
-      try {
-        result = await new EvaluatedDocumentTask(
-          document,
-          fixture.research,
-          fixture.research.emptyFields,
-          {
-            signal: AbortSignal.timeout(90000),
-            record: async (delta) => {
-              usage.push(...(delta.entries ?? []));
-            },
-          },
-        ).run();
-        validateDocumentExtraction(result, document, fixture.research.emptyFields, registry);
-        break;
-      } catch (error) {
-        failure = error instanceof Error ? error.message : 'failed';
-      }
-    }
-    const values = result?.values ?? [];
-    const correct = values.filter((entry) =>
-      isDeepStrictEqual(
-        entry.value,
-        fixture.expected[entry.fieldId as keyof typeof fixture.expected],
-      ),
-    );
-    const citationErrors = values.filter(
-      (entry) => !fixture.pages[entry.page - 1]?.includes(entry.quote),
-    ).length;
-    const expectedCount = Object.keys(fixture.expected).length;
-    const passed = Boolean(
-      result &&
-      result.applicable === fixture.applicable &&
-      correct.length === expectedCount &&
-      values.length === expectedCount &&
-      citationErrors === 0 &&
-      (!result.applicable ||
-        fixture.pages[result.applicability!.page - 1].includes(result.applicability!.quote)),
-    );
-    const rate = rates[model];
-    const costUsd = usage.reduce(
-      (sum, entry) =>
-        sum +
-        ((entry.inputTokens - entry.cachedTokens) * rate.input +
-          entry.cachedTokens * rate.cached +
-          entry.outputTokens * rate.output) /
-          1000000,
-      0,
-    );
-    const record = {
-      model,
-      fixture: fixture.id,
-      passed,
-      attempts: Math.min(attempts + 1, 2),
-      expectedCount,
-      correctCount: correct.length,
-      incorrectCount: values.length - correct.length,
-      citationErrors,
-      elapsedMs: Date.now() - started,
-      costUsd,
-      usage,
-      result,
-      ...(result ? {} : { failure }),
-    };
-    results.push(record);
-    console.log(
-      JSON.stringify({ model, fixture: fixture.id, passed, elapsedMs: record.elapsedMs, costUsd }),
-    );
+    content = Buffer.from(await pdf.save());
   }
+  const document = {
+    attachmentId: fixture.id,
+    url: 'https://example.com/' + fixture.id,
+    filename: fixture.id + (fixture.mediaType === 'application/pdf' ? '.pdf' : '.txt'),
+    mediaType: fixture.mediaType,
+    content,
+    pageCount: fixture.pages.length,
+  };
+  const started = Date.now();
+  let result: DocumentExtraction | undefined;
+  let failure: string | undefined;
+  let attempts = 0;
+  for (; attempts < 2; attempts++) {
+    try {
+      result = await new EvaluatedDocumentTask(
+        document,
+        fixture.research,
+        fixture.research.emptyFields,
+        {
+          signal: AbortSignal.timeout(90000),
+          record: async (delta) => {
+            usage.push(...(delta.entries ?? []));
+          },
+        },
+      ).run();
+      validateDocumentExtraction(result, document, fixture.research.emptyFields, registry);
+      break;
+    } catch (error) {
+      failure = error instanceof Error ? error.message : 'failed';
+    }
+  }
+  const values = result?.values ?? [];
+  const correct = values.filter((entry) =>
+    isDeepStrictEqual(
+      entry.value,
+      fixture.expected[entry.fieldId as keyof typeof fixture.expected],
+    ),
+  );
+  const citationErrors = values.filter(
+    (entry) => !fixture.pages[entry.page - 1]?.includes(entry.quote),
+  ).length;
+  const expectedCount = Object.keys(fixture.expected).length;
+  const passed = Boolean(
+    result &&
+    result.applicable === fixture.applicable &&
+    correct.length === expectedCount &&
+    values.length === expectedCount &&
+    citationErrors === 0 &&
+    (!result.applicable ||
+      fixture.pages[result.applicability!.page - 1].includes(result.applicability!.quote)),
+  );
+  const rate = rates[model];
+  const costUsd = usage.reduce(
+    (sum, entry) =>
+      sum +
+      ((entry.inputTokens - entry.cachedTokens) * rate.input +
+        entry.cachedTokens * rate.cached +
+        entry.outputTokens * rate.output) /
+        1000000,
+    0,
+  );
+  const record = {
+    model,
+    fixture: fixture.id,
+    passed,
+    attempts: Math.min(attempts + 1, 2),
+    expectedCount,
+    correctCount: correct.length,
+    incorrectCount: values.length - correct.length,
+    citationErrors,
+    elapsedMs: Date.now() - started,
+    costUsd,
+    usage,
+    result,
+    ...(result ? {} : { failure }),
+  };
+  console.log(
+    JSON.stringify({ model, fixture: fixture.id, passed, elapsedMs: record.elapsedMs, costUsd }),
+  );
+  return record;
 }
-await mkdir('test-results', { recursive: true });
-await writeFile(
-  'test-results/document-extraction-evaluation.json',
-  JSON.stringify(
-    {
-      date: new Date().toISOString(),
-      reasoning: { mode: 'standard', effort: 'low' },
-      thresholds: { supportedRecall: 1, precision: 1, citationAccuracy: 1, variantErrors: 0 },
-      rates,
-      results,
-    },
-    null,
-    2,
-  ),
-);
-if (results.some((result) => !result.passed)) process.exitCode = 1;
+
+const publish = process.argv.includes('--langfuse');
+const langfuse = publish ? new LangfuseClient() : undefined;
+if (publish) {
+  getEnv('LANGFUSE_PUBLIC_KEY');
+  getEnv('LANGFUSE_SECRET_KEY');
+  assert.notEqual(
+    process.env.LANGFUSE_TRACING_ENABLED,
+    'false',
+    'Enable tracing for Langfuse experiments',
+  );
+  metrics.initializeMetrics();
+}
+try {
+  for (const model of models) {
+    if (langfuse) {
+      const experiment = await langfuse.experiment.run<(typeof referenceDocumentBaseline)[number]>({
+        name: 'document_extraction',
+        metadata: {
+          model,
+          revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+        },
+        data: referenceDocumentBaseline.map((fixture) => ({ id: fixture.id, input: fixture })),
+        maxConcurrency: 1,
+        task: async ({ input }) => {
+          assert(input && typeof input === 'object' && 'id' in input);
+          const fixture = referenceDocumentBaseline.find((entry) => entry.id === input.id);
+          assert(fixture, 'Unknown evaluation fixture');
+          const record = await evaluateDocument(model, fixture);
+          results.push(record);
+          return record;
+        },
+        evaluators: [
+          async ({ output }: { output: Awaited<ReturnType<typeof evaluateDocument>> }) => [
+            { name: 'passed', value: Number(output.passed), dataType: 'BOOLEAN' },
+            { name: 'correct_fields', value: output.correctCount },
+            { name: 'incorrect_fields', value: output.incorrectCount },
+            { name: 'citation_errors', value: output.citationErrors },
+          ],
+        ],
+      });
+      assert.equal(
+        experiment.itemResults.length,
+        referenceDocumentBaseline.length,
+        'Missing evaluation cases',
+      );
+      assert(
+        experiment.itemResults.every((item) =>
+          item.evaluations.some((score) => score.name === 'passed'),
+        ),
+        'Missing pass/fail scores',
+      );
+      console.log(experiment.experimentUrl);
+    } else {
+      for (const fixture of referenceDocumentBaseline)
+        results.push(await evaluateDocument(model, fixture));
+    }
+  }
+  await mkdir('test-results', { recursive: true });
+  await writeFile(
+    'test-results/document-extraction-evaluation.json',
+    JSON.stringify(
+      {
+        date: new Date().toISOString(),
+        reasoning: { mode: 'standard', effort: 'low' },
+        thresholds: { supportedRecall: 1, precision: 1, citationAccuracy: 1, variantErrors: 0 },
+        rates,
+        results,
+      },
+      null,
+      2,
+    ),
+  );
+  if (results.some((result) => !result.passed)) process.exitCode = 1;
+} finally {
+  await langfuse?.flush();
+  if (publish) await metrics.shutdownMetrics();
+}
