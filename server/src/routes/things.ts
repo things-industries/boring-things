@@ -46,6 +46,7 @@ const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, eve
   route(app, 'DELETE', '/api/things/{id}', async (req, reply) => {
     await database.transaction(db, async (tx) => {
       await thingsDb.getOwnedThingOrThrow(tx, req.ownerId, req.params.id, { lock: true });
+      await importsDb.removeQueuedThingImports(tx, req.ownerId, req.params.id);
       await importsDb.assertThingEditable(tx, req.ownerId, req.params.id);
       await thingsDb.deleteThing(tx, req.ownerId, req.params.id);
     });

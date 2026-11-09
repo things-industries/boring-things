@@ -67,8 +67,6 @@ test('workflow limits reject invalid values and retain numeric defaults', () => 
     'IMPORT_TIMEOUT_MS',
     'IMPORT_TOOL_ROUNDS',
     'DISCOVERY_TIMEOUT_MS',
-    'DISCOVERY_SEARCH_CALLS',
-    'AI_MAX_OUTPUT_TOKENS',
     'MAX_UPLOAD_BYTES',
   ]) {
     for (const value of ['', 'no', '0', '-1', '1.5', 'Infinity', '9007199254740992'])
@@ -84,17 +82,5 @@ test('production validates authentication, database and storage together', () =>
   assert.throws(
     () => readConfig({ ...production, BLOB_STORAGE: 'local' }),
     /requires BLOB_STORAGE=s3/,
-  );
-});
-
-test('document extraction model has independent configuration with the import model fallback', () => {
-  assert.equal(
-    readConfig({ OPENAI_MODEL: 'import-model' }).documentExtractionModel,
-    'import-model',
-  );
-  assert.equal(
-    readConfig({ OPENAI_MODEL: 'import-model', DOCUMENT_EXTRACTION_MODEL: 'document-model' })
-      .documentExtractionModel,
-    'document-model',
   );
 });

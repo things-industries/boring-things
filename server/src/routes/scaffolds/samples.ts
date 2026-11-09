@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { route } from '../../contracts/routes.js';
 import { ensure } from '../../application/errors.js';
 import type { ApplicationEvents } from '../../application/events.js';
+import * as thingsDb from '../../db/entities/things.js';
 import * as usersDb from '../../db/entities/users.js';
 
 /**
@@ -38,15 +39,22 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     ) => {
       const patch: ThingPatch = { addFieldSetIds, values };
       const data = patchData(emptyData(), patch, categoryId, registry);
-      const [item] = await database.rows<{ id: string }>(
+      const item = await thingsDb.insertThing(db, owner, {
+        categoryId,
+        name,
+        description: 'Sample data for exploring the interface.',
+        data,
+      });
+      await database.execute(
         db,
-        'insert into bt.things(owner_id,category_id,name,description,data,is_sample) values($1,$2,$3,$4,$5,true) returning id',
-        [owner, categoryId, name, 'Sample data for exploring the interface.', JSON.stringify(data)],
+        'update bt.things set is_sample=true where id=$1 and owner_id=$2',
+        [item.id, owner],
       );
 
       return item.id;
     };
 
+    const on = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
     const v = (fieldSetId: string, fieldId: string, value: Value) => ({
       fieldSetId,
       fieldId,
@@ -56,10 +64,10 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     const hob = await add(
       'Kitchen hob',
       'appliances',
-      ['appliances.neff'],
+      ['appliances.appliance'],
       [
         v('appliances.appliance', 'common.manufacturer', 'Neff'),
-        v('appliances.neff', 'appliances.zNumber', '00015'),
+        v('appliances.appliance', 'appliances.zNumber', '00015'),
       ],
     );
     const van = await add(
@@ -76,6 +84,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       'insurance',
       ['insurance.combined'],
       [
+        { fieldSetId: null, fieldId: 'insurance.policyEnds', value: on(30) },
         v('insurance.buildings', 'insurance.sumInsured', {
           amountMinor: 50000000,
           currency: 'GBP',
@@ -115,7 +124,6 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true) returning id",
       [owner, hob],
     );
-    const on = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
     const chat = (label: string, prompt: string | null = null): Schema['CompletionAction'] => ({
       type: 'CHAT',
       label,
@@ -168,31 +176,12 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       {
         type: 'UPDATE_FIELD',
         label: 'Set the new date',
-        fieldSetId: 'insurance.policy',
+        fieldSetId: null,
         fieldId: 'insurance.policyEnds',
         customFieldId: null,
       },
       { type: 'ADD_ATTACHMENT', label: 'Add the renewal', documentType: 'OTHER' },
     ];
-    const [policy] = await database.rows<{ data: ReturnType<typeof emptyData> }>(
-      db,
-      'select data from bt.things where id=$1',
-      [insurance],
-    );
-    const data = patchData(
-      policy.data,
-      { values: [{ fieldSetId: null, fieldId: 'insurance.policyEnds', value: on(30) }] },
-      'insurance',
-      registry,
-    );
-    await db.query('update bt.things set data=$1 where id=$2', [JSON.stringify(data), insurance]);
-    policyActions[0] = {
-      type: 'UPDATE_FIELD',
-      label: 'Set the new date',
-      fieldSetId: null,
-      fieldId: 'insurance.policyEnds',
-      customFieldId: null,
-    };
     await addTask(insurance, 'Renew the policy', {
       scheduledOn: on(0),
       deadlineOn: on(30),

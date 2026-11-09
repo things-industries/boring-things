@@ -1,3 +1,5 @@
+/** Applies optimistic Thing edits using the API field contract. */
+
 import type { Schema } from '../../../../shared/model';
 import type { RegistryIndex, ThingDetail, ThingRecord } from '../../interfaces/thing.interface';
 
@@ -62,7 +64,19 @@ function patchDetail(
 
   let standaloneFields = detail.standaloneFields;
 
-  for (const { fieldSetId, fieldId, value } of patch.values ?? []) {
+  for (const { fieldSetId, fieldId, value, autoPopulate } of patch.values ?? []) {
+    if (value === undefined) {
+      const update = (field: Schema['Field']) =>
+        field.id === fieldId
+          ? { ...field, ...(autoPopulate !== undefined ? { autoPopulate } : {}) }
+          : field;
+      if (fieldSetId === null) standaloneFields = standaloneFields.map(update);
+      else
+        fieldSets = fieldSets.map((set) =>
+          set.id === fieldSetId ? { ...set, fields: set.fields.map(update) } : set,
+        );
+      continue;
+    }
     if (fieldSetId === null) {
       const existing = standaloneFields.find((f) => f.id === fieldId);
       const definition = existing ?? registry.fields[fieldId];
@@ -97,6 +111,8 @@ function patchDetail(
       id: input.id,
       label: input.label,
       sensitive: input.sensitive,
+      scope:
+        input.scope ?? customFields.find((field) => field.id === input.id)?.scope ?? 'INSTANCE',
       value: input.sensitive ? null : input.value,
       masked: input.sensitive,
       origin: 'USER',

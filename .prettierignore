@@ -1,8 +1,9 @@
 node_modules
 dist
+test-results
+playwright-report
 shared/api.ts
 pnpm-lock.yaml
 supabase/config.toml
 docs/requirements
 docs/meeting-notes
-server/src/providers/ai/schema-types.ts

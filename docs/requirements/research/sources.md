@@ -14,7 +14,7 @@ References for the [import latency and provider evaluation plan](../../plans/imp
 ## Fieldset catalogue — 30 September 2026
 
 - [fieldsets-review.csv](fieldsets-review.csv): reviewed contents of `bt.field_sets`, using its eight columns in table order. Contains 154 new sets and revisions to all 11 existing seeded sets. Array columns use PostgreSQL `text[]` literals; `{}` is an empty array. Field order in `field_ids` is display order.
-- [fieldset-field-map.csv](fieldset-field-map.csv): each of the 484 reviewed field rows, its proposed definition ID and the sets directly containing it. Original labels, scopes, examples and annotations are preserved. `definition_status` records the comparison with the registry at review time. The proposal references 413 distinct definitions: 20 existing IDs and 393 proposed IDs. The implementation in `server/src/db/seeds/registry.ts` supplies schemas, UI hints and semantic icon keys; the migration snapshot installs the same metadata.
+- [fieldset-field-map.csv](fieldset-field-map.csv): each of the 484 reviewed field rows, its proposed definition ID and the sets directly containing it. Original labels, scopes, examples and annotations are preserved. `definition_status` records the comparison with the registry at review time. The proposal references 413 distinct definitions: 20 existing IDs and 393 proposed IDs. Current registry metadata is authored in `server/src/db/seeds/registry.ts`; the CSV records the reviewed proposal.
 - `includes` contains required dependencies. `consider_alongside` contains optional discovery suggestions whose eligibility must be checked separately. Parent fields are stored once in their owning set. Independent dimensions such as ownership, warranty, fuel type and connectivity can combine with product-specific sets.
 - Manufacturer identifiers retain their own meanings. Bosch and Neff keep their existing set IDs; Siemens uses the same BSH field definitions in its own set. Generic appliance serial numbers have a separate eligibility rule. `appliances.productCode` applies to a distinct product or variant code; model labels use `common.model`. The review annotation is retained in the CSV.
 - Buildings and contents reuse `insurance.sumInsured` and `insurance.excess`, with separate values in each component set. Medical and dental waiting periods similarly belong to their respective benefits. Combined home cover shares one policy and one property set. Electricity and gas components share one utility account and service context.
@@ -127,3 +127,10 @@ The sources below establish representative distinctions and applicability across
 - pgvector: https://pgxn.org/dist/vector/
 - TrueLayer Open Banking overview: https://docs.truelayer.com/docs/what-is-open-banking
 - WHATWG HTML Server-sent events: https://html.spec.whatwg.org/multipage/server-sent-events.html
+
+## Icecat specialist lookup
+
+<!-- cspell:ignore PFL MQD -->
+
+- [Icecat Product JSON manual](https://iceclog.com/manual-for-icecat-json-product-requests/) (checked 27 October 2026): token authentication, GTIN and brand/product-code lookup, stable feature IDs, and Open Icecat coverage and error codes.
+- API checks on 27 October 2026 using free access: Philips `50PFL5008T/12` returned Icecat ID `18253015` and GTIN `8712581669904`; that GTIN returned the same product. Philips `HD9650/99` returned ID `43102279`, GTIN `8710103850304`, dimensions, finish, voltage and power. Shortened `50PFL5008T` and an invented product returned code 8 (absent); Apple `MQD32LL/A` returned code 14 (publication/access restriction). These checks establish account access for the tested products, not coverage of every product from those brands.

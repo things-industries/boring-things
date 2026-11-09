@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Schema } from '../../shared/model.js';
-import { ScheduleTask } from '../src/providers/ai/schedule-task.js';
+import { ScheduleTask } from '../src/providers/ai/tasks/schedule-task.js';
+import { setEnvMode } from '../src/env.js';
 
 const task: Schema['Task'] = {
   id: 'task',
@@ -67,12 +68,17 @@ test('scheduling uses saved context in one structured request and validates retu
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   });
-  const scheduler = new ScheduleTask('fixture-key', 'fixture-model');
-  assert.deepEqual(await scheduler.schedule(task, thing, [], '2026-11-09'), output);
+  setEnvMode('test');
+  const schedule = () =>
+    new ScheduleTask(
+      { task, thing, history: [], today: '2026-11-09' },
+      { signal: new AbortController().signal, record: async () => {} },
+    ).run();
+  assert.deepEqual(await schedule(), output);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].store, false);
   assert.match(String(requests[0].input), /Example policy/);
   assert.match(String(requests[0].instructions), /hard due date/);
   output = { scheduledOn: '2026-02-30', deadlineOn: null };
-  await assert.rejects(scheduler.schedule(task, thing, [], '2026-11-09'), /Invalid task schedule/);
+  await assert.rejects(schedule(), /Invalid AI output/);
 });

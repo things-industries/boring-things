@@ -5,13 +5,14 @@ import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import type { RouteTypes } from '../contracts/routes.js';
 import * as database from '../db/connection.js';
+import * as thingFieldsDb from '../db/entities/thing-fields.js';
 import type { Registry } from './registry/registry.js';
 import { projectData } from './thing-data.js';
 import type { ThingData } from '../../../shared/model.js';
 import { getLocalDate } from './task-recurrence.js';
 import { page, pageResult } from './pagination.js';
 
-/** Reads upcoming date fields without exposing masked values or fetching each Thing. */
+/** Reads upcoming date fields using the stored field occurrences and masking rules. */
 export async function listThingDates(
   db: Database,
   owner: string,
@@ -27,7 +28,7 @@ export async function listThingDates(
   );
   const items: Schema['ThingDate'][] = [];
   for (const thing of things) {
-    const detail = projectData(thing.data, registry);
+    const detail = projectData(await thingFieldsDb.load(db, owner, thing.id, thing.data), registry);
     const add = (
       label: string,
       value: unknown,

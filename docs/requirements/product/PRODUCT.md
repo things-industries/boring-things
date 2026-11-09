@@ -22,6 +22,8 @@ Boring things aims to:
 - Provide proactive support when something needs attention
 - Require minimal input from the user
 
+Imports save useful information and suggestions even when citations are incomplete. Invalid individual results and optional research failures leave other saved work available. Owners can review and correct imported information; ownership checks, user edits and valid stored data shapes govern automatic writes.
+
 ## Personas
 
 - **Busy independents**
@@ -103,7 +105,8 @@ Activities are ongoing or scheduled work the owner manages, including Tasks, Eve
 
 ### Thing fields
 
-- Fields capture durable attributes, contractual terms and dates. Populated date fields contribute Thing dates to the timeline. Transient observations, account balances and physical-item locations are outside the field registry.
+- Fields capture durable attributes and contractual terms. Populated date fields contribute Thing dates to the timeline. Transient observations, account balances and physical-item locations are outside the field registry.
+- Each category has a base field set. Sets for identifiable subtypes carry their distinct fields; shared traits and functions compose across types. Manufacturer groups share proprietary identifier sets where their markings have the same meaning.
 - Documents belong to attachments.
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
 - Store physical dimensions as separate width, height, length and depth measurements, as applicable.
@@ -114,15 +117,17 @@ Assistant chat consults existing Thing data and attachments, then researches mis
 
 Answers lead with text addressing the question. Supporting entity and field cards appear once per response, with all relevant document pages grouped on one document card. Web evidence uses a few relevant inline source links. An invalid tool request allows the assistant to correct it or answer from available evidence.
 
-The importer retrieves official model photographs for physical objects and selects a main image when the owner has left it unset. Owner image choices and removals survive retries. The importer currently commits validated field-set selection and fact batches progressively, then retrieves category-directed reference documents and enriches empty non-instance-specific fields with cited `DISCOVERY` values. Documents up to 100 MB are accepted. Optional enrichment that exceeds processing limits completes with API warnings, preserving imported details and saved documents; eligible warnings permit research retries through the API. Completed-import warning display and research retry controls remain pending frontend work. Owner edits, requests that clear values, sensitivity and per-set values remain preserved.
+The importer selects one Thing, saves its identifiers into mandatory category fieldsets, performs specialist lookup and public resource research, then selects optional fieldsets and populates fields using applicable linked Attachment evidence. Owner uploads transcribe independently and remain private. Discovered public resources have shared unowned content, transcription and metadata with owner-scoped Thing links. Official model photographs can become the main image while the owner has left that choice unset. Unlink decisions and owner edits survive retries.
 
-The [attachment transcription and Thing processing plan](../../plans/import-improvements.md) defines one orchestrated Import workflow. Attachments retain their original content, transcription, summary and optional source-wide terms. Open Imports identify Thing Candidates across grouped Attachments, with identifiers and terms specific to each candidate. Unambiguous candidates match owned Things or create new ones. Ambiguous candidates retain a review-required status; owner resolution is deferred. Thing-context Imports assess source relevance without creating Things. Each resolved Thing gains applicable fieldsets and values from relevant source passages, with citations and owner edits preserved. Discovery finds or reuses public resources as Attachments and processes them for the same Thing in the current Import. Every resolved Thing then receives recommendations based on its updated fields and applicable resources. Per-Thing and per-stage checkpoints preserve progress across retries and partial failures. Direct Thing creation uses a zero-input Import with Thing context. Enrichment runs automatically after mapping for both new and existing Things.
+Field occurrences store values, provenance and automatic-population permissions. Empty registry fields added through fieldsets remain eligible. Manual values, custom fields and manually cleared values remain protected. Each field batch rechecks current permissions, source content and links before saving. Optional failures retain warnings and saved results; retries and restarts resume unfinished work from persisted checkpoints.
 
-Verified public reference documents and images are planned as unowned attachments that can be linked to Things across owners. Discovery consults these attachments before retrieving resources again and validates applicability to each Thing. Attachment responses expose only the authenticated owner's associated Things; private uploads retain owner scope.
+Manual Thing creation saves directly. The owner can start an Import without new Attachments through **Find more details**, or run **Refresh recommendations** independently. Recommendation also finishes each Import and consults linked evidence through local tools plus eligible public fields for web research. Processing several Things in one Import is future scope. The [Import guide](../../setup/imports.md) describes the implemented workflow and limits.
 
-Populate matching fields in selected field sets first, then other registry fields, then useful custom fields. Keep incidental source content in the Attachment transcription. Use populated non-instance-specific fields for public research and fill missing non-instance-specific fields from cited evidence. Sensitivity independently governs masking. Category prompts specify the supporting documents to find. Preserve owner edits and requests that clear values as results arrive progressively.
+Public reference documents and images are unowned attachments that can be linked to Things across owners. Discovery consults these attachments before retrieving resources again and validates applicability to each Thing. Attachment responses expose only the authenticated owner's associated Things; private uploads retain owner scope.
 
-Imports also suggest management tasks and purchasables from applicable sources. Category prompts guide manufacturer maintenance and consumables for appliances, care and accessories for devices, and documented administration actions for services. Tasks retain citations, instructions, intervals and conditions as unscheduled suggestions for the owner. Purchasables require observed purchase links and compatibility evidence; memberships, subscriptions and insurance usually yield none. Optional suggestion failures preserve imported details and permit retries. Existing tasks, purchasables and owner edits survive retries and subsequent imports. Tasks store recurrence with an interval and a completion-date or deadline policy.
+Populate matching fields in selected field sets first, then other registry fields, then useful custom fields. Keep incidental source content in the Attachment transcription. Classify fields by scope: manufacturer/provider group, product model/service plan, or owned instance. Mark fields that contribute to Thing identification independently. Use populated group/class fields for public research and fill their missing values from cited evidence. Purchase date and price paid describe an instance without identifying it. Custom fields default to instance scope. Sensitivity independently governs masking. Category prompts specify the supporting documents to find. Preserve owner edits and requests that clear values as results arrive progressively.
+
+Imports also suggest management tasks and purchasables from applicable sources. Category prompts guide manufacturer maintenance and consumables for appliances, care and accessories for devices, and documented administration actions for services. Tasks prioritise maintenance specific to the Thing that is easy to forget and common remedies nearly every owner is likely to need, accounting for supplied age, usage and condition. Titles name the overall procedure; descriptions hold its conditions and preparation steps. Extremely obvious actions and work done very frequently during normal use are excluded. Tasks retain citations, instructions, intervals and conditions as unscheduled suggestions for the owner. Purchasables require observed purchase links and compatibility evidence; memberships, subscriptions and insurance usually yield none. Optional suggestion failures preserve imported details and permit retries. Existing tasks, purchasables and owner edits survive retries and subsequent imports. Tasks store recurrence with an interval and a completion-date or deadline policy.
 
 ### User stories
 
@@ -151,7 +156,7 @@ I expect Boring Things to:
 
 ### Screens / journeys
 
-Main nav offers Things, Tasks, Assistant and Insights options.  We open on the Things view by default.
+Main nav offers Things, Timeline, Assistant and Insights options.  We open on the Things view by default.
 
 See the `UI Inspiration` folder for ideas for specific components
 
@@ -162,13 +167,13 @@ See the `UI Inspiration` folder for ideas for specific components
         - Active issues power Needs attention. Each issue may include freeform status text and a calendar due date; the UI shows a countdown when a date is present.
         - Frequent and recent Things use access count and last-viewed time recorded on user page opens. Background and assistant reads do not count.
         - Thing card subtitles use category names. New means created less than seven days ago.
-        - Today: a summary of today's tasks (left, overdue, the first few) that opens Tasks; nothing is checked off from Home
+        - Upcoming events (next 7 days)
         - Categories of thing with number of things in each
         - Insights
         - Chat UI
     - **Add new thing**:
         - Take photo, upload, type, forward email, or connect a service
-        - Import progress is available before Thing creation. Create or identify one Thing after analysing the source, then populate it progressively. Show an error when the source identifies multiple Things.
+        - Import progress is available before Thing creation. Create or identify the specified Thing or strongest open candidate after analysing the source, then populate it progressively.
     - **Thing view**:
         - Image (uploaded asset or default image for tag)
         - Name and type of thing ("David's car", "Toyota Yaris XP210")
@@ -179,8 +184,8 @@ See the `UI Inspiration` folder for ideas for specific components
         - Accessory/consumable offers
         - Cost analysis (purchase cost, recurring costs, payment frequency)
         - Related things
-        - Upcoming tasks, as on Tasks, with a link to the Thing's own tasks page
-        - Suggested tasks by importance, tagged with their importance, with a link to all of the Thing's suggestions
+        - Upcoming events (link to timeline)
+        - Recommended tasks
         - Start chat UI
     - **Thing editor**:
         - Ability to add/remove any of the user-editable parts of a Thing

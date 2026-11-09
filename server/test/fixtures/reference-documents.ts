@@ -1,3 +1,5 @@
+/** Synthetic field definitions and evidence for document extraction checks. */
+
 import type { FieldDefinition, FieldSet } from '../../../shared/model.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
 
@@ -12,7 +14,8 @@ const field = (
   keywords: [],
   uiHint: 'TEXT',
   sensitive: false,
-  instanceSpecific: false,
+  scope: 'CLASS',
+  isIdentifier: false,
   schema: { type, ...extra },
 });
 export const referenceFields: FieldDefinition[] = [

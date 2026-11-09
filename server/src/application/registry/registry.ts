@@ -60,6 +60,9 @@ export class Registry {
       done.add(id);
     };
 
+    [...this.sets.values()]
+      .filter((set) => set.categoryId === categoryId && set.eligibility === null)
+      .forEach((set) => visit(set.id));
     ids.forEach(visit);
     return [...done];
   }
