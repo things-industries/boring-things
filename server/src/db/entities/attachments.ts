@@ -100,14 +100,14 @@ export async function saveTranscription(
     text: string;
     summary: string | null;
     terms: string[];
-    status: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
+    status: 'PROCESSING' | 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
     identifiers?: IdentifierObservation[];
   },
 ): Promise<void> {
   await database.execute(
     db,
     `update bt.attachments set transcription=$1,transcription_summary=$2,transcription_terms=$3,
-      transcription_status=$4,transcription_completed_at=now(),identifier_observations=$7 where id=$5 and owner_id is not distinct from $6`,
+      transcription_status=$4,transcription_completed_at=case when $4='PROCESSING' then null else now() end,identifier_observations=$7 where id=$5 and owner_id is not distinct from $6`,
     [
       input.text,
       input.summary,

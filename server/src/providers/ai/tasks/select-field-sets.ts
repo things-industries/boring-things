@@ -29,7 +29,7 @@ export const outputSchema = createObjectSchema(
 
 // Builds task instructions from the supplied application context.
 function selectFieldSetsPrompt(thing: ExtractedThing) {
-  return `Fieldsets are groups of properties that should be used together as a unit and applied to a Thing when the fieldset's eligibility criteria are met. **Select fieldsets for this thing using the search_field_sets tool**: search using keywords, filter using eligibility criteria and respect 'includes' (mandatory) and 'considerAlongside' (optional) flags. Prefer the most specific fieldsets. Only IDs returned by tools may be selected. Return fieldsets, not values. Select every applicable fieldset, even when some fields have no extracted values.  Thing: ${JSON.stringify({ name: thing.name, categoryId: thing.categoryId, terms: thing.terms, sources: thing.sources, knownFields: thing.knownFields, facts: thing.facts })}`;
+  return `Fieldsets are groups of properties that should be used together as a unit and applied to a Thing when the fieldset's eligibility criteria are met. **Select fieldsets for this thing using the search_field_sets tool**: search using keywords, filter using eligibility criteria and respect 'includes' (mandatory) and 'considerAlongside' (optional) flags. Prefer the most specific fieldsets. Select existing registry IDs in the Thing category. Return fieldsets, not values. Select every applicable fieldset, even when some fields have no extracted values.  Thing: ${JSON.stringify({ name: thing.name, categoryId: thing.categoryId, terms: thing.terms, sources: thing.sources, knownFields: thing.knownFields, facts: thing.facts })}`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;

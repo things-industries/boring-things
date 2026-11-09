@@ -9,21 +9,13 @@ export function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-// Skips individual citation mismatches while allowing other validation errors to propagate.
-export function mapValidEvidence<T, Result>(values: T[], convert: (value: T) => Result): Result[] {
+// Skips invalid proposals while allowing unexpected errors to reach the workflow.
+export function mapValidResults<T, Result>(values: T[], convert: (value: T) => Result): Result[] {
   return values.flatMap((value) => {
     try {
       return [convert(value)];
     } catch (error) {
-      if (
-        !(error instanceof ApplicationError) ||
-        ![
-          'Invalid source evidence',
-          'Invalid source page',
-          'Quote does not match source page',
-        ].includes(error.message)
-      )
-        throw error;
+      if (!(error instanceof ApplicationError) || error.kind !== 'INVALID_INPUT') throw error;
       return [];
     }
   });

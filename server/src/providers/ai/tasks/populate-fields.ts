@@ -93,7 +93,7 @@ export class PopulateFieldsTask extends AiTask<Output, PopulationResult> {
       await this.execute([
         {
           role: 'user',
-          content: `Find values for only the requested fields using applicable Attachment content. Search saved transcriptions for relevant passages. Respect field schemas, units, context, model and variant. Return only values justified by verbatim source quotes and the original Attachment/page references. Public documents justify class data, not private instance identifiers. Omit values without sufficient evidence. Suggest up to three useful requested fields to highlight. Input: ${JSON.stringify(this.input)}`,
+          content: `Find values for only the requested fields using applicable Attachment content. Search saved transcriptions for relevant passages. Respect field schemas, units, context, model and variant. Include original Attachment/page references and quotations when available. Use an empty attachmentId or quote and a null page when unavailable. Public documents justify class data, not private instance identifiers. Use the available information to propose useful values; leave unknown values absent. Suggest up to three useful requested fields to highlight. Input: ${JSON.stringify(this.input)}`,
         },
       ]),
     );

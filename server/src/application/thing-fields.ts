@@ -1,7 +1,7 @@
 /** Creates field occurrences and validates automatic field writes against current owner permissions. */
 import type { FieldSet, SourceRef, ThingData, Value } from '../../../shared/model.js';
 import type { Registry } from './registry/registry.js';
-import { ensure } from './errors.js';
+import { ApplicationError, ensure } from './errors.js';
 
 export interface FieldProposal {
   fieldSetId: string | null;
@@ -44,30 +44,34 @@ export function populateFields(
   const data = structuredClone(original);
   const written = new Set<string>();
   for (const proposal of proposals) {
-    ensure(registry.fields.has(proposal.fieldId), 'Unknown field');
-    if (proposal.fieldSetId !== null)
-      ensure(
-        data.setIds.includes(proposal.fieldSetId) &&
-          registry.sets
-            .get(proposal.fieldSetId)
-            ?.fields.some((field) => field.id === proposal.fieldId),
-        'Invalid field membership',
-      );
-    const key = `${proposal.fieldSetId ?? ''}:${proposal.fieldId}`;
-    ensure(!written.has(key), 'Duplicate field proposal');
-    written.add(key);
-    registry.validate(proposal.fieldId, proposal.value);
-    const fields = proposal.fieldSetId
-      ? (data.values[proposal.fieldSetId] ??= {})
-      : data.standalone;
-    const current = fields[proposal.fieldId];
-    if ((current?.autoPopulate ?? current?.origin !== 'USER') === false) continue;
-    fields[proposal.fieldId] = {
-      value: proposal.value,
-      sourceRefs: proposal.sourceRefs,
-      origin: proposal.origin ?? origin,
-      autoPopulate: true,
-    };
+    try {
+      ensure(registry.fields.has(proposal.fieldId), 'Unknown field');
+      if (proposal.fieldSetId !== null)
+        ensure(
+          data.setIds.includes(proposal.fieldSetId) &&
+            registry.sets
+              .get(proposal.fieldSetId)
+              ?.fields.some((field) => field.id === proposal.fieldId),
+          'Invalid field membership',
+        );
+      const key = `${proposal.fieldSetId ?? ''}:${proposal.fieldId}`;
+      ensure(!written.has(key), 'Duplicate field proposal');
+      registry.validate(proposal.fieldId, proposal.value);
+      written.add(key);
+      const fields = proposal.fieldSetId
+        ? (data.values[proposal.fieldSetId] ??= {})
+        : data.standalone;
+      const current = fields[proposal.fieldId];
+      if ((current?.autoPopulate ?? current?.origin !== 'USER') === false) continue;
+      fields[proposal.fieldId] = {
+        value: proposal.value,
+        sourceRefs: proposal.sourceRefs,
+        origin: proposal.origin ?? origin,
+        autoPopulate: true,
+      };
+    } catch (error) {
+      if (!(error instanceof ApplicationError) || error.kind !== 'INVALID_INPUT') throw error;
+    }
   }
   return data;
 }

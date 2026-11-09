@@ -1,4 +1,4 @@
-/** Checks field population permissions, mandatory identifier addresses and atomic validation failures. */
+/** Checks field population permissions, mandatory identifier addresses and invalid proposal handling. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Registry } from '../../src/application/registry/registry.js';
@@ -39,31 +39,28 @@ test('empty manually added fields accept values and manual removals prevent ever
   );
 });
 
-test('invalid addresses and values do not mutate the original field snapshot', () => {
+// Automatic population aborted every field when one proposal had an invalid address or value.
+test('invalid proposals and duplicates leave valid fields and the original snapshot intact', () => {
   const data = addFieldSets(emptyData(), 'appliances', registry);
   const before = structuredClone(data);
-  assert.throws(() =>
-    populateFields(
-      data,
-      [{ fieldSetId: 'vehicles.vehicle', fieldId: 'common.model', value: 'AX1', sourceRefs: [] }],
-      registry,
-    ),
-  );
-  assert.throws(() =>
-    populateFields(
-      data,
-      [
-        {
-          fieldSetId: 'appliances.appliance',
-          fieldId: 'common.serialNumber',
-          value: 15,
-          sourceRefs: [],
-        },
-      ],
-      registry,
-    ),
+  const result = populateFields(
+    data,
+    [
+      { fieldSetId: 'vehicles.vehicle', fieldId: 'common.model', value: 'AX1', sourceRefs: [] },
+      {
+        fieldSetId: 'appliances.appliance',
+        fieldId: 'common.serialNumber',
+        value: 15,
+        sourceRefs: [],
+      },
+      { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'AX1', sourceRefs: [] },
+      { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'AX2', sourceRefs: [] },
+    ],
+    registry,
   );
   assert.deepEqual(data, before);
+  assert.equal(result.values['appliances.appliance']['common.serialNumber'].value, null);
+  assert.equal(result.values['appliances.appliance']['common.model'].value, 'AX1');
 });
 
 test('categories provide a mandatory occurrence for each identification field', () => {

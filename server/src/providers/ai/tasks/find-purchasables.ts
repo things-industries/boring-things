@@ -12,7 +12,6 @@ import {
   recommendationInstructions,
 } from './recommendation.js';
 import { publicUrl } from '../../web/resources.js';
-import { ensure } from '../../../application/errors.js';
 import { createObjectSchema } from '../schemas.js';
 import type { Schema } from '../../../../../shared/model.js';
 import type { RecommendationInput } from './recommendation.js';
@@ -83,7 +82,7 @@ const guidance: Record<string, string> = {
 
 // Builds task instructions from the supplied application context.
 function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: number) {
-  return `Find items or services online (with links to purchase) that a user might want to purchase for their Thing. About the Thing: ${JSON.stringify(research)}. Suitable ideas for purchasables in the ${research.categoryId} category include: ${guidance[research.categoryId]} Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL and compatibility evidence with a supporting excerpt. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Use sourceRefs from linked Attachments or observed public sources for compatibility evidence. A merchantUrl must be observed through web search or printed in a cited Attachment passage. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
+  return `Find items or services online (with links to purchase) that a user might want to purchase for their Thing. About the Thing: ${JSON.stringify(research)}. Suitable ideas for purchasables in the ${research.categoryId} category include: ${guidance[research.categoryId]} Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL. Include compatibility sources when available. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Include sourceRefs from linked Attachments or public sources when available. Provide a purchase URL when available. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;
@@ -117,16 +116,9 @@ export class FindPurchasablesTask extends RecommendationTask<Output, Purchasable
     const result = this.parseOutput(response);
     const output: PurchasableSuggestions = {
       items: result.items
+        .filter((item) => publicUrl(item.merchantUrl))
         .map((item) => {
           const sourceRefs = this.getSourceRefs(item.sourceRefs);
-          ensure(
-            publicUrl(item.merchantUrl) &&
-              (this.observedUrls.has(item.merchantUrl) ||
-                sourceRefs.some(
-                  (ref) => ref.attachmentId && ref.quote?.includes(item.merchantUrl),
-                )),
-            'Uncited purchasable',
-          );
           return {
             kind: item.kind,
             name: item.name,

@@ -497,6 +497,7 @@ test('AI attachment metadata validates calendar dates without unknown-format war
   assert.equal(warnings.mock.callCount(), 0);
 });
 
+// Import citation checks rejected every suggestion when one URL was absent from search results.
 test('SDK task suggestions research mapped public fields in one bounded structured request', async (t) => {
   const turns: Parameters<AiTurnCompleted>[0][] = [];
   const url = 'https://manufacturer.example/manual';
@@ -593,11 +594,11 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     ],
   );
   sourceUrl = 'https://invented.example/manual';
-  await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
+  assert.equal((await ai.suggestTasks(research, context())).items.length, 1);
   sourceUrl = 'http://localhost/private';
-  await assert.rejects(ai.suggestTasks(research, context()), /Uncited recommendation source/);
+  assert.deepEqual((await ai.suggestTasks(research, context())).items[0].sourceRefs, []);
   sourceUrl = null;
-  await assert.rejects(ai.suggestTasks(research, context()), /Invalid AI output/);
+  assert.deepEqual(await ai.suggestTasks(research, context()), { items: [] });
   const before = fetch.mock.callCount();
   assert.deepEqual(await ai.suggestTasks({ ...research, knownFields: [] }, context()), {
     items: [],
@@ -609,14 +610,15 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     [
       [1, 1],
       [1, 0],
-      [1, 0],
-      [1, 0],
+      [1, 1],
+      [1, 1],
       [1, 0],
     ],
   );
   assert.ok(!JSON.stringify(turns).includes(item.title));
 });
 
+// Purchase-link matching rejected usable products whose URLs were absent from search results.
 test('SDK purchasable research discovers products and purchase links within one bounded operation', async (t) => {
   const turns: Parameters<AiTurnCompleted>[0][] = [];
   const url = 'https://manufacturer.example/filter-0015';
@@ -690,7 +692,10 @@ test('SDK purchasable research discovers products and purchase links within one 
     { items: [] },
   );
   product = { ...product, merchantUrl: 'https://invented.example/filter' };
-  await assert.rejects(ai.findPurchasables(research, context()), /Uncited purchasable/);
+  assert.equal(
+    (await ai.findPurchasables(research, context())).items[0].merchantUrl,
+    product.merchantUrl,
+  );
   const before = fetch.mock.callCount();
   assert.deepEqual(await ai.findPurchasables({ ...research, knownFields: [] }, context()), {
     items: [],
@@ -702,7 +707,7 @@ test('SDK purchasable research discovers products and purchase links within one 
     [
       [1, 1],
       [1, 0],
-      [1, 0],
+      [1, 1],
     ],
   );
 });

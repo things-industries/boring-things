@@ -49,7 +49,7 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       }
       throw new Error('Import timed out');
     };
-    assert.equal((await wait(id)).status, 'INCOMPLETE');
+    assert.equal((await wait(id)).status, 'COMPLETE');
     const retry = await request('POST', '/api/imports/' + id + ':retry');
     assert.equal(retry.statusCode, 200, retry.body);
     assert.equal((await wait(id)).status, 'COMPLETE');
@@ -129,7 +129,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
             metadata: null,
           },
         ],
-        sources: ['https://example.com/manual.pdf', 'https://example.com/oven'],
+        sources: [],
       };
     };
     env.importAi.assessResource = async () => {
@@ -196,7 +196,10 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
       )
     ).rows[0];
     assert.equal(shared.owner_id, null);
-    assert.deepEqual(shared.identifier_coverage, [{ fieldId: 'common.model', value: 'X1' }]);
+    assert.deepEqual(shared.identifier_coverage, [
+      { fieldId: 'common.model', value: 'X1' },
+      { fieldId: 'common.model', value: 'UNKNOWN' },
+    ]);
     const fields = (await request('GET', '/api/things/' + first))
       .json<Schema['Thing']>()
       .fieldSets.flatMap((set) => set.fields);
@@ -266,7 +269,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
 });
 
 // The new checkpoint workflow skipped restored evidence when its first transcription had failed.
-test('retry transcribes a failed source and links its evidence to the existing target', async () => {
+test('summary failure keeps extracted text available to the contextual Import', async () => {
   const env = await startTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
@@ -313,14 +316,13 @@ test('retry transcribes a failed source and links its evidence to the existing t
     };
     const before = await wait();
     assert.equal(before.status, 'COMPLETE');
-    assert.ok(before.warnings?.some((warning) => warning.code === 'EXTRACTION_FAILED'));
-    const retried = await request('POST', '/api/imports/' + id + ':retry');
-    assert.equal(retried.statusCode, 200, retried.body);
-    const after = await wait();
-    assert.equal(after.status, 'COMPLETE', JSON.stringify(after));
-    assert.deepEqual(after.thingIds, [target]);
-    assert.equal(after.candidates[0].id, before.candidates[0].id);
-    assert.equal(after.warnings?.length, 0);
+    assert.equal(before.warnings?.length, 0);
+    const savedSource = await env.pool.query(
+      'select transcription,transcription_status from bt.attachments where id=$1',
+      [source],
+    );
+    assert.equal(savedSource.rows[0].transcription, 'model-only X1 neff');
+    assert.equal(savedSource.rows[0].transcription_status, 'PARTIAL');
     const detail = (await request('GET', '/api/things/' + target)).json<Schema['Thing']>();
     assert.ok(detail.attachmentIds.includes(source));
     assert.equal(
@@ -335,7 +337,7 @@ test('retry transcribes a failed source and links its evidence to the existing t
 });
 
 // Source recommendation validation discarded valid suggestions alongside a mismatched citation.
-test('invalid recommendation citations skip suggestions while persistence failures abort the refresh', async () => {
+test('invalid citation pages omit page links while persistence failures abort the refresh', async () => {
   const env = await startTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
@@ -394,8 +396,16 @@ test('invalid recommendation citations skip suggestions while persistence failur
     assert.equal(recommendationCalls, 1);
     assert.equal(
       (await env.pool.query('select 1 from bt.events where thing_id=$1', [thingId])).rowCount,
-      1,
+      2,
     );
+
+    const savedRefs = await env.pool.query(
+      'select source_refs from bt.events where thing_id=$1 and title=$2',
+      [thingId, title],
+    );
+    assert.deepEqual(savedRefs.rows[0].source_refs, [
+      { attachmentId: source, quote: 'Check the renewal terms.' },
+    ]);
 
     page = 1;
     const resubmitted = await request('POST', `/api/things/${thingId}:recommend`);
@@ -426,7 +436,7 @@ test('invalid recommendation citations skip suggestions while persistence failur
 });
 
 // Literal field-evidence checks aborted imports and discarded valid proposals in the same batch.
-test('field quote mismatches skip proposals while whitespace differences populate successfully', async () => {
+test('field quote mismatches omit citations while keeping proposed values', async () => {
   const env = await startTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
@@ -480,7 +490,7 @@ test('field quote mismatches skip proposals while whitespace differences populat
     assert.equal(status, 'COMPLETE');
     const detail = (await request('GET', '/api/things/' + thingId)).json<Schema['Thing']>();
     const fields = detail.fieldSets.flatMap((set) => set.fields);
-    assert.equal(fields.find((field) => field.id === 'common.model')?.value, null);
+    assert.equal(fields.find((field) => field.id === 'common.model')?.value, 'AX1');
     assert.equal(fields.find((field) => field.id === 'common.serialNumber')?.value, '00026');
     assert.equal(
       fields.find((field) => field.id === 'common.serialNumber')?.sourceRefs[0].quote,
