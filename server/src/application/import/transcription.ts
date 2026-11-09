@@ -15,6 +15,7 @@ import { ensure } from '../errors.js';
 import { pdfText } from '../../lib/pdf.js';
 import { maxDocumentBytes, maxDocumentTextLength } from '../../lib/document-limits.js';
 import * as googleVision from '../../providers/google-vision/index.js';
+import * as metrics from '../../metrics.js';
 
 export class AttachmentTranscriptionProcessor {
   constructor(
@@ -31,7 +32,8 @@ export class AttachmentTranscriptionProcessor {
   }
 
   async next(shutdown: AbortSignal): Promise<boolean> {
-    if (!this.ai) return false;
+    const ai = this.ai;
+    if (!ai) return false;
     const claimed = await database.transaction(this.pool, (db) =>
       attachmentsDb.claimPendingTranscription(db),
     );
@@ -41,157 +43,159 @@ export class AttachmentTranscriptionProcessor {
       await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'SKIPPED');
       return true;
     }
-    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
-    const usage = file.transcriptionUsage ?? blankUsage(),
-      started = Date.now();
-    const elapsed = usage.elapsedMs;
-    let requests = usage.entries?.length ?? 0;
-    let extractedText: string | undefined;
-    try {
-      const chunks: Buffer[] = [];
-      for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
-        signal.throwIfAborted();
-        chunks.push(Buffer.from(chunk));
-      }
-      const content = Buffer.concat(chunks);
-      ensure(content.length <= maxDocumentBytes, 'Attachment too large', 'TOO_LARGE');
-      const context = {
-        signal,
-        beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
-        record: async (delta: Partial<import('./types.js').Usage>) => {
-          if (!usage.model) usage.model = delta.model ?? usage.model;
-          usage.inputTokens += delta.inputTokens ?? 0;
-          usage.outputTokens += delta.outputTokens ?? 0;
-          usage.cachedTokens += delta.cachedTokens ?? 0;
-          usage.toolCalls.push(...(delta.toolCalls ?? []));
-          if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
-          usage.elapsedMs = elapsed + Date.now() - started;
-          await database.execute(
-            this.pool,
-            'update bt.attachments set transcription_usage=$1 where id=$2',
-            [JSON.stringify(usage), file.id],
-          );
-        },
-      };
-      const readImageText = async (bytes: Buffer) => {
-        const text = await this.readImageText(bytes, this.config.googleVisionApiKey, signal);
-        await context.record({
-          toolCalls: [
-            { name: 'google_vision_ocr', resultCount: text.trim() ? 1 : 0, truncated: false },
-          ],
-        });
-        return text;
-      };
-
-      // Complete text extraction before asking the model for source analysis.
-      let text: string;
-      let pageCount = file.pageCount;
-      if (file.mediaType === 'application/pdf')
-        ({ text, pageCount } = await pdfText(content, signal, readImageText));
-      else if (file.mediaType.startsWith('image/')) text = await readImageText(content);
-      else {
-        ensure(file.mediaType === 'text/plain', 'Unsupported attachment type');
-        text = content.toString('utf8');
-      }
-      ensure(text.length <= maxDocumentTextLength, 'Attachment text too large', 'TOO_LARGE');
-
-      // Commit extracted text before optional model analysis and metadata updates.
-      await database.transaction(this.pool, async (db) => {
-        await attachmentsDb.saveTranscription(db, ownerId, file.id, {
-          text,
-          summary: null,
-          terms: [],
-          identifiers: [],
-          status: 'PROCESSING',
-        });
-        if (file.mediaType === 'application/pdf' && pageCount !== null)
-          await database.execute(db, 'update bt.attachments set page_count=$1 where id=$2', [
-            pageCount,
-            file.id,
-          ]);
-      });
-      extractedText = text;
-      const result: AttachmentSummary = !text.trim()
-        ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
-        : await this.ai.summarizeAttachment(text, context);
-      signal.throwIfAborted();
-      const metadata = mapValidResults(Object.entries(result.metadata ?? {}), ([key, value]) =>
-        validateAttachmentMetadata({ [key]: value }),
-      ).reduce<Schema['AttachmentPatch']>((values, patch) => ({ ...values, ...patch }), {});
-      const normalizedText = normalizeWhitespace(text);
-      const identifiers = (result.identifiers ?? [])
-        .map((identifier) => ({
-          ...identifier,
-          label: normalizeWhitespace(identifier.label),
-          value: normalizeWhitespace(identifier.value),
-          quote: normalizeWhitespace(identifier.quote),
-        }))
-        .filter(
-          (identifier) =>
-            identifier.label.length <= 200 &&
-            identifier.value.length <= 200 &&
-            identifier.value.length > 0,
-        )
-        .map((identifier) => ({
-          ...identifier,
-          quote:
-            identifier.quote.length <= 2000 && normalizedText.includes(identifier.quote)
-              ? identifier.quote
-              : '',
-        }))
-        .slice(0, 30);
-      await database.transaction(this.pool, async (db) => {
-        await attachmentsDb.saveTranscription(db, ownerId, file.id, {
-          text,
-          summary: result.summary?.slice(0, 2000) ?? null,
-          terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
-          status: !text.trim() ? 'EMPTY' : result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL',
-          identifiers,
-        });
-        if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))
-          await updateAttachmentMetadata(
-            db,
-            ownerId,
-            file.id,
-            Object.keys(metadata).length ? metadata : { title: null },
-            { origin: 'IMPORT', sourceRefs: [{ attachmentId: file.id }] },
-            pageCount,
-          );
-        if (ownerId === null) {
-          if (Object.keys(metadata).length) {
-            for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
-              if (metadata[key] != null) {
-                Object.assign(file, { [key]: metadata[key] });
-                file.metadataSources[key] = {
-                  origin: 'IMPORT',
-                  sourceRefs: [{ attachmentId: file.id }],
-                };
-              }
-          }
-          file.pageCount = pageCount;
-          await attachmentsDb.saveAttachmentMetadata(db, null, file);
+    return metrics.withJob('attachment', file.id, async () => {
+      const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
+      const usage = file.transcriptionUsage ?? blankUsage(),
+        started = Date.now();
+      const elapsed = usage.elapsedMs;
+      let requests = usage.entries?.length ?? 0;
+      let extractedText: string | undefined;
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
+          signal.throwIfAborted();
+          chunks.push(Buffer.from(chunk));
         }
-      });
-    } catch {
-      if (extractedText !== undefined)
-        await attachmentsDb.saveTranscription(this.pool, ownerId, file.id, {
-          text: extractedText,
-          summary: null,
-          terms: [],
-          identifiers: [],
-          status: extractedText.trim() ? 'PARTIAL' : 'EMPTY',
+        const content = Buffer.concat(chunks);
+        ensure(content.length <= maxDocumentBytes, 'Attachment too large', 'TOO_LARGE');
+        const context = {
+          signal,
+          beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
+          record: async (delta: Partial<import('./types.js').Usage>) => {
+            if (!usage.model) usage.model = delta.model ?? usage.model;
+            usage.inputTokens += delta.inputTokens ?? 0;
+            usage.outputTokens += delta.outputTokens ?? 0;
+            usage.cachedTokens += delta.cachedTokens ?? 0;
+            usage.toolCalls.push(...(delta.toolCalls ?? []));
+            if (delta.entries?.length) (usage.entries ??= []).push(...delta.entries);
+            usage.elapsedMs = elapsed + Date.now() - started;
+            await database.execute(
+              this.pool,
+              'update bt.attachments set transcription_usage=$1 where id=$2',
+              [JSON.stringify(usage), file.id],
+            );
+          },
+        };
+        const readImageText = async (bytes: Buffer) => {
+          const text = await this.readImageText(bytes, this.config.googleVisionApiKey, signal);
+          await context.record({
+            toolCalls: [
+              { name: 'google_vision_ocr', resultCount: text.trim() ? 1 : 0, truncated: false },
+            ],
+          });
+          return text;
+        };
+
+        // Complete text extraction before asking the model for source analysis.
+        let text: string;
+        let pageCount = file.pageCount;
+        if (file.mediaType === 'application/pdf')
+          ({ text, pageCount } = await pdfText(content, signal, readImageText));
+        else if (file.mediaType.startsWith('image/')) text = await readImageText(content);
+        else {
+          ensure(file.mediaType === 'text/plain', 'Unsupported attachment type');
+          text = content.toString('utf8');
+        }
+        ensure(text.length <= maxDocumentTextLength, 'Attachment text too large', 'TOO_LARGE');
+
+        // Commit extracted text before optional model analysis and metadata updates.
+        await database.transaction(this.pool, async (db) => {
+          await attachmentsDb.saveTranscription(db, ownerId, file.id, {
+            text,
+            summary: null,
+            terms: [],
+            identifiers: [],
+            status: 'PROCESSING',
+          });
+          if (file.mediaType === 'application/pdf' && pageCount !== null)
+            await database.execute(db, 'update bt.attachments set page_count=$1 where id=$2', [
+              pageCount,
+              file.id,
+            ]);
         });
-      else await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
-    }
-    await database.execute(
-      this.pool,
-      `update bt.imports i set updated_at=now() from bt.import_sources s
+        extractedText = text;
+        const result: AttachmentSummary = !text.trim()
+          ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
+          : await ai.summarizeAttachment(text, context);
+        signal.throwIfAborted();
+        const metadata = mapValidResults(Object.entries(result.metadata ?? {}), ([key, value]) =>
+          validateAttachmentMetadata({ [key]: value }),
+        ).reduce<Schema['AttachmentPatch']>((values, patch) => ({ ...values, ...patch }), {});
+        const normalizedText = normalizeWhitespace(text);
+        const identifiers = (result.identifiers ?? [])
+          .map((identifier) => ({
+            ...identifier,
+            label: normalizeWhitespace(identifier.label),
+            value: normalizeWhitespace(identifier.value),
+            quote: normalizeWhitespace(identifier.quote),
+          }))
+          .filter(
+            (identifier) =>
+              identifier.label.length <= 200 &&
+              identifier.value.length <= 200 &&
+              identifier.value.length > 0,
+          )
+          .map((identifier) => ({
+            ...identifier,
+            quote:
+              identifier.quote.length <= 2000 && normalizedText.includes(identifier.quote)
+                ? identifier.quote
+                : '',
+          }))
+          .slice(0, 30);
+        await database.transaction(this.pool, async (db) => {
+          await attachmentsDb.saveTranscription(db, ownerId, file.id, {
+            text,
+            summary: result.summary?.slice(0, 2000) ?? null,
+            terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
+            status: !text.trim() ? 'EMPTY' : result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL',
+            identifiers,
+          });
+          if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))
+            await updateAttachmentMetadata(
+              db,
+              ownerId,
+              file.id,
+              Object.keys(metadata).length ? metadata : { title: null },
+              { origin: 'IMPORT', sourceRefs: [{ attachmentId: file.id }] },
+              pageCount,
+            );
+          if (ownerId === null) {
+            if (Object.keys(metadata).length) {
+              for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
+                if (metadata[key] != null) {
+                  Object.assign(file, { [key]: metadata[key] });
+                  file.metadataSources[key] = {
+                    origin: 'IMPORT',
+                    sourceRefs: [{ attachmentId: file.id }],
+                  };
+                }
+            }
+            file.pageCount = pageCount;
+            await attachmentsDb.saveAttachmentMetadata(db, null, file);
+          }
+        });
+      } catch {
+        if (extractedText !== undefined)
+          await attachmentsDb.saveTranscription(this.pool, ownerId, file.id, {
+            text: extractedText,
+            summary: null,
+            terms: [],
+            identifiers: [],
+            status: extractedText.trim() ? 'PARTIAL' : 'EMPTY',
+          });
+        else await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
+      }
+      await database.execute(
+        this.pool,
+        `update bt.imports i set updated_at=now() from bt.import_sources s
        where s.import_id=i.id and s.attachment_id=$1
          and i.status='WAITING_FOR_TRANSCRIPTION'`,
-      [file.id],
-    );
-    for (const recipient of await attachmentsDb.affectedOwners(this.pool, file))
-      this.events.publish({ type: 'data.changed', ownerId: recipient });
-    return true;
+        [file.id],
+      );
+      for (const recipient of await attachmentsDb.affectedOwners(this.pool, file))
+        this.events.publish({ type: 'data.changed', ownerId: recipient });
+      return true;
+    });
   }
 }

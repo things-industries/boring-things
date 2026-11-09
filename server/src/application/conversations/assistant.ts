@@ -29,6 +29,7 @@ import { awaitWithSignal } from '../../lib/abort.js';
 import { publicFields } from '../public-fields.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import type { ApplicationEvents } from '../events.js';
+import * as metrics from '../../metrics.js';
 
 interface LiveMessage {
   messageId: string;
@@ -69,7 +70,7 @@ export class Assistant {
     if (!this.ai) return false;
     const job = await conversationsDb.getNextQueuedMessage(this.pool);
     if (!job) return false;
-    await this.run(job, shutdown);
+    await metrics.withJob('chat', job.id, () => this.run(job, shutdown));
     return true;
   }
 
