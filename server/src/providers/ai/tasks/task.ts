@@ -264,6 +264,7 @@ export abstract class AiTask<Output = never, Result = Output> {
       reasoning: { mode: 'standard', effort },
     };
     let result: Response | undefined;
+    let tokenUsage: metrics.ProviderCall['usage'];
     try {
       if (delta) {
         const stream = await this.client.responses.create(
@@ -303,6 +304,13 @@ export abstract class AiTask<Output = never, Result = Output> {
             : 'ai_provider_failed',
       );
     } finally {
+      tokenUsage = result?.usage
+        ? {
+            inputTokens: result.usage.input_tokens,
+            outputTokens: result.usage.output_tokens,
+            cachedTokens: result.usage.input_tokens_details?.cached_tokens ?? 0,
+          }
+        : undefined;
       metrics.recordProviderCall({
         task,
         provider: 'openai',
@@ -311,13 +319,7 @@ export abstract class AiTask<Output = never, Result = Output> {
         serviceTier: result?.service_tier,
         startedAt: started,
         status: result?.status === 'completed' ? 'success' : 'error',
-        usage: result?.usage
-          ? {
-              inputTokens: result.usage.input_tokens,
-              outputTokens: result.usage.output_tokens,
-              cachedTokens: result.usage.input_tokens_details?.cached_tokens ?? 0,
-            }
-          : undefined,
+        usage: tokenUsage,
       });
       for (const call of result?.output ?? []) {
         if (call.type !== 'web_search_call') continue;
@@ -334,9 +336,7 @@ export abstract class AiTask<Output = never, Result = Output> {
     ensure(result, 'AI response incomplete');
     const usage = {
       model: parameters.model,
-      inputTokens: result.usage?.input_tokens ?? 0,
-      outputTokens: result.usage?.output_tokens ?? 0,
-      cachedTokens: result.usage?.input_tokens_details?.cached_tokens ?? 0,
+      ...(tokenUsage ?? { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }),
     };
     const entry = { ...usage, task, elapsedMs: Date.now() - started };
     if (result.status === 'completed')

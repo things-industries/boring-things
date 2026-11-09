@@ -11,6 +11,7 @@ import { AiTask, responseText } from '../../src/providers/ai/tasks/task.js';
 import { setEnvMode } from '../../src/env.js';
 import { readImageText } from '../../src/providers/google-vision/index.js';
 import { summarizeProviderCalls, type RecordedObservation } from '../../src/metrics-report.js';
+import type { Usage } from '../../src/application/import/types.js';
 
 class TextTask extends AiTask<never, string> {
   protected readonly model = 'gpt-6-luna';
@@ -58,15 +59,24 @@ test('concurrent jobs isolate traces and record provider usage without source co
     }),
   );
   const ids = ['10000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000002'];
+  const recorded: Partial<Usage>[] = [];
   await Promise.all(
     ids.map((id) =>
       metrics.withJob('import', id, async () => {
         for (let turn = 0; turn < 2; turn++)
           await new TextTask({
             signal: new AbortController().signal,
-            record: async () => {},
+            record: async (usage) => {
+              recorded.push(usage);
+            },
           }).run();
       }),
+    ),
+  );
+  assert.equal(recorded.length, 4);
+  assert(
+    recorded.every(
+      (usage) => usage.inputTokens === 10 && usage.outputTokens === 3 && usage.cachedTokens === 2,
     ),
   );
   await processor.forceFlush();
@@ -91,6 +101,25 @@ test('concurrent jobs isolate traces and record provider usage without source co
     );
   }
   assert(!JSON.stringify(spans.map((span) => span.attributes)).includes('private'));
+
+  exporter.reset();
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({ id: 'missing-usage', model: 'gpt-6-luna', status: 'completed', output: [] }),
+  );
+  await new TextTask({
+    signal: new AbortController().signal,
+    record: async (usage) => {
+      assert.equal(usage.inputTokens, 0);
+      assert.equal(usage.outputTokens, 0);
+      assert.equal(usage.cachedTokens, 0);
+    },
+  }).run();
+  await processor.forceFlush();
+  const unknown = exporter
+    .getFinishedSpans()
+    .find((span) => span.attributes[attributes.OBSERVATION_TYPE] === 'generation');
+  assert(unknown);
+  assert.equal(unknown.attributes[attributes.OBSERVATION_USAGE_DETAILS], undefined);
 
   exporter.reset();
   const failure = new Error('private failure details');
