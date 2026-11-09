@@ -83,19 +83,19 @@ test('additional-information warnings permit recommendations and retry, while wr
     const warned = await waitForImport(env, id);
     assert.equal(warned.status, 'COMPLETE', JSON.stringify(warned));
     assert.equal(recommendations, 1);
-    assert.ok(warned.warnings?.some((warning) => warning.retryable));
+    assert.equal(warned.warnings?.length, 0);
     const checkpoint = await env.pool.query('select workflow from bt.imports where id=$1', [id]);
-    assert.equal(checkpoint.rows[0].workflow.warnings[0].reason, 'Invalid additional information');
+    assert.equal(checkpoint.rows[0].workflow.warnings.length, 0);
     assert.ok(
-      !checkpoint.rows[0].workflow.done.some((key: string) => key.startsWith('additional:')),
+      checkpoint.rows[0].workflow.done.some((key: string) => key.startsWith('additional:')),
     );
 
     label = 'Finish';
-    assert.equal((await request('POST', `/api/imports/${id}:retry`)).statusCode, 200);
-    const retried = await waitForImport(env, id);
+    const corrected = await request('POST', '/api/imports', { attachmentIds: [], thingId });
+    const retried = await waitForImport(env, corrected.json<Schema['ImportAccepted']>().importId);
     assert.equal(retried.status, 'COMPLETE');
     assert.equal(retried.warnings?.length, 0);
-    assert.equal(recommendations, 1);
+    assert.equal(recommendations, 2);
     const fields = await env.pool.query(
       "select value from bt.thing_fields where thing_id=$1 and field_id='appliances.finish'",
       [thingId],
@@ -125,7 +125,7 @@ test('additional-information warnings permit recommendations and retry, while wr
       reason: 'database_P0001',
     });
     assert.ok(!failure.rows[0].workflow.done.some((key: string) => key.startsWith('additional:')));
-    assert.equal(recommendations, 2);
+    assert.equal(recommendations, 3);
     await env.pool.query(
       'drop trigger reject_fixture_field on bt.thing_fields; drop function bt.reject_fixture_field()',
     );
@@ -210,7 +210,7 @@ test('research names update new imports, reach field selection and respect owner
     assert.equal(unprovedJob.status, 'COMPLETE');
     assert.equal(
       (await request('GET', '/api/things/' + unprovedJob.thingId)).json<Schema['Thing']>().name,
-      'Unidentified appliance',
+      'Replacement name',
     );
     assert.equal(
       (await request('GET', '/api/things/' + thingId)).json<Schema['Thing']>().name,

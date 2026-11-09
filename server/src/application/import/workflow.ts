@@ -27,7 +27,7 @@ import * as purchasablesDb from '../../db/entities/purchasables.js';
 import { addFieldSets, fieldTargets, populateFields, identifierValues } from '../thing-fields.js';
 import { publicFields } from '../public-fields.js';
 import { ensure } from '../errors.js';
-import { mapValidEvidence, normalizeWhitespace } from './evidence.js';
+import { mapValidResults, normalizeWhitespace } from './evidence.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import { downloadPdf } from '../../providers/web/pdf.js';
 import { downloadImage } from '../../providers/web/image.js';
@@ -90,8 +90,7 @@ export class ImportWorkflow {
       !identity ||
       !identity.name.trim() ||
       identity.name.length > 200 ||
-      !publicUrl(identity.sourceUrl) ||
-      !discovery.sources.includes(identity.sourceUrl)
+      !publicUrl(identity.sourceUrl)
     )
       return;
     await this.commit('researchIdentity', async (db, current) => {
@@ -182,11 +181,7 @@ export class ImportWorkflow {
   }
 
   // Supplies authorised data and retrieval records for one task execution.
-  private createTaskContext(
-    categoryId: string,
-    retrievedSetIds = new Set<string>(),
-    retrievedFieldIds = new Set<string>(),
-  ): ImportTaskContext {
+  private createTaskContext(categoryId: string): ImportTaskContext {
     return {
       ...this.context,
       categoryId,
@@ -194,34 +189,35 @@ export class ImportWorkflow {
         attachmentId: source.id,
         text: source.transcription ?? '',
       })),
-      retrievedSetIds,
-      retrievedFieldIds,
+      retrievedSetIds: new Set(),
+      retrievedFieldIds: new Set(),
       toolCalls: 0,
       toolCallLimit: this.config.importToolRounds,
     };
   }
 
-  // Validates cited sources and original pages while tolerating quotation whitespace differences.
+  // Keeps authorised source links and includes only matching quotations and page references.
   private evidence(value: {
     attachmentId?: string;
     page?: number | null;
     quote?: string;
   }): SourceRef {
-    const page = value.page ?? null;
-    const quote = normalizeWhitespace(value.quote ?? '');
     const source = this.sources.find((source) => source.id === value.attachmentId);
-    ensure(
-      source &&
-        quote.length > 0 &&
-        quote.length <= 2000 &&
-        normalizeWhitespace(source.transcription ?? '').includes(quote),
-      'Invalid source evidence',
-    );
-    ensure(
-      page === null ||
-        (Number.isInteger(page) && page > 0 && (!source.pageCount || page <= source.pageCount)),
-      'Invalid source page',
-    );
+    ensure(source, 'Invalid source evidence');
+    const quote = normalizeWhitespace(value.quote ?? '');
+    const matched =
+      quote.length > 0 &&
+      quote.length <= 2000 &&
+      normalizeWhitespace(source.transcription ?? '').includes(quote);
+    let page = value.page ?? null;
+    if (
+      page !== null &&
+      (source.mediaType !== 'application/pdf' ||
+        !Number.isInteger(page) ||
+        page < 1 ||
+        (source.pageCount !== null && page > source.pageCount))
+    )
+      page = null;
     if (
       page !== null &&
       source.mediaType === 'application/pdf' &&
@@ -231,16 +227,17 @@ export class ImportWorkflow {
         marker = `[PDF page ${page}]`,
         start = text.indexOf(marker);
       const end = text.indexOf('[PDF page ', start + marker.length);
-      ensure(
-        start >= 0 &&
-          normalizeWhitespace(text.slice(start, end < 0 ? undefined : end)).includes(quote),
-        'Quote does not match source page',
-      );
+      if (
+        !matched ||
+        start < 0 ||
+        !normalizeWhitespace(text.slice(start, end < 0 ? undefined : end)).includes(quote)
+      )
+        page = null;
     }
     return {
       attachmentId: source.id,
-      ...(page !== null ? { page: page } : {}),
-      quote,
+      ...(page !== null ? { page } : {}),
+      ...(matched ? { quote } : {}),
       ...(source.sourceUrl ? { url: source.sourceUrl } : {}),
     };
   }
@@ -348,7 +345,7 @@ export class ImportWorkflow {
         ensure(candidate.categoryId === context.categoryId, 'wrong_thing');
         candidate.matchedThingId = context.id;
       }
-      candidate.identifiers = mapValidEvidence(candidate.identifiers, (identifier) => {
+      candidate.identifiers = mapValidResults(candidate.identifiers, (identifier) => {
         ensure(
           categories
             .find((category) => category.id === candidate.categoryId)
@@ -521,7 +518,7 @@ export class ImportWorkflow {
       if (!id) {
         let content: { content: Buffer; mediaType: string } | null | undefined;
         try {
-          validateResource(item, this.job.workflow.discovery!.sources);
+          validateResource(item);
           if (item.kind === 'reference') {
             const bytes = await (this.options.download ?? downloadPdf)(item.url, {
               maxBytes: this.config.maxUploadBytes,
@@ -636,21 +633,20 @@ export class ImportWorkflow {
   }
 
   // Prevents stale source content or removed links from justifying automatic writes.
-  private async assertSourceCurrent(db: Database, thing: thingsDb.ThingRow, id: string) {
+  private async isSourceCurrent(db: Database, thing: thingsDb.ThingRow, id: string) {
     const original = this.sources.find((source) => source.id === id);
     const linked = await database.execute(
       db,
       'select 1 from bt.thing_attachments where thing_id=$1 and owner_id=$2 and attachment_id=$3',
       [thing.id, thing.ownerId, id],
     );
-    ensure(original && linked.rowCount, 'source_removed');
+    if (!original || !linked.rowCount) return false;
     const current = await attachmentsDb.getOwnedAttachmentOrThrow(db, thing.ownerId, id, {
       lock: true,
     });
-    ensure(
+    return (
       current.transcription === original.transcription &&
-        current.transcriptionCompletedAt === original.transcriptionCompletedAt,
-      'source_changed',
+      current.transcriptionCompletedAt === original.transcriptionCompletedAt
     );
   }
 
@@ -707,11 +703,13 @@ export class ImportWorkflow {
         if (error instanceof UsagePersistenceError) throw error;
         this.context.signal.throwIfAborted();
         await this.warning(key, source.sourceUrl);
-        this.job.workflow.excludedIds = [...new Set([...this.job.workflow.excludedIds, source.id])];
+        this.job.workflow.excludedIds = this.job.workflow.excludedIds.filter(
+          (id) => id !== source.id,
+        );
         await importsDb.saveWorkflow(this.pool, this.job, this.job.workflow);
         continue;
       }
-      result.identifiers = mapValidEvidence(result.identifiers, (identifier) => {
+      result.identifiers = mapValidResults(result.identifiers, (identifier) => {
         ensure(
           identifier.attachmentId === source.id &&
             this.registry.fields.get(identifier.fieldId)?.isIdentifier &&
@@ -722,7 +720,7 @@ export class ImportWorkflow {
         return identifier;
       });
       await this.commit(key, async (db, current) => {
-        await this.assertSourceCurrent(db, current, source.id);
+        if (!(await this.isSourceCurrent(db, current, source.id))) return;
         await attachmentsDb.saveCoverage(
           db,
           source.id,
@@ -750,27 +748,31 @@ export class ImportWorkflow {
     await this.stage('SELECTING_FIELDSETS', 'MAPPING');
     const thing = await this.thing(),
       candidate = this.job.workflow.selected!;
-    const retrieved = new Set(thing.data.setIds);
-    const selection = await this.ai.selectFieldSets(
-      {
-        ...candidate,
-        name: thing.name,
-        identifiers: undefined,
-        facts: [],
-        knownFields: publicFields(thing.data, this.registry),
-        sources: this.sources.map((file) => ({
-          attachmentId: file.id,
-          summary: file.transcriptionSummary,
-          terms: file.transcriptionTerms,
-        })),
-      },
-      this.createTaskContext(thing.categoryId, retrieved),
-    );
-    ensure(
-      selection.setIds.every(
-        (id) => retrieved.has(id) && this.registry.sets.get(id)?.categoryId === thing.categoryId,
-      ),
-      'Invalid fieldset selection',
+    let selection;
+    try {
+      selection = await this.ai.selectFieldSets(
+        {
+          ...candidate,
+          name: thing.name,
+          identifiers: undefined,
+          facts: [],
+          knownFields: publicFields(thing.data, this.registry),
+          sources: this.sources.map((file) => ({
+            attachmentId: file.id,
+            summary: file.transcriptionSummary,
+            terms: file.transcriptionTerms,
+          })),
+        },
+        this.createTaskContext(thing.categoryId),
+      );
+    } catch (error) {
+      if (error instanceof UsagePersistenceError) throw error;
+      this.context.signal.throwIfAborted();
+      await this.warning(key, null, 'RESEARCH_FAILED', getImportFailureReason(error));
+      return;
+    }
+    selection.setIds = selection.setIds.filter(
+      (id) => this.registry.sets.get(id)?.categoryId === thing.categoryId,
     );
     await this.commit(key, async (db, current) => {
       await thingsDb.saveThingData(
@@ -797,43 +799,49 @@ export class ImportWorkflow {
           ':' +
           fields.map((target) => `${target.fieldSetId}:${target.field.id}`).join('|');
       if (this.job.workflow.done.includes(key)) continue;
-      const result = await this.ai.populateFields(
-        {
-          thing: {
-            id: thing.id,
-            name: thing.name,
-            categoryId: thing.categoryId,
-            identifiers: identifierValues(thing.data, this.registry),
+      let result;
+      try {
+        result = await this.ai.populateFields(
+          {
+            thing: {
+              id: thing.id,
+              name: thing.name,
+              categoryId: thing.categoryId,
+              identifiers: identifierValues(thing.data, this.registry),
+            },
+            sources: this.sources.map((file) => ({
+              attachmentId: file.id,
+              summary: file.transcriptionSummary,
+              terms: file.transcriptionTerms,
+            })),
+            fields,
           },
-          sources: this.sources.map((file) => ({
-            attachmentId: file.id,
-            summary: file.transcriptionSummary,
-            terms: file.transcriptionTerms,
-          })),
-          fields,
-        },
-        this.createTaskContext(thing.categoryId),
-      );
-      ensure(
-        result.pinnedFields.every((pin) =>
-          fields.some(
-            (target) => target.fieldSetId === pin.fieldSetId && target.field.id === pin.fieldId,
-          ),
+          this.createTaskContext(thing.categoryId),
+        );
+      } catch (error) {
+        if (error instanceof UsagePersistenceError) throw error;
+        this.context.signal.throwIfAborted();
+        await this.warning(key, null, 'RESEARCH_FAILED', getImportFailureReason(error));
+        continue;
+      }
+      result.pinnedFields = result.pinnedFields.filter((pin) =>
+        fields.some(
+          (target) => target.fieldSetId === pin.fieldSetId && target.field.id === pin.fieldId,
         ),
-        'Unrequested pin',
       );
-      const values: FieldProposal[] = mapValidEvidence(result.values, (value) => {
+      const values: FieldProposal[] = mapValidResults(result.values, (value) => {
         ensure(
           fields.some(
             (target) => target.fieldSetId === value.fieldSetId && target.field.id === value.fieldId,
           ),
           'Unrequested field',
         );
-        ensure(value.sourceRefs.length > 0, 'Invalid source evidence');
-        const sourceRefs = value.sourceRefs.map((ref) => this.evidence(ref));
-        const sources = sourceRefs.map((ref) =>
-          this.sources.find((file) => file.id === ref.attachmentId)!,
+        this.registry.validate(value.fieldId, value.value);
+        const sourceRefs = mapValidResults(value.sourceRefs, (ref) => this.evidence(ref));
+        const citedSources = value.sourceRefs.flatMap((ref) =>
+          this.sources.filter((file) => file.id === ref.attachmentId),
         );
+        const sources = citedSources.length ? citedSources : this.sources;
         ensure(
           sources.every((source) => source.ownerId !== null) ||
             ['GROUP', 'CLASS'].includes(this.registry.fields.get(value.fieldId)?.scope ?? ''),
@@ -846,13 +854,18 @@ export class ImportWorkflow {
         };
       });
       await this.commit(key, async (db, current) => {
+        const staleIds = new Set<string>();
         for (const id of new Set(
           values.flatMap((value) => value.sourceRefs.map((ref) => ref.attachmentId)),
         )) {
           ensure(id, 'Invalid source evidence');
-          await this.assertSourceCurrent(db, current, id);
+          if (!(await this.isSourceCurrent(db, current, id))) staleIds.add(id);
         }
-        const data = populateFields(current.data, values, this.registry);
+        const accepted = values.filter(
+          (value) =>
+            !value.sourceRefs.some((ref) => ref.attachmentId && staleIds.has(ref.attachmentId)),
+        );
+        const data = populateFields(current.data, accepted, this.registry);
         if (!data.userEdited?.includes('pins'))
           for (const pin of result.pinnedFields) {
             const value =
@@ -889,7 +902,6 @@ export class ImportWorkflow {
         ]
           .map((id) => this.registry.fields.get(id)?.name ?? id)
           .concat(thing.data.customFields.map((field) => field.label));
-        const retrieved = new Set<string>();
         let result;
         try {
           result = await this.ai.additionalInformation(
@@ -903,9 +915,9 @@ export class ImportWorkflow {
               attachmentId: source.id,
               text: source.transcription!.slice(offset, offset + 20000),
             },
-            this.createTaskContext(thing.categoryId, undefined, retrieved),
+            this.createTaskContext(thing.categoryId),
           );
-          result.findings = mapValidEvidence(result.findings, (value) => {
+          result.findings = mapValidResults(result.findings, (value) => {
             ensure(value.attachmentId === source.id, 'Wrong additional source');
             this.evidence(value);
             ensure(
@@ -916,7 +928,11 @@ export class ImportWorkflow {
               const definition = this.registry.fields.get(value.fieldId);
               ensure(
                 definition &&
-                  retrieved.has(value.fieldId) &&
+                  [...this.registry.sets.values()].some(
+                    (set) =>
+                      set.categoryId === thing.categoryId &&
+                      set.fields.some((field) => field.id === value.fieldId),
+                  ) &&
                   (!value.sensitive || definition.sensitive),
                 'Invalid additional field',
               );
@@ -931,7 +947,7 @@ export class ImportWorkflow {
           continue;
         }
         await this.commit(key, async (db, current) => {
-          await this.assertSourceCurrent(db, current, source.id);
+          if (!(await this.isSourceCurrent(db, current, source.id))) return;
           let data = structuredClone(current.data);
           for (const finding of result.findings) {
             const refs = [this.evidence(finding)];
@@ -1014,18 +1030,14 @@ export class ImportWorkflow {
       ],
     } satisfies RecommendationInput;
 
-    // Validate each suggestion independently so a rejected citation does not discard its peers.
+    // Omit unusable citations while keeping each suggestion available for validation.
     const cite = <T extends { sourceRefs: SourceRef[] }>(item: T): T => {
-      ensure(item.sourceRefs.length > 0, 'Invalid source evidence');
       return {
         ...item,
-        sourceRefs: item.sourceRefs.map((ref) => {
+        sourceRefs: mapValidResults(item.sourceRefs, (ref) => {
           if (ref.attachmentId) return this.evidence(ref);
-          ensure(
-            ref.url && publicUrl(ref.url) && ref.quote?.trim() && ref.quote.length <= 2000,
-            'Invalid source evidence',
-          );
-          return ref;
+          ensure(ref.url && publicUrl(ref.url), 'Invalid source evidence');
+          return { ...ref, quote: ref.quote?.slice(0, 2000) };
         }),
       };
     };
@@ -1041,7 +1053,7 @@ export class ImportWorkflow {
               ),
             )
             .then((result) => ({
-              items: mapValidEvidence(result.items, (task) => {
+              items: mapValidResults(result.items, (task) => {
                 ensure(
                   task.title.length <= 200 && task.description.length <= 4000,
                   'Invalid recommendation',
@@ -1060,7 +1072,7 @@ export class ImportWorkflow {
               ),
             )
             .then((result) => ({
-              items: mapValidEvidence(result.items, (product) => {
+              items: mapValidResults(result.items, (product) => {
                 ensure(
                   product.name.length <= 200 && product.description.length <= 4000,
                   'Invalid recommendation',
@@ -1085,9 +1097,10 @@ export class ImportWorkflow {
     if (tasks.status === 'fulfilled' && tasks.value) {
       const result = tasks.value;
       await this.commit('tasks', async (db, current) => {
-        for (const task of result.items) {
+        tasks: for (const task of result.items) {
           for (const ref of task.sourceRefs)
-            if (ref.attachmentId) await this.assertSourceCurrent(db, current, ref.attachmentId);
+            if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
+              continue tasks;
           await activityDb.saveSuggestedTask(db, current.ownerId, current.id, task);
         }
       });
@@ -1095,9 +1108,10 @@ export class ImportWorkflow {
     if (purchasables.status === 'fulfilled' && purchasables.value) {
       const result = purchasables.value;
       await this.commit('purchasables', async (db, current) => {
-        for (const product of result.items) {
+        products: for (const product of result.items) {
           for (const ref of product.sourceRefs)
-            if (ref.attachmentId) await this.assertSourceCurrent(db, current, ref.attachmentId);
+            if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
+              continue products;
           await purchasablesDb.saveSuggestedPurchasable(db, current.ownerId, current.id, product);
         }
       });

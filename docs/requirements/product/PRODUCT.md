@@ -22,6 +22,8 @@ Boring things aims to:
 - Provide proactive support when something needs attention
 - Require minimal input from the user
 
+Imports save useful information and suggestions even when citations are incomplete. Invalid individual results and optional research failures leave other saved work available. Owners can review and correct imported information; ownership checks, user edits and valid stored data shapes govern automatic writes.
+
 ## Personas
 
 - **Busy independents**

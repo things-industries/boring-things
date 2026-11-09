@@ -201,9 +201,37 @@ export abstract class AiTask<Output = never, Result = Output> {
         : undefined;
     if (Array.isArray(items)) this.reportMetrics({ aiCount: items.length, validCount: 0 });
     ensure(this.outputSchema, 'Missing AI output schema');
+
+    // Validate array members separately so one malformed proposal does not reject its peers.
+    const properties = this.outputSchema.properties;
+    if (
+      output !== null &&
+      typeof output === 'object' &&
+      properties &&
+      typeof properties === 'object'
+    )
+      for (const [key, schema] of Object.entries(properties)) {
+        const values: unknown = Reflect.get(output, key);
+        if (!Array.isArray(values) || !schema || typeof schema !== 'object' || !('items' in schema))
+          continue;
+        const itemSchema = schema.items;
+        if (!itemSchema || typeof itemSchema !== 'object') continue;
+        const validateItem = ajv.compile(itemSchema);
+        const accepted = values.filter((value: unknown) => validateItem(value));
+        Reflect.set(
+          output,
+          key,
+          'maxItems' in schema && typeof schema.maxItems === 'number'
+            ? accepted.slice(0, schema.maxItems)
+            : accepted,
+        );
+      }
     const valid = ajv.compile<Output>(this.outputSchema);
     ensure(valid(output), 'Invalid AI output');
-    if (Array.isArray(items)) this.reportMetrics({ validCount: items.length });
+    if (this.resultKey && output !== null && typeof output === 'object') {
+      const accepted: unknown = Reflect.get(output, this.resultKey);
+      if (Array.isArray(accepted)) this.reportMetrics({ validCount: accepted.length });
+    }
     return output;
   }
 

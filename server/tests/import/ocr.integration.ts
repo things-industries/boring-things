@@ -40,7 +40,7 @@ async function uploadAttachment(
       [id],
     );
     const source = result.rows[0];
-    if (['COMPLETE', 'EMPTY', 'FAILED'].includes(source.transcription_status)) {
+    if (['COMPLETE', 'EMPTY', 'PARTIAL', 'FAILED'].includes(source.transcription_status)) {
       assert.equal(source.transcription_status, expected);
       return { id, ...source };
     }
@@ -160,7 +160,7 @@ test('PDF OCR saves mixed-page text before summarization and handles empty or fa
 });
 
 // Literal quote checks discarded readable attachments when model quotes collapsed PDF whitespace.
-test('attachment quote mismatches skip observations while keeping text and valid identifiers', async () => {
+test('attachment quote mismatches omit quotations while keeping text and identifiers', async () => {
   const text = 'Model: AX1\nSerial:   00026\n';
   const env = await startTestApp({ readImageText: async () => text });
   try {
@@ -184,7 +184,46 @@ test('attachment quote mismatches skip observations while keeping text and valid
     assert.equal(source.transcription, text);
     assert.deepEqual(source.identifier_observations, [
       { label: 'Serial', value: '00026', page: null, quote: 'Serial: 00026' },
+      { label: 'Model', value: 'UNKNOWN', page: null, quote: '' },
     ]);
+  } finally {
+    await env.close();
+  }
+});
+
+// Summary, language and metadata validation discarded text that OCR had already extracted.
+test('attachment analysis failures keep text and valid metadata available', async () => {
+  const text = 'Model AX1';
+  const env = await startTestApp({ readImageText: async () => text });
+  try {
+    const ai: ImportAi = env.importAi;
+    for (const outcome of ['error', 'language', 'metadata']) {
+      ai.summarizeAttachment = async () => {
+        if (outcome === 'error') throw new Error('Synthetic summary failure');
+        return {
+          summary: 'Fixture label',
+          terms: ['model'],
+          identifiers: [],
+          status: outcome === 'language' ? 'INSUFFICIENT_LANGUAGE' : 'COMPLETE',
+          metadata:
+            outcome === 'metadata' ? { title: 'Fixture label', documentDate: 'invalid' } : null,
+        };
+      };
+      const source = await uploadAttachment(
+        env,
+        await createCanvas(20, 20).encode('png'),
+        'image/png',
+        outcome === 'metadata' ? 'COMPLETE' : 'PARTIAL',
+      );
+      assert.equal(source.transcription, text);
+      if (outcome === 'metadata') {
+        const saved = await env.pool.query(
+          'select title,document_date from bt.attachments where id=$1',
+          [source.id],
+        );
+        assert.deepEqual(saved.rows, [{ title: 'Fixture label', document_date: null }]);
+      }
+    }
   } finally {
     await env.close();
   }

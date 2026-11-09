@@ -5,7 +5,8 @@ import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
 import { blankUsage } from './types.js';
-import { normalizeWhitespace } from './evidence.js';
+import { mapValidResults, normalizeWhitespace } from './evidence.js';
+import type { Schema } from '../../../../shared/model.js';
 import type { ImportAi, AttachmentSummary } from './types.js';
 import * as database from '../../db/connection.js';
 import * as attachmentsDb from '../../db/entities/attachments.js';
@@ -45,6 +46,7 @@ export class AttachmentTranscriptionProcessor {
       started = Date.now();
     const elapsed = usage.elapsedMs;
     let requests = usage.entries?.length ?? 0;
+    let extractedText: string | undefined;
     try {
       const chunks: Buffer[] = [];
       for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
@@ -92,17 +94,30 @@ export class AttachmentTranscriptionProcessor {
         text = content.toString('utf8');
       }
       ensure(text.length <= maxDocumentTextLength, 'Attachment text too large', 'TOO_LARGE');
+
+      // Commit extracted text before optional model analysis and metadata updates.
+      await database.transaction(this.pool, async (db) => {
+        await attachmentsDb.saveTranscription(db, ownerId, file.id, {
+          text,
+          summary: null,
+          terms: [],
+          identifiers: [],
+          status: 'PROCESSING',
+        });
+        if (file.mediaType === 'application/pdf' && pageCount !== null)
+          await database.execute(db, 'update bt.attachments set page_count=$1 where id=$2', [
+            pageCount,
+            file.id,
+          ]);
+      });
+      extractedText = text;
       const result: AttachmentSummary = !text.trim()
         ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
         : await this.ai.summarizeAttachment(text, context);
       signal.throwIfAborted();
-      ensure(
-        (result.summary === null || result.summary.length <= 2000) &&
-          result.terms.length <= 20 &&
-          result.terms.every((term) => term.length <= 200) &&
-          ['COMPLETE', 'EMPTY', 'PARTIAL', 'INSUFFICIENT_LANGUAGE'].includes(result.status),
-        'Invalid transcription',
-      );
+      const metadata = mapValidResults(Object.entries(result.metadata ?? {}), ([key, value]) =>
+        validateAttachmentMetadata({ [key]: value }),
+      ).reduce<Schema['AttachmentPatch']>((values, patch) => ({ ...values, ...patch }), {});
       const normalizedText = normalizeWhitespace(text);
       const identifiers = (result.identifiers ?? [])
         .map((identifier) => ({
@@ -115,31 +130,35 @@ export class AttachmentTranscriptionProcessor {
           (identifier) =>
             identifier.label.length <= 200 &&
             identifier.value.length <= 200 &&
-            identifier.quote.length > 0 &&
-            identifier.quote.length <= 2000 &&
-            normalizedText.includes(identifier.quote),
+            identifier.value.length > 0,
         )
+        .map((identifier) => ({
+          ...identifier,
+          quote:
+            identifier.quote.length <= 2000 && normalizedText.includes(identifier.quote)
+              ? identifier.quote
+              : '',
+        }))
         .slice(0, 30);
       await database.transaction(this.pool, async (db) => {
         await attachmentsDb.saveTranscription(db, ownerId, file.id, {
-          text: result.status === 'INSUFFICIENT_LANGUAGE' ? '' : text,
-          summary: result.summary,
-          terms: result.terms,
-          status: result.status,
+          text,
+          summary: result.summary?.slice(0, 2000) ?? null,
+          terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
+          status: !text.trim() ? 'EMPTY' : result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL',
           identifiers,
         });
-        if (ownerId !== null && (result.metadata || pageCount !== null))
+        if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))
           await updateAttachmentMetadata(
             db,
             ownerId,
             file.id,
-            result.metadata ?? { title: null },
+            Object.keys(metadata).length ? metadata : { title: null },
             { origin: 'IMPORT', sourceRefs: [{ attachmentId: file.id }] },
             pageCount,
           );
         if (ownerId === null) {
-          if (result.metadata) {
-            const metadata = validateAttachmentMetadata(result.metadata);
+          if (Object.keys(metadata).length) {
             for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
               if (metadata[key] != null) {
                 Object.assign(file, { [key]: metadata[key] });
@@ -154,7 +173,15 @@ export class AttachmentTranscriptionProcessor {
         }
       });
     } catch {
-      await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
+      if (extractedText !== undefined)
+        await attachmentsDb.saveTranscription(this.pool, ownerId, file.id, {
+          text: extractedText,
+          summary: null,
+          terms: [],
+          identifiers: [],
+          status: extractedText.trim() ? 'PARTIAL' : 'EMPTY',
+        });
+      else await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
     }
     await database.execute(
       this.pool,

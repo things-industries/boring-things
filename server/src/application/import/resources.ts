@@ -1,4 +1,5 @@
-// Validates cited resources and saves shared public attachments and imported Thing names.
+/** Validates resource URLs and saves shared public attachments and imported Thing names. */
+
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import { createHash } from 'node:crypto';
@@ -9,11 +10,13 @@ import * as database from '../../db/connection.js';
 import { publicUrl } from '../../providers/web/resources.js';
 import { ensure } from '../errors.js';
 
+// Identifies a discovered resource by its kind and URL.
 export function resourceKey(item: DiscoveryItem) {
   return createHash('sha256').update(`${item.kind}:${item.url}`).digest('hex');
 }
 
-export function validateResource(item: DiscoveryItem, sources: string[]) {
+// Checks resource metadata and URL structure before downloading.
+export function validateResource(item: DiscoveryItem) {
   ensure(
     ['reference', 'image'].includes(item.kind) &&
       typeof item.title === 'string' &&
@@ -23,13 +26,7 @@ export function validateResource(item: DiscoveryItem, sources: string[]) {
       item.description.length <= 4000,
     'Invalid research resource',
   );
-  ensure(
-    publicUrl(item.url) &&
-      publicUrl(item.sourceUrl) &&
-      sources.includes(item.url) &&
-      sources.includes(item.sourceUrl),
-    'Uncited research resource',
-  );
+  ensure(publicUrl(item.url) && publicUrl(item.sourceUrl), 'Invalid research URL');
 }
 
 export async function saveResourceAttachment(

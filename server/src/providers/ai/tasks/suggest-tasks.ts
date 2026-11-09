@@ -18,7 +18,7 @@ export interface TaskResearch extends RecommendationInput {
 
 const taskRecommendationInstructions = `Select work worth remembering or tracking to completion. Prioritise activities specific to the Thing that help maintain it and are easy to forget, such as running a maintenance programme, replacing a consumable or booking a service. Include recurring work and relevant one-off administration, such as submitting an insurance claim. Exclude extremely obvious actions and work likely to be done very frequently during normal use, such as wiping up spills or removing loose food residues. Boring Things manages records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising documents. Passive waiting and rare incident-recovery advice do not belong in general suggestions.
 Common remedies that nearly every owner is likely to need can also qualify, such as resetting a router. Explain when to use the remedy and its consequences without claiming a fault exists. A common remedy need not depend on a recorded fault.
-Use supplied age, mileage, condition and service history to select applicable work. For example, select the documented car service appropriate to its age and mileage. When these facts are unknown, describe the documented conditions without assuming they apply or that work is due. Require evidence recommending the action for this Thing and its relevant component. A warning or identifying label alone does not establish a maintenance requirement. Use only documented procedures, triggers and intervals.
+Use supplied age, mileage, condition and service history to select applicable work. For example, select the documented car service appropriate to its age and mileage. When these facts are unknown, describe the documented conditions without assuming they apply or that work is due. Use evidence recommending the action for this Thing and its relevant component when available. A warning or identifying label alone does not establish a maintenance requirement. Use only documented procedures, triggers and intervals.
 Select the overall procedure or outcome as one task. Put preparation, precautions and completion steps in its description. Name each task with a verb and its object, including words needed to identify the procedure. Put timing, frequency and conditions in the description. Keep the action's meaning when shortening its title.
 Examples:
 - "Run the maintenance programme" and "Use the pyrolytic cleaning function" are useful when documented for the Thing.
@@ -26,7 +26,7 @@ Examples:
 - "Remove food residues before using the oven" is obvious routine care; omit it as a task.
 - "Reset the router" can qualify as a documented common remedy; its description explains the symptoms and procedure.
 - "Submit a claim" names the work; evidence requirements belong in the description.
-Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or dismissed tasks. Return fewer tasks or none when no worthwhile tasks are justified.`;
+Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or dismissed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
 
 export const outputSchema = createObjectSchema(
   {
@@ -74,7 +74,7 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
     utilities:
       'Required meter readings, tariff reviews and renewal actions supported by the contract.',
   };
-  return `Find management tasks worth remembering for this Thing. Category guidance: ${guidance[research.categoryId] ?? 'Documented maintenance, administration and common remedies.'} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Establish applicability to the model, variant, region and service version where relevant. Each task needs sourceRefs from linked Attachments or observed public sources recommending the action. Use at most ${searchCalls} web tool calls including page opens; stop at that limit.`;
+  return `Find management tasks worth remembering for this Thing. Category guidance: ${guidance[research.categoryId] ?? 'Documented maintenance, administration and common remedies.'} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Establish applicability to the model, variant, region and service version where relevant. Include sourceRefs from linked Attachments or public sources when available; an empty array is allowed. Use at most ${searchCalls} web tool calls including page opens; stop at that limit.`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;

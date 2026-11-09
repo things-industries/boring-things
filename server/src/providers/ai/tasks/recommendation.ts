@@ -14,7 +14,6 @@ import { createWebSearchOptions, readWebResult } from '../tools/web.js';
 import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
 import { createSourceRef } from '../sources.js';
 import { publicUrl } from '../../web/resources.js';
-import { ensure } from '../../../application/errors.js';
 import { getPrompt } from '../prompts.js';
 
 export interface RecommendationInput extends Pick<
@@ -33,32 +32,28 @@ export interface RecommendationInput extends Pick<
 }
 
 export const recommendationInstructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')} ${getPrompt('web-research-instructions')}
-Read applicable linked Attachments with search_transcription before searching the web. Use web search when evidence or purchase links are missing. Prefer official manufacturer or provider recommendations. Cite Attachment IDs, original pages and verbatim passages, or observed public URLs and supporting excerpts. Keep secrets and private identifiers out of web queries and recommendation text. Use public model, provider and product details for research. Exclude equivalent existing suggestions, including completed or dismissed tasks. Return fewer recommendations or none when the evidence is insufficient.`;
+Read applicable linked Attachments with search_transcription before searching the web. Use web search when evidence or purchase links are missing. Prefer official manufacturer or provider recommendations. Include Attachment IDs, original pages and quotations, or public URLs and excerpts when available. Sources are optional; return an empty sourceRefs array when none are available. Keep secrets and private identifiers out of web queries and recommendation text. Use public model, provider and product details for research. Exclude equivalent existing suggestions, including completed or dismissed tasks. Return useful recommendations based on the available information; distinguish conditional advice from known facts.`;
 
 export const recommendationSourcesSchema = {
-  description:
-    'Attachment passages or observed public sources establishing applicability, at least one.',
+  description: 'Optional Attachment passages or public sources explaining the recommendation.',
   type: 'array',
-  minItems: 1,
   items: {
     anyOf: [
       createObjectSchema(sourceEvidenceProperties, 'A passage from a supplied Attachment.'),
       createObjectSchema(
         {
           url: {
-            description: 'Public source URL observed through web search, 1–2000 characters.',
+            description: 'Public source URL, 1–2000 characters.',
             type: 'string',
             minLength: 1,
             maxLength: 2000,
           },
           quote: {
-            description: 'Supporting excerpt establishing applicability, 1–2000 characters.',
+            description: 'Supporting excerpt when available; empty when unavailable.',
             type: 'string',
-            minLength: 1,
-            maxLength: 2000,
           },
         },
-        'An observed public source and its supporting excerpt.',
+        'A public source and an optional excerpt.',
       ),
     ],
   },
@@ -66,12 +61,13 @@ export const recommendationSourcesSchema = {
 
 export abstract class RecommendationTask<Output, Result> extends AiTask<Output, Result> {
   protected abstract readonly searchCalls: number;
-  protected observedUrls = new Set<string>();
   private webCalls = 0;
+  private readonly sources: ImportTaskContext['sources'];
 
   // Registers attachment retrieval using the run's authorised source data.
   constructor(context: ImportTaskContext) {
     super(context);
+    this.sources = context.sources;
     this.tools = context.sources.length ? [createTranscriptionTool(context)] : [];
   }
 
@@ -98,16 +94,17 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<Output, 
     const { sources } = await readWebResult(response, this.context, remaining);
     this.reportMetrics({ sourceCount: sources.length });
     this.webCalls += response.output.filter((item) => item.type === 'web_search_call').length;
-    sources.forEach((url) => this.observedUrls.add(url));
     return response;
   }
 
-  // Converts attachment citations and checks that public citations were observed during the task.
+  // Converts citations and omits unusable links without rejecting their recommendations.
   protected getSourceRefs(refs: (SourceEvidence | { url: string; quote: string })[]): SourceRef[] {
-    return refs.map((ref) => {
-      if ('attachmentId' in ref) return createSourceRef(ref);
-      ensure(publicUrl(ref.url) && this.observedUrls.has(ref.url), 'Uncited recommendation source');
-      return ref;
+    return refs.flatMap((ref) => {
+      if ('attachmentId' in ref) {
+        if (!this.sources.some((source) => source.attachmentId === ref.attachmentId)) return [];
+        return [createSourceRef(ref)];
+      }
+      return publicUrl(ref.url) ? [{ ...ref, quote: ref.quote.slice(0, 2000) }] : [];
     });
   }
 }
