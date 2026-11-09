@@ -22,7 +22,7 @@ export interface PurchasableResearch extends RecommendationInput {
 }
 
 const purchasableRecommendationInstructions = `Name each purchasable with its basic item name, usually 2–5 words. Omit the Thing's name, brands, model and product codes, part numbers and quantities. Keep only qualifiers needed to distinguish it from other purchasables, such as "Solid baking tray", "Deep baking tray" or "Wire baking shelf". Other suitable names include "Cleaning gel", "Detergent tablets" and "Water filter".
-Describe why the item is useful and when the owner should buy it. Aim for one sentence of 15–30 words, using only benefits and buying situations justified by the evidence. Mention included components or quantities only when they affect the buying decision. Include a compatibility restriction only when it affects the owner's choice. Keep product identifiers and compatibility evidence in source quotations. Keep quotations verbatim.
+Describe why the item is useful and when the owner should buy it. Aim for one sentence of 5–20 words, at most 100 characters, using only benefits and buying situations justified by the evidence. Mention included components or quantities only when they affect the buying decision. Include a compatibility restriction only when it affects the owner's choice. Keep product identifiers and compatibility evidence in source quotations. Keep quotations verbatim.
 Examples:
 - "Bosch Cleaning Gel for Ovens 00312324 (200 ml)" becomes "Cleaning gel": "Removes burnt-on food and grease from the oven interior, racks and baking trays."
 - "Bosch Universal Oven Pan 11029049" becomes "Solid baking tray": "For baking, roasting and catching drips when grilling; useful when you need a deeper tray."
@@ -53,9 +53,9 @@ export const outputSchema = createObjectSchema(
           description: {
             type: 'string',
             description:
-              'Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 15–30 words (min 1 char, max 4000 chars).',
+              'Brief evidence-based explanation of usefulness and when to buy, usually one sentence of 5–20 words (min 1 char, max 100 chars).',
             minLength: 1,
-            maxLength: 4000,
+            maxLength: 100,
           },
           merchantUrl: {
             type: 'string',
