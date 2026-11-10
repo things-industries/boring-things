@@ -26,9 +26,9 @@ export interface AgendaInput {
   thingNames: Record<string, string>;
 }
 
-/** Only active tasks with passed deadlines are overdue. */
+/** Whether a Task's deadline has passed; checking it off keeps it overdue, so it keeps its place. */
 export function isOverdue(task: Task, today: string) {
-  return task.status === 'ACTIVE' && !!task.deadlineOn && task.deadlineOn < today;
+  return !!task.deadlineOn && task.deadlineOn < today;
 }
 
 /** Whether an appointment has ended, without changing its stored status. */
@@ -95,8 +95,9 @@ export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
       overdue: isOverdue(task, today),
       task,
     };
-    if (task.status === 'COMPLETED') {
-      if (task.completionActions.length) followups.push({ ...item, day: today });
+    const completedToday = !!task.completedAt && dayKey(task.completedAt) === today;
+    if (task.status === 'COMPLETED' && !completedToday) {
+      if (task.completionActions.length) followups.push({ ...item, day: today, overdue: false });
     } else placed.push(item);
   }
   for (const event of input.events) {
@@ -170,6 +171,7 @@ export type TimeLine =
 /** Deadline, interval or appointment time shown under the item title. */
 export function timeLine(item: AgendaItem, now = new Date()): TimeLine {
   if (item.type === 'TASK') {
+    if (item.task.completedAt) return null;
     if (isOverdue(item.task, dayKey(now)))
       return { type: 'overdue', days: -daysUntil(item.task.deadlineOn!, now) };
     if (item.task.deadlineOn)

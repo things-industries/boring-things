@@ -133,7 +133,7 @@
     }
   }
 </div>
-@if (done()) {
+@if (done() && actions().length) {
   <button type="button" class="button-link" (click)="dismissed.emit()">Dismiss</button>
 }
 <bt-menu class="task-card-menu" [label]="'Actions for ' + name" variant="plain" size="sm">

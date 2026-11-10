@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Appointment, Task, ThingDate } from '../../src/app/interfaces/task.interface.js';
-import { buildAgenda, byImportance, nextItems } from '../../src/app/utils/agenda.util.js';
+import { buildAgenda, byImportance, nextItems, timeLine } from '../../src/app/utils/agenda.util.js';
 const now = new Date(2026, 9, 8, 9);
 const chat = [
   { type: 'CHAT', label: 'How did it go?', prompt: null },
@@ -98,8 +98,55 @@ test('completed work and ended appointments keep followups across days until clo
     ],
   );
   assert.deepEqual(ids(result.followups), ['event:ended', 'task:done']);
-  assert.deepEqual(ids(result.today), ['event:ongoing']);
+  assert.deepEqual(ids(result.today), ['event:ongoing', 'task:no-actions']);
   assert.equal(nextItems(result, 1)[0].key, 'event:ended');
+});
+
+const done = (item: Task, completedAt: Date): Task => ({
+  ...item,
+  status: 'COMPLETED',
+  completedAt: completedAt.toISOString(),
+});
+const yesterday = new Date(2026, 9, 7, 12);
+
+test('checking off a task keeps its position while its completion day lasts', () => {
+  const open = [
+    task('overdue', { scheduledOn: '2026-10-01', deadlineOn: '2026-10-07' }),
+    task('undated', { scheduledOn: null }),
+    task('critical', { importance: 'CRITICAL' }),
+    task('plain'),
+    task('later', { scheduledOn: '2026-10-09' }),
+  ];
+  const before = agenda(open);
+  const after = agenda(open.map((item) => done(item, now)));
+  assert.deepEqual(ids(after.today), ids(before.today));
+  assert.deepEqual(ids(after.tomorrow), ['task:later']);
+  assert.deepEqual(after.followups, []);
+  const partlyDone = agenda(open.map((item) => (item.id === 'critical' ? done(item, now) : item)));
+  assert.deepEqual(ids(partlyDone.today), ids(before.today));
+});
+
+test('a completed task leaves the list once its completion day has passed', () => {
+  const result = agenda([done(task('old'), yesterday)]);
+  assert.deepEqual(result.today, []);
+  assert.deepEqual(result.followups, []);
+});
+
+test('completion actions stay on the card that day, then become followups', () => {
+  const withActions = task('visit', { completionActions: chat });
+  const sameDay = agenda([done(withActions, now)]);
+  assert.deepEqual(ids(sameDay.today), ['task:visit']);
+  assert.deepEqual(sameDay.followups, []);
+  const nextDay = agenda([done(withActions, yesterday)]);
+  assert.deepEqual(nextDay.today, []);
+  assert.deepEqual(ids(nextDay.followups), ['task:visit']);
+});
+
+test('a completed task with a passed deadline shows no time line', () => {
+  const [item] = agenda([
+    done(task('late', { scheduledOn: '2026-10-01', deadlineOn: '2026-10-07' }), now),
+  ]).today;
+  assert.equal(timeLine(item, now), null);
 });
 
 // PR #139 placed ongoing Events under their past start date, hiding them after midnight.

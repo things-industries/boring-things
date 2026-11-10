@@ -61,20 +61,21 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
   await expect(card(page, 'Inspect the filter')).toContainText('Yesterday');
   await expect(card(page, 'Read the manual')).toBeVisible();
   await card(page, 'Inspect the filter').getByRole('checkbox').click();
-  const followups = page.getByRole('region', { name: 'How did it go?' });
-  await expect(followups.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
-  await expect(followups.getByRole('checkbox')).toBeDisabled();
+  const completed = page.locator('bt-task-card.done', { hasText: 'Inspect the filter' });
+  await expect(completed.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
+  await expect(completed.getByRole('checkbox')).toBeDisabled();
   await page.reload();
-  await expect(followups.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
+  await expect(completed.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'How did it go?' })).toHaveCount(0);
   const tasks = (await api(page, 'GET', `/tasks?thingId=${thing.id}`)) as Schema['TaskList'];
   expect(
     tasks.items.filter((item) => item.title === task.title && item.status === 'ACTIVE'),
   ).toHaveLength(1);
-  await followups.getByRole('button', { name: 'Dismiss', exact: true }).click();
-  await expect(followups).toHaveCount(0);
-  const completed = (await api(page, 'GET', `/tasks/${task.id}`)) as Schema['Task'];
-  expect(completed.status).toBe('CLOSED');
-  expect(completed.closedAt).toBeTruthy();
+  await completed.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(completed).toHaveCount(0);
+  const dismissed = (await api(page, 'GET', `/tasks/${task.id}`)) as Schema['Task'];
+  expect(dismissed.status).toBe('CLOSED');
+  expect(dismissed.closedAt).toBeTruthy();
   await card(page, 'Read the manual')
     .getByRole('button', { name: 'Actions for Read the manual' })
     .click();
@@ -133,6 +134,24 @@ test('the Tasks tab names each task’s Thing above its title', async ({ page })
   await page.goto(`/things/${thing.id}`);
   await expect(card(page, title)).toBeVisible();
   await expect(card(page, title).locator('.task-card-eyebrow')).toHaveCount(0);
+});
+
+test('a checked-off task keeps its place in the list', async ({ page }) => {
+  const thing = await setup(page);
+  const titles = ['Alpha chore', 'Beta chore', 'Gamma chore'];
+  for (const title of titles)
+    await api(page, 'POST', '/tasks', { thingId: thing.id, title, status: 'ACTIVE' });
+  await page.goto(`/things/${thing.id}/tasks`);
+  const shown = page.locator('bt-task-card .task-card-title');
+  await expect(shown).toHaveText(titles);
+  await card(page, 'Beta chore').getByRole('checkbox').click();
+  const checked = page.locator('bt-task-card.done', { hasText: 'Beta chore' });
+  await expect(checked.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true');
+  await expect(checked.getByRole('button', { name: 'Dismiss', exact: true })).toHaveCount(0);
+  await expect(shown).toHaveText(titles);
+  await page.screenshot({ path: test.info().outputPath('task-checked.png') });
+  await page.reload();
+  await expect(shown).toHaveText(titles);
 });
 
 test('accept an unscheduled suggestion and open a new contextual followup conversation', async ({
