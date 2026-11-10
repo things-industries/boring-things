@@ -76,6 +76,9 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 
 ## AI imports and assistant work
 
+- Give each AI task only the information it needs and ask it to do only the work required for its purpose.
+- Explain Boring Things terminology that carries domain meaning in prompts. Include `src/providers/ai/prompt-content/thing-definition.md` when the task needs the definition of a Thing.
+
 - Implement specialist integrations when the owner selects a provider and grants access; examples in requirements describe potential integrations. Icecat uses GTIN or manufacturer plus product code/model for appliances and devices, with free-account coverage determined by the API.
 - Discovered product photographs are display assets: skip their OCR and field/recommendation evidence. Continue to transcribe uploaded label and document photos.
 - Put Google Vision OCR in `providers/google-vision` and invoke it from attachment processing before OpenAI-related modules. Extract embedded PDF text per page, and render pages without text for the same image OCR path. Missing `GOOGLE_VISION_API_KEY` fails OCR; do not fall back to OpenAI vision. `summarize-attachment` accepts extracted text and returns analysis without source text.
@@ -118,4 +121,4 @@ Test changed business invariants and regressions, particularly cross-owner acces
 - When a change adds code, look for opportunities to remove code too - find anything that is now redundant or repeated.
 - If a task requires changes in many files, consider whether abstractions are right, and propose a change if it seems like there's an opportunity to better encapsulate and separate concerns.
 
-Task acceptance uses `providers/ai/tasks/schedule-task.ts`. Recurrence uses `COMPLETION` or `DEADLINE`, and closure timestamps use `closedAt`. Task edits affect one occurrence. See [Task behaviour](../docs/plans/tasks.md).
+Task acceptance uses `providers/ai/tasks/schedule-task.ts`. Recurrence advances the original dates by its calendar interval. A Task closes after its first successful followup, recording `completedFollowup` and `closedAt`. Task edits affect one occurrence. See [Task behaviour](../docs/plans/tasks.md).

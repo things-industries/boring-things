@@ -239,12 +239,7 @@ export interface AdditionalInformationResult {
 
 export interface TaskSuggestions {
   items: (Pick<Schema['Task'], 'title' | 'description' | 'sourceRefs'> &
-    Partial<
-      Pick<
-        Schema['Task'],
-        'importance' | 'recurrence' | 'scheduledOn' | 'deadlineOn' | 'completionActions'
-      >
-    >)[];
+    Partial<Pick<Schema['Task'], 'importance' | 'recurrence' | 'completionActions'>>)[];
 }
 
 export interface PurchasableSuggestions {

@@ -1,6 +1,5 @@
 /** Coordinates one Thing's identity, public research, shared field population and cited recommendations. */
 
-import { validateTaskSchedule } from '../task-recurrence.js';
 import { validateFollowups } from '../activity-followups.js';
 import { ApplicationError } from '../errors.js';
 import { randomUUID, createHash } from 'node:crypto';
@@ -1061,11 +1060,6 @@ export class ImportWorkflow {
                   task.title.length <= 200 && task.description.length <= 4000,
                   'Invalid recommendation',
                 );
-                validateTaskSchedule({
-                  scheduledOn: task.scheduledOn ?? null,
-                  deadlineOn: task.deadlineOn ?? null,
-                  recurrence: task.recurrence ?? null,
-                });
                 return cite(task);
               }),
             })),

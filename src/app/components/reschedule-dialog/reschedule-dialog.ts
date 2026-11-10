@@ -3,14 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { TasksStore } from '../../core/state/tasks.store';
 import { Dialog } from '../dialog/dialog';
 import type { TaskInterval } from '../../interfaces/task.interface';
-import type { Task, TaskRecurrence } from '../../interfaces/task.interface';
+import type { Task } from '../../interfaces/task.interface';
 
 let nextId = 0;
 
-/**
- * Sets a task's next due date, whether and how often it repeats, and whether the next one counts
- * from completion or the due date. Open while `task` is set.
- */
+/** Sets the Task's scheduled date, deadline and calendar recurrence interval. */
 @Component({
   selector: 'bt-reschedule-dialog',
   imports: [FormsModule, Dialog],
@@ -28,9 +25,6 @@ export class RescheduleDialog {
   readonly interval = linkedSignal(() => this.task()?.recurrence?.interval ?? 1);
   readonly unit = linkedSignal<TaskInterval['unit']>(
     () => this.task()?.recurrence?.unit ?? 'MONTH',
-  );
-  readonly from = linkedSignal<TaskRecurrence['from']>(
-    () => this.task()?.recurrence?.from ?? 'COMPLETION',
   );
   readonly units: TaskInterval['unit'][] = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
   readonly formId = `reschedule-task-${nextId++}`;
@@ -66,7 +60,7 @@ export class RescheduleDialog {
         (!!(this.date() || this.deadline()) &&
           Number.isInteger(this.interval()) &&
           this.interval() >= 1 &&
-          (this.from() !== 'DEADLINE' || !!this.deadline())))
+          this.interval() <= 1000))
     );
   }
 
@@ -78,7 +72,7 @@ export class RescheduleDialog {
       task.id,
       this.date() || null,
       this.deadline() || null,
-      this.repeats() ? { interval: this.interval(), unit: this.unit(), from: this.from() } : null,
+      this.repeats() ? { interval: this.interval(), unit: this.unit() } : null,
     );
     if (result.ok) this.close();
   }

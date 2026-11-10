@@ -80,7 +80,8 @@ export class TaskCard {
   readonly actions = computed(() => {
     const item = this.item();
 
-    if (item.type === 'TASK') return item.task.completionActions;
+    if (item.type === 'TASK')
+      return item.task.status === 'CLOSED' ? [] : item.task.completionActions;
     return item.type === 'EVENT' ? item.event.completionActions : [];
   });
 

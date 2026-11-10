@@ -41,8 +41,8 @@ export const taskProperties = {
     anyOf: [
       {
         type: 'object',
-        description: 'Interval and reference policy for generating the next task.',
-        required: ['interval', 'unit', 'from'],
+        description: 'Calendar interval for repeating the task.',
+        required: ['interval', 'unit'],
         properties: {
           interval: {
             type: 'integer',
@@ -54,11 +54,6 @@ export const taskProperties = {
             description: 'Calendar unit for task recurrence.',
             enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'],
           },
-          from: {
-            type: 'string',
-            description: 'Completion date or planned deadline used for recurrence.',
-            enum: ['COMPLETION', 'DEADLINE'],
-          },
         },
         additionalProperties: false,
       },
@@ -66,12 +61,12 @@ export const taskProperties = {
         type: 'null',
       },
     ],
-    description: 'Evidence-based recurrence; a repeating task has at least one date.',
+    description: 'Documented recurrence interval; absolute dates are chosen when accepted.',
   },
   completionActions: {
     type: 'array',
     items: {
-      description: 'Independent followup offered after completion or the end of an event.',
+      description: 'Followup option offered after completion or the end of an event.',
       anyOf: [
         {
           type: 'object',

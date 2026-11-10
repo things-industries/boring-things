@@ -27,7 +27,7 @@ Examples:
 - "Remove food residues before using the oven" is obvious routine care; omit it as a task.
 - "Reset the router" can qualify as a documented common remedy; its description explains the symptoms and procedure.
 - "Submit a claim" names the work; evidence requirements belong in the description.
-Include importance, recurrence and useful followups justified by evidence. Recurring suggestions need at least one date; use today as scheduledOn when no starting date is known. DEADLINE recurrence requires an evidenced deadline. Use only supplied field addresses in followups. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
+Include importance, a documented recurrence interval and useful followups justified by evidence. Suggest task ideas; dates are chosen separately when the owner accepts a suggestion. Use only supplied field addresses in followups. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
 
 export const outputSchema = createObjectSchema(
   {
@@ -54,8 +54,6 @@ export const outputSchema = createObjectSchema(
           },
           importance: taskProperties.importance,
           recurrence: taskProperties.recurrence,
-          scheduledOn: taskProperties.scheduledOn,
-          deadlineOn: taskProperties.deadlineOn,
           completionActions: taskProperties.completionActions,
           sourceRefs: recommendationSourcesSchema,
         },
@@ -80,7 +78,7 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
     utilities:
       'Required meter readings, tariff reviews and renewal actions supported by the contract.',
   };
-  return `Find management tasks worth remembering for this Thing. Category guidance: ${guidance[research.categoryId] ?? 'Documented maintenance, administration and common remedies.'} Today: ${new Date().toISOString().slice(0, 10)}. About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Establish applicability to the model, variant, region and service version where relevant. Include sourceRefs from linked Attachments or public sources when available; an empty array is allowed. Use at most ${searchCalls} web tool calls including page opens; stop at that limit.`;
+  return `Find management tasks worth remembering for this Thing. Category guidance: ${guidance[research.categoryId] ?? 'Documented maintenance, administration and common remedies.'} About the thing: ${JSON.stringify(research)}. Consult the supplied reference URLs. Establish applicability to the model, variant, region and service version where relevant. Include sourceRefs from linked Attachments or public sources when available; an empty array is allowed. Use at most ${searchCalls} web tool calls including page opens; stop at that limit.`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;
@@ -117,8 +115,6 @@ export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions
           title: item.title,
           importance: item.importance,
           recurrence: item.recurrence,
-          scheduledOn: item.scheduledOn,
-          deadlineOn: item.deadlineOn,
           completionActions: item.completionActions,
           description: item.description,
           sourceRefs: this.getSourceRefs(item.sourceRefs),

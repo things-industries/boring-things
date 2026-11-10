@@ -19,6 +19,7 @@ const task: Schema['Task'] = {
   recurrence: null,
   completionActions: [],
   completedAt: null,
+  completedFollowup: null,
   closedAt: null,
   referenceTaskId: null,
   sourceRefs: [],

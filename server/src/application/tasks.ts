@@ -36,6 +36,7 @@ export async function writeTask(
     recurrence: null,
     completionActions: [],
     completedAt: null,
+    completedFollowup: null,
     closedAt: null,
     referenceTaskId: null,
     sourceRefs: [],
@@ -45,7 +46,7 @@ export async function writeTask(
   } satisfies Schema['Task'];
   task.title = task.title.trim();
   ensure(task.title, 'Title cannot be blank');
-  validateTaskSchedule(task);
+  validateTaskSchedule(task, task.status === 'SUGGESTED' || task.status === 'CLOSED');
   await validateFollowups(
     db,
     owner,
@@ -55,15 +56,17 @@ export async function writeTask(
     registry,
     task.status === 'CLOSED',
   );
-  const scheduleChanged =
-    existing &&
-    (['scheduledOn', 'deadlineOn', 'recurrence'] as const).some(
-      (key) => key in input && JSON.stringify(input[key]) !== JSON.stringify(existing[key]),
-    );
   const saved = await tasksDb.saveTask(
     db,
     owner,
-    { ...task, referenceDates: scheduleChanged ? null : existing?.referenceDates },
+    {
+      ...task,
+      referenceDates:
+        existing?.referenceDates ??
+        (task.scheduledOn || task.deadlineOn
+          ? { scheduledOn: task.scheduledOn, deadlineOn: task.deadlineOn }
+          : null),
+    },
     !!id,
   );
   await thingsDb.bumpThing(db, owner, thingId);
@@ -113,6 +116,7 @@ export async function changeTask(
       id: randomUUID(),
       status: 'ACTIVE',
       completedAt: null,
+      completedFollowup: null,
       closedAt: null,
       referenceTaskId: task.referenceTaskId ?? task.id,
       referenceDates,

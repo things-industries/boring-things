@@ -61,23 +61,6 @@
   }
 }
 
-.reschedule-options {
-  display: flex;
-  flex-direction: column;
-  gap: tokens.space(2);
-}
-
-.reschedule-option {
-  margin-bottom: 0;
-  @include typography.role(body);
-  color: tokens.color(primary);
-  cursor: pointer;
-
-  input {
-    accent-color: tokens.color(primary);
-  }
-}
-
 .reschedule-note {
   @include typography.role(caption);
   margin: tokens.space(2) 0 0;

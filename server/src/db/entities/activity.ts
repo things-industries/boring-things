@@ -187,12 +187,7 @@ export async function saveSuggestedTask(
   owner: string,
   thingId: string,
   task: Pick<Schema['Task'], 'title' | 'description' | 'sourceRefs'> &
-    Partial<
-      Pick<
-        Schema['Task'],
-        'importance' | 'recurrence' | 'scheduledOn' | 'deadlineOn' | 'completionActions'
-      >
-    >,
+    Partial<Pick<Schema['Task'], 'importance' | 'recurrence' | 'completionActions'>>,
 ) {
   await database.execute(
     db,
@@ -209,8 +204,8 @@ export async function saveSuggestedTask(
       activityKey(thingId, 'task', task.title),
       task.importance ?? 'RECOMMENDED',
       task.recurrence ? JSON.stringify(task.recurrence) : null,
-      task.scheduledOn ?? null,
-      task.deadlineOn ?? null,
+      null,
+      null,
       JSON.stringify(task.completionActions ?? []),
     ],
   );

@@ -42,7 +42,7 @@ function advance(date: string, recurrence: Schema['TaskRecurrence'], periods: nu
   );
 }
 
-/** Computes one successor, skipping missed deadlines on the original cadence. */
+/** Computes one successor on the original cadence, skipping missed occurrences. */
 export function getNextTaskDates(
   task: Pick<Schema['Task'], 'scheduledOn' | 'deadlineOn' | 'recurrence'>,
   reference: RecurrenceReference,
@@ -50,47 +50,39 @@ export function getNextTaskDates(
 ): RecurrenceReference {
   const recurrence = task.recurrence;
   ensure(recurrence, 'Recurrence is required');
-  ensure(task.scheduledOn || task.deadlineOn, 'Recurring tasks need a date');
-  if (recurrence.from === 'COMPLETION') {
-    const next = advance(today, recurrence, 1);
-    const lead =
-      task.scheduledOn && task.deadlineOn
-        ? differenceInCalendarDays(parseISO(task.deadlineOn), parseISO(task.scheduledOn))
-        : 0;
-    return {
-      deadlineOn: task.deadlineOn ? next : null,
-      scheduledOn: task.scheduledOn ? format(addDays(parseISO(next), -lead), 'yyyy-MM-dd') : null,
-    };
-  }
-  ensure(task.deadlineOn && reference.deadlineOn, 'Deadline recurrence needs a deadline');
-  const after = task.deadlineOn > today ? task.deadlineOn : today;
+  const current = task.deadlineOn ?? task.scheduledOn;
+  ensure(current, 'Recurring tasks need a date');
+  const anchor = task.deadlineOn
+    ? (reference.deadlineOn ?? task.deadlineOn)
+    : (reference.scheduledOn ?? current);
+  const after = current > today ? current : today;
   const days = recurrence.unit === 'DAY' || recurrence.unit === 'WEEK';
   const distance = days
-    ? differenceInCalendarDays(parseISO(after), parseISO(reference.deadlineOn))
-    : differenceInCalendarMonths(parseISO(after), parseISO(reference.deadlineOn));
+    ? differenceInCalendarDays(parseISO(after), parseISO(anchor))
+    : differenceInCalendarMonths(parseISO(after), parseISO(anchor));
   const step =
     recurrence.interval * (recurrence.unit === 'WEEK' ? 7 : recurrence.unit === 'YEAR' ? 12 : 1);
   let periods = Math.max(1, Math.floor(distance / step));
-  while (advance(reference.deadlineOn, recurrence, periods) <= after) periods++;
+  while (advance(anchor, recurrence, periods) <= after) periods++;
   return {
-    deadlineOn: advance(reference.deadlineOn, recurrence, periods),
-    scheduledOn: reference.scheduledOn ? advance(reference.scheduledOn, recurrence, periods) : null,
+    deadlineOn: task.deadlineOn
+      ? advance(reference.deadlineOn ?? task.deadlineOn, recurrence, periods)
+      : null,
+    scheduledOn: task.scheduledOn
+      ? advance(reference.scheduledOn ?? task.scheduledOn, recurrence, periods)
+      : null,
   };
 }
 
-/** Validates date presence and ordering for a Task schedule. */
+/** Validates date ordering and requires a date for accepted recurring Tasks. */
 export function validateTaskSchedule(
   task: Pick<Schema['Task'], 'scheduledOn' | 'deadlineOn' | 'recurrence'>,
+  suggested = false,
 ) {
   ensure(
     !task.scheduledOn || !task.deadlineOn || task.scheduledOn <= task.deadlineOn,
     'Scheduled date must not follow the deadline',
   );
-  if (task.recurrence) {
+  if (task.recurrence && !suggested)
     ensure(task.scheduledOn || task.deadlineOn, 'Recurring tasks need a date');
-    ensure(
-      task.recurrence.from !== 'DEADLINE' || task.deadlineOn,
-      'Deadline recurrence needs a deadline',
-    );
-  }
 }

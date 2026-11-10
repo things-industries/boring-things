@@ -22,6 +22,7 @@ function task(id: string, overrides: Partial<Task> = {}): Task {
     recurrence: null,
     completionActions: [],
     completedAt: null,
+    completedFollowup: null,
     closedAt: null,
     referenceTaskId: null,
     sourceRefs: [],

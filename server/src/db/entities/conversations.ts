@@ -325,7 +325,7 @@ export async function createConversation(
   let { thingId } = input;
   return database.transaction(pool, async (db) => {
     ensure(!(input.taskId && input.eventId), 'Choose one task or event');
-    const activity = input.taskId
+    let activity = input.taskId
       ? await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId)
       : input.eventId
         ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', input.eventId)
@@ -335,6 +335,8 @@ export async function createConversation(
       ensure(!thingId || thingId === activity.thingId, 'Thing does not match item');
       thingId = activity.thingId;
     }
+    if (thingId) await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    if (input.taskId) activity = await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId, true);
     const action =
       input.actionIndex === undefined ? null : activity?.completionActions[input.actionIndex];
     if (input.actionIndex !== undefined) {
@@ -354,7 +356,6 @@ export async function createConversation(
       ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', activity.issueId)
       : null;
     const context = activity ? { item: activity, issue } : null;
-    if (thingId) await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
     const [item] = await database.rows<{ id: string }>(
       db,
       'insert into bt.conversations(owner_id,thing_id,id,activity_context) values($1,$2,coalesce($3::uuid,gen_random_uuid()),$4) returning id',
@@ -366,6 +367,10 @@ export async function createConversation(
         "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
         [item.id, randomUUID(), action.prompt.trim()],
       );
+    }
+    if (input.taskId && action?.type === 'CHAT') {
+      const task = await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId, true);
+      await tasksDb.completeFollowup(db, owner, task, action);
     }
     if (thingId) await thingsDb.bumpThing(db, owner, thingId);
     return getOwnedConversationSnapshot(db, owner, item.id);

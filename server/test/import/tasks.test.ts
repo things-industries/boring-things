@@ -367,8 +367,6 @@ for (const capability of ['tasks', 'purchasables'] as const) {
             title: 'Clean the seal',
             importance: 'RECOMMENDED',
             recurrence: null,
-            scheduledOn: null,
-            deadlineOn: null,
             completionActions: [],
             description: 'Use cleaner when water is insufficient.',
             sourceRefs,
@@ -395,6 +393,9 @@ for (const capability of ['tasks', 'purchasables'] as const) {
             /Select work worth remembering or tracking to completion/,
           );
           assert.match(body.instructions, /Name each task with a verb and its object/);
+          const properties = body.text.format.schema.properties.items.items.properties;
+          assert.ok(!Object.hasOwn(properties, 'scheduledOn'));
+          assert.ok(!Object.hasOwn(properties, 'deadlineOn'));
         } else {
           assert.match(body.instructions, /Name each purchasable with its basic item name/);
           assert.match(
@@ -593,8 +594,6 @@ test('task recommendations finish from gathered evidence when the tool budget is
                   title: 'Check the seal',
                   importance: 'RECOMMENDED',
                   recurrence: null,
-                  scheduledOn: null,
-                  deadlineOn: null,
                   completionActions: [],
                   description: 'Inspect monthly.',
                   sourceRefs: [

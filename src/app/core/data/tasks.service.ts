@@ -25,6 +25,11 @@ export class TasksService {
       })
       .then(apiData);
   }
+  completeFollowup(id: string, body: Schema['TaskFollowupInput']) {
+    return this.client
+      .POST('/api/tasks/{id}:followup', { params: { path: { id } }, body })
+      .then(apiData);
+  }
   async remove(id: string) {
     const result = await this.client.DELETE('/api/tasks/{id}', { params: { path: { id } } });
     if (result.error) throw result.error;

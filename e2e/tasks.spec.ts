@@ -49,7 +49,7 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
     scheduledOn: day(-2),
     deadlineOn: day(-1),
     importance: 'CRITICAL',
-    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+    recurrence: { interval: 1, unit: 'MONTH' },
     completionActions: chat,
   })) as Schema['Task'];
   await api(page, 'POST', '/tasks', {
@@ -81,7 +81,11 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
   await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit schedule' });
   await dialog.getByLabel('Scheduled on').fill(day(1));
-  await dialog.getByLabel('Deadline on').fill(day(4));
+  await dialog
+    .getByRole('combobox', { name: 'Repeat', exact: true })
+    .selectOption({ label: 'Yes' });
+  await expect(dialog.getByText('Schedule next task from')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('task-recurrence.png') });
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   const tomorrow = page.locator('section', {
     has: page.getByRole('heading', { name: 'Tomorrow', exact: true }),
@@ -117,6 +121,11 @@ test('accept an unscheduled suggestion and open a new contextual followup conver
   );
   await expect(page.getByText('The filter still needs work.', { exact: true })).toBeVisible();
   await expect(page.getByText('The saved details are ready.', { exact: true })).toBeVisible();
+  const closed = (await api(page, 'GET', `/tasks/${task.id}`)) as Schema['Task'];
+  expect(closed.status).toBe('CLOSED');
+  expect(closed.completedFollowup?.action.type).toBe('CHAT');
+  await page.goto(`/things/${thing.id}/tasks`);
+  await expect(card(page, 'Check the handle')).toHaveCount(0);
 });
 
 // Splitting Tasks from Events removed implicit Event loading on Thing task pages.
@@ -220,22 +229,26 @@ test('custom-field followups save typed answers and keep money currencies', asyn
     })),
   })) as Schema['Thing'];
   const fields = updated.customFields;
-  const task = (await api(page, 'POST', '/tasks', {
-    thingId: thing.id,
-    title: 'Record results',
-    status: 'ACTIVE',
-    completionActions: fields.map((field) => ({
-      type: 'UPDATE_FIELD',
-      label: field.label,
-      fieldSetId: null,
-      fieldId: null,
-      customFieldId: field.id,
-    })),
-  })) as Schema['Task'];
-  await api(page, 'POST', `/tasks/${task.id}:complete`, {});
   await page.goto(`/things/${thing.id}/tasks`);
-
   for (const entry of cases) {
+    const targetField = fields.find((field) => field.label === entry.label)!;
+    const task = (await api(page, 'POST', '/tasks', {
+      thingId: thing.id,
+      title: 'Record ' + entry.label,
+      status: 'ACTIVE',
+      completionActions: [
+        {
+          type: 'UPDATE_FIELD',
+          label: targetField.label,
+          fieldSetId: null,
+          fieldId: null,
+          customFieldId: targetField.id,
+        },
+        ...chat,
+      ],
+    })) as Schema['Task'];
+    await api(page, 'POST', `/tasks/${task.id}:complete`, {});
+    await page.reload();
     await page.getByRole('button', { name: entry.label, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: entry.label, exact: true });
     const input = dialog.getByLabel(entry.label, { exact: true });
@@ -260,5 +273,9 @@ test('custom-field followups save typed answers and keep money currencies', asyn
         ).value
       : field.value;
     expect(value).toEqual(entry.expected);
+    await expect(card(page, task.title)).toHaveCount(0);
+    const closed = (await api(page, 'GET', `/tasks/${task.id}`)) as Schema['Task'];
+    expect(closed.status).toBe('CLOSED');
+    expect(closed.completedFollowup?.action.type).toBe('UPDATE_FIELD');
   }
 });

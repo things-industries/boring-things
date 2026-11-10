@@ -51,8 +51,7 @@ test('tasks accept missing dates, validate recurrence and reject lifecycle chang
   for (const patch of [
     { scheduledOn: '2026-02-30' },
     { scheduledOn: '2026-10-02', deadlineOn: '2026-10-01' },
-    { recurrence: { interval: 1, unit: 'MONTH', from: 'COMPLETION' } },
-    { scheduledOn: '2026-10-01', recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' } },
+    { recurrence: { interval: 1, unit: 'MONTH' } },
     { status: 'SUGGESTED' },
     { completedAt: '2026-01-01T00:00:00Z' },
   ]) {
@@ -74,7 +73,10 @@ test('tasks accept missing dates, validate recurrence and reject lifecycle chang
 
 test('acceptance calls the scheduling task once and failed scheduling leaves the suggestion unchanged', async (t) => {
   const thing = await createThing();
-  const task = await createTask(thing.id, { status: 'SUGGESTED' });
+  const task = await createTask(thing.id, {
+    status: 'SUGGESTED',
+    recurrence: { interval: 1, unit: 'MONTH' },
+  });
   const before = app.taskScheduler.calls;
   const response = await request('POST', `/tasks/${task.id}:accept`, { timeZone: 'Europe/London' });
   assert.equal(response.statusCode, 200, response.body);
@@ -98,7 +100,7 @@ test('concurrent completion creates one successor and later edits and deletion d
   const task = await createTask(thing.id, {
     scheduledOn: '2026-01-20',
     deadlineOn: '2026-01-31',
-    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+    recurrence: { interval: 1, unit: 'MONTH' },
     completionActions: chat,
   });
   const responses = await Promise.all([
@@ -188,7 +190,10 @@ test('chat followups send their saved prompt and include item and issue context'
   for (let i = 0; i < 100 && !context; i++) await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal((context as { item: { id: string } }).item.id, task.id);
   app.chatAi.probe = undefined;
-  await request('POST', `/tasks/${task.id}:close`, {});
+  const saved = (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>();
+  assert.equal(saved.status, 'CLOSED');
+  assert.equal(saved.completedFollowup?.action.type, 'CHAT');
+  assert.equal(saved.completedFollowup?.completedAt, saved.closedAt);
   assert.equal(
     (await request('POST', '/conversations', { taskId: task.id, actionIndex: 0 })).statusCode,
     422,
@@ -227,6 +232,7 @@ test('all Task operations and linked context enforce owner scope', async () => {
     ...['accept', 'complete', 'close'].map(
       (action) => ['POST', `/tasks/${task.id}:${action}`, {}] as const,
     ),
+    ['POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value: 'no' }],
     ['POST', '/conversations', { taskId: task.id }],
   ] as const) {
     const response = await request(method, path, payload, other);
@@ -243,5 +249,98 @@ test('all Task operations and linked context enforce owner scope', async () => {
       Schema['ThingDateList']
     >().items,
     [],
+  );
+});
+
+// PR #139 offered independent Task followups; the first successful choice must now close it.
+test('one field followup closes the Task and competing answers make no further changes', async () => {
+  const thing = await createThing();
+  const updated = (
+    await request('PATCH', `/things/${thing.id}`, {
+      customFields: [{ label: 'Inspection count', value: 1, sensitive: true }],
+    })
+  ).json<Schema['Thing']>();
+  const field = updated.customFields[0];
+  const task = await createTask(thing.id, {
+    completionActions: [
+      {
+        type: 'UPDATE_FIELD',
+        label: 'Record inspection',
+        customFieldId: field.id,
+        fieldSetId: null,
+        fieldId: null,
+      },
+      ...chat,
+    ],
+  });
+  assert.equal(
+    (await request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value: 5 })).statusCode,
+    409,
+  );
+  await request('POST', `/tasks/${task.id}:complete`, {});
+  assert.equal(
+    (await request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0 })).statusCode,
+    422,
+  );
+  assert.equal(
+    (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>().status,
+    'COMPLETED',
+  );
+  const replies = await Promise.all(
+    [5, 6].map((value) => request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value })),
+  );
+  assert.deepEqual(replies.map((r) => r.statusCode).sort(), [200, 409]);
+  const saved = (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>();
+  assert.equal(saved.status, 'CLOSED');
+  assert.equal(saved.completedFollowup?.action.type, 'UPDATE_FIELD');
+  assert.equal(saved.completedFollowup?.completedAt, saved.closedAt);
+  assert.ok(!JSON.stringify(saved.completedFollowup).includes('value'));
+  const winner = replies.findIndex((r) => r.statusCode === 200);
+  const answer = (
+    await request('POST', `/things/${thing.id}:reveal-field`, { customFieldId: field.id })
+  ).json<Schema['RevealResult']>();
+  assert.equal(answer.value, winner === 0 ? 5 : 6);
+  assert.equal(
+    (await request('POST', '/conversations', { taskId: task.id, actionIndex: 1 })).statusCode,
+    422,
+  );
+});
+
+test('attachment and issue followups save their result and close Tasks', async () => {
+  const thing = await createThing();
+  const file = 'followup-fixture';
+  const { rows } = await app.pool.query<{ id: string }>(
+    `insert into bt.attachments(owner_id,filename,media_type,storage_key,byte_size) select owner_id,'receipt.txt','text/plain',$2,18 from bt.things where id=$1 returning id`,
+    [thing.id, file],
+  );
+  const attachment = await createTask(thing.id, {
+    completionActions: [{ type: 'ADD_ATTACHMENT', label: 'Add receipt', documentType: 'RECEIPT' }],
+  });
+  await request('POST', `/tasks/${attachment.id}:complete`, {});
+  const linked = await request('POST', `/tasks/${attachment.id}:followup`, {
+    actionIndex: 0,
+    attachmentId: rows[0].id,
+  });
+  assert.equal(linked.statusCode, 200, linked.body);
+  assert.equal(linked.json<Schema['Task']>().completedFollowup?.action.type, 'ADD_ATTACHMENT');
+  const savedFile = (await request('GET', `/attachments/${rows[0].id}`)).json<
+    Schema['Attachment']
+  >();
+  assert.equal(savedFile.documentType, 'RECEIPT');
+  assert.ok(savedFile.thingIds.includes(thing.id));
+  const issue = (
+    await request('POST', '/issues', { thingId: thing.id, title: 'Filter problem' })
+  ).json<Schema['Issue']>();
+  const task = await createTask(thing.id, {
+    issueId: issue.id,
+    completionActions: [{ type: 'RESOLVE_ISSUE', label: 'Fixed' }],
+  });
+  await request('POST', `/tasks/${task.id}:complete`, {});
+  const resolved = await request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0 });
+  assert.equal(resolved.statusCode, 200, resolved.body);
+  assert.equal(resolved.json<Schema['Task']>().completedFollowup?.action.type, 'RESOLVE_ISSUE');
+  assert.equal(
+    (await request('GET', `/issues/${issue.id}`)).json<Schema['Issue']>().status,
+    'RESOLVED',
   );
 });

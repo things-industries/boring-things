@@ -44,16 +44,28 @@ export class TaskActions {
     });
   }
 
-  /** Runs one followup without dismissing the remaining options. */
+  /** Runs the chosen followup; a completed Task closes after its first answer. */
   async answer(item: AgendaItem, action: CompletionAction) {
     const issueId =
       item.type === 'TASK' ? item.task.issueId : item.type === 'EVENT' ? item.event.issueId : null;
     if (action.type === 'CHAT') this.ask(item, action);
     else if (action.type === 'RESOLVE_ISSUE') {
-      if (issueId) await this.issues.resolve(issueId);
+      if (item.type === 'TASK') {
+        const result = await this.tasks.completeFollowup(item.task.id, {
+          actionIndex: item.task.completionActions.indexOf(action),
+        });
+        if (result.ok)
+          await Promise.all([this.issues.reload(), this.events.reload(), this.tasks.reload()]);
+      } else if (issueId) await this.issues.resolve(issueId);
     } else {
       await this.things.loadOne(item.thingId);
-      this.answering.set({ thingId: item.thingId, action });
+      this.answering.set({
+        thingId: item.thingId,
+        action,
+        ...(item.type === 'TASK'
+          ? { task: { id: item.task.id, actionIndex: item.task.completionActions.indexOf(action) } }
+          : {}),
+      });
     }
   }
 

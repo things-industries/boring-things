@@ -29,6 +29,7 @@
             name="interval"
             type="number"
             min="1"
+            max="1000"
             step="1"
             inputmode="numeric"
             aria-label="Number"
@@ -49,40 +50,9 @@
           </select>
         </div>
       </div>
-      <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-from'">
-        <span class="reschedule-legend" [id]="formId + '-from'">Schedule next task from</span>
-        <div class="reschedule-options">
-          <label class="check-label reschedule-option">
-            <input
-              type="radio"
-              name="from"
-              value="COMPLETION"
-              [ngModel]="from()"
-              (ngModelChange)="from.set($event)"
-            />
-            When I complete this task
-          </label>
-          <label class="check-label reschedule-option">
-            <input
-              type="radio"
-              name="from"
-              value="DEADLINE"
-              [disabled]="!deadline()"
-              [ngModel]="from()"
-              (ngModelChange)="from.set($event)"
-            />
-            The deadline
-          </label>
-        </div>
-        <p class="reschedule-note">
-          The next task will be due {{ interval() }} {{ unitName(unit()) }} after
-          {{
-            from() === 'COMPLETION'
-              ? 'you complete this one.'
-              : 'its deadline, skipping missed occurrences.'
-          }}
-        </p>
-      </div>
+      <p class="reschedule-note">
+        Each date repeats from the original task, skipping missed occurrences.
+      </p>
     }
   </form>
   <div dialogActions>

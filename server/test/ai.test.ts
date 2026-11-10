@@ -523,9 +523,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   const item = {
     title: 'Clean the filter',
     importance: 'RECOMMENDED' as const,
-    recurrence: null,
-    scheduledOn: null,
-    deadlineOn: null,
+    recurrence: { interval: 6, unit: 'MONTH' as const },
     completionActions: [],
     description: 'Clean every six months.',
     quote: 'Clean every six months.',
@@ -547,9 +545,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
       items: [
         {
           importance: item.importance,
-          recurrence: null,
-          scheduledOn: null,
-          deadlineOn: null,
+          recurrence: item.recurrence,
           completionActions: [],
           title: item.title,
           description: item.description,
@@ -573,9 +569,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   assert.deepEqual(suggestions.items, [
     {
       importance: item.importance,
-      recurrence: null,
-      scheduledOn: null,
-      deadlineOn: null,
+      recurrence: item.recurrence,
       completionActions: [],
       title: item.title,
       description: item.description,

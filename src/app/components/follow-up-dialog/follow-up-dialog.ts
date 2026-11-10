@@ -4,6 +4,7 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { AttachmentsStore } from '../../core/state/attachments.store';
 import { ThingDatesStore } from '../../core/state/thing-dates.store';
+import { TasksStore } from '../../core/state/tasks.store';
 import { ThingsStore } from '../../core/state/things.store';
 import { Dialog } from '../dialog/dialog';
 import type { CompletionAction } from '../../interfaces/task.interface';
@@ -13,6 +14,7 @@ import type { Value } from '../../../../shared/model';
 /** A field or document completion action waiting for an answer. */
 export interface FollowUpRequest {
   thingId: string;
+  task?: { id: string; actionIndex: number };
   action: Extract<CompletionAction, { type: 'UPDATE_FIELD' | 'ADD_ATTACHMENT' }>;
 }
 
@@ -29,6 +31,7 @@ let nextId = 0;
   styleUrl: './follow-up-dialog.scss',
 })
 export class FollowUpDialog {
+  private tasks = inject(TasksStore);
   private dates = inject(ThingDatesStore);
   private things = inject(ThingsStore);
   private attachments = inject(AttachmentsStore);
@@ -112,31 +115,37 @@ export class FollowUpDialog {
           currency: previous && typeof previous === 'object' ? previous.currency : 'GBP',
         };
       }
-      const result = await this.things.update(
-        request.thingId,
-        target.custom
-          ? {
-              customFields: [
-                {
-                  id: target.custom.id,
-                  label: target.custom.label,
-                  value,
-                  sensitive: target.custom.sensitive,
+      const result = request.task
+        ? await this.tasks.completeFollowup(request.task.id, {
+            actionIndex: request.task.actionIndex,
+            value: target.field ? fieldValue(target.field, this.draft().trim(), 'GBP') : value,
+          })
+        : await this.things.update(
+            request.thingId,
+            target.custom
+              ? {
+                  customFields: [
+                    {
+                      id: target.custom.id,
+                      label: target.custom.label,
+                      value,
+                      sensitive: target.custom.sensitive,
+                    },
+                  ],
+                }
+              : {
+                  values: [
+                    {
+                      fieldSetId: target.setId,
+                      fieldId: target.field.id,
+                      value: fieldValue(target.field, this.draft().trim(), 'GBP'),
+                    },
+                  ],
                 },
-              ],
-            }
-          : {
-              values: [
-                {
-                  fieldSetId: target.setId,
-                  fieldId: target.field.id,
-                  value: fieldValue(target.field, this.draft().trim(), 'GBP'),
-                },
-              ],
-            },
-      );
+          );
       this.busy.set(false);
       if (result.ok) {
+        if (request.task) await this.things.loadOne(request.thingId);
         await this.dates.reload();
         this.close();
       }
@@ -146,11 +155,19 @@ export class FollowUpDialog {
     if (!file) return;
     this.busy.set(true);
 
-    const result = await this.attachments.upload(file, request.thingId);
+    const result = await this.attachments.upload(file, request.task ? undefined : request.thingId);
 
     this.busy.set(false);
     if (result.ok) {
-      if (request.action.type === 'ADD_ATTACHMENT' && request.action.documentType) {
+      if (request.task) {
+        const completed = await this.tasks.completeFollowup(request.task.id, {
+          actionIndex: request.task.actionIndex,
+          attachmentId: result.value.id,
+        });
+        if (!completed.ok) return;
+        await this.things.loadOne(request.thingId);
+        await this.attachments.loadOne(result.value.id);
+      } else if (request.action.type === 'ADD_ATTACHMENT' && request.action.documentType) {
         const changed = await this.attachments.update(result.value.id, {
           documentType: request.action.documentType,
         });
