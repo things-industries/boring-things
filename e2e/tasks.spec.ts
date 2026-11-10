@@ -154,6 +154,48 @@ test('a checked-off task keeps its place in the list', async ({ page }) => {
   await expect(shown).toHaveText(titles);
 });
 
+test('suggested tasks show descriptions, add with a spinner and can be dismissed', async ({
+  page,
+}) => {
+  const thing = await setup(page);
+  const add = (await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Check the seal',
+    description: 'Look for cracks along the rim.',
+  })) as Schema['Task'];
+  const dismiss = (await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Clean the base',
+  })) as Schema['Task'];
+  const row = (title: string) => page.locator('bt-suggested-task', { hasText: title });
+  await page.goto(`/things/${thing.id}`);
+  await expect(row('Check the seal')).toBeVisible();
+  await expect(row('Check the seal')).not.toContainText('Look for cracks');
+  await page.getByRole('link', { name: 'See all suggested tasks' }).click();
+  await expect(row('Check the seal')).toContainText('Look for cracks along the rim.');
+
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(`**/api/tasks/${add.id}:accept`, async (route) => {
+    await held;
+    await route.continue();
+  });
+  const addButton = page.getByRole('button', { name: 'Add to tasks: Check the seal' });
+  await addButton.click();
+  await expect(addButton).toHaveCount(0);
+  await expect(row('Check the seal').getByRole('status')).toContainText('Adding Check the seal');
+  await page.screenshot({ path: test.info().outputPath('suggestion-adding.png') });
+  release();
+  await expect(row('Check the seal')).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'wait' });
+
+  await page.getByRole('button', { name: 'Dismiss: Clean the base' }).click();
+  await expect(row('Clean the base')).toHaveCount(0);
+  expect(((await api(page, 'GET', `/tasks/${dismiss.id}`)) as Schema['Task']).status).toBe(
+    'CLOSED',
+  );
+});
+
 test('accept an unscheduled suggestion and open a new contextual followup conversation', async ({
   page,
 }) => {

@@ -15,7 +15,7 @@
   } @else {
     <ul class="suggestions-list">
       @for (task of suggested(); track task.id) {
-        <li><bt-suggested-task [task]="task" (added)="add(task.id)" /></li>
+        <li><bt-suggested-task [task]="task" [showDescription]="true" /></li>
       } @empty {
         <li class="suggestions-empty">
           No suggestions left.

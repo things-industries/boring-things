@@ -341,11 +341,6 @@ export class ThingPage {
     void this.issues.resolve(id);
   }
 
-  /** Adds a suggested task to the schedule; the day is chosen for the owner. */
-  addTask(id: string) {
-    void this.tasks.schedule(id);
-  }
-
   saveCategory() {
     const categoryId = this.categoryDraft();
 

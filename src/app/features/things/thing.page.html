@@ -282,7 +282,7 @@
                 </bt-section-header>
                 <div>
                   @for (task of suggested(); track task.id) {
-                    <bt-suggested-task [task]="task" (added)="addTask(task.id)" />
+                    <bt-suggested-task [task]="task" />
                   } @empty {
                     <bt-row-skeleton [rows]="2" />
                   }

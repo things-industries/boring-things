@@ -10,7 +10,7 @@ import { byImportance } from '../../../utils/agenda.util';
 import { RowSkeleton } from '../row-skeleton/row-skeleton';
 import { routeThing } from '../thing-loader';
 
-/** A Thing's suggested tasks by importance, each ready to add to its tasks. */
+/** A Thing's suggested tasks by importance, each ready to add or dismiss. */
 @Component({
   selector: 'bt-thing-suggestions',
   imports: [RouterLink, ErrorMessage, RowSkeleton, ScrollContainer, SuggestedTask, TopBar],
@@ -36,10 +36,5 @@ export class ThingSuggestionsPage {
   retry() {
     this.current.retry();
     this.collections.retry();
-  }
-
-  /** Adds a suggested task to the schedule; the day is chosen for the owner. */
-  add(id: string) {
-    void this.tasks.schedule(id);
   }
 }
