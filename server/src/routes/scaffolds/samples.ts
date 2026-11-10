@@ -162,7 +162,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     await addTask(hob, 'Check the hob manual', { status: 'SUGGESTED' });
     await addTask(hob, 'Deep clean', {
       scheduledOn: on(1),
-      recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+      recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
       completionActions: [chat('How did it go?')],
     });
     await addTask(hob, 'Inspect the cable', { importance: 'NICE_TO_HAVE' });
@@ -170,7 +170,6 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       scheduledOn: on(6),
       deadlineOn: on(20),
       importance: 'CRITICAL',
-      recurrence: { interval: 1, unit: 'YEAR', from: 'DEADLINE' },
     });
     await addTask(insurance, 'Review home cover', { scheduledOn: on(5), importance: 'IMPORTANT' });
     const policyActions: Schema['CompletionAction'][] = [
@@ -187,7 +186,6 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       scheduledOn: on(0),
       deadlineOn: on(30),
       importance: 'IMPORTANT',
-      recurrence: { interval: 1, unit: 'YEAR', from: 'DEADLINE' },
       completionActions: policyActions,
     });
     await addTask(membership, 'Renew the membership', {

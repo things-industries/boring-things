@@ -8,7 +8,7 @@ import * as tasksDb from '../db/entities/tasks.js';
 import type { Registry } from './registry/registry.js';
 import { detail } from './things.js';
 import { writeTask } from './tasks.js';
-import { getLocalDate } from './task-recurrence.js';
+import { getLocalDate, validateTaskSchedule } from './task-recurrence.js';
 import { ensure } from './errors.js';
 
 export interface TaskSchedule {
@@ -64,7 +64,9 @@ export async function acceptTask(
       'Task changed while choosing dates; try again',
       'CONFLICT',
     );
-    const saved = await writeTask(db, owner, { ...dates }, registry, id);
+    const schedule = { ...dates, recurrence: dates.deadlineOn ? null : current.recurrence };
+    validateTaskSchedule(schedule);
+    const saved = await writeTask(db, owner, schedule, registry, id);
     const active = await tasksDb.saveTask(db, owner, { ...saved, status: 'ACTIVE' }, true);
     return { task: active, nextTask: null };
   });

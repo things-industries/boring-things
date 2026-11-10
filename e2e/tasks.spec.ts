@@ -47,19 +47,20 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
     title: 'Inspect the filter',
     status: 'ACTIVE',
     scheduledOn: day(-2),
-    deadlineOn: day(-1),
     importance: 'CRITICAL',
-    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+    recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
     completionActions: chat,
   })) as Schema['Task'];
   await api(page, 'POST', '/tasks', {
     thingId: thing.id,
     title: 'Read the manual',
     status: 'ACTIVE',
+    deadlineOn: day(-1),
   });
   await page.goto(`/things/${thing.id}/tasks`);
-  await expect(card(page, 'Inspect the filter')).toContainText('Yesterday');
-  await expect(card(page, 'Read the manual')).toBeVisible();
+  await expect(card(page, 'Inspect the filter')).toBeVisible();
+  await expect(card(page, 'Read the manual')).toContainText('Yesterday');
+  await expect(card(page, 'Inspect the filter')).toContainText('Every month');
   await card(page, 'Inspect the filter').getByRole('checkbox').click();
   const completed = page.locator('bt-task-card.done', { hasText: 'Inspect the filter' });
   await expect(completed.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
@@ -81,15 +82,33 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
     .click();
   await page.getByRole('menuitem', { name: 'Edit schedule' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit schedule' });
+  await dialog.getByLabel('Deadline on').fill(day(3));
   await dialog.getByLabel('Scheduled on').fill(day(1));
   const repeat = dialog.getByRole('checkbox', { name: 'Repeat', exact: true });
   await expect(repeat).not.toBeChecked();
   await repeat.focus();
   await page.keyboard.press('Space');
   await expect(repeat).toBeChecked();
-  await dialog.getByRole('radio', { name: "The task's dates", exact: true }).check();
+  await expect(dialog.getByRole('alert')).toHaveText(
+    'Tasks with a deadline cannot repeat. Remove the deadline or uncheck Repeat.',
+  );
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  await page.screenshot({ path: test.info().outputPath('task-recurrence-conflict.png') });
+  await repeat.uncheck();
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  await expect(dialog.getByLabel('Deadline on')).toHaveValue(day(3));
+  await repeat.check();
+  await dialog.getByLabel('Deadline on').fill('');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  await dialog.getByRole('radio', { name: "The task's scheduled date", exact: true }).check();
   await page.screenshot({ path: test.info().outputPath('task-recurrence.png') });
   await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toBeHidden();
+  const edited = (await api(page, 'GET', `/tasks?thingId=${thing.id}`)) as Schema['TaskList'];
+  const scheduled = edited.items.find((item) => item.title === 'Read the manual');
+  expect(scheduled?.recurrence?.from).toBe('SCHEDULED');
+  expect(scheduled?.deadlineOn).toBeNull();
   const tomorrow = page.locator('section', {
     has: page.getByRole('heading', { name: 'Tomorrow', exact: true }),
   });
@@ -103,7 +122,7 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
   await openSchedule();
   await expect(repeat).toBeChecked();
   await repeat.uncheck();
-  await expect(dialog.getByRole('radio', { name: "The task's dates" })).toHaveCount(0);
+  await expect(dialog.getByRole('radio', { name: "The task's scheduled date" })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog).toHaveCount(0);
   await openSchedule();

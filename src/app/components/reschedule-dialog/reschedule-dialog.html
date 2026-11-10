@@ -23,6 +23,11 @@
       />
       Repeat
     </label>
+    @if (repeats() && deadline()) {
+      <p class="reschedule-note" role="alert">
+        Tasks with a deadline cannot repeat. Remove the deadline or uncheck Repeat.
+      </p>
+    }
     @if (repeats()) {
       <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-every'">
         <span class="reschedule-legend" [id]="formId + '-every'">Repeat every</span>
@@ -68,19 +73,18 @@
           <input
             type="radio"
             name="from"
-            value="DEADLINE"
+            value="SCHEDULED"
             [ngModel]="from()"
             (ngModelChange)="from.set($event)"
           />
-          The task's dates
+          The task's scheduled date
         </label>
       </div>
       <p class="reschedule-note">
         @if (from() === 'COMPLETION') {
-          The next task counts from completion and keeps the same gap between its scheduled date and
-          deadline.
+          The next task's scheduled date counts from completion.
         } @else {
-          Each date repeats from the original task, skipping missed occurrences.
+          The scheduled date repeats from the original task, skipping missed occurrences.
         }
       </p>
     }

@@ -51,7 +51,8 @@ test('tasks accept missing dates, validate recurrence and reject lifecycle chang
   for (const patch of [
     { scheduledOn: '2026-02-30' },
     { scheduledOn: '2026-10-02', deadlineOn: '2026-10-01' },
-    { recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' } },
+    { recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' } },
+    { scheduledOn: '2096-01-01', recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' } },
     { status: 'SUGGESTED' },
     { completedAt: '2026-01-01T00:00:00Z' },
   ]) {
@@ -75,7 +76,7 @@ test('acceptance calls the scheduling task once and failed scheduling leaves the
   const thing = await createThing();
   const task = await createTask(thing.id, {
     status: 'SUGGESTED',
-    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+    recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
   });
   const before = app.taskScheduler.calls;
   const response = await request('POST', `/tasks/${task.id}:accept`, { timeZone: 'Europe/London' });
@@ -95,12 +96,62 @@ test('acceptance calls the scheduling task once and failed scheduling leaves the
   );
 });
 
+test('deadlines exclude recurrence on creation and occurrence edits', async () => {
+  const thing = await createThing();
+  const recurrence = { interval: 1, unit: 'MONTH', from: 'SCHEDULED' } as const;
+  for (const status of ['SUGGESTED', 'ACTIVE']) {
+    const response = await request('POST', '/tasks', {
+      thingId: thing.id,
+      title: 'Review the cover',
+      status,
+      deadlineOn: '2096-01-10',
+      recurrence,
+    });
+    assert.equal(response.statusCode, 422, response.body);
+  }
+  const task = await createTask(thing.id, { scheduledOn: '2096-01-01', recurrence });
+  assert.equal(
+    (await request('PATCH', `/tasks/${task.id}`, { deadlineOn: '2096-01-10' })).statusCode,
+    422,
+  );
+  const changed = await request('PATCH', `/tasks/${task.id}`, {
+    deadlineOn: '2096-01-10',
+    recurrence: null,
+  });
+  assert.equal(changed.statusCode, 200, changed.body);
+  assert.equal((await request('PATCH', `/tasks/${task.id}`, { recurrence })).statusCode, 422);
+  const completed = await request('POST', `/tasks/${task.id}:complete`, {});
+  assert.equal(completed.statusCode, 200, completed.body);
+  assert.equal(completed.json<Schema['TaskChange']>().nextTask, null);
+});
+
+test('acceptance keeps an evidenced deadline and removes recurrence', async (t) => {
+  const thing = await createThing();
+  const task = await createTask(thing.id, {
+    status: 'SUGGESTED',
+    recurrence: { interval: 1, unit: 'YEAR', from: 'COMPLETION' },
+  });
+  t.mock.method(app.taskScheduler, 'schedule', async () => ({
+    scheduledOn: null,
+    deadlineOn: '2096-01-10',
+  }));
+  const accepted = await request('POST', `/tasks/${task.id}:accept`, {});
+  assert.equal(accepted.statusCode, 200, accepted.body);
+  const saved = accepted.json<Schema['TaskChange']>().task;
+  assert.equal(saved.status, 'ACTIVE');
+  assert.equal(saved.scheduledOn, null);
+  assert.equal(saved.deadlineOn, '2096-01-10');
+  assert.equal(saved.recurrence, null);
+  const completed = await request('POST', `/tasks/${task.id}:complete`, {});
+  assert.equal(completed.statusCode, 200, completed.body);
+  assert.equal(completed.json<Schema['TaskChange']>().nextTask, null);
+});
+
 test('concurrent completion creates one successor and later edits and deletion do not move it', async () => {
   const thing = await createThing();
   const task = await createTask(thing.id, {
     scheduledOn: '2026-01-20',
-    deadlineOn: '2026-01-31',
-    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
+    recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
     completionActions: chat,
   });
   const responses = await Promise.all([
@@ -113,11 +164,12 @@ test('concurrent completion creates one successor and later edits and deletion d
   assert.ok(next);
   assert.equal(changes.filter((c) => c.nextTask).length, 1);
   assert.equal(next.referenceTaskId, task.id);
-  assert.ok(next.deadlineOn! > new Date().toISOString().slice(0, 10));
+  assert.ok(next.scheduledOn! > new Date().toISOString().slice(0, 10));
+  assert.equal(next.deadlineOn, null);
   assert.equal(next.completionActions[0].type, 'CHAT');
   const completed = changes[0].task;
   assert.ok(Date.now() - Date.parse(completed.completedAt!) < 10000);
-  await request('PATCH', `/tasks/${task.id}`, { deadlineOn: '2026-12-01' });
+  await request('PATCH', `/tasks/${task.id}`, { scheduledOn: '2026-12-01' });
   assert.deepEqual((await request('GET', `/tasks/${next.id}`)).json(), next);
   assert.equal((await request('DELETE', `/tasks/${task.id}`)).statusCode, 204);
   const nextCompletion = await request('POST', `/tasks/${next.id}:complete`, {});
@@ -415,27 +467,24 @@ test('attachment and issue followups save their result and close Tasks', async (
   );
 });
 
-// a139bfe kept null reference components when a date was added, breaking later occurrences.
-for (const added of ['scheduledOn', 'deadlineOn'] as const) {
-  test(`a newly added ${added} gets a reference for every later occurrence`, async () => {
-    const thing = await createThing();
-    const original = { scheduledOn: '2096-01-01', deadlineOn: '2096-01-10' };
-    const task = await createTask(thing.id, {
-      ...original,
-      [added]: null,
-      recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
-    });
-    const edited = await request('PATCH', `/tasks/${task.id}`, { [added]: original[added] });
-    assert.equal(edited.statusCode, 200, edited.body);
-    let current = task;
-    for (const month of ['02', '03']) {
-      const response = await request('POST', `/tasks/${current.id}:complete`, {});
-      assert.equal(response.statusCode, 200, response.body);
-      const next = response.json<Schema['TaskChange']>().nextTask;
-      assert.ok(next);
-      assert.equal(next.scheduledOn, `2096-${month}-01`);
-      assert.equal(next.deadlineOn, `2096-${month}-10`);
-      current = next;
-    }
+// a139bfe kept null references when a scheduled date was added, breaking later occurrences.
+test('a newly added scheduled date gets a reference for every later occurrence', async () => {
+  const thing = await createThing();
+  const task = await createTask(thing.id, {
+    status: 'SUGGESTED',
+    recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
   });
-}
+  const edited = await request('PATCH', `/tasks/${task.id}`, { scheduledOn: '2096-01-01' });
+  assert.equal(edited.statusCode, 200, edited.body);
+  assert.equal((await request('POST', `/tasks/${task.id}:accept`, {})).statusCode, 200);
+  let current = task;
+  for (const month of ['02', '03']) {
+    const response = await request('POST', `/tasks/${current.id}:complete`, {});
+    assert.equal(response.statusCode, 200, response.body);
+    const next = response.json<Schema['TaskChange']>().nextTask;
+    assert.ok(next);
+    assert.equal(next.scheduledOn, `2096-${month}-01`);
+    assert.equal(next.deadlineOn, null);
+    current = next;
+  }
+});

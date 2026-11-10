@@ -13,7 +13,6 @@ import { ensure } from './errors.js';
 
 export interface RecurrenceReference {
   scheduledOn: string | null;
-  deadlineOn: string | null;
 }
 
 /** Returns the calendar date in a validated IANA timezone. */
@@ -47,25 +46,19 @@ export function getNextTaskDates(
   task: Pick<Schema['Task'], 'scheduledOn' | 'deadlineOn' | 'recurrence'>,
   reference: RecurrenceReference,
   today: string,
-): RecurrenceReference {
+): Pick<Schema['Task'], 'scheduledOn' | 'deadlineOn'> {
   const recurrence = task.recurrence;
   ensure(recurrence, 'Recurrence is required');
-  const current = task.deadlineOn ?? task.scheduledOn;
-  ensure(current, 'Recurring tasks need a date');
+  validateTaskSchedule(task);
+  const current = task.scheduledOn;
+  ensure(current, 'Recurring tasks need a scheduled date');
   if (recurrence.from === 'COMPLETION') {
-    const next = advance(today, recurrence, 1);
-    const lead =
-      task.scheduledOn && task.deadlineOn
-        ? differenceInCalendarDays(parseISO(task.deadlineOn), parseISO(task.scheduledOn))
-        : 0;
     return {
-      deadlineOn: task.deadlineOn ? next : null,
-      scheduledOn: task.scheduledOn ? format(addDays(parseISO(next), -lead), 'yyyy-MM-dd') : null,
+      deadlineOn: null,
+      scheduledOn: advance(today, recurrence, 1),
     };
   }
-  const anchor = task.deadlineOn
-    ? (reference.deadlineOn ?? task.deadlineOn)
-    : (reference.scheduledOn ?? current);
+  const anchor = reference.scheduledOn ?? current;
   const after = current > today ? current : today;
   const days = recurrence.unit === 'DAY' || recurrence.unit === 'WEEK';
   const distance = days
@@ -76,24 +69,21 @@ export function getNextTaskDates(
   let periods = Math.max(1, Math.floor(distance / step));
   while (advance(anchor, recurrence, periods) <= after) periods++;
   return {
-    deadlineOn: task.deadlineOn
-      ? advance(reference.deadlineOn ?? task.deadlineOn, recurrence, periods)
-      : null,
-    scheduledOn: task.scheduledOn
-      ? advance(reference.scheduledOn ?? task.scheduledOn, recurrence, periods)
-      : null,
+    deadlineOn: null,
+    scheduledOn: advance(anchor, recurrence, periods),
   };
 }
 
-/** Validates date ordering and requires a date for accepted recurring Tasks. */
+/** Validates date ordering and recurrence without deadlines. */
 export function validateTaskSchedule(
   task: Pick<Schema['Task'], 'scheduledOn' | 'deadlineOn' | 'recurrence'>,
   suggested = false,
 ) {
+  ensure(!task.recurrence || !task.deadlineOn, 'Tasks with a deadline cannot recur');
   ensure(
     !task.scheduledOn || !task.deadlineOn || task.scheduledOn <= task.deadlineOn,
     'Scheduled date must not follow the deadline',
   );
   if (task.recurrence && !suggested)
-    ensure(task.scheduledOn || task.deadlineOn, 'Recurring tasks need a date');
+    ensure(task.scheduledOn, 'Recurring tasks need a scheduled date');
 }

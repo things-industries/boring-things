@@ -798,7 +798,7 @@ export interface paths {
         put?: never;
         /**
          * Accept task
-         * @description Accepts a suggestion after the scheduling AI task chooses dates from its saved context. Unknown dates stay null. Provider failures leave the suggestion unchanged.
+         * @description Accepts a suggestion after the scheduling AI task chooses dates from its saved context. An evidenced deadline removes recurrence. Unknown dates stay null. Provider failures leave the suggestion unchanged.
          */
         post: operations["acceptTask"];
         delete?: never;
@@ -1747,7 +1747,7 @@ export interface components {
             type: "RESOLVE_ISSUE";
             label: string;
         };
-        /** @description Properties for creating a suggested or active task. Active recurring Tasks require at least one date. */
+        /** @description Properties for creating a suggested or active task. Tasks with a deadline cannot recur. Active recurring Tasks require scheduledOn. */
         TaskInput: {
             /** Format: uuid */
             id?: string;
@@ -1766,7 +1766,7 @@ export interface components {
             completionActions?: components["schemas"]["CompletionAction"][];
             status?: components["schemas"]["TaskInitialStatusEnum"];
         };
-        /** @description Selected task properties to update. Null removes optional dates, recurrence or the issue link. Edits affect this occurrence only. */
+        /** @description Selected task properties to update. Null removes optional dates, recurrence or the issue link. Tasks with a deadline cannot recur. Edits affect this occurrence only. */
         TaskPatch: {
             /** Format: uuid */
             issueId?: string | null;
@@ -1780,7 +1780,7 @@ export interface components {
             recurrence?: components["schemas"]["TaskRecurrence"] | null;
             completionActions?: components["schemas"]["CompletionAction"][];
         };
-        /** @description User action for a Thing, with optional schedule, deadline, recurrence and followups. */
+        /** @description User action for a Thing, with optional schedule, deadline, recurrence and followups. Tasks with a deadline cannot recur. */
         Task: {
             /** Format: uuid */
             id: string;
@@ -1982,10 +1982,10 @@ export interface components {
          */
         TaskInitialStatusEnum: "SUGGESTED" | "ACTIVE";
         /**
-         * @description Completion date or the original Task dates used for recurrence. DEADLINE can use scheduledOn when deadlineOn is absent.
+         * @description Completion date or the original scheduledOn date used for recurrence.
          * @enum {string}
          */
-        RecurrenceFromEnum: "COMPLETION" | "DEADLINE";
+        RecurrenceFromEnum: "COMPLETION" | "SCHEDULED";
     };
     responses: {
         /** @description A valid bearer token is required. */

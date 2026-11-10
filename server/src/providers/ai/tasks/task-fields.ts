@@ -35,7 +35,7 @@ export const taskProperties = {
   deadlineOn: {
     type: ['string', 'null'],
     format: 'date',
-    description: 'Task deadlineOn.',
+    description: 'Hard deadline for a one-off Task; requires recurrence to be null.',
   },
   recurrence: {
     anyOf: [
@@ -56,8 +56,8 @@ export const taskProperties = {
           },
           from: {
             type: 'string',
-            enum: ['COMPLETION', 'DEADLINE'],
-            description: 'Completion date or original Task dates used for recurrence.',
+            enum: ['COMPLETION', 'SCHEDULED'],
+            description: 'Completion date or original scheduled date used for recurrence.',
           },
         },
         additionalProperties: false,
@@ -66,7 +66,8 @@ export const taskProperties = {
         type: 'null',
       },
     ],
-    description: 'Documented recurrence interval; absolute dates are chosen when accepted.',
+    description:
+      'Documented recurrence interval for Tasks without a deadline; absolute dates are chosen when accepted.',
   },
   completionActions: {
     type: 'array',
