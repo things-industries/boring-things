@@ -55,12 +55,13 @@ export class RescheduleDialog {
     this.closed.emit();
   }
 
-  /** Whether the form can be saved: a date, and a whole interval of at least one when repeating. */
+  /** Requires a scheduled date and whole interval for recurrence, with no deadline. */
   valid() {
     return (
       (!this.date() || !this.deadline() || this.date() <= this.deadline()) &&
+      !(this.repeats() && this.deadline()) &&
       (!this.repeats() ||
-        (!!(this.date() || this.deadline()) &&
+        (!!this.date() &&
           Number.isInteger(this.interval()) &&
           this.interval() >= 1 &&
           this.interval() <= 1000))

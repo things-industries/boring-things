@@ -2641,7 +2641,7 @@
       "post": {
         "operationId": "acceptTask",
         "summary": "Accept task",
-        "description": "Accepts a suggestion after the scheduling AI task chooses dates from its saved context. Unknown dates stay null. Provider failures leave the suggestion unchanged.",
+        "description": "Accepts a suggestion after the scheduling AI task chooses dates from its saved context. An evidenced deadline removes recurrence. Unknown dates stay null. Provider failures leave the suggestion unchanged.",
         "tags": ["Activity"],
         "responses": {
           "200": {
@@ -5608,7 +5608,7 @@
       },
       "TaskInput": {
         "type": "object",
-        "description": "Properties for creating a suggested or active task. Active recurring Tasks require at least one date.",
+        "description": "Properties for creating a suggested or active task. Tasks with a deadline cannot recur. Active recurring Tasks require scheduledOn.",
         "required": ["thingId", "title"],
         "properties": {
           "id": {
@@ -5668,7 +5668,7 @@
       },
       "TaskPatch": {
         "type": "object",
-        "description": "Selected task properties to update. Null removes optional dates, recurrence or the issue link. Edits affect this occurrence only.",
+        "description": "Selected task properties to update. Null removes optional dates, recurrence or the issue link. Tasks with a deadline cannot recur. Edits affect this occurrence only.",
         "properties": {
           "issueId": {
             "type": ["string", "null"],
@@ -5716,7 +5716,7 @@
       },
       "Task": {
         "type": "object",
-        "description": "User action for a Thing, with optional schedule, deadline, recurrence and followups.",
+        "description": "User action for a Thing, with optional schedule, deadline, recurrence and followups. Tasks with a deadline cannot recur.",
         "required": [
           "id",
           "thingId",
@@ -6132,8 +6132,8 @@
       },
       "RecurrenceFromEnum": {
         "type": "string",
-        "description": "Completion date or the original Task dates used for recurrence. DEADLINE can use scheduledOn when deadlineOn is absent.",
-        "enum": ["COMPLETION", "DEADLINE"]
+        "description": "Completion date or the original scheduledOn date used for recurrence.",
+        "enum": ["COMPLETION", "SCHEDULED"]
       }
     },
     "responses": {

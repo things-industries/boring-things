@@ -62,10 +62,9 @@ export async function writeTask(
     {
       ...task,
       referenceDates:
-        task.scheduledOn || task.deadlineOn || existing?.referenceDates
+        task.scheduledOn || existing?.referenceDates
           ? {
               scheduledOn: existing?.referenceDates?.scheduledOn ?? task.scheduledOn,
-              deadlineOn: existing?.referenceDates?.deadlineOn ?? task.deadlineOn,
             }
           : null,
     },
@@ -110,7 +109,6 @@ export async function changeTask(
   if (action === 'complete' && task.recurrence) {
     const referenceDates = task.referenceDates ?? {
       scheduledOn: task.scheduledOn,
-      deadlineOn: task.deadlineOn,
     };
     const { referenceDates: _referenceDates, ...successor } = await tasksDb.saveTask(db, owner, {
       ...task,

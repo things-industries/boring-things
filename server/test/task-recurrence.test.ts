@@ -1,4 +1,4 @@
-/** Calendar and validation coverage for recurrence anchored to original Task dates. */
+/** Calendar and validation coverage for recurrence anchored to the original scheduled date. */
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,79 +9,64 @@ import {
 } from '../src/application/task-recurrence.js';
 import type { Schema } from '../../shared/model.js';
 
-const monthly: Schema['TaskRecurrence'] = { interval: 1, unit: 'MONTH', from: 'DEADLINE' };
-test('both dates follow the original monthly cadence and skip missed occurrences', () => {
-  const reference = { scheduledOn: '2026-01-20', deadlineOn: '2026-01-31' };
-  const task = { ...reference, recurrence: monthly };
-  assert.deepEqual(getNextTaskDates(task, reference, '2026-01-30'), {
-    scheduledOn: '2026-02-20',
-    deadlineOn: '2026-02-28',
+const monthly: Schema['TaskRecurrence'] = { interval: 1, unit: 'MONTH', from: 'SCHEDULED' };
+
+test('scheduled recurrence keeps month-end references and skips missed occurrences', () => {
+  const reference = { scheduledOn: '2026-01-31' };
+  const task = { ...reference, deadlineOn: null, recurrence: monthly };
+  const february = getNextTaskDates(task, reference, '2026-01-30');
+  assert.deepEqual(february, { scheduledOn: '2026-02-28', deadlineOn: null });
+  assert.deepEqual(getNextTaskDates({ ...task, ...february }, reference, '2026-02-28'), {
+    scheduledOn: '2026-03-31',
+    deadlineOn: null,
   });
-  assert.deepEqual(
-    getNextTaskDates(
-      { ...task, scheduledOn: '2026-02-20', deadlineOn: '2026-02-28' },
-      reference,
-      '2026-03-31',
-    ),
-    {
-      scheduledOn: '2026-04-20',
-      deadlineOn: '2026-04-30',
-    },
-  );
+  assert.deepEqual(getNextTaskDates({ ...task, ...february }, reference, '2026-03-31'), {
+    scheduledOn: '2026-04-30',
+    deadlineOn: null,
+  });
 });
-for (const key of ['scheduledOn', 'deadlineOn'] as const) {
-  test(`${key} alone repeats without month-end drift`, () => {
-    const reference = { scheduledOn: null, deadlineOn: null, [key]: '2026-01-31' };
-    const task = { ...reference, recurrence: monthly };
-    const february = getNextTaskDates(task, reference, '2026-01-31');
-    assert.equal(february[key], '2026-02-28');
-    const march = getNextTaskDates({ ...task, ...february }, reference, '2026-02-28');
-    assert.equal(march[key], '2026-03-31');
-    assert.equal(march[key === 'scheduledOn' ? 'deadlineOn' : 'scheduledOn'], null);
-  });
-}
+
 test('annual cadence restores leap day and timezone conversion follows the local date', () => {
-  const reference = { scheduledOn: null, deadlineOn: '2024-02-29' };
+  const reference = { scheduledOn: '2024-02-29' };
   const task = {
-    ...reference,
-    deadlineOn: '2027-02-28',
+    scheduledOn: '2027-02-28',
+    deadlineOn: null,
     recurrence: { ...monthly, unit: 'YEAR' } satisfies Schema['TaskRecurrence'],
   };
-  assert.equal(getNextTaskDates(task, reference, '2027-02-28').deadlineOn, '2028-02-29');
+  assert.equal(getNextTaskDates(task, reference, '2027-02-28').scheduledOn, '2028-02-29');
   assert.equal(getLocalDate(new Date('2026-03-29T23:30:00Z'), 'Europe/London'), '2026-03-30');
   assert.throws(() => getLocalDate(new Date(), 'Invalid/Zone'), /Unknown timezone/);
 });
+
 test('recurring suggestions can be undated until acceptance', () => {
   const task = { scheduledOn: null, deadlineOn: null, recurrence: monthly };
   validateTaskSchedule(task, true);
-  assert.throws(() => validateTaskSchedule(task), /need a date/);
+  assert.throws(() => validateTaskSchedule(task), /need a scheduled date/);
 });
 
+for (const from of ['COMPLETION', 'SCHEDULED'] as const) {
+  test(`${from} recurrence rejects deadlines for suggestions and accepted Tasks`, () => {
+    const task = {
+      scheduledOn: '2026-01-10',
+      deadlineOn: '2026-01-20',
+      recurrence: { ...monthly, from },
+    };
+    for (const suggested of [true, false])
+      assert.throws(() => validateTaskSchedule(task, suggested), /deadline cannot recur/);
+    assert.throws(() => getNextTaskDates(task, task, '2026-01-31'), /deadline cannot recur/);
+    validateTaskSchedule({ ...task, recurrence: null });
+  });
+}
+
 // a139bfe removed completion-based recurrence and changed its reference to saved dates.
-test('completion recurrence advances the actual completion date and keeps the last lead time', () => {
+test('completion recurrence advances the actual completion date', () => {
   const task = {
     scheduledOn: '2026-01-10',
-    deadlineOn: '2026-01-20',
+    deadlineOn: null,
     recurrence: { ...monthly, from: 'COMPLETION' as const },
   };
   assert.deepEqual(getNextTaskDates(task, task, '2026-01-31'), {
-    scheduledOn: '2026-02-18',
-    deadlineOn: '2026-02-28',
+    scheduledOn: '2026-02-28',
+    deadlineOn: null,
   });
 });
-
-for (const key of ['scheduledOn', 'deadlineOn'] as const) {
-  test(`completion recurrence keeps only ${key} when the other date is absent`, () => {
-    const task = {
-      scheduledOn: null,
-      deadlineOn: null,
-      [key]: '2026-01-10',
-      recurrence: { ...monthly, from: 'COMPLETION' as const },
-    };
-    assert.deepEqual(getNextTaskDates(task, task, '2026-01-31'), {
-      scheduledOn: null,
-      deadlineOn: null,
-      [key]: '2026-02-28',
-    });
-  });
-}

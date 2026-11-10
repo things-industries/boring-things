@@ -21,16 +21,17 @@ Events use `SCHEDULED` and `CLOSED`. A timed Event ends at its end timestamp, or
 - `scheduledOn` is the date under which a future Task appears. A missing or passed scheduled date places it under Today.
 - `deadlineOn` is the hard due date. Only a passed deadline makes an active Task overdue.
 - A scheduled date cannot follow a deadline.
+- The schedule editor explains deadline and recurrence conflicts and requires the owner to remove one before saving.
 - Importance is `CRITICAL`, `IMPORTANT`, `RECOMMENDED` or `NICE_TO_HAVE`. It controls prominence and ordering within task groups.
 - Task suggestions describe ideas and documented recurrence intervals. Absolute dates are chosen on acceptance.
-- Accepting a suggestion runs `ScheduleTask`, using the saved Task, Thing details, work history and local date. Unknown dates stay null. A deadline needs evidence of an obligation, expiry or user request. Scheduling failures leave the suggestion unchanged and can be retried.
+- Accepting a suggestion runs `ScheduleTask`, using the saved Task, Thing details, work history and local date. Unknown dates stay null. A deadline needs evidence of an obligation, expiry or user request. An evidenced deadline removes recurrence on acceptance. Scheduling failures leave the suggestion unchanged and can be retried.
 
 ## Recurrence
 
-Recurrence has an integer interval, a `DAY`, `WEEK`, `MONTH` or `YEAR` unit, and a `COMPLETION` or `DEADLINE` basis. Active recurring Tasks require at least one date. Suggestions provide an interval with no dates and initially use completion-based recurrence. Acceptance chooses their dates, and the owner can edit the recurrence basis.
+Recurrence has an integer interval, a `DAY`, `WEEK`, `MONTH` or `YEAR` unit, and a `COMPLETION` or `SCHEDULED` basis. Tasks with a deadline cannot recur. Active recurring Tasks require `scheduledOn`. Suggestions provide an interval with no dates and initially use completion-based recurrence. Acceptance chooses their dates, and the owner can edit the recurrence basis.
 
-- Completion-based recurrence sets the next deadline to completion date plus interval. The scheduled date keeps the just-completed Task's lead time in calendar days. When only a scheduled date exists, it becomes completion date plus interval and the deadline stays absent.
-- Date-based recurrence advances each populated date from its original reference, so 31 January, 28 February and 31 March stay on the same monthly cadence. Missed occurrences are skipped until the next deadline, or scheduled date when no deadline exists, is in the future.
+- Completion-based recurrence sets the next scheduled date to completion date plus interval.
+- Scheduled-date recurrence advances the scheduled date from its original reference, so 31 January, 28 February and 31 March stay on the same monthly cadence. Missed occurrences are skipped until the next scheduled date is in the future.
 - `referenceTaskId` identifies the original occurrence. Private saved reference dates keep calculations independent of later edits or deletion of that record. Edits affect the selected occurrence and keep its original recurrence references.
 - Completion locks the Task and creates one successor in the same transaction. Repeated completion returns the completed record without generating another successor.
 - The successor copies importance, issue, recurrence, followups and citations. Closing or deleting an occurrence ends that occurrence without creating more work.
@@ -56,6 +57,6 @@ The browser reads persisted Tasks, Events and Thing dates. The server generates 
 
 ## Delivery and validation
 
-The schema migration deletes pre-existing Events and creates Tasks; historical records do not need conversion. Run `pnpm db:migrate` before using the changed API. Existing chat cards can identify deleted resources as unavailable.
+The schema migration deletes pre-existing Events and creates Tasks; historical records do not need conversion. Run `pnpm db:migrate` before using the changed API. Existing chat cards can identify deleted resources as unavailable. Migration `20261110151123_task_deadlines_exclude_recurrence.sql` keeps deadlines and removes conflicting recurrence in every Task state, and renames remaining `DEADLINE` recurrence bases to `SCHEDULED`.
 
 Run `CI=true pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Unit and integration tests are under `server/test/`. Scheduling tests and browser tests use fixtures. Metered AI checks require approval for each invocation.

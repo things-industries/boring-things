@@ -80,6 +80,17 @@ test('scheduling uses saved context in one structured request and validates retu
   assert.equal(requests[0].store, false);
   assert.match(String(requests[0].input), /Example policy/);
   assert.match(String(requests[0].instructions), /hard due date/);
+  output = { scheduledOn: null, deadlineOn: '2026-12-01' };
+  const deadline = await new ScheduleTask(
+    {
+      task: { ...task, recurrence: { interval: 1, unit: 'YEAR', from: 'COMPLETION' } },
+      thing,
+      history: [],
+      today: '2026-11-09',
+    },
+    { signal: new AbortController().signal, record: async () => {} },
+  ).run();
+  assert.deepEqual(deadline, output);
   output = { scheduledOn: '2026-02-30', deadlineOn: null };
   await assert.rejects(schedule(), /Invalid AI output/);
 });
