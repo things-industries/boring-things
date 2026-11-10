@@ -120,6 +120,8 @@ Upload size, PDF parsing and image decoding also use the limits in the retrieval
 
 Icecat uses the [Product JSON API](https://iceclog.com/manual-for-icecat-json-product-requests/) with the token in the `api-token` header. Free Open Icecat access covers participating brands such as Philips; absent, restricted and unreleased products return no proposals. Authentication, transport and malformed-response failures create retryable warnings. No brand list is hard-coded. Mapped fields include manufacturer, model, GTIN, unqualified overall dimensions, appliance finish and electrical supply, and device weight, screen diagonal and display resolution when supplied. Feature IDs select meanings and display values keep units; package and stand-specific dimensions are omitted. The shared writer applies owner permissions. Run `pnpm db:seed` and restart the API after updating the registry. No provider credentials reach the browser.
 
+Specialist integrations extend the `SpecialistProvider` base class in `server/src/providers/specialist-data.ts`. Icecat and Zyfy occupy `server/src/providers/icecat/` and `server/src/providers/zyfy/`. The base class holds the request function and defines applicability and lookup methods. The Import workflow saves results through the field writer and manages completion checkpoints and optional warnings.
+
 ### Vehicle lookup
 
 [Zyfy](https://zyfy.uk/docs/vehicle) runs before public resource research when `ZYFY_API_KEY` is configured and the saved Thing has a registration and a UK registration country. Accepted country values include UK, GB, GBR, United Kingdom, Great Britain and the constituent countries. The provider checks that the returned registration matches the normalised lookup input.

@@ -3,9 +3,9 @@
 import timers from 'node:timers/promises';
 import type { Value } from '../../../../shared/model.js';
 import type { ThingRow } from '../../db/entities/things.js';
-import type { Registry } from '../registry/registry.js';
-import type { SpecialistProvider, SpecialistResult } from './specialists.js';
-import { ApplicationError, ensure } from '../errors.js';
+import type { Registry } from '../../application/registry/registry.js';
+import { SpecialistProvider, type SpecialistResult } from '../specialist-data.js';
+import { ApplicationError, ensure } from '../../application/errors.js';
 import * as metrics from '../../metrics.js';
 
 const ukCountries = new Set([
@@ -72,13 +72,15 @@ function getRegistration(thing: ThingRow) {
     : null;
 }
 
-export class ZyfyProvider implements SpecialistProvider {
-  id = 'ZYFY';
+export class ZyfyProvider extends SpecialistProvider {
+  readonly id = 'ZYFY';
 
   constructor(
     private apiKey: string,
-    private request: typeof fetch = fetch,
-  ) {}
+    request: typeof fetch = fetch,
+  ) {
+    super(request);
+  }
 
   // Checks registration and jurisdiction before making any request.
   applicable(thing: ThingRow) {

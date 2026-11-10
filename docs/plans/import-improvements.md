@@ -22,7 +22,7 @@ Identifier matching initially uses an AI semantic judgement over category-valid 
 | Field occurrences and automatic writes        | `application/thing-fields.ts`, `application/thing-data.ts`, `db/entities/thing-fields.ts`, `db/entities/things.ts` |
 | Identifier roles and mandatory fieldsets      | `db/seeds/registry.ts`, `application/registry/`                                                                    |
 | Typed AI task foundation                      | `providers/ai/tasks/task.ts`, task modules in `providers/ai/tasks/`                                                |
-| Initial specialist provider                   | `application/import/specialists.ts`                                                                                |
+| Specialist data providers                     | `providers/specialist-data.ts`, `providers/icecat/`, `providers/zyfy/`                                             |
 | Manual Import and Recommendation actions      | `routes/imports.ts`, frontend Imports service and Things store/page                                                |
 
 Server paths above are relative to `server/src/`. Field-directed population replaces the application fact-mapping and separate discovered-document population paths. Standalone provider extraction helpers remain for opt-in evaluations.

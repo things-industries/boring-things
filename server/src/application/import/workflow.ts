@@ -32,8 +32,9 @@ import { publicUrl } from '../../providers/web/resources.js';
 import { downloadPdf } from '../../providers/web/pdf.js';
 import { downloadImage } from '../../providers/web/image.js';
 import { validateResource, saveResourceAttachment, resourceKey } from './resources.js';
-import { IcecatProvider, type SpecialistProvider } from './specialists.js';
-import { ZyfyProvider } from './zyfy.js';
+import type { SpecialistProvider } from '../../providers/specialist-data.js';
+import { IcecatProvider } from '../../providers/icecat/index.js';
+import { ZyfyProvider } from '../../providers/zyfy/index.js';
 
 export interface WorkflowOptions {
   download?: typeof downloadPdf;

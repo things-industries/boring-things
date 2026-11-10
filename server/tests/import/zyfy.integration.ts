@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { setTimeout } from 'node:timers/promises';
-import { ZyfyProvider } from '../../src/application/import/zyfy.js';
+import { ZyfyProvider } from '../../src/providers/zyfy/index.js';
 import { startTestApp } from '../../test/support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ResearchThing } from '../../src/application/import/types.js';

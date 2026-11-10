@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ZyfyProvider } from '../../src/application/import/zyfy.js';
+import { ZyfyProvider } from '../../src/providers/zyfy/index.js';
 import { Registry } from '../../src/application/registry/registry.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { addFieldSets, populateFields } from '../../src/application/thing-fields.js';
