@@ -197,8 +197,7 @@ See the `UI Inspiration` folder for ideas for specific components
     - Events use `SCHEDULED` and `CLOSED`, with followups available after their end time or date-only day passes.
     - **How did it go?** shows completed Tasks and ended Events with followups until dismissal. Owners can update a field, add an attachment, resolve the linked issue or start a conversation with the item context. The first successful Task followup records its completion and closes the Task, removing its options. Events offer several followups. Dismissal records `closedAt` and removes the item from the working UI.
     - Resolving an issue closes all linked Tasks and Events. Deleting a Task is available in every state.
-    - **Thing tasks view**: the same view for one Thing, showing every later day.
-    - **Suggested tasks view**: one Thing's suggestions by importance, each with an Add action.
+    - **Thing tasks view**: one Thing's suggestions by importance, three at a time with Show all, each with Add and Dismiss actions. Below them, the same view for one Thing, showing every later day.
 - **Assistant**:
     - **List of previous chats**
     - **Conversation view**

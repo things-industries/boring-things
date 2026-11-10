@@ -32,8 +32,7 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
   for (const name of [
     'Needs attention',
     'Key details',
-    'Upcoming tasks',
-    'Suggested tasks',
+    'Tasks',
     'Compatible products',
     'Attachments',
   ])

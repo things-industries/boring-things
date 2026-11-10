@@ -24,6 +24,16 @@
   color: tokens.color(primary-muted);
 }
 
+// Lines the rows up with the agenda's cards, which sit beside its timeline.
 .thing-tasks-suggested {
-  align-self: center;
+  padding-inline-start: tokens.space(7);
+}
+
+.thing-tasks-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }

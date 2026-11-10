@@ -254,41 +254,31 @@
           </div>
           <div class="thing-column">
             <section class="thing-section">
-              <bt-section-header title="Upcoming tasks">
+              <bt-section-header title="Tasks">
                 <a class="button-link" [routerLink]="['/things', id(), 'tasks']"
                   >See all<span class="visually-hidden"> tasks</span></a
                 >
               </bt-section-header>
-              @if (upcoming().length) {
-                <bt-task-list
-                  [items]="upcoming()"
-                  [now]="now()"
-                  [showDay]="true"
-                  [inThing]="true"
-                />
-              } @else {
-                <p class="thing-empty">Nothing scheduled.</p>
-              }
-            </section>
-
-            @if (suggested().length || processing()) {
-              <section class="thing-section">
-                <bt-section-header title="Suggested tasks">
-                  @if (suggested().length) {
-                    <a class="button-link" [routerLink]="['/things', id(), 'suggestions']"
-                      >See all<span class="visually-hidden"> suggested tasks</span></a
-                    >
-                  }
-                </bt-section-header>
-                <div>
-                  @for (task of suggested(); track task.id) {
-                    <bt-suggested-task [task]="task" />
-                  } @empty {
+              <div class="thing-tasks">
+                @if (upcoming().length) {
+                  <bt-task-list
+                    [items]="upcoming()"
+                    [now]="now()"
+                    [showDay]="true"
+                    [inThing]="true"
+                  />
+                } @else if (!suggested().length && !processing()) {
+                  <p class="thing-empty">Nothing scheduled.</p>
+                }
+                @for (task of suggested(); track task.id) {
+                  <bt-suggested-task [task]="task" />
+                } @empty {
+                  @if (processing()) {
                     <bt-row-skeleton [rows]="2" />
                   }
-                </div>
-              </section>
-            }
+                }
+              </div>
+            </section>
 
             @if (purchasables().length || processing()) {
               <section class="thing-section">

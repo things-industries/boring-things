@@ -1,8 +1,4 @@
-<bt-top-bar
-  [title]="thing() ? thing()!.name + ' tasks' : 'Tasks'"
-  [back]="['/things', id()]"
-  backLabel="Back to thing"
-/>
+<bt-top-bar title="Tasks" [back]="['/things', id()]" backLabel="Back to thing" />
 <bt-scroll-container>
   <div class="thing-tasks-content">
     @if (error()) {
@@ -17,14 +13,29 @@
     } @else if (!loaded()) {
       <bt-agenda-skeleton />
     } @else {
-      <bt-agenda [agenda]="agenda()" [now]="now()" [inThing]="true" [collapsible]="false" />
-      @if (suggestions()) {
-        <a
-          class="button-secondary button-sm thing-tasks-suggested"
-          [routerLink]="['/things', id(), 'suggestions']"
-          >Suggested tasks ({{ suggestions() }})</a
-        >
+      @if (suggested().length) {
+        <section class="thing-tasks-suggested">
+          <bt-section-header title="Suggested">
+            @if (hasMoreSuggestions()) {
+              <button
+                type="button"
+                class="button-link"
+                [attr.aria-expanded]="showAllSuggestions()"
+                (click)="showAllSuggestions.set(!showAllSuggestions())"
+              >
+                {{ showAllSuggestions() ? 'Show less' : 'Show all'
+                }}<span class="visually-hidden"> suggested tasks</span>
+              </button>
+            }
+          </bt-section-header>
+          <ul class="thing-tasks-suggestions">
+            @for (task of visibleSuggestions(); track task.id) {
+              <li><bt-suggested-task [task]="task" /></li>
+            }
+          </ul>
+        </section>
       }
+      <bt-agenda [agenda]="agenda()" [now]="now()" [inThing]="true" [collapsible]="false" />
     }
   </div>
 </bt-scroll-container>

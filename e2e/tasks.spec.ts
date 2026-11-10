@@ -133,7 +133,7 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
     .click();
   await page.getByRole('menuitem', { name: 'Delete task' }).click();
   await expect(card(page, 'Read the manual')).toHaveCount(0);
-  await page.goto(`/things/${thing.id}/suggestions`);
+  await page.goto(`/things/${thing.id}/tasks`);
   await expect(page.getByText('Read the manual', { exact: true })).toHaveCount(0);
 });
 
@@ -205,7 +205,7 @@ test('unchecking a recurring task removes its next occurrence', async ({ page })
   await expect(card(page, title)).toHaveCount(1);
 });
 
-test('suggested tasks show descriptions, add with a spinner and can be dismissed', async ({
+test('suggested tasks hide descriptions, add with a spinner and can be dismissed', async ({
   page,
 }) => {
   const thing = await setup(page);
@@ -222,8 +222,9 @@ test('suggested tasks show descriptions, add with a spinner and can be dismissed
   await page.goto(`/things/${thing.id}`);
   await expect(row('Check the seal')).toBeVisible();
   await expect(row('Check the seal')).not.toContainText('Look for cracks');
-  await page.getByRole('link', { name: 'See all suggested tasks' }).click();
-  await expect(row('Check the seal')).toContainText('Look for cracks along the rim.');
+  await page.getByRole('link', { name: 'See all tasks' }).click();
+  await expect(row('Check the seal')).toBeVisible();
+  await expect(row('Check the seal')).not.toContainText('Look for cracks');
 
   let release = () => {};
   const held = new Promise<void>((resolve) => (release = resolve));
@@ -247,6 +248,48 @@ test('suggested tasks show descriptions, add with a spinner and can be dismissed
   );
 });
 
+test('suggested tasks merge with scheduled tasks on the Thing and its Tasks page', async ({
+  page,
+}) => {
+  const thing = await setup(page);
+  const suggestions = ['Check one', 'Check two', 'Check three', 'Check four'];
+  for (const title of suggestions) await api(page, 'POST', '/tasks', { thingId: thing.id, title });
+  for (const title of ['Chore one', 'Chore two', 'Chore three'])
+    await api(page, 'POST', '/tasks', { thingId: thing.id, title, status: 'ACTIVE' });
+  const rows = page.locator('bt-suggested-task');
+  const expectRowsMatchCards = async () => {
+    const add = await rows.first().getByRole('button').first().boundingBox();
+    const dismiss = await rows.first().getByRole('button').last().boundingBox();
+    const check = await page.locator('bt-task-card').first().getByRole('checkbox').boundingBox();
+    const menu = await page.locator('bt-task-card bt-menu button').first().boundingBox();
+    expect(add).toMatchObject({ x: check!.x, width: check!.width, height: check!.height });
+    expect(dismiss).toMatchObject({ x: menu!.x, width: menu!.width, height: menu!.height });
+  };
+
+  await page.goto(`/things/${thing.id}`);
+  await expect(page.getByRole('heading', { name: 'Tasks', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Suggested tasks' })).toHaveCount(0);
+  await expect(rows).toHaveCount(2);
+  await expect(page.locator('bt-task-card')).toHaveCount(2);
+  await expect(rows.locator('bt-icon-badge')).toHaveCount(0);
+  await expectRowsMatchCards();
+  const rowButtons = rows.first().getByRole('button');
+  await expect(rowButtons.first()).toHaveAccessibleName(/^Add to tasks: /);
+  await expect(rowButtons.last()).toHaveAccessibleName(/^Dismiss: /);
+
+  await page.getByRole('link', { name: 'See all tasks' }).click();
+  await expect(page.getByRole('heading', { name: 'Tasks', level: 1 })).toBeVisible();
+  await expect(rows).toHaveCount(3);
+  await expect(page.locator('bt-task-card')).toHaveCount(3);
+  await expectRowsMatchCards();
+  const showAll = page.getByRole('button', { name: 'Show all suggested tasks' });
+  await expect(showAll).toHaveAttribute('aria-expanded', 'false');
+  await showAll.click();
+  await expect(rows).toHaveCount(4);
+  await page.getByRole('button', { name: 'Show less suggested tasks' }).click();
+  await expect(rows).toHaveCount(3);
+});
+
 test('accept an unscheduled suggestion and open a new contextual followup conversation', async ({
   page,
 }) => {
@@ -257,7 +300,7 @@ test('accept an unscheduled suggestion and open a new contextual followup conver
     importance: 'IMPORTANT',
     completionActions: chat,
   })) as Schema['Task'];
-  await page.goto(`/things/${thing.id}/suggestions`);
+  await page.goto(`/things/${thing.id}/tasks`);
   await page.getByRole('button', { name: 'Add to tasks: Check the handle' }).click();
   await expect(page.locator('bt-suggested-task', { hasText: 'Check the handle' })).toHaveCount(0);
   await page.goto(`/things/${thing.id}/tasks`);

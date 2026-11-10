@@ -98,6 +98,11 @@
   flex-direction: column;
   gap: tokens.space(1);
 }
+.thing-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+}
 .thing-copy {
   font-weight: typography.weight(regular);
 }

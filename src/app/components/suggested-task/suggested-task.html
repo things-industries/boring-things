@@ -1,53 +1,51 @@
 @let t = task();
-<bt-list-row [title]="t.title" icon="taskOther" tone="neutral">
-  <span rowSubtitle class="suggested-task-details">
-    @if (showDescription() && t.description) {
-      <span>{{ t.description }}</span>
-    }
-    <span class="suggested-task-meta">
-      <bt-importance-tag [importance]="t.importance" />
-      @if (t.recurrence; as recurrence) {
-        @let unit = recurrence.unit.toLowerCase();
-        <span>
-          @if (recurrence.interval === 1) {
-            Once a {{ unit }}
-          } @else {
-            Once every {{ recurrence.interval }} {{ unit }}s
-          }
-        </span>
-      }
-      @if (t.isSample) {
-        <span>Sample</span>
-      }
-      @if (t.sourceRefs[0]?.url; as url) {
-        <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
-      }
+<bt-task-row>
+  @if (adding()) {
+    <span taskRowLeading class="suggested-task-spinner" role="status">
+      <ng-icon name="loading" aria-hidden="true" />
+      <span class="visually-hidden">Adding {{ t.title }} to tasks</span>
     </span>
-  </span>
-  <div rowTrailing class="suggested-task-actions">
+  } @else {
     <button
+      taskRowLeading
       type="button"
       btIconButton
-      variant="plain"
-      icon="close"
-      [label]="'Dismiss: ' + t.title"
-      [disabled]="adding()"
-      (click)="dismiss()"
+      variant="accent"
+      size="sm"
+      icon="scheduleTask"
+      [label]="'Add to tasks: ' + t.title"
+      (click)="add()"
     ></button>
-    @if (adding()) {
-      <span class="suggested-task-spinner" role="status">
-        <ng-icon name="loading" aria-hidden="true" />
-        <span class="visually-hidden">Adding {{ t.title }} to tasks</span>
+  }
+  <ng-container taskRowTitle>{{ t.title }}</ng-container>
+  <div class="suggested-task-meta">
+    <bt-importance-tag [importance]="t.importance" />
+    @if (t.recurrence; as recurrence) {
+      @let unit = recurrence.unit.toLowerCase();
+      <span>
+        @if (recurrence.interval === 1) {
+          Once a {{ unit }}
+        } @else {
+          Once every {{ recurrence.interval }} {{ unit }}s
+        }
       </span>
-    } @else {
-      <button
-        type="button"
-        btIconButton
-        variant="accent"
-        icon="scheduleTask"
-        [label]="'Add to tasks: ' + t.title"
-        (click)="add()"
-      ></button>
+    }
+    @if (t.isSample) {
+      <span>Sample</span>
+    }
+    @if (t.sourceRefs[0]?.url; as url) {
+      <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
     }
   </div>
-</bt-list-row>
+  <button
+    taskRowTrailing
+    type="button"
+    btIconButton
+    variant="plain"
+    size="sm"
+    icon="close"
+    [label]="'Dismiss: ' + t.title"
+    [disabled]="adding()"
+    (click)="dismiss()"
+  ></button>
+</bt-task-row>
