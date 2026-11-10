@@ -14,12 +14,14 @@
         (ngModelChange)="deadline.set($event)"
       />
     </label>
-    <label class="reschedule-field"
-      >Repeat
-      <select name="repeats" [ngModel]="repeats()" (ngModelChange)="repeats.set($event)">
-        <option [ngValue]="false">No</option>
-        <option [ngValue]="true">Yes</option>
-      </select>
+    <label class="check-label reschedule-toggle">
+      <input
+        type="checkbox"
+        name="repeats"
+        [ngModel]="repeats()"
+        (ngModelChange)="repeats.set($event)"
+      />
+      Repeat
     </label>
     @if (repeats()) {
       <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-every'">
