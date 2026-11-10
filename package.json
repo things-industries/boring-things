@@ -26,7 +26,6 @@
     "e2e:serve": "node --import tsx scripts/e2e-serve.ts",
     "screenshot": "node --import tsx scripts/screenshot.ts",
     "metrics:import": "node --import tsx --env-file-if-exists=.env scripts/import-metrics.ts",
-    "metrics:dashboard": "node --import tsx --env-file-if-exists=.env scripts/setup-metrics-dashboard.ts",
     "metrics:check": "node --import tsx --env-file-if-exists=.env scripts/check-metrics.ts",
     "check": "pnpm format:check && pnpm spellcheck && pnpm api:check && pnpm lint && pnpm exec tsc --noEmit -p server/tsconfig.json && pnpm test && pnpm build",
     "db:start": "supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor",
