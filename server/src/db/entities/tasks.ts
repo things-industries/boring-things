@@ -131,6 +131,24 @@ export async function deleteTask(db: Database, owner: string, id: string) {
   return task;
 }
 
+/** Deletes the unedited active occurrence after a Task, unless a later occurrence was completed. */
+export async function deleteUneditedNextOccurrence(db: Database, owner: string, task: TaskRow) {
+  const [removed] = await database.rows<{ id: string }>(
+    db,
+    `delete from bt.tasks next
+     where next.owner_id=$1 and next.reference_task_id=$2 and next.id<>$3
+       and next.status='ACTIVE' and next.updated_at=next.created_at
+       and not exists(
+         select 1 from bt.tasks later
+         where later.owner_id=$1 and (later.id=$2 or later.reference_task_id=$2)
+           and later.id<>$3 and later.completed_at>$4::timestamptz
+       )
+     returning next.id`,
+    [owner, task.referenceTaskId ?? task.id, task.id, task.completedAt],
+  );
+  return removed?.id ?? null;
+}
+
 /** Records the chosen followup and closes a Task already locked by its workflow. */
 export async function completeFollowup(
   db: Database,

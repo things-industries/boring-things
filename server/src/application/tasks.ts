@@ -128,3 +128,29 @@ export async function changeTask(
   await thingsDb.bumpThing(db, owner, task.thingId);
   return { task: saved, nextTask };
 }
+
+/** Returns a completed Task with no actioned followup to active, removing its unedited successor. */
+export async function reopenTask(
+  db: Database,
+  owner: string,
+  id: string,
+): Promise<Schema['TaskReopen']> {
+  const initial = await tasksDb.getOwnedTaskOrThrow(db, owner, id);
+  await thingsDb.getOwnedThingOrThrow(db, owner, initial.thingId, { lock: true });
+  const task = await tasksDb.getOwnedTaskOrThrow(db, owner, id, true);
+  if (task.status === 'ACTIVE') return { task, removedTaskId: null };
+  ensure(
+    task.status === 'COMPLETED' && !task.completedFollowup,
+    'Only completed tasks without an actioned followup can be reopened',
+    'CONFLICT',
+  );
+  const removedTaskId = await tasksDb.deleteUneditedNextOccurrence(db, owner, task);
+  const saved = await tasksDb.saveTask(
+    db,
+    owner,
+    { ...task, status: 'ACTIVE', completedAt: null },
+    true,
+  );
+  await thingsDb.bumpThing(db, owner, task.thingId);
+  return { task: saved, removedTaskId };
+}

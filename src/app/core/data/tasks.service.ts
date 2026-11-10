@@ -25,6 +25,9 @@ export class TasksService {
       })
       .then(apiData);
   }
+  reopen(id: string) {
+    return this.client.POST('/api/tasks/{id}:reopen', { params: { path: { id } } }).then(apiData);
+  }
   completeFollowup(id: string, body: Schema['TaskFollowupInput']) {
     return this.client
       .POST('/api/tasks/{id}:followup', { params: { path: { id } }, body })

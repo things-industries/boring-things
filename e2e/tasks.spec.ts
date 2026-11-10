@@ -63,7 +63,7 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
   await card(page, 'Inspect the filter').getByRole('checkbox').click();
   const completed = page.locator('bt-task-card.done', { hasText: 'Inspect the filter' });
   await expect(completed.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
-  await expect(completed.getByRole('checkbox')).toBeDisabled();
+  await expect(completed.getByRole('checkbox')).toBeEnabled();
   await page.reload();
   await expect(completed.getByRole('button', { name: 'Discuss the result' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'How did it go?' })).toHaveCount(0);
@@ -152,6 +152,38 @@ test('a checked-off task keeps its place in the list', async ({ page }) => {
   await page.screenshot({ path: test.info().outputPath('task-checked.png') });
   await page.reload();
   await expect(shown).toHaveText(titles);
+  await checked.getByRole('checkbox').click();
+  await expect(checked).toHaveCount(0);
+  await expect(card(page, 'Beta chore').getByRole('checkbox')).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+  await expect(shown).toHaveText(titles);
+  await page.reload();
+  await expect(checked).toHaveCount(0);
+  await expect(shown).toHaveText(titles);
+});
+
+test('unchecking a recurring task removes its next occurrence', async ({ page }) => {
+  const thing = await setup(page);
+  const title = 'Repeat chore ' + thing.id.slice(0, 8);
+  await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title,
+    status: 'ACTIVE',
+    scheduledOn: day(0),
+    recurrence: { interval: 1, unit: 'WEEK', from: 'COMPLETION' },
+    completionActions: chat,
+  });
+  await page.goto(`/things/${thing.id}/tasks`);
+  await expect(card(page, title)).toHaveCount(1);
+  await card(page, title).getByRole('checkbox').click();
+  await expect(card(page, title)).toHaveCount(2);
+  await page.locator('bt-task-card.done', { hasText: title }).getByRole('checkbox').click();
+  await expect(card(page, title)).toHaveCount(1);
+  await expect(page.locator('bt-task-card.done', { hasText: title })).toHaveCount(0);
+  await page.reload();
+  await expect(card(page, title)).toHaveCount(1);
 });
 
 test('suggested tasks show descriptions, add with a spinner and can be dismissed', async ({

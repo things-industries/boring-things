@@ -7,7 +7,6 @@
     role="checkbox"
     [attr.aria-checked]="done()"
     [attr.aria-label]="name"
-    [disabled]="done()"
     (click)="toggled.emit()"
   >
     <ng-icon [name]="done() ? 'taskDone' : 'taskOpen'" aria-hidden="true" />

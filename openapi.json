@@ -2699,7 +2699,7 @@
       "post": {
         "operationId": "completeTask",
         "summary": "Complete task",
-        "description": "Completes an active Task at the current server time and creates one successor when recurring. Retries return the completed Task with nextTask null. Completion cannot be undone.",
+        "description": "Completes an active Task at the current server time and creates one successor when recurring. Retries return the completed Task with nextTask null.",
         "tags": ["Activity"],
         "responses": {
           "200": {
@@ -2809,6 +2809,51 @@
             }
           }
         }
+      }
+    },
+    "/api/tasks/{id}:reopen": {
+      "post": {
+        "operationId": "reopenTask",
+        "summary": "Reopen task",
+        "description": "Returns a completed Task with no actioned followup to active. Removes the next occurrence its completion created when that occurrence has not been edited and no later occurrence has been completed. Retries return the active Task with removedTaskId null. Closed Tasks return a conflict.",
+        "tags": ["Activity"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskReopen"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/events/{id}:close": {
@@ -5858,6 +5903,21 @@
                 "type": "null"
               }
             ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskReopen": {
+        "type": "object",
+        "description": "Reopened Task and the ID of the next occurrence removed with it, or null when none was removed.",
+        "required": ["task", "removedTaskId"],
+        "properties": {
+          "task": {
+            "$ref": "#/components/schemas/Task"
+          },
+          "removedTaskId": {
+            "type": ["string", "null"],
+            "format": "uuid"
           }
         },
         "additionalProperties": false

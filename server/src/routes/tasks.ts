@@ -7,7 +7,7 @@ import * as database from '../db/connection.js';
 import * as tasksDb from '../db/entities/tasks.js';
 import * as thingsDb from '../db/entities/things.js';
 import { completeTaskFollowup } from '../application/task-followups.js';
-import { writeTask, changeTask } from '../application/tasks.js';
+import { writeTask, changeTask, reopenTask } from '../application/tasks.js';
 import { acceptTask, type TaskScheduler } from '../application/task-scheduling.js';
 import { listThingDates } from '../application/thing-dates.js';
 import type { Registry } from '../application/registry/registry.js';
@@ -69,6 +69,13 @@ const taskRoutes: FastifyPluginAsync<Options> = async (
   route(app, 'POST', '/api/tasks/{id}:complete', async (req) => {
     const change = await database.transaction(db, (tx) =>
       changeTask(tx, req.ownerId, req.params.id, 'complete', req.body.timeZone ?? 'UTC'),
+    );
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    return change;
+  });
+  route(app, 'POST', '/api/tasks/{id}:reopen', async (req) => {
+    const change = await database.transaction(db, (tx) =>
+      reopenTask(tx, req.ownerId, req.params.id),
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return change;

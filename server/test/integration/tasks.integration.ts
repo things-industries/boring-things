@@ -125,6 +125,76 @@ test('concurrent completion creates one successor and later edits and deletion d
   assert.equal(nextCompletion.json<Schema['TaskChange']>().nextTask?.referenceTaskId, task.id);
 });
 
+const repeating = {
+  scheduledOn: '2026-01-20',
+  recurrence: { interval: 1, unit: 'MONTH', from: 'COMPLETION' },
+} satisfies Partial<Schema['TaskInput']>;
+async function complete(id: string) {
+  const response = await request('POST', `/tasks/${id}:complete`, { timeZone: 'Europe/London' });
+  assert.equal(response.statusCode, 200, response.body);
+  return response.json<Schema['TaskChange']>();
+}
+async function reopen(id: string) {
+  const response = await request('POST', `/tasks/${id}:reopen`);
+  assert.equal(response.statusCode, 200, response.body);
+  return response.json<Schema['TaskReopen']>();
+}
+
+test('reopening a completed Task removes its unedited successor once', async () => {
+  const thing = await createThing();
+  const task = await createTask(thing.id, repeating);
+  const { nextTask } = await complete(task.id);
+  assert.ok(nextTask);
+  const reopened = await reopen(task.id);
+  assert.equal(reopened.task.status, 'ACTIVE');
+  assert.equal(reopened.task.completedAt, null);
+  assert.equal(reopened.removedTaskId, nextTask.id);
+  assert.equal((await request('GET', `/tasks/${nextTask.id}`)).statusCode, 404);
+  const retry = await reopen(task.id);
+  assert.equal(retry.task.status, 'ACTIVE');
+  assert.equal(retry.removedTaskId, null);
+});
+
+test('reopening keeps an edited successor and work after a later completion', async () => {
+  const thing = await createThing();
+  const edited = await createTask(thing.id, repeating);
+  const { nextTask: changed } = await complete(edited.id);
+  assert.ok(changed);
+  await request('PATCH', `/tasks/${changed.id}`, { title: 'Edited occurrence' });
+  assert.equal((await reopen(edited.id)).removedTaskId, null);
+  assert.equal((await request('GET', `/tasks/${changed.id}`)).statusCode, 200);
+
+  const first = await createTask(thing.id, repeating);
+  const { nextTask: second } = await complete(first.id);
+  assert.ok(second);
+  const { nextTask: third } = await complete(second.id);
+  assert.ok(third);
+  assert.equal((await reopen(first.id)).removedTaskId, null);
+  assert.equal((await request('GET', `/tasks/${third.id}`)).statusCode, 200);
+  assert.equal((await reopen(second.id)).removedTaskId, third.id);
+});
+
+test('only completed Tasks without an actioned followup can be reopened', async () => {
+  const thing = await createThing();
+  const suggested = await createTask(thing.id, { status: 'SUGGESTED' });
+  const dismissed = await createTask(thing.id, { completionActions: chat });
+  await complete(dismissed.id);
+  await request('POST', `/tasks/${dismissed.id}:close`, {});
+  const answered = await createTask(thing.id, {
+    completionActions: [{ type: 'RESOLVE_ISSUE', label: 'Is it fixed?' }],
+    issueId: (await request('POST', '/issues', { thingId: thing.id, title: 'Leak' })).json<
+      Schema['Issue']
+    >().id,
+  });
+  await complete(answered.id);
+  const followup = await request('POST', `/tasks/${answered.id}:followup`, { actionIndex: 0 });
+  assert.equal(followup.statusCode, 200, followup.body);
+  for (const id of [suggested.id, dismissed.id, answered.id]) {
+    const response = await request('POST', `/tasks/${id}:reopen`);
+    assert.equal(response.statusCode, 409, response.body);
+  }
+});
+
 test('issue resolution closes linked suggestions, active tasks, completed tasks and Events', async () => {
   const thing = await createThing();
   const issue = (
@@ -229,7 +299,7 @@ test('all Task operations and linked context enforce owner scope', async () => {
     ['GET', `/tasks/${task.id}`, undefined],
     ['PATCH', `/tasks/${task.id}`, { title: 'No' }],
     ['DELETE', `/tasks/${task.id}`, undefined],
-    ...['accept', 'complete', 'close'].map(
+    ...['accept', 'complete', 'close', 'reopen'].map(
       (action) => ['POST', `/tasks/${task.id}:${action}`, {}] as const,
     ),
     ['POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value: 'no' }],

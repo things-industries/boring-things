@@ -19,10 +19,12 @@ export class TaskActions {
   readonly rescheduling = signal<Task | null>(null);
   readonly answering = signal<FollowUpRequest | null>(null);
 
-  /** Completes an active Task once. */
+  /** Completes an active Task, or reopens a completed one with no actioned followup. */
   toggle(item: AgendaItem) {
-    if (item.type === 'TASK' && item.task.status === 'ACTIVE')
-      void this.tasks.complete(item.task.id);
+    if (item.type !== 'TASK') return;
+    if (item.task.status === 'ACTIVE') void this.tasks.complete(item.task.id);
+    else if (item.task.status === 'COMPLETED' && !item.task.completedFollowup)
+      void this.tasks.reopen(item.task.id);
   }
 
   /** Starts a new conversation with server-validated item and followup context. */

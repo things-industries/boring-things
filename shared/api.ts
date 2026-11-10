@@ -818,7 +818,7 @@ export interface paths {
         put?: never;
         /**
          * Complete task
-         * @description Completes an active Task at the current server time and creates one successor when recurring. Retries return the completed Task with nextTask null. Completion cannot be undone.
+         * @description Completes an active Task at the current server time and creates one successor when recurring. Retries return the completed Task with nextTask null.
          */
         post: operations["completeTask"];
         delete?: never;
@@ -841,6 +841,26 @@ export interface paths {
          * @description Close task.
          */
         post: operations["closeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{id}:reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen task
+         * @description Returns a completed Task with no actioned followup to active. Removes the next occurrence its completion created when that occurrence has not been edited and no later occurrence has been completed. Retries return the active Task with removedTaskId null. Closed Tasks return a conflict.
+         */
+        post: operations["reopenTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1798,6 +1818,12 @@ export interface components {
         TaskChange: {
             task: components["schemas"]["Task"];
             nextTask: components["schemas"]["Task"] | null;
+        };
+        /** @description Reopened Task and the ID of the next occurrence removed with it, or null when none was removed. */
+        TaskReopen: {
+            task: components["schemas"]["Task"];
+            /** Format: uuid */
+            removedTaskId: string | null;
         };
         /** @description Local calendar timezone for accepting or completing a task. */
         TaskActionInput: {
@@ -3747,6 +3773,34 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    reopenTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskReopen"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];
         };

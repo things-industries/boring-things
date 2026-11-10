@@ -33,6 +33,22 @@ export const TasksStore = signalStore(
         ]);
       return result;
     },
+    async reopen(id: string) {
+      const result = await store.mutate(
+        'reopenTask',
+        [
+          store.stage(
+            id,
+            updating((task) => ({ ...task, status: 'ACTIVE', completedAt: null })),
+          ),
+        ],
+        () => store._service.reopen(id),
+        { confirm: (change) => change.task, refetch: () => store.loadOne(id) },
+      );
+      if (result.ok && result.value.removedTaskId)
+        store.stage(result.value.removedTaskId, removing).confirm();
+      return result;
+    },
     async schedule(id: string) {
       const result = await store.mutate('addTask', [], () => store._service.change(id, 'accept'));
       if (result.ok) store.receive([result.value.task]);
