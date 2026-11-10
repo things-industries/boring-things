@@ -684,6 +684,10 @@ test('date-only Events retain calendar dates, enforce one schedule and filter mi
     ).statusCode,
     422,
   );
+  // Close fixtures so date-range assertions exclude pending followup carryover.
+  for (const event of [day, before, timed, after])
+    await request('POST', `/events/${event.id}:close`);
+
   const query = new URLSearchParams({
     thingId: thing.id,
     timeZone: 'Europe/London',

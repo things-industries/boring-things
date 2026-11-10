@@ -24,7 +24,6 @@ test('recommendations accept missing citations and skip malformed peers and purc
       sourceRefs: [],
       importance: 'RECOMMENDED',
       recurrence: null,
-      completionActions: [],
     },
     { title: 12 },
   ];
@@ -63,7 +62,6 @@ test('recommendations accept missing citations and skip malformed peers and purc
       sourceRefs: [],
       importance: 'RECOMMENDED',
       recurrence: null,
-      completionActions: [],
     },
   ]);
   items = [

@@ -524,7 +524,6 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     title: 'Clean the filter',
     importance: 'RECOMMENDED' as const,
     recurrence: { interval: 6, unit: 'MONTH' as const },
-    completionActions: [],
     description: 'Clean every six months.',
     quote: 'Clean every six months.',
   };
@@ -546,7 +545,6 @@ test('SDK task suggestions research mapped public fields in one bounded structur
         {
           importance: item.importance,
           recurrence: item.recurrence,
-          completionActions: [],
           title: item.title,
           description: item.description,
           sourceRefs: [{ url: sourceUrl, quote: item.quote }],
@@ -570,7 +568,6 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     {
       importance: item.importance,
       recurrence: { ...item.recurrence, from: 'COMPLETION' },
-      completionActions: [],
       title: item.title,
       description: item.description,
       sourceRefs: [{ url, quote: item.quote }],

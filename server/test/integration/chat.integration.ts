@@ -618,7 +618,6 @@ test('one creation spans both tools and targets, including retries after a compl
                   recurrence: null,
                   scheduledOn: null,
                   deadlineOn: null,
-                  completionActions: [],
                 }
               : data,
           );

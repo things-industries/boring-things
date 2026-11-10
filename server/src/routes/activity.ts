@@ -6,19 +6,16 @@ import { route } from '../contracts/routes.js';
 import * as database from '../db/connection.js';
 import * as activityDb from '../db/entities/activity.js';
 import { writeEvent, writeIssue } from '../application/activity.js';
-import type { Registry } from '../application/registry/registry.js';
-import * as tasksDb from '../db/entities/tasks.js';
 import * as thingsDb from '../db/entities/things.js';
 import { ensure } from '../application/errors.js';
 import type { ApplicationEvents } from '../application/events.js';
 
 interface Options {
   db: pg.Pool;
-  registry: Registry;
   events: ApplicationEvents;
 }
 
-const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events, registry }) => {
+const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events }) => {
   route(app, 'GET', '/api/issues', (req) =>
     activityDb.listActivity(db, req.ownerId, 'issues', req.query),
   );
@@ -34,42 +31,23 @@ const activityRoutes: FastifyPluginAsync<Options> = async (app, { db, events, re
   route(app, 'POST', '/api/issues', async (req, reply) => {
     const result = await database.transaction(db, (tx) => writeIssue(tx, req.ownerId, req.body));
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
-    return reply.code(201).send(result);
+    return reply.code(201).send(result.issue);
   });
   route(app, 'PATCH', '/api/issues/{id}', async (req) => {
-    const result = await database.transaction(db, async (tx) => {
-      const issue = await writeIssue(tx, req.ownerId, req.body, req.params.id);
-      const tasks =
-        issue.status === 'RESOLVED'
-          ? await database.rows<import('../../../shared/model.js').Schema['Task']>(
-              tx,
-              `select ${tasksDb.columns} from bt.tasks where owner_id=$1 and issue_id=$2 and status='CLOSED'`,
-              [req.ownerId, issue.id],
-            )
-          : [];
-      const events =
-        issue.status === 'RESOLVED'
-          ? await database.rows<import('../../../shared/model.js').Schema['Event']>(
-              tx,
-              "select id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,ends_at,closed_at,completion_actions,source_refs,is_sample from bt.events where owner_id=$1 and issue_id=$2 and status='CLOSED'",
-              [req.ownerId, issue.id],
-            )
-          : [];
-      return { issue, tasks, events };
-    });
+    const result = await database.transaction(db, (tx) =>
+      writeIssue(tx, req.ownerId, req.body, req.params.id),
+    );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;
   });
   route(app, 'POST', '/api/events', async (req, reply) => {
-    const result = await database.transaction(db, (tx) =>
-      writeEvent(tx, req.ownerId, req.body, registry),
-    );
+    const result = await database.transaction(db, (tx) => writeEvent(tx, req.ownerId, req.body));
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(result);
   });
   route(app, 'PATCH', '/api/events/{id}', async (req) => {
     const result = await database.transaction(db, (tx) =>
-      writeEvent(tx, req.ownerId, req.body, registry, req.params.id),
+      writeEvent(tx, req.ownerId, req.body, req.params.id),
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;

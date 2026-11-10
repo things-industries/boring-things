@@ -367,7 +367,6 @@ for (const capability of ['tasks', 'purchasables'] as const) {
             title: 'Clean the seal',
             importance: 'RECOMMENDED',
             recurrence: null,
-            completionActions: [],
             description: 'Use cleaner when water is insufficient.',
             sourceRefs,
           }
@@ -594,7 +593,6 @@ test('task recommendations finish from gathered evidence when the tool budget is
                   title: 'Check the seal',
                   importance: 'RECOMMENDED',
                   recurrence: null,
-                  completionActions: [],
                   description: 'Inspect monthly.',
                   sourceRefs: [
                     { attachmentId: 'source', page: null, quote: 'Inspect the seal monthly.' },

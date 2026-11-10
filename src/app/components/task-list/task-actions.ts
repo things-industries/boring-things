@@ -1,23 +1,17 @@
-/** Actions shared by Task and Event cards and their followup dialogs. */
+/** Actions shared by Task and Event cards. */
 
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { EventsStore } from '../../core/state/events.store';
-import { IssuesStore } from '../../core/state/issues.store';
 import { TasksStore } from '../../core/state/tasks.store';
-import { ThingsStore } from '../../core/state/things.store';
-import type { AgendaItem, CompletionAction, Task } from '../../interfaces/task.interface';
-import type { FollowUpRequest } from '../follow-up-dialog/follow-up-dialog';
+import type { AgendaItem, Task } from '../../interfaces/task.interface';
 
 @Injectable()
 export class TaskActions {
   private tasks = inject(TasksStore);
   private events = inject(EventsStore);
-  private issues = inject(IssuesStore);
-  private things = inject(ThingsStore);
   private router = inject(Router);
   readonly rescheduling = signal<Task | null>(null);
-  readonly answering = signal<FollowUpRequest | null>(null);
 
   /** Completes an active Task, or reopens a completed one with no actioned followup. */
   toggle(item: AgendaItem) {
@@ -27,14 +21,8 @@ export class TaskActions {
       void this.tasks.reopen(item.task.id);
   }
 
-  /** Starts a new conversation with server-validated item and followup context. */
-  ask(item: AgendaItem, action: Extract<CompletionAction, { type: 'CHAT' }> | null = null) {
-    const actions =
-      item.type === 'TASK'
-        ? item.task.completionActions
-        : item.type === 'EVENT'
-          ? item.event.completionActions
-          : [];
+  /** Opens chat with item context, optionally recording a followup after the first owner message. */
+  ask(item: AgendaItem, followup = false) {
     const context =
       item.type === 'TASK'
         ? { taskId: item.task.id }
@@ -42,33 +30,8 @@ export class TaskActions {
           ? { eventId: item.event.id }
           : {};
     void this.router.navigate(['/things', item.thingId, 'chat'], {
-      queryParams: { ...context, ...(action ? { actionIndex: actions.indexOf(action) } : {}) },
+      queryParams: { ...context, ...(followup ? { followup: true } : {}) },
     });
-  }
-
-  /** Runs the chosen followup; a completed Task closes after its first answer. */
-  async answer(item: AgendaItem, action: CompletionAction) {
-    const issueId =
-      item.type === 'TASK' ? item.task.issueId : item.type === 'EVENT' ? item.event.issueId : null;
-    if (action.type === 'CHAT') this.ask(item, action);
-    else if (action.type === 'RESOLVE_ISSUE') {
-      if (item.type === 'TASK') {
-        const result = await this.tasks.completeFollowup(item.task.id, {
-          actionIndex: item.task.completionActions.indexOf(action),
-        });
-        if (result.ok)
-          await Promise.all([this.issues.reload(), this.events.reload(), this.tasks.reload()]);
-      } else if (issueId) await this.issues.resolve(issueId);
-    } else {
-      await this.things.loadOne(item.thingId);
-      this.answering.set({
-        thingId: item.thingId,
-        action,
-        ...(item.type === 'TASK'
-          ? { task: { id: item.task.id, actionIndex: item.task.completionActions.indexOf(action) } }
-          : {}),
-      });
-    }
   }
 
   reschedule(item: AgendaItem) {

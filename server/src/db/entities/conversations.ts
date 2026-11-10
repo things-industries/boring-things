@@ -1,25 +1,20 @@
-type ChatAttachment = Pick<Schema['Attachment'], 'id' | 'filename' | 'mediaType' | 'byteSize'> & {
-  storageKey: string;
-};
-import * as database from '../connection.js';
-
 /**
  * Persists owner-scoped conversations and queued messages, reads assistant resources and records
  * transactional write receipts for retries.
  */
 
-import type pg from 'pg';
+import * as database from '../connection.js';
 import type { Schema } from '../../../../shared/model.js';
 import { mergeResourceCards } from '../../../../shared/resource-cards.js';
 import type { Database } from '../connection.js';
-import * as activityDb from './activity.js';
-import * as tasksDb from './tasks.js';
-import { getLocalDate } from '../../application/task-recurrence.js';
-import { randomUUID } from 'node:crypto';
-import * as thingsDb from './things.js';
+import type { ActivityContext } from '../../application/conversations/types.js';
 import { ensure } from '../../application/errors.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import { page, pageResult } from '../../application/pagination.js';
+
+type ChatAttachment = Pick<Schema['Attachment'], 'id' | 'filename' | 'mediaType' | 'byteSize'> & {
+  storageKey: string;
+};
 
 type ConversationQuery = RouteTypes<'/api/conversations', 'get'>['Querystring'];
 
@@ -70,7 +65,7 @@ export async function getOwnedConversationOrThrow(
   const [item] = await database.rows<{
     id: string;
     thingId: string | null;
-    activityContext: unknown;
+    activityContext: ActivityContext | null;
   }>(
     db,
     `select id,thing_id,activity_context from bt.conversations where id=$1 and owner_id=$2${lock ? ' for update' : ''}`,
@@ -129,72 +124,6 @@ export async function getOwnedConversationSnapshot(
     }
 
   return { ...item, messages };
-}
-
-export async function enqueueMessage(
-  pool: pg.Pool,
-  owner: string,
-  id: string,
-  input: Schema['MessageInput'],
-) {
-  ensure(input.text.trim(), 'Message cannot be blank');
-  return database.transaction(pool, async (db) => {
-    await getOwnedConversationOrThrow(db, owner, id, true);
-    const existing = await database.rows<MessageRow>(
-      db,
-      'select * from bt.messages where conversation_id=$1 and request_id=$2',
-      [id, input.requestId],
-    );
-
-    const user = existing.find((m) => m.role === 'USER');
-    const assistant = existing.find((m) => m.role === 'ASSISTANT');
-
-    if (user) ensure(user.text === input.text.trim(), 'Request ID already used', 'CONFLICT');
-
-    if (assistant && assistant.status !== 'FAILED')
-      return getOwnedConversationSnapshot(db, owner, id);
-    ensure(
-      !(
-        await database.execute(
-          db,
-          "select 1 from bt.messages where conversation_id=$1 and role='ASSISTANT' and status in ('QUEUED','PROCESSING')",
-          [id],
-        )
-      ).rowCount,
-      'A response is already in progress',
-      'CONFLICT',
-    );
-
-    // Requeue the same message without clearing tool receipts, so successful writes survive a failed response.
-    if (assistant) {
-      // Earlier failed turns cannot be retried after the conversation has moved on.
-      const [latest] = await database.rows<{ id: string }>(
-        db,
-        "select id from bt.messages where conversation_id=$1 and role='ASSISTANT' order by created_at desc,id desc limit 1",
-        [id],
-      );
-      ensure(latest?.id === assistant.id, 'Only the latest response can be retried', 'CONFLICT');
-      await database.execute(
-        db,
-        "update bt.messages set status='QUEUED',text='',error=null where id=$1",
-        [assistant.id],
-      );
-    } else {
-      ensure(
-        (await database.execute(db, 'select 1 from bt.messages where conversation_id=$1', [id]))
-          .rowCount! < 80,
-        'Conversation limit reached; start a new chat',
-        'CONFLICT',
-      );
-      await database.execute(
-        db,
-        "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
-        [id, input.requestId, input.text.trim()],
-      );
-    }
-
-    return getOwnedConversationSnapshot(db, owner, id);
-  });
 }
 
 export type ChatJob = MessageRow & { ownerId: string; thingId: string | null };
@@ -283,7 +212,7 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
   ] as const) {
     records[table] = await database.rows<{ id: string }>(
       db,
-      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ',issue_id'}`}${kind === 'event' ? ',starts_at,starts_on::text,ends_at,closed_at,completion_actions,source_refs' : kind === 'task' ? ',importance,scheduled_on::text,deadline_on::text,recurrence,completion_actions,completed_at,closed_at,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
+      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ',issue_id'}`}${kind === 'event' ? ',starts_at,starts_on::text,ends_at,closed_at,completed_followup,source_refs' : kind === 'task' ? ',importance,scheduled_on::text,deadline_on::text,recurrence,completed_at,closed_at,completed_followup,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
       [id, owner],
     );
   }
@@ -317,62 +246,88 @@ export async function getProcessingMessageOrThrow(db: Database, job: ChatJob): P
   ensure(current, 'Message is no longer processing', 'CONFLICT');
   return current;
 }
-export async function createConversation(
-  pool: pg.Pool,
-  owner: string,
-  input: Schema['ConversationInput'],
-): Promise<Schema['Conversation']> {
-  let { thingId } = input;
-  return database.transaction(pool, async (db) => {
-    ensure(!(input.taskId && input.eventId), 'Choose one task or event');
-    let activity = input.taskId
-      ? await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId)
-      : input.eventId
-        ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', input.eventId)
-        : null;
-    ensure(input.actionIndex === undefined || activity, 'Chat followup needs a task or event');
-    if (activity) {
-      ensure(!thingId || thingId === activity.thingId, 'Thing does not match item');
-      thingId = activity.thingId;
-    }
-    if (thingId) await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
-    if (input.taskId) activity = await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId, true);
-    const action =
-      input.actionIndex === undefined ? null : activity?.completionActions[input.actionIndex];
-    if (input.actionIndex !== undefined) {
-      ensure(activity?.status !== 'CLOSED' && action?.type === 'CHAT', 'Chat followup unavailable');
-      ensure(
-        activity &&
-          ('completedAt' in activity
-            ? !!activity.completedAt
-            : activity.startsAt
-              ? new Date(activity.endsAt ?? activity.startsAt) <= new Date()
-              : !!activity.startsOn &&
-                activity.startsOn < getLocalDate(new Date(), input.timeZone ?? 'UTC')),
-        'Item has not ended',
-      );
-    }
-    const issue = activity?.issueId
-      ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', activity.issueId)
-      : null;
-    const context = activity ? { item: activity, issue } : null;
-    const [item] = await database.rows<{ id: string }>(
-      db,
-      'insert into bt.conversations(owner_id,thing_id,id,activity_context) values($1,$2,coalesce($3::uuid,gen_random_uuid()),$4) returning id',
-      [owner, thingId ?? null, input.id, JSON.stringify(context)],
-    );
-    if (action?.type === 'CHAT' && action.prompt?.trim()) {
+
+/** Queues or retries messages in a locked conversation, reporting the first message. */
+export async function queueMessage(
+  db: Database,
+  id: string,
+  input: Schema['MessageInput'],
+): Promise<boolean> {
+  const existing = await database.rows<MessageRow>(
+    db,
+    'select * from bt.messages where conversation_id=$1 and request_id=$2',
+    [id, input.requestId],
+  );
+
+  const user = existing.find((m) => m.role === 'USER');
+  const assistant = existing.find((m) => m.role === 'ASSISTANT');
+
+  if (user) ensure(user.text === input.text.trim(), 'Request ID already used', 'CONFLICT');
+
+  if (assistant && assistant.status !== 'FAILED') return false;
+  ensure(
+    !(
       await database.execute(
         db,
-        "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
-        [item.id, randomUUID(), action.prompt.trim()],
-      );
-    }
-    if (input.taskId && action?.type === 'CHAT') {
-      const task = await tasksDb.getOwnedTaskOrThrow(db, owner, input.taskId, true);
-      await tasksDb.completeFollowup(db, owner, task, action);
-    }
-    if (thingId) await thingsDb.bumpThing(db, owner, thingId);
-    return getOwnedConversationSnapshot(db, owner, item.id);
-  });
+        "select 1 from bt.messages where conversation_id=$1 and role='ASSISTANT' and status in ('QUEUED','PROCESSING')",
+        [id],
+      )
+    ).rowCount,
+    'A response is already in progress',
+    'CONFLICT',
+  );
+
+  // Requeue the same message without clearing tool receipts, so successful writes survive a failed response.
+  if (assistant) {
+    // Earlier failed turns cannot be retried after the conversation has moved on.
+    const [latest] = await database.rows<{ id: string }>(
+      db,
+      "select id from bt.messages where conversation_id=$1 and role='ASSISTANT' order by created_at desc,id desc limit 1",
+      [id],
+    );
+    ensure(latest?.id === assistant.id, 'Only the latest response can be retried', 'CONFLICT');
+    await database.execute(
+      db,
+      "update bt.messages set status='QUEUED',text='',error=null where id=$1",
+      [assistant.id],
+    );
+  } else {
+    const count = (
+      await database.execute(db, 'select 1 from bt.messages where conversation_id=$1', [id])
+    ).rowCount!;
+    ensure(count < 80, 'Conversation limit reached; start a new chat', 'CONFLICT');
+    await database.execute(
+      db,
+      "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
+      [id, input.requestId, input.text.trim()],
+    );
+    return count === 0;
+  }
+  return false;
+}
+
+/** Finds the conversation already opened for an item's followup. */
+export async function findFollowupConversation(db: Database, owner: string, itemId: string) {
+  const [existing] = await database.rows<{ id: string }>(
+    db,
+    'select id from bt.conversations where owner_id=$1 and activity_context @> $2::jsonb order by created_at,id limit 1',
+    [owner, JSON.stringify({ item: { id: itemId }, followup: true })],
+  );
+  return existing?.id;
+}
+
+/** Inserts a conversation with its authorised item and Issue context. */
+export async function insertConversation(
+  db: Database,
+  owner: string,
+  input: Pick<Schema['ConversationInput'], 'id' | 'thingId'> & {
+    activityContext: ActivityContext | null;
+  },
+) {
+  const [item] = await database.rows<{ id: string }>(
+    db,
+    'insert into bt.conversations(owner_id,thing_id,id,activity_context) values($1,$2,coalesce($3::uuid,gen_random_uuid()),$4) returning id',
+    [owner, input.thingId ?? null, input.id, JSON.stringify(input.activityContext)],
+  );
+  return item.id;
 }

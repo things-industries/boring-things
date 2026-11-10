@@ -2,7 +2,6 @@
 
 import { computed, inject } from '@angular/core';
 import { signalStore, withComputed, withFeature, withMethods, withProps } from '@ngrx/signals';
-import type { Schema } from '../../../../shared/model';
 import type { Task, TaskRecurrence } from '../../interfaces/task.interface';
 import { TasksService } from '../data/tasks.service';
 import { groupBy } from '../../utils/collection.util';
@@ -54,13 +53,7 @@ export const TasksStore = signalStore(
       if (result.ok) store.receive([result.value.task]);
       return result;
     },
-    async completeFollowup(id: string, input: Schema['TaskFollowupInput']) {
-      const result = await store.mutate('saveChanges', [], () =>
-        store._service.completeFollowup(id, input),
-      );
-      if (result.ok) store.receive([result.value]);
-      return result;
-    },
+
     async close(id: string) {
       const result = await store.mutate('saveChanges', [], () =>
         store._service.change(id, 'close'),

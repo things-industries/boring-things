@@ -5,9 +5,8 @@ import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import * as tasksDb from '../db/entities/tasks.js';
 import * as thingsDb from '../db/entities/things.js';
-import type { Registry } from './registry/registry.js';
 import { ensure } from './errors.js';
-import { validateFollowups } from './activity-followups.js';
+import { validateIssueLink } from './activity-links.js';
 import { getLocalDate, getNextTaskDates, validateTaskSchedule } from './task-recurrence.js';
 
 /** Creates a task or updates selected properties on one occurrence. */
@@ -15,7 +14,6 @@ export async function writeTask(
   db: Database,
   owner: string,
   input: Schema['TaskInput'] | Schema['TaskPatch'],
-  registry: Registry,
   id?: string,
 ) {
   const previous = id ? await tasksDb.getOwnedTaskOrThrow(db, owner, id) : null;
@@ -34,7 +32,6 @@ export async function writeTask(
     scheduledOn: null,
     deadlineOn: null,
     recurrence: null,
-    completionActions: [],
     completedAt: null,
     completedFollowup: null,
     closedAt: null,
@@ -44,33 +41,35 @@ export async function writeTask(
     ...existing,
     ...input,
   } satisfies Schema['Task'];
-  task.title = task.title.trim();
+  return saveTask(db, owner, task, !!id);
+}
+
+/** Validates and saves a Task after its Thing and existing occurrence have been locked. */
+export async function saveTask(
+  db: Database,
+  owner: string,
+  task: Schema['Task'] & { referenceDates?: tasksDb.TaskRow['referenceDates'] },
+  update = false,
+) {
+  task = { ...task, title: task.title.trim() };
   ensure(task.title, 'Title cannot be blank');
   validateTaskSchedule(task, task.status === 'SUGGESTED' || task.status === 'CLOSED');
-  await validateFollowups(
-    db,
-    owner,
-    thingId,
-    task.issueId,
-    task.completionActions,
-    registry,
-    task.status === 'CLOSED',
-  );
+  await validateIssueLink(db, owner, task.thingId, task.issueId, task.status === 'CLOSED');
   const saved = await tasksDb.saveTask(
     db,
     owner,
     {
       ...task,
       referenceDates:
-        task.scheduledOn || existing?.referenceDates
+        task.scheduledOn || task.referenceDates
           ? {
-              scheduledOn: existing?.referenceDates?.scheduledOn ?? task.scheduledOn,
+              scheduledOn: task.referenceDates?.scheduledOn ?? task.scheduledOn,
             }
           : null,
     },
-    !!id,
+    update,
   );
-  await thingsDb.bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, owner, task.thingId);
   return saved;
 }
 

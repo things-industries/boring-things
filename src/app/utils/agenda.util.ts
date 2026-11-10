@@ -97,7 +97,7 @@ export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
     };
     const completedToday = !!task.completedAt && dayKey(task.completedAt) === today;
     if (task.status === 'COMPLETED' && !completedToday) {
-      if (task.completionActions.length) followups.push({ ...item, day: today, overdue: false });
+      followups.push({ ...item, day: today, overdue: false });
     } else placed.push(item);
   }
   for (const event of input.events) {
@@ -113,7 +113,7 @@ export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
       event,
     };
     if (hasEventEnded(event, now)) {
-      if (event.completionActions.length) followups.push({ ...item, day: today });
+      followups.push({ ...item, day: today });
     } else placed.push(item);
   }
   for (const date of input.thingDates) {

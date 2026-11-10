@@ -42,7 +42,7 @@ export const EventsStore = signalStore(
         startsOn: input.startsOn ?? null,
         endsAt: input.endsAt ?? null,
         closedAt: status === 'CLOSED' ? new Date().toISOString() : null,
-        completionActions: input.completionActions ?? [],
+        completedFollowup: null,
         sourceRefs: [],
         isSample: false,
       };

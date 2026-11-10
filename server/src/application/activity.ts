@@ -4,17 +4,17 @@ import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import * as activityDb from '../db/entities/activity.js';
 import * as thingsDb from '../db/entities/things.js';
-import * as database from '../db/connection.js';
-import type { Registry } from './registry/registry.js';
-import { validateFollowups } from './activity-followups.js';
+import * as tasksDb from '../db/entities/tasks.js';
+import { validateIssueLink } from './activity-links.js';
 import { ensure } from './errors.js';
 
+/** Writes an Issue and closes its linked work when resolved. */
 export async function writeIssue(
   db: Database,
   owner: string,
   input: Schema['IssueInput'] | Schema['IssuePatch'],
   id?: string,
-): Promise<Schema['Issue']> {
+): Promise<Schema['IssueChange']> {
   let existing = id
     ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: false })
     : undefined;
@@ -42,26 +42,16 @@ export async function writeIssue(
     },
     id,
   );
-  if (status === 'RESOLVED') {
-    await database.execute(
-      db,
-      "update bt.tasks set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
-      [owner, item.id],
-    );
-    await database.execute(
-      db,
-      "update bt.events set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
-      [owner, item.id],
-    );
-  }
+  const tasks = status === 'RESOLVED' ? await tasksDb.closeTasksForIssue(db, owner, item.id) : [];
+  const events =
+    status === 'RESOLVED' ? await activityDb.closeEventsForIssue(db, owner, item.id) : [];
   await thingsDb.bumpThing(db, owner, thingId);
-  return item;
+  return { issue: item, tasks, events };
 }
 export async function writeEvent(
   db: Database,
   owner: string,
   input: Schema['EventInput'] | Schema['EventPatch'],
-  registry: Registry,
   id?: string,
 ): Promise<Schema['Event']> {
   let existing = id
@@ -85,16 +75,7 @@ export async function writeEvent(
     !endsAt || (startsAt && Date.parse(endsAt) >= Date.parse(startsAt)),
     'End time must follow the timed start',
   );
-  const completionActions = input.completionActions ?? existing?.completionActions ?? [];
-  await validateFollowups(
-    db,
-    owner,
-    thingId,
-    issueId,
-    completionActions,
-    registry,
-    status === 'CLOSED',
-  );
+  await validateIssueLink(db, owner, thingId, issueId, status === 'CLOSED');
   const item = await activityDb.saveEvent(
     db,
     owner,
@@ -108,7 +89,7 @@ export async function writeEvent(
       startsOn,
       issueId,
       endsAt,
-      completionActions,
+      completedFollowup: existing?.completedFollowup ?? null,
       closedAt: existing?.closedAt ?? (status === 'CLOSED' ? new Date().toISOString() : null),
     },
     id,

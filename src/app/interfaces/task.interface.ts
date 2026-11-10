@@ -7,7 +7,6 @@ export type TaskStatus = Task['status'];
 export type TaskRecurrence = Schema['TaskRecurrence'];
 export type TaskInterval = Pick<TaskRecurrence, 'interval' | 'unit'>;
 export type TaskImportance = Schema['TaskImportanceEnum'];
-export type CompletionAction = Schema['CompletionAction'];
 export type Appointment = Schema['Event'];
 export type ThingDate = Schema['ThingDate'];
 

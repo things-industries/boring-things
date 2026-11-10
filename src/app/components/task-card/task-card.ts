@@ -7,9 +7,6 @@ import {
   askAboutTask,
   deleteTask,
   followUpChat,
-  followUpDocument,
-  followUpField,
-  followUpResolve,
   goToThing,
   rescheduleTask,
   taskCritical,
@@ -17,7 +14,7 @@ import {
   taskOpen,
   taskOverdue,
 } from '../../core/app-icons';
-import type { AgendaItem, CompletionAction } from '../../interfaces/task.interface';
+import type { AgendaItem } from '../../interfaces/task.interface';
 import { isDone, itemTitle, timeLine } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { Menu } from '../menu/menu';
@@ -25,18 +22,10 @@ import { IconButton } from '../icon-button/icon-button';
 import { MenuItem } from '../menu/menu-item';
 import { TaskRow } from '../task-row/task-row';
 
-const actionIcons: Record<CompletionAction['type'], string> = {
-  CHAT: 'followUpChat',
-  UPDATE_FIELD: 'followUpField',
-  ADD_ATTACHMENT: 'followUpDocument',
-  RESOLVE_ISSUE: 'followUpResolve',
-};
-
 /**
  * Agenda card for a task, appointment or Thing date: a check control for items that can be done,
- * the title, a time line or, once done, its completion actions side by side, and an overflow menu.
- * A Thing date is a compact, shaded card with only a chat action. On a white surface, set
- * `--task-card-background`.
+ * the title, a time line or, once done, a chat followup, and an overflow menu. A Thing date is a
+ * compact, shaded card with only a chat action. On a white surface, set `--task-card-background`.
  */
 @Component({
   selector: 'bt-task-card',
@@ -47,9 +36,6 @@ const actionIcons: Record<CompletionAction['type'], string> = {
       askAboutTask,
       deleteTask,
       followUpChat,
-      followUpDocument,
-      followUpField,
-      followUpResolve,
       goToThing,
       rescheduleTask,
       taskCritical,
@@ -70,7 +56,7 @@ export class TaskCard {
   /** Leaves out Go to Thing, on that Thing's pages. */
   readonly inThing = input(false);
   readonly toggled = output<void>();
-  readonly actionChosen = output<CompletionAction>();
+  readonly followedUp = output<void>();
   readonly asked = output<void>();
   readonly rescheduled = output<void>();
   readonly removed = output<void>();
@@ -82,15 +68,7 @@ export class TaskCard {
   /** Names the Thing above the title, outside that Thing's pages. */
   readonly showThing = computed(() => !this.inThing());
 
-  readonly actions = computed(() => {
-    const item = this.item();
-
-    if (item.type === 'TASK')
-      return item.task.status === 'CLOSED' ? [] : item.task.completionActions;
-    return item.type === 'EVENT' ? item.event.completionActions : [];
-  });
-
-  /** Tasks, and events with completion actions, can be checked off. */
+  /** Tasks can be checked off. */
   readonly checkable = computed(() => this.item().type === 'TASK');
 
   readonly done = computed(() => isDone(this.item(), this.now()));
@@ -112,5 +90,4 @@ export class TaskCard {
 
   /** Days from today to the item's day. */
   readonly dayOffset = computed(() => daysUntil(this.item().day, this.now()));
-  readonly actionIcons = actionIcons;
 }

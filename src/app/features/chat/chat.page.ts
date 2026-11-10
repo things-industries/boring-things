@@ -15,6 +15,7 @@ import { DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import type { Schema } from '../../../../shared/model';
+import { EventsStore } from '../../core/state/events.store';
 import { TasksStore } from '../../core/state/tasks.store';
 import {
   chatHistory,
@@ -87,6 +88,7 @@ export class ChatPage {
   private conversations = inject(ConversationsStore);
   private things = inject(ThingsStore);
   private tasks = inject(TasksStore);
+  private events = inject(EventsStore);
   private categories = inject(CategoriesStore);
   private files = inject(AttachmentsService);
   private toasts = inject(Toasts);
@@ -101,7 +103,7 @@ export class ChatPage {
   readonly thingId = this.snapshot.paramMap.get('id');
   private readonly itemContext: Pick<
     Schema['ConversationInput'],
-    'taskId' | 'eventId' | 'actionIndex'
+    'taskId' | 'eventId' | 'followup'
   > = {
     ...(this.snapshot.queryParamMap.get('taskId')
       ? { taskId: this.snapshot.queryParamMap.get('taskId')! }
@@ -109,10 +111,9 @@ export class ChatPage {
     ...(this.snapshot.queryParamMap.get('eventId')
       ? { eventId: this.snapshot.queryParamMap.get('eventId')! }
       : {}),
-    ...(this.snapshot.queryParamMap.has('actionIndex')
-      ? { actionIndex: Number(this.snapshot.queryParamMap.get('actionIndex')) }
-      : {}),
+    ...(this.snapshot.queryParamMap.get('followup') === 'true' ? { followup: true } : {}),
   };
+  readonly followup = signal(this.itemContext.followup ?? false);
   readonly id = signal<string | null>(null);
   readonly starting = signal(false);
   readonly error = signal<UiErrorCode | null>(null);
@@ -229,6 +230,7 @@ export class ChatPage {
   /** Replaces the current conversation with a new one. */
   newChat() {
     if (this.sending() || this.inFlight()) return;
+    this.followup.set(false);
     void this.open(() => this.conversations.create(this.thingId));
   }
 
@@ -309,6 +311,10 @@ export class ChatPage {
     this.sending.set(false);
     if (result.ok) {
       if (this.pending === input) this.pending = null;
+      if (this.followup()) {
+        if (this.itemContext.taskId) await this.tasks.loadOne(this.itemContext.taskId);
+        else if (this.itemContext.eventId) await this.events.loadOne(this.itemContext.eventId);
+      }
     } else if (this.pending === input && !this.text()) this.text.set(input.text);
   }
 

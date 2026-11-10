@@ -10,7 +10,7 @@
         (removed)="actions.remove(item)"
         (dismissed)="actions.close(item)"
         (asked)="actions.ask(item)"
-        (actionChosen)="actions.answer(item, $event)"
+        (followedUp)="actions.ask(item, true)"
         (rescheduled)="actions.reschedule(item)"
       />
     </li>

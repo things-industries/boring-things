@@ -124,16 +124,6 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true) returning id",
       [owner, hob],
     );
-    const chat = (label: string, prompt: string | null = null): Schema['CompletionAction'] => ({
-      type: 'CHAT',
-      label,
-      prompt,
-    });
-    const upload: Schema['CompletionAction'] = {
-      type: 'ADD_ATTACHMENT',
-      label: 'Add the invoice',
-      documentType: 'OTHER',
-    };
     const addTask = async (
       thingId: string,
       title: string,
@@ -150,7 +140,6 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         scheduledOn: null,
         deadlineOn: null,
         recurrence: null,
-        completionActions: [],
         completedAt: null,
         completedFollowup: null,
         closedAt: null,
@@ -163,7 +152,6 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     await addTask(hob, 'Deep clean', {
       scheduledOn: on(1),
       recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
-      completionActions: [chat('How did it go?')],
     });
     await addTask(hob, 'Inspect the cable', { importance: 'NICE_TO_HAVE' });
     await addTask(van, 'MOT test', {
@@ -172,21 +160,10 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       importance: 'CRITICAL',
     });
     await addTask(insurance, 'Review home cover', { scheduledOn: on(5), importance: 'IMPORTANT' });
-    const policyActions: Schema['CompletionAction'][] = [
-      {
-        type: 'UPDATE_FIELD',
-        label: 'Set the new date',
-        fieldSetId: null,
-        fieldId: 'insurance.policyEnds',
-        customFieldId: null,
-      },
-      { type: 'ADD_ATTACHMENT', label: 'Add the renewal', documentType: 'OTHER' },
-    ];
     await addTask(insurance, 'Renew the policy', {
       scheduledOn: on(0),
       deadlineOn: on(30),
       importance: 'IMPORTANT',
-      completionActions: policyActions,
     });
     await addTask(membership, 'Renew the membership', {
       scheduledOn: on(2),
@@ -201,27 +178,14 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       scheduledOn: on(-2),
       status: 'COMPLETED',
       completedAt: new Date().toISOString(),
-      completionActions: [upload, chat('Needs more work', 'The vehicle still needs work.')],
     });
     await db.query(
-      "insert into bt.events(owner_id,thing_id,issue_id,title,description,status,starts_at,ends_at,completion_actions,is_sample) values($1,$2,$3,'Engineer visit','Sample appointment.','SCHEDULED',now()-interval '2 hours',now()-interval '1 hour',$4,true)",
-      [
-        owner,
-        hob,
-        issue.id,
-        JSON.stringify([
-          { type: 'RESOLVE_ISSUE', label: 'Is it fixed?' },
-          chat('Needs a follow-up', 'The hob still needs work.'),
-        ]),
-      ],
+      "insert into bt.events(owner_id,thing_id,issue_id,title,description,status,starts_at,ends_at,is_sample) values($1,$2,$3,'Engineer visit','Sample appointment.','SCHEDULED',now()-interval '2 hours',now()-interval '1 hour',true)",
+      [owner, hob, issue.id],
     );
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,status,starts_at,ends_at,completion_actions,is_sample) values($1,$2,'Annual service at the mechanic','SCHEDULED',now()-interval '2 days',now()-interval '47 hours',$3,true)",
-      [
-        owner,
-        van,
-        JSON.stringify([upload, chat('Needs more work', 'The vehicle still needs work.')]),
-      ],
+      "insert into bt.events(owner_id,thing_id,title,status,starts_at,ends_at,is_sample) values($1,$2,'Annual service at the mechanic','SCHEDULED',now()-interval '2 days',now()-interval '47 hours',true)",
+      [owner, van],
     );
 
     for (const [kind, name] of [

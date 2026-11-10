@@ -5,9 +5,6 @@ import assert from 'node:assert/strict';
 import type { Appointment, Task, ThingDate } from '../../src/app/interfaces/task.interface.js';
 import { buildAgenda, byImportance, nextItems, timeLine } from '../../src/app/utils/agenda.util.js';
 const now = new Date(2026, 9, 8, 9);
-const chat = [
-  { type: 'CHAT', label: 'How did it go?', prompt: null },
-] satisfies Task['completionActions'];
 function task(id: string, overrides: Partial<Task> = {}): Task {
   return {
     id,
@@ -20,7 +17,6 @@ function task(id: string, overrides: Partial<Task> = {}): Task {
     scheduledOn: '2026-10-08',
     deadlineOn: null,
     recurrence: null,
-    completionActions: [],
     completedAt: null,
     completedFollowup: null,
     closedAt: null,
@@ -41,8 +37,8 @@ function event(id: string, overrides: Partial<Appointment> = {}): Appointment {
     startsAt: new Date(2026, 9, 8, 14).toISOString(),
     startsOn: null,
     endsAt: null,
+    completedFollowup: null,
     closedAt: null,
-    completionActions: [],
     sourceRefs: [],
     isSample: false,
     ...overrides,
@@ -83,22 +79,20 @@ test('completed work and ended appointments keep followups across days until clo
       task('done', {
         status: 'COMPLETED',
         completedAt: '2026-10-01T12:00:00Z',
-        completionActions: chat,
       }),
-      task('closed', { status: 'CLOSED', completionActions: chat }),
-      task('no-actions', { status: 'COMPLETED', completedAt: now.toISOString() }),
+      task('closed', { status: 'CLOSED' }),
+      task('done-today', { status: 'COMPLETED', completedAt: now.toISOString() }),
     ],
     [
-      event('ended', { startsAt: new Date(2026, 9, 1, 10).toISOString(), completionActions: chat }),
+      event('ended', { startsAt: new Date(2026, 9, 1, 10).toISOString() }),
       event('ongoing', {
         startsAt: new Date(2026, 9, 8, 8).toISOString(),
         endsAt: new Date(2026, 9, 8, 10).toISOString(),
-        completionActions: chat,
       }),
     ],
   );
   assert.deepEqual(ids(result.followups), ['event:ended', 'task:done']);
-  assert.deepEqual(ids(result.today), ['event:ongoing', 'task:no-actions']);
+  assert.deepEqual(ids(result.today), ['event:ongoing', 'task:done-today']);
   assert.equal(nextItems(result, 1)[0].key, 'event:ended');
 });
 
@@ -126,18 +120,18 @@ test('checking off a task keeps its position while its completion day lasts', ()
   assert.deepEqual(ids(partlyDone.today), ids(before.today));
 });
 
-test('a completed task leaves the list once its completion day has passed', () => {
+test('a completed task offers followup once its completion day has passed', () => {
   const result = agenda([done(task('old'), yesterday)]);
   assert.deepEqual(result.today, []);
-  assert.deepEqual(result.followups, []);
+  assert.deepEqual(ids(result.followups), ['task:old']);
 });
 
-test('completion actions stay on the card that day, then become followups', () => {
-  const withActions = task('visit', { completionActions: chat });
-  const sameDay = agenda([done(withActions, now)]);
+test('chat followups stay on the card that day, then become followups', () => {
+  const completedTask = task('visit', {});
+  const sameDay = agenda([done(completedTask, now)]);
   assert.deepEqual(ids(sameDay.today), ['task:visit']);
   assert.deepEqual(sameDay.followups, []);
-  const nextDay = agenda([done(withActions, yesterday)]);
+  const nextDay = agenda([done(completedTask, yesterday)]);
   assert.deepEqual(nextDay.today, []);
   assert.deepEqual(ids(nextDay.followups), ['task:visit']);
 });
@@ -154,7 +148,6 @@ test('overnight appointments stay in Today and previews until they end', () => {
   const overnight = event('overnight', {
     startsAt: new Date(2026, 9, 7, 23).toISOString(),
     endsAt: new Date(2026, 9, 8, 10).toISOString(),
-    completionActions: chat,
   });
   const result = agenda([], [overnight]);
   assert.deepEqual(ids(result.today), ['event:overnight']);
