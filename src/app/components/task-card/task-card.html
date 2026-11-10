@@ -1,6 +1,6 @@
 @let entry = item();
 @let name = showThing() ? entry.thingName + ': ' + title() : title();
-<bt-task-row [eyebrow]="showThing() ? entry.thingName : null">
+<bt-task-row [eyebrow]="showThing() ? entry.thingName : null" [compact]="thingDate()">
   @if (checkable()) {
     <button
       taskRowLeading
@@ -13,16 +13,13 @@
     >
       <ng-icon [name]="done() ? 'taskDone' : 'taskOpen'" aria-hidden="true" />
     </button>
-  } @else {
+  } @else if (!thingDate()) {
     <span taskRowLeading class="task-card-icon">
-      <ng-icon
-        [name]="entry.type === 'THING_DATE' ? 'agendaThingDate' : 'agendaEvent'"
-        aria-hidden="true"
-      />
+      <ng-icon name="agendaEvent" aria-hidden="true" />
     </span>
   }
   <ng-container taskRowTitle>
-    @if (entry.type === 'THING_DATE') {
+    @if (entry.type === 'THING_DATE' && !showThing()) {
       {{ entry.thingDate.label | lowercase }}
     } @else {
       {{ title() }}
@@ -134,26 +131,39 @@
       Dismiss
     </button>
   }
-  <bt-menu
-    taskRowTrailing
-    class="task-card-menu"
-    [label]="'Actions for ' + name"
-    variant="plain"
-    size="sm"
-  >
-    <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
-    @if (entry.type === 'TASK') {
-      <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">
-        Edit schedule
-      </button>
-    }
-    @if (!inThing()) {
-      <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
-    }
-    @if (entry.type === 'TASK') {
-      <button type="button" btMenuItem icon="deleteTask" (click)="removed.emit()">
-        Delete task
-      </button>
-    }
-  </bt-menu>
+  @if (thingDate()) {
+    <button
+      taskRowTrailing
+      type="button"
+      btIconButton
+      variant="plain"
+      size="sm"
+      icon="askAboutTask"
+      [label]="'Ask about ' + entry.thingName + ' ' + title()"
+      (click)="asked.emit()"
+    ></button>
+  } @else {
+    <bt-menu
+      taskRowTrailing
+      class="task-card-menu"
+      [label]="'Actions for ' + name"
+      variant="plain"
+      size="sm"
+    >
+      <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
+      @if (entry.type === 'TASK') {
+        <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">
+          Edit schedule
+        </button>
+      }
+      @if (!inThing()) {
+        <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
+      }
+      @if (entry.type === 'TASK') {
+        <button type="button" btMenuItem icon="deleteTask" (click)="removed.emit()">
+          Delete task
+        </button>
+      }
+    </bt-menu>
+  }
 </bt-task-row>

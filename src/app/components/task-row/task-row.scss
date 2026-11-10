@@ -6,6 +6,10 @@
   align-items: center;
   gap: tokens.space(3);
   padding: tokens.space(3);
+
+  &.compact {
+    padding-block: tokens.space(1);
+  }
 }
 
 .task-row-copy {

@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   agendaEvent,
-  agendaThingDate,
   askAboutTask,
   deleteTask,
   followUpChat,
@@ -22,6 +21,7 @@ import type { AgendaItem, CompletionAction } from '../../interfaces/task.interfa
 import { isDone, itemTitle, timeLine } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { Menu } from '../menu/menu';
+import { IconButton } from '../icon-button/icon-button';
 import { MenuItem } from '../menu/menu-item';
 import { TaskRow } from '../task-row/task-row';
 
@@ -34,16 +34,16 @@ const actionIcons: Record<CompletionAction['type'], string> = {
 
 /**
  * Agenda card for a task, appointment or Thing date: a check control for items that can be done,
- * the title, a time line or, once done, its completion actions side by side, and an overflow menu. On a white
- * surface, set `--task-card-background`.
+ * the title, a time line or, once done, its completion actions side by side, and an overflow menu.
+ * A Thing date is a compact, shaded card with only a chat action. On a white surface, set
+ * `--task-card-background`.
  */
 @Component({
   selector: 'bt-task-card',
-  imports: [DatePipe, LowerCasePipe, NgIcon, RouterLink, Menu, MenuItem, TaskRow],
+  imports: [DatePipe, LowerCasePipe, NgIcon, RouterLink, IconButton, Menu, MenuItem, TaskRow],
   viewProviders: [
     provideIcons({
       agendaEvent,
-      agendaThingDate,
       askAboutTask,
       deleteTask,
       followUpChat,
@@ -60,7 +60,7 @@ const actionIcons: Record<CompletionAction['type'], string> = {
   ],
   templateUrl: './task-card.html',
   styleUrl: './task-card.scss',
-  host: { '[class.done]': 'done()' },
+  host: { '[class.done]': 'done()', '[class.thing-date]': 'thingDate()' },
 })
 export class TaskCard {
   readonly item = input.required<AgendaItem>();
@@ -77,9 +77,10 @@ export class TaskCard {
   readonly dismissed = output<void>();
 
   readonly title = computed(() => itemTitle(this.item()));
+  readonly thingDate = computed(() => this.item().type === 'THING_DATE');
 
-  /** Names the Thing above the title; a Thing date's title already includes it. */
-  readonly showThing = computed(() => !this.inThing() && this.item().type !== 'THING_DATE');
+  /** Names the Thing above the title, outside that Thing's pages. */
+  readonly showThing = computed(() => !this.inThing());
 
   readonly actions = computed(() => {
     const item = this.item();

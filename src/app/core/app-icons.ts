@@ -208,7 +208,6 @@ export const taskDone = remixCheckboxCircleFill;
 export const taskCritical = remixFlagFill;
 export const taskOverdue = remixTimeLine;
 export const agendaEvent = remixCalendarCheckLine;
-export const agendaThingDate = remixCalendarEventLine;
 export const followUpChat = remixChat3Fill;
 export const followUpField = remixPencilLine;
 export const followUpDocument = remixUploadLine;

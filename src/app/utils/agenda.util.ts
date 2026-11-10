@@ -144,14 +144,21 @@ export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
   };
 }
 
-/** First agenda items for Thing previews, including pending followups. */
+/** Tasks and Events; Thing dates appear only on a timeline, under their day. */
+export function isWork(item: AgendaItem) {
+  return item.type !== 'THING_DATE';
+}
+
+/** First work items for Thing previews, including pending followups. */
 export function nextItems(agenda: Agenda, limit: number) {
   return [
     ...agenda.followups,
     ...agenda.today,
     ...agenda.tomorrow,
     ...agenda.upcoming.flatMap((day) => day.items),
-  ].slice(0, limit);
+  ]
+    .filter(isWork)
+    .slice(0, limit);
 }
 
 /** Suggestions ordered by importance and title. */

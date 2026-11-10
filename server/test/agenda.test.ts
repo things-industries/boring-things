@@ -170,6 +170,20 @@ test('overnight appointments stay in Today and previews until they end', () => {
   assert.deepEqual(ids(ended.followups), ['event:overnight']);
 });
 
+test('Thing previews leave out Thing dates', () => {
+  const date: ThingDate = {
+    thingId: 'thing',
+    fieldId: 'date',
+    fieldSetId: 'set',
+    customFieldId: null,
+    label: 'A date',
+    date: '2026-10-08',
+  };
+  const result = agenda([task('wash')], [], [date]);
+  assert.equal(result.today.length, 2);
+  assert.deepEqual(ids(nextItems(result, 5)), ['task:wash']);
+});
+
 test('tasks and appointments carry their Thing name', () => {
   const result = agenda([task('wash')], [event('visit')]);
   assert.deepEqual(

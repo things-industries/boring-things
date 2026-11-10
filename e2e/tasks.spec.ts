@@ -290,6 +290,52 @@ test('suggested tasks merge with scheduled tasks on the Thing and its Tasks page
   await expect(rows).toHaveCount(3);
 });
 
+test('Thing dates are compact timeline cards that stay out of previews', async ({ page }) => {
+  const thing = await setup(page);
+  await api(page, 'POST', '/tasks', { thingId: thing.id, title: 'Plain chore', status: 'ACTIVE' });
+  await page.route('**/api/thing-dates*', (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            thingId: thing.id,
+            fieldId: 'warranty',
+            fieldSetId: 'set',
+            customFieldId: null,
+            label: 'Warranty ends',
+            date: day(0),
+          },
+        ],
+        nextCursor: null,
+      },
+    }),
+  );
+  const date = card(page, 'warranty ends');
+
+  await page.goto('/tasks');
+  await expect(date.locator('.task-row-eyebrow')).toHaveText(thing.name);
+  await expect(date.locator('.task-row-title')).toHaveText('Warranty ends');
+  await page.screenshot({ path: test.info().outputPath('thing-date-tab.png') });
+
+  await page.goto(`/things/${thing.id}`);
+  await expect(card(page, 'Plain chore')).toBeVisible();
+  await expect(date).toHaveCount(0);
+
+  await page.goto(`/things/${thing.id}/tasks`);
+  await expect(date).toBeVisible();
+  await expect(date.locator('bt-menu')).toHaveCount(0);
+  await expect(date.locator('.task-card-icon')).toHaveCount(0);
+  await expect(date.getByRole('button')).toHaveCount(1);
+  await expect(date.getByRole('button')).toHaveAccessibleName(/^Ask about /);
+  const height = (await date.boundingBox())!.height;
+  expect(height).toBeLessThan((await card(page, 'Plain chore').boundingBox())!.height);
+  await expect(date).toHaveClass(/thing-date/);
+  await page.screenshot({ path: test.info().outputPath('thing-date.png') });
+
+  await date.getByRole('button').click();
+  await expect(page).toHaveURL(new RegExp(`/things/${thing.id}/chat`));
+});
+
 test('accept an unscheduled suggestion and open a new contextual followup conversation', async ({
   page,
 }) => {

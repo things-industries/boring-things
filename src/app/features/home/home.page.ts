@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   agendaEvent,
-  agendaThingDate,
   askQuestion,
   issueFault,
   issueOther,
@@ -39,7 +38,7 @@ import { PromoCard } from '../../components/promo-card/promo-card';
 import { SectionHeader } from '../../components/section-header/section-header';
 import { ThingRow } from '../../components/thing-row/thing-row';
 import { TermPipe } from '../../pipes/term.pipe';
-import { isDone, itemTitle } from '../../utils/agenda.util';
+import { isDone, isWork, itemTitle } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { issueBadges } from '../../utils/issue.util';
 import { HomeSkeleton } from './home-skeleton/home-skeleton';
@@ -64,7 +63,6 @@ import { HomeSkeleton } from './home-skeleton/home-skeleton';
   viewProviders: [
     provideIcons({
       agendaEvent,
-      agendaThingDate,
       askQuestion,
       issueFault,
       issueOther,
@@ -109,7 +107,7 @@ export class HomePage {
 
   /** Today's items in agenda order: how many are left and overdue, and the first few. */
   readonly today = computed(() => {
-    const items = this.agenda().today;
+    const items = this.agenda().today.filter(isWork);
     const open = items.filter((item) => !isDone(item));
 
     return {

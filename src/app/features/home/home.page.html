@@ -115,23 +115,9 @@
               <li [class.done]="done">
                 <ng-icon
                   aria-hidden="true"
-                  [name]="
-                    item.type === 'TASK'
-                      ? done
-                        ? 'taskDone'
-                        : 'taskOpen'
-                      : item.type === 'EVENT'
-                        ? 'agendaEvent'
-                        : 'agendaThingDate'
-                  "
+                  [name]="item.type === 'TASK' ? (done ? 'taskDone' : 'taskOpen') : 'agendaEvent'"
                 />
-                <span class="home-today-title">
-                  @if (item.type === 'THING_DATE') {
-                    {{ item.thingName }} {{ item.thingDate.label.toLowerCase() }}
-                  } @else {
-                    {{ itemTitle(item) }}
-                  }
-                </span>
+                <span class="home-today-title">{{ itemTitle(item) }}</span>
                 @if (done) {
                   <span class="visually-hidden">(done)</span>
                 }

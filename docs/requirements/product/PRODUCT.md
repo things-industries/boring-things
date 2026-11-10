@@ -190,7 +190,7 @@ See the `UI Inspiration` folder for ideas for specific components
     - **Thing editor**:
         - Ability to add/remove any of the user-editable parts of a Thing
 - **Tasks**:
-    - **Main tasks view**: Today and Tomorrow always appear; Upcoming expands to later dates. Items are Tasks, Events and Thing dates derived from populated date fields.
+    - **Main tasks view**: Today and Tomorrow always appear; Upcoming expands to later dates. Items are Tasks, Events and Thing dates derived from populated date fields. Thing dates appear only on the timeline under their day, as compact shaded cards with a chat action.
     - Tasks use `SUGGESTED`, `ACTIVE`, `COMPLETED` and `CLOSED`. Accepting a suggestion invokes a scheduling AI task. Missing dates are allowed; active recurring Tasks need `scheduledOn`. Tasks with `deadlineOn` are one-off. Suggestions can hold a recurrence interval until acceptance chooses dates. `scheduledOn` controls placement; `deadlineOn` controls overdue messaging. Scheduled dates cannot follow deadlines.
     - Today starts with unscheduled and overdue Tasks, followed by Events, Thing dates and other Tasks. Task groups sort by importance: critical, important, recommended and nice to have.
     - Completing a Task records the current timestamp. Recurrence creates one successor with copied followups. Completion-based recurrence sets the scheduled date to the actual completion date plus interval. Scheduled-date recurrence advances the original scheduled date, skips missed occurrences and keeps calendar-month and year references. Edits affect one occurrence. Unchecking a completed Task with no actioned followup returns it to active and removes its successor, unless the successor was edited or a later occurrence was completed.
