@@ -23,6 +23,7 @@ import { isDone, itemTitle, timeLine } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { Menu } from '../menu/menu';
 import { MenuItem } from '../menu/menu-item';
+import { TaskRow } from '../task-row/task-row';
 
 const actionIcons: Record<CompletionAction['type'], string> = {
   CHAT: 'followUpChat',
@@ -38,7 +39,7 @@ const actionIcons: Record<CompletionAction['type'], string> = {
  */
 @Component({
   selector: 'bt-task-card',
-  imports: [DatePipe, LowerCasePipe, NgIcon, RouterLink, Menu, MenuItem],
+  imports: [DatePipe, LowerCasePipe, NgIcon, RouterLink, Menu, MenuItem, TaskRow],
   viewProviders: [
     provideIcons({
       agendaEvent,

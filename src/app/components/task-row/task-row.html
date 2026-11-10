@@ -1,0 +1,9 @@
+<ng-content select="[taskRowLeading]" />
+<div class="task-row-copy">
+  @if (eyebrow(); as eyebrow) {
+    <p class="task-row-eyebrow">{{ eyebrow }}</p>
+  }
+  <p class="task-row-title"><ng-content select="[taskRowTitle]" /></p>
+  <ng-content />
+</div>
+<ng-content select="[taskRowTrailing]" />

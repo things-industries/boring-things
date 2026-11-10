@@ -1,31 +1,29 @@
 @let entry = item();
 @let name = showThing() ? entry.thingName + ': ' + title() : title();
-@if (checkable()) {
-  <button
-    type="button"
-    class="task-card-check"
-    role="checkbox"
-    [attr.aria-checked]="done()"
-    [attr.aria-label]="name"
-    (click)="toggled.emit()"
-  >
-    <ng-icon [name]="done() ? 'taskDone' : 'taskOpen'" aria-hidden="true" />
-  </button>
-} @else {
-  <span class="task-card-icon">
-    <ng-icon
-      [name]="entry.type === 'THING_DATE' ? 'agendaThingDate' : 'agendaEvent'"
-      aria-hidden="true"
-    />
-  </span>
-}
-<div class="task-card-copy">
-  @if (showThing()) {
-    <p class="task-card-eyebrow">{{ entry.thingName }}</p>
+<bt-task-row [eyebrow]="showThing() ? entry.thingName : null">
+  @if (checkable()) {
+    <button
+      taskRowLeading
+      type="button"
+      class="task-card-check"
+      role="checkbox"
+      [attr.aria-checked]="done()"
+      [attr.aria-label]="name"
+      (click)="toggled.emit()"
+    >
+      <ng-icon [name]="done() ? 'taskDone' : 'taskOpen'" aria-hidden="true" />
+    </button>
+  } @else {
+    <span taskRowLeading class="task-card-icon">
+      <ng-icon
+        [name]="entry.type === 'THING_DATE' ? 'agendaThingDate' : 'agendaEvent'"
+        aria-hidden="true"
+      />
+    </span>
   }
-  <p class="task-card-title">
+  <ng-container taskRowTitle>
     @if (entry.type === 'THING_DATE') {
-      {{ entry.thingName }} {{ entry.thingDate.label | lowercase }}
+      {{ entry.thingDate.label | lowercase }}
     } @else {
       {{ title() }}
     }
@@ -33,7 +31,7 @@
       <ng-icon class="task-card-flag" name="taskCritical" aria-hidden="true" />
       <span class="visually-hidden">(critical)</span>
     }
-  </p>
+  </ng-container>
   @if (done() && actions().length) {
     <div class="task-card-actions" role="group" [attr.aria-label]="'Next steps for ' + name">
       @for (action of actions(); track $index) {
@@ -131,21 +129,31 @@
       </p>
     }
   }
-</div>
-@if (done() && actions().length) {
-  <button type="button" class="button-link" (click)="dismissed.emit()">Dismiss</button>
-}
-<bt-menu class="task-card-menu" [label]="'Actions for ' + name" variant="plain" size="sm">
-  <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
-  @if (entry.type === 'TASK') {
-    <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">
-      Edit schedule
+  @if (done() && actions().length) {
+    <button taskRowTrailing type="button" class="button-link" (click)="dismissed.emit()">
+      Dismiss
     </button>
   }
-  @if (!inThing()) {
-    <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
-  }
-  @if (entry.type === 'TASK') {
-    <button type="button" btMenuItem icon="deleteTask" (click)="removed.emit()">Delete task</button>
-  }
-</bt-menu>
+  <bt-menu
+    taskRowTrailing
+    class="task-card-menu"
+    [label]="'Actions for ' + name"
+    variant="plain"
+    size="sm"
+  >
+    <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
+    @if (entry.type === 'TASK') {
+      <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">
+        Edit schedule
+      </button>
+    }
+    @if (!inThing()) {
+      <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
+    }
+    @if (entry.type === 'TASK') {
+      <button type="button" btMenuItem icon="deleteTask" (click)="removed.emit()">
+        Delete task
+      </button>
+    }
+  </bt-menu>
+</bt-task-row>

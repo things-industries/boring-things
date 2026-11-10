@@ -143,16 +143,16 @@ test('the Tasks tab names each task’s Thing above its title', async ({ page })
   await api(page, 'POST', '/tasks', { thingId: thing.id, title, status: 'ACTIVE' });
   await page.goto('/tasks');
   const tab = card(page, title);
-  await expect(tab.locator('.task-card-eyebrow')).toHaveText(thing.name);
-  await expect(tab.locator('.task-card-title')).toHaveText(title);
+  await expect(tab.locator('.task-row-eyebrow')).toHaveText(thing.name);
+  await expect(tab.locator('.task-row-title')).toHaveText(title);
   await expect(tab.getByRole('checkbox', { name: `${thing.name}: ${title}` })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('task-eyebrow.png') });
   await page.goto(`/things/${thing.id}/tasks`);
   await expect(card(page, title)).toBeVisible();
-  await expect(card(page, title).locator('.task-card-eyebrow')).toHaveCount(0);
+  await expect(card(page, title).locator('.task-row-eyebrow')).toHaveCount(0);
   await page.goto(`/things/${thing.id}`);
   await expect(card(page, title)).toBeVisible();
-  await expect(card(page, title).locator('.task-card-eyebrow')).toHaveCount(0);
+  await expect(card(page, title).locator('.task-row-eyebrow')).toHaveCount(0);
 });
 
 test('a checked-off task keeps its place in the list', async ({ page }) => {
@@ -161,7 +161,7 @@ test('a checked-off task keeps its place in the list', async ({ page }) => {
   for (const title of titles)
     await api(page, 'POST', '/tasks', { thingId: thing.id, title, status: 'ACTIVE' });
   await page.goto(`/things/${thing.id}/tasks`);
-  const shown = page.locator('bt-task-card .task-card-title');
+  const shown = page.locator('bt-task-card .task-row-title');
   await expect(shown).toHaveText(titles);
   await card(page, 'Beta chore').getByRole('checkbox').click();
   const checked = page.locator('bt-task-card.done', { hasText: 'Beta chore' });
