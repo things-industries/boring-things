@@ -8,6 +8,7 @@ import type pg from 'pg';
 import { route } from '../contracts/routes.js';
 import { ensure } from '../application/errors.js';
 import * as conversationsDb from '../db/entities/conversations.js';
+import { createConversation, enqueueMessage } from '../application/conversations/lifecycle.js';
 import type { JobRunner } from '../application/jobs/runner.js';
 import type { Assistant } from '../application/conversations/assistant.js';
 import type { ApplicationEvents } from '../application/events.js';
@@ -32,7 +33,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
 
   route(app, 'POST', '/api/conversations', async (req, reply) => {
     ensure(!req.body.followup || enabled, 'Assistant is not configured', 'UNAVAILABLE');
-    const result = await conversationsDb.createConversation(db, req.ownerId, req.body);
+    const result = await createConversation(db, req.ownerId, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     return reply.code(201).send(result);
@@ -40,7 +41,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
 
   route(app, 'POST', '/api/conversations/{id}/messages', async (req, reply) => {
     ensure(enabled, 'Assistant is not configured', 'UNAVAILABLE');
-    const result = await conversationsDb.enqueueMessage(db, req.ownerId, req.params.id, req.body);
+    const result = await enqueueMessage(db, req.ownerId, req.params.id, req.body);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     reply.code(202);

@@ -93,6 +93,30 @@ test('acceptance calls the scheduling task once and failed scheduling leaves the
   );
 });
 
+for (const change of ['edit', 'resolve'] as const) {
+  test(`acceptance rechecks the suggestion after a concurrent ${change}`, async (t) => {
+    const thing = await createThing();
+    const issue = (
+      await request('POST', '/issues', { thingId: thing.id, title: 'Filter leak' })
+    ).json<Schema['Issue']>();
+    const task = await createTask(thing.id, { status: 'SUGGESTED', issueId: issue.id });
+    t.mock.method(app.taskScheduler, 'schedule', async () => {
+      const response =
+        change === 'edit'
+          ? await request('PATCH', `/tasks/${task.id}`, { title: 'Updated work' })
+          : await request('PATCH', `/issues/${issue.id}`, { status: 'RESOLVED' });
+      assert.equal(response.statusCode, 200, response.body);
+      return { scheduledOn: '2096-01-01', deadlineOn: null };
+    });
+    const response = await request('POST', `/tasks/${task.id}:accept`, {});
+    assert.equal(response.statusCode, change === 'edit' ? 409 : 200, response.body);
+    const saved = (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>();
+    assert.equal(saved.status, change === 'edit' ? 'SUGGESTED' : 'CLOSED');
+    assert.equal(saved.scheduledOn, null);
+    if (change === 'edit') assert.equal(saved.title, 'Updated work');
+  });
+}
+
 test('deadlines exclude recurrence on creation and occurrence edits', async () => {
   const thing = await createThing();
   const recurrence = { interval: 1, unit: 'MONTH', from: 'SCHEDULED' } as const;
@@ -280,6 +304,14 @@ test('issue resolution closes linked suggestions, active tasks, completed tasks 
   assert.ok(result.tasks.every((t) => t.status === 'CLOSED' && t.closedAt));
   assert.ok(result.events[0].closedAt);
   assert.equal(result.events[0].status, 'CLOSED');
+  const repeated = (await request('PATCH', `/issues/${issue.id}`, { status: 'RESOLVED' })).json<
+    Schema['IssueChange']
+  >();
+  assert.deepEqual(
+    new Set(repeated.tasks.map((task) => task.id)),
+    new Set(result.tasks.map((task) => task.id)),
+  );
+  assert.deepEqual(repeated.events, result.events);
   await request('PATCH', `/issues/${issue.id}`, { status: 'OPEN' });
   assert.equal(
     (await request('GET', `/tasks/${active.id}`)).json<Schema['Task']>().status,
@@ -495,6 +527,36 @@ test('dismissed or reopened work rejects a pending followup message without reco
       [],
     );
   }
+});
+
+test('rescheduling an ended Event rejects its pending followup and rolls back the message', async () => {
+  const thing = await createThing();
+  const event = (
+    await request('POST', '/events', {
+      thingId: thing.id,
+      title: 'Engineer visit',
+      startsOn: '2000-01-01',
+    })
+  ).json<Schema['Event']>();
+  const conversation = (
+    await request('POST', '/conversations', { eventId: event.id, followup: true })
+  ).json<Schema['Conversation']>();
+  const changed = await request('PATCH', `/events/${event.id}`, { startsOn: '2099-01-01' });
+  assert.equal(changed.statusCode, 200, changed.body);
+  const sent = await request('POST', `/conversations/${conversation.id}/messages`, {
+    text: 'The visit was postponed.',
+    requestId: crypto.randomUUID(),
+  });
+  assert.equal(sent.statusCode, 409, sent.body);
+  assert.equal(
+    (await request('GET', `/events/${event.id}`)).json<Schema['Event']>().completedFollowup,
+    null,
+  );
+  assert.deepEqual(
+    (await request('GET', `/conversations/${conversation.id}`)).json<Schema['Conversation']>()
+      .messages,
+    [],
+  );
 });
 
 // a139bfe kept null references when a scheduled date was added, breaking later occurrences.

@@ -1,6 +1,5 @@
-// Persists owner-scoped Issues and Events, including suggested tasks.
+/** Owner-scoped Issue and Event persistence. */
 
-import { createHash } from 'node:crypto';
 import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import * as database from '../connection.js';
@@ -168,42 +167,16 @@ export async function saveEvent(
   return item;
 }
 
-const activityKey = (thingId: string, kind: string, identity: string) =>
-  createHash('sha256')
-    .update(`${thingId}:${kind}:${identity.trim().toLowerCase().replace(/\s+/g, ' ')}`)
-    .digest('hex');
-
-export async function existingTasks(db: Database, owner: string, thingId: string) {
-  return database.rows<Pick<Schema['Task'], 'title' | 'status'>>(
-    db,
-    'select title,status from bt.tasks where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 200',
-    [thingId, owner],
-  );
-}
-
-// Inserts a cited task suggestion once without replacing owner edits.
-export async function saveSuggestedTask(
-  db: Database,
-  owner: string,
-  thingId: string,
-  task: Pick<Schema['Task'], 'title' | 'description' | 'sourceRefs'> &
-    Partial<Pick<Schema['Task'], 'importance' | 'recurrence'>>,
-) {
+/** Closes linked Events and returns all closed Events for an Issue. */
+export async function closeEventsForIssue(db: Database, owner: string, issueId: string) {
   await database.execute(
     db,
-    `insert into bt.tasks(owner_id,thing_id,title,description,status,source_refs,import_key,importance,recurrence)
-     select $1,$2,$3,$4,'SUGGESTED',$5,$6,$7,$8
-     where not exists(select 1 from bt.tasks where owner_id=$1 and thing_id=$2 and lower(trim(title))=lower(trim($3)))
-     on conflict(import_key) do nothing`,
-    [
-      owner,
-      thingId,
-      task.title,
-      task.description,
-      JSON.stringify(task.sourceRefs),
-      activityKey(thingId, 'task', task.title),
-      task.importance ?? 'RECOMMENDED',
-      task.recurrence ? JSON.stringify(task.recurrence) : null,
-    ],
+    "update bt.events set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
+    [owner, issueId],
+  );
+  return database.rows<Schema['Event']>(
+    db,
+    `select ${columns.events} from bt.events where owner_id=$1 and issue_id=$2 and status='CLOSED'`,
+    [owner, issueId],
   );
 }

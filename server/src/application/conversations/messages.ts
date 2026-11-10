@@ -40,7 +40,7 @@ export async function createChatActivity(
         ? await writeTask(db, job.ownerId, { ...input, status: 'SUGGESTED' })
         : name === 'create_event'
           ? await writeEvent(db, job.ownerId, input)
-          : await writeIssue(db, job.ownerId, input);
+          : (await writeIssue(db, job.ownerId, input)).issue;
     const item = { id: activity.id, thingId: activity.thingId };
 
     const card: Schema['ResourceCard'] =

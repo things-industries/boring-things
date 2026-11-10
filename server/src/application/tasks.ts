@@ -41,25 +41,35 @@ export async function writeTask(
     ...existing,
     ...input,
   } satisfies Schema['Task'];
-  task.title = task.title.trim();
+  return saveTask(db, owner, task, !!id);
+}
+
+/** Validates and saves a Task after its Thing and existing occurrence have been locked. */
+export async function saveTask(
+  db: Database,
+  owner: string,
+  task: Schema['Task'] & { referenceDates?: tasksDb.TaskRow['referenceDates'] },
+  update = false,
+) {
+  task = { ...task, title: task.title.trim() };
   ensure(task.title, 'Title cannot be blank');
   validateTaskSchedule(task, task.status === 'SUGGESTED' || task.status === 'CLOSED');
-  await validateIssueLink(db, owner, thingId, task.issueId, task.status === 'CLOSED');
+  await validateIssueLink(db, owner, task.thingId, task.issueId, task.status === 'CLOSED');
   const saved = await tasksDb.saveTask(
     db,
     owner,
     {
       ...task,
       referenceDates:
-        task.scheduledOn || existing?.referenceDates
+        task.scheduledOn || task.referenceDates
           ? {
-              scheduledOn: existing?.referenceDates?.scheduledOn ?? task.scheduledOn,
+              scheduledOn: task.referenceDates?.scheduledOn ?? task.scheduledOn,
             }
           : null,
     },
-    !!id,
+    update,
   );
-  await thingsDb.bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, owner, task.thingId);
   return saved;
 }
 
