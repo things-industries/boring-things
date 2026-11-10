@@ -178,3 +178,87 @@ test('Today and Tomorrow always appear and Upcoming expands', async ({ page }) =
   await upcoming.click();
   await expect(upcoming).toHaveAttribute('aria-expanded', 'true');
 });
+
+// PR #139 saved every custom-field followup answer as text, changing its stored type.
+test('custom-field followups save typed answers and keep money currencies', async ({ page }) => {
+  const thing = await setup(page);
+  const cases = [
+    { label: 'Mileage', value: 1200, answer: '0', expected: 0, type: 'NUMBER', input: 'number' },
+    { label: 'Checked', value: true, answer: 'false', expected: false, type: 'BOOLEAN' },
+    {
+      label: 'Cost',
+      value: { amountMinor: 1250, currency: 'EUR' },
+      answer: '15.25',
+      expected: { amountMinor: 1525, currency: 'EUR' },
+      type: 'MONEY',
+      input: 'number',
+    },
+    {
+      label: 'Private cost',
+      value: { amountMinor: 2500, currency: 'USD' },
+      sensitive: true,
+      answer: '0',
+      expected: { amountMinor: 0, currency: 'USD' },
+      type: 'MONEY',
+      input: 'number',
+    },
+    {
+      label: 'Date',
+      value: '2026-01-01',
+      answer: '2026-02-02',
+      expected: '2026-02-02',
+      type: 'DATE',
+      input: 'date',
+    },
+    { label: 'Code', value: '001', answer: '007', expected: '007', type: 'STRING', input: 'text' },
+  ];
+  const updated = (await api(page, 'PATCH', `/things/${thing.id}`, {
+    customFields: cases.map(({ label, value, sensitive }) => ({
+      label,
+      value,
+      sensitive: !!sensitive,
+    })),
+  })) as Schema['Thing'];
+  const fields = updated.customFields;
+  const task = (await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Record results',
+    status: 'ACTIVE',
+    completionActions: fields.map((field) => ({
+      type: 'UPDATE_FIELD',
+      label: field.label,
+      fieldSetId: null,
+      fieldId: null,
+      customFieldId: field.id,
+    })),
+  })) as Schema['Task'];
+  await api(page, 'POST', `/tasks/${task.id}:complete`, {});
+  await page.goto(`/things/${thing.id}/tasks`);
+
+  for (const entry of cases) {
+    await page.getByRole('button', { name: entry.label, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: entry.label, exact: true });
+    const input = dialog.getByLabel(entry.label, { exact: true });
+    if (entry.type === 'BOOLEAN') await input.selectOption(entry.answer);
+    else {
+      await expect(input).toHaveAttribute('type', entry.input!);
+      await input.fill(entry.answer);
+    }
+    await page.screenshot({
+      path: test.info().outputPath(`followup-${entry.type}-${entry.label}.png`),
+    });
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const saved = (await api(page, 'GET', `/things/${thing.id}`)) as Schema['Thing'];
+    const field = saved.customFields.find((field) => field.label === entry.label)!;
+    expect(field.valueType).toBe(entry.type);
+    const value = entry.sensitive
+      ? (
+          (await api(page, 'POST', `/things/${thing.id}:reveal-field`, {
+            customFieldId: field.id,
+          })) as Schema['RevealResult']
+        ).value
+      : field.value;
+    expect(value).toEqual(entry.expected);
+  }
+});

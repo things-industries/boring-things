@@ -100,6 +100,28 @@ test('completed work and ended appointments keep followups across days until clo
   assert.deepEqual(ids(result.today), ['event:ongoing']);
   assert.equal(nextItems(result, 1)[0].key, 'event:ended');
 });
+
+// PR #139 placed ongoing Events under their past start date, hiding them after midnight.
+test('overnight appointments stay in Today and previews until they end', () => {
+  const overnight = event('overnight', {
+    startsAt: new Date(2026, 9, 7, 23).toISOString(),
+    endsAt: new Date(2026, 9, 8, 10).toISOString(),
+    completionActions: chat,
+  });
+  const result = agenda([], [overnight]);
+  assert.deepEqual(ids(result.today), ['event:overnight']);
+  assert.equal(result.today[0].day, '2026-10-08');
+  assert.deepEqual(ids(nextItems(result, 1)), ['event:overnight']);
+  assert.deepEqual(result.followups, []);
+
+  const ended = buildAgenda(
+    { tasks: [], events: [overnight], thingDates: [], thingNames: { thing: 'Car' } },
+    new Date(2026, 9, 8, 10),
+  );
+  assert.deepEqual(ended.today, []);
+  assert.deepEqual(ids(ended.followups), ['event:overnight']);
+});
+
 test('future tasks and all future date fields form day groups', () => {
   const dates: ThingDate[] = [
     {

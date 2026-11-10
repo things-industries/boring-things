@@ -105,7 +105,7 @@ export function buildAgenda(input: AgendaInput, now = new Date()): Agenda {
       type: 'EVENT',
       key: `event:${event.id}`,
       thingId: event.thingId,
-      day,
+      day: day < today ? today : day,
       overdue: false,
       event,
     };

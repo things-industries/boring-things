@@ -18,15 +18,34 @@
     } @else if (target(); as target) {
       <label class="follow-up-field"
         >{{ target.field?.name ?? target.custom?.label }}
-        <input
-          name="value"
-          required
-          [type]="
-            target.field?.uiHint === 'DATE' || target.custom?.valueType === 'DATE' ? 'date' : 'text'
-          "
-          [ngModel]="draft()"
-          (ngModelChange)="draft.set($event)"
-        />
+        @if (target.custom?.valueType === 'BOOLEAN') {
+          <select
+            name="value"
+            required
+            [attr.aria-label]="target.custom?.label"
+            [ngModel]="draft()"
+            (ngModelChange)="draft.set($event)"
+          >
+            <option value="">Choose…</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        } @else {
+          <input
+            name="value"
+            required
+            [type]="
+              target.field?.uiHint === 'DATE' || target.custom?.valueType === 'DATE'
+                ? 'date'
+                : target.custom?.valueType === 'NUMBER' || target.custom?.valueType === 'MONEY'
+                  ? 'number'
+                  : 'text'
+            "
+            [step]="target.custom?.valueType === 'MONEY' ? '0.01' : 'any'"
+            [ngModel]="draft()"
+            (ngModelChange)="draft.set($event == null ? '' : '' + $event)"
+          />
+        }
       </label>
     } @else {
       <p class="text-primary-muted">This detail is no longer on the Thing.</p>

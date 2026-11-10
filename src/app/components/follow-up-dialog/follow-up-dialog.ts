@@ -1,3 +1,5 @@
+/** Followup answers that update Thing fields or add attachments. */
+
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AttachmentsStore } from '../../core/state/attachments.store';
@@ -5,7 +7,8 @@ import { ThingDatesStore } from '../../core/state/thing-dates.store';
 import { ThingsStore } from '../../core/state/things.store';
 import { Dialog } from '../dialog/dialog';
 import type { CompletionAction } from '../../interfaces/task.interface';
-import { fieldValue } from '../../utils/field.util';
+import { amountMinor, fieldValue } from '../../utils/field.util';
+import type { Value } from '../../../../shared/model';
 
 /** A field or document completion action waiting for an answer. */
 export interface FollowUpRequest {
@@ -57,9 +60,21 @@ export class FollowUpDialog {
         : null;
   });
 
-  readonly ready = computed(() =>
-    this.request()?.action.type === 'ADD_ATTACHMENT' ? !!this.file() : !!this.draft().trim(),
-  );
+  readonly ready = computed(() => {
+    if (this.request()?.action.type === 'ADD_ATTACHMENT') return !!this.file();
+    const draft = this.draft().trim();
+    if (!draft) return false;
+    switch (this.target()?.custom?.valueType) {
+      case 'NUMBER':
+        return Number.isFinite(Number(draft));
+      case 'BOOLEAN':
+        return draft === 'true' || draft === 'false';
+      case 'MONEY':
+        return /^\d+(\.\d{1,2})?$/.test(draft) && Number.isSafeInteger(amountMinor(draft));
+      default:
+        return true;
+    }
+  });
 
   close() {
     this.draft.set('');
@@ -71,6 +86,7 @@ export class FollowUpDialog {
     this.file.set((event.target as HTMLInputElement).files?.[0] ?? null);
   }
 
+  /** Saves the answer using the target field's type and existing money currency. */
   async save() {
     const request = this.request();
     const target = this.target();
@@ -79,6 +95,23 @@ export class FollowUpDialog {
     if (!request || !this.ready() || this.busy()) return;
     if (request.action.type === 'UPDATE_FIELD') {
       if (!target) return;
+      let value: Value = this.draft().trim();
+      if (target.custom?.valueType === 'NUMBER') value = Number(value);
+      if (target.custom?.valueType === 'BOOLEAN') value = value === 'true';
+      this.busy.set(true);
+      if (target.custom?.valueType === 'MONEY') {
+        const previous = target.custom.masked
+          ? await this.things.reveal(request.thingId, { customFieldId: target.custom.id })
+          : target.custom.value;
+        if (previous === undefined) {
+          this.busy.set(false);
+          return;
+        }
+        value = {
+          amountMinor: amountMinor(this.draft().trim()),
+          currency: previous && typeof previous === 'object' ? previous.currency : 'GBP',
+        };
+      }
       const result = await this.things.update(
         request.thingId,
         target.custom
@@ -87,7 +120,7 @@ export class FollowUpDialog {
                 {
                   id: target.custom.id,
                   label: target.custom.label,
-                  value: this.draft().trim(),
+                  value,
                   sensitive: target.custom.sensitive,
                 },
               ],
@@ -102,6 +135,7 @@ export class FollowUpDialog {
               ],
             },
       );
+      this.busy.set(false);
       if (result.ok) {
         await this.dates.reload();
         this.close();
