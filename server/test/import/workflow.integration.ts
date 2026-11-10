@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import * as attachmentsDb from '../../src/db/entities/attachments.js';
 import { setTimeout } from 'node:timers/promises';
-import { startTestApp } from '../../test/support/test-app.js';
+import { startTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi, ResearchThing } from '../../src/application/import/types.js';
 import type { RecommendationInput } from '../../src/providers/ai/tasks/recommendation.js';

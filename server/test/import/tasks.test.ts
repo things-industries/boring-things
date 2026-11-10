@@ -7,7 +7,7 @@ import { createFieldSetsTool } from '../../src/providers/ai/tools/registry.js';
 import { OpenAiImports } from '../../src/providers/ai/openai-imports.js';
 import type { Usage } from '../../src/application/import/types.js';
 import type { PopulationInput } from '../../src/providers/ai/tasks/populate-fields.js';
-import { createImportTaskContext } from '../../test/support/import-context.js';
+import { createImportTaskContext } from '../support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
 import { setEnvMode } from '../../src/env.js';
 import type { AiTurnCompleted } from '../../src/providers/ai/types.js';

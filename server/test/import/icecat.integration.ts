@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
 import { IcecatProvider } from '../../src/application/import/specialists.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
-import { startTestApp } from '../../test/support/test-app.js';
+import { startTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 
 // Resource research discarded its failure reason when recording a retryable warning.

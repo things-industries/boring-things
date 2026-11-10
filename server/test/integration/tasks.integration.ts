@@ -3,7 +3,7 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Schema } from '../../../shared/model.js';
-import { startTestApp, type TestApp } from '../../test/support/test-app.js';
+import { startTestApp, type TestApp } from '../support/test-app.js';
 let app: TestApp;
 before(async () => {
   app = await startTestApp();

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
-import { startTestApp, type TestApp } from '../../test/support/test-app.js';
+import { startTestApp, type TestApp } from '../support/test-app.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 import type { Schema } from '../../../shared/model.js';
 

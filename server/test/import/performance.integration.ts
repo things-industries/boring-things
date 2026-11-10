@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import { createCanvas } from '@napi-rs/canvas';
-import { startTestApp, type TestApp } from '../../test/support/test-app.js';
+import { startTestApp, type TestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 

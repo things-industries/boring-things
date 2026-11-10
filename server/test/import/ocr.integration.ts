@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
 import { createCanvas } from '@napi-rs/canvas';
 import { PDFDocument } from 'pdf-lib';
-import { startTestApp, type TestApp } from '../../test/support/test-app.js';
+import { startTestApp, type TestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 import * as googleVision from '../../src/providers/google-vision/index.js';

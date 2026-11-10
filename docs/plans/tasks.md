@@ -57,4 +57,4 @@ The browser reads persisted Tasks, Events and Thing dates. The server generates 
 
 The schema migration deletes pre-existing Events and creates Tasks; historical records do not need conversion. Run `pnpm db:migrate` before using the changed API. Existing chat cards can identify deleted resources as unavailable.
 
-Run `CI=true pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. New unit and integration coverage is under `server/tests/`; existing checks remain under `server/test/`. Scheduling tests and browser tests use fixtures. Metered AI checks require approval for each invocation.
+Run `CI=true pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Unit and integration tests are under `server/test/`. Scheduling tests and browser tests use fixtures. Metered AI checks require approval for each invocation.

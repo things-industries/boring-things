@@ -12,7 +12,7 @@ import { dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
-import { FixtureTaskScheduler } from '../../tests/fixtures/task-scheduling.js';
+import { FixtureTaskScheduler } from '../fixtures/task-scheduling.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
