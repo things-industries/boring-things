@@ -33,6 +33,7 @@ import { downloadPdf } from '../../providers/web/pdf.js';
 import { downloadImage } from '../../providers/web/image.js';
 import { validateResource, saveResourceAttachment, resourceKey } from './resources.js';
 import { IcecatProvider, type SpecialistProvider } from './specialists.js';
+import { ZyfyProvider } from './zyfy.js';
 
 export interface WorkflowOptions {
   download?: typeof downloadPdf;
@@ -437,9 +438,10 @@ export class ImportWorkflow {
   private async specialists() {
     if (this.job.workflow.done.includes('specialists')) return;
     await this.stage('RESEARCH', 'DISCOVERING');
-    const providers =
-      this.options.specialists ??
-      (this.config.icecatAccessToken ? [new IcecatProvider(this.config.icecatAccessToken)] : []);
+    const providers = this.options.specialists ?? [
+      ...(this.config.icecatAccessToken ? [new IcecatProvider(this.config.icecatAccessToken)] : []),
+      ...(this.config.zyfyApiKey ? [new ZyfyProvider(this.config.zyfyApiKey)] : []),
+    ];
     for (const provider of providers) {
       const key = 'specialist:' + provider.id;
       const thing = await this.thing();

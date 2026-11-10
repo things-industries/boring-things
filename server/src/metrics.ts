@@ -15,7 +15,7 @@ let sdk: NodeSDK | undefined;
 
 export interface ProviderCall {
   task: string;
-  provider: 'openai' | 'google_vision' | 'icecat' | 'web';
+  provider: 'openai' | 'google_vision' | 'icecat' | 'zyfy' | 'web';
   operation?: string;
   startedAt?: number;
   model?: string;

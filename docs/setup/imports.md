@@ -120,6 +120,20 @@ Upload size, PDF parsing and image decoding also use the limits in the retrieval
 
 Icecat uses the [Product JSON API](https://iceclog.com/manual-for-icecat-json-product-requests/) with the token in the `api-token` header. Free Open Icecat access covers participating brands such as Philips; absent, restricted and unreleased products return no proposals. Authentication, transport and malformed-response failures create retryable warnings. No brand list is hard-coded. Mapped fields include manufacturer, model, GTIN, unqualified overall dimensions, appliance finish and electrical supply, and device weight, screen diagonal and display resolution when supplied. Feature IDs select meanings and display values keep units; package and stand-specific dimensions are omitted. The shared writer applies owner permissions. Run `pnpm db:seed` and restart the API after updating the registry. No provider credentials reach the browser.
 
+### Vehicle lookup
+
+[Zyfy](https://zyfy.uk/docs/vehicle) runs before public resource research when `ZYFY_API_KEY` is configured and the saved Thing has a registration and a UK registration country. Accepted country values include UK, GB, GBR, United Kingdom, Great Britain and the constituent countries. The provider checks that the returned registration matches the normalised lookup input.
+
+Vehicle fields include manufacturer, model, body type, colour and year of manufacture. Manufacture year is separate from model year. `vehicles.firstRegistered` stores the first-registration month as `YYYY-MM`; a migration converts existing full-date values and keeps provenance and owner permissions. The field uses a text editor with month validation.
+
+Road vehicle specifications include fuel type, CO2 emissions and London ULEZ compliance. Combustion engine specifications include engine capacity and emission standard. Roadworthiness stores the MOT scheme, status, expiry, first test due date and last recorded test date/result. Road tax stores status, due date and annual cost using GBP minor units. Maintenance includes an outstanding safety recall flag. Unknown values remain unset; false and zero remain values. The shared writer respects owner edits and disabled population.
+
+Pending enrichment follows `Retry-After`, with at most three requests and a thirty-second overall timeout. HTTP 404 returns no proposals. Other HTTP, identity, transport and pending-timeout failures create optional lookup warnings; retry resumes that provider. Completed lookups are reused when another stage is retried. Each HTTP request records provider telemetry without registration or response content. Every request can consume provider quota, including pending and not-found responses.
+
+Field source references record Zyfy, the lookup URL, retrieval time and source `dataAsOf` when supplied. Another explicit Import can refresh fields that allow automatic population. Refresh scheduling is not automatic. Source and derived date values can become stale between lookups; days remaining are calculated from dates when needed. Zyfy provides MOT summaries rather than individual test records or defect descriptions. [Coverage](https://zyfy.uk/docs/coverage) and [signals](https://zyfy.uk/docs/vehicle/signals) describe the source data.
+
+Run `pnpm db:migrate`, `pnpm db:seed` and restart the API after updating. The key stays on the server. Provider tests use synthetic responses and make no Zyfy requests.
+
 ## Validation
 
 `server/tests/import/`, `server/tests/fields/` and `server/tests/jobs/` cover the workflow, owner permissions, shared-resource lifecycle, specialist mapping and concurrent execution. Integration and browser tests use fixture providers and isolated databases. `pnpm check` checks authored and generated contracts, types, lint, unit tests and builds. `pnpm test:integration` requires local PostgreSQL and a built frontend.

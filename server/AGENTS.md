@@ -37,6 +37,7 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 
 ## Registry and field invariants
 
+- Vehicle first registration uses month precision (`YYYY-MM`).
 - Field definitions use `scope` (`GROUP`, `CLASS`, `INSTANCE`) and `isIdentifier`. Scope controls public research eligibility; identifier status controls Thing identification. Sensitivity controls masking independently. Custom fields default to `INSTANCE`.
 - Categories own field sets. Field definitions may be reused across sets and categories. Registry IDs are stable authored IDs; custom fields do not create global definitions.
 - Give category-wide sets null eligibility. Describe other eligibility as a short statement that can be checked against a source summary. Put field-specific mapping guidance in field descriptions.

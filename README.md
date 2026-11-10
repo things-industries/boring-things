@@ -62,6 +62,7 @@ On a Thing, **Add details from a source** submits a contextual Import. **Find mo
 - `bt.thing_fields` stores field values, provenance and automatic-population permissions. Empty manually added registry fields remain eligible. All automatic writers recheck permissions before saving.
 - Category-mandatory fieldsets contain identifiers. Registry search returns bounded optional fieldset and field definitions. Population validates occurrence addresses, value schemas, source quotes and original pages in batches of twenty.
 - Specialist lookup runs before public resource research. Icecat uses `ICECAT_ACCESS_TOKEN` to look up appliances and devices by GTIN or manufacturer plus product code/model number. Free Open Icecat access covers participating brands such as Philips. Catalogue misses and access restrictions allow public research to continue.
+- Zyfy uses `ZYFY_API_KEY` for vehicles with a saved UK registration country and registration. It fills identity, specifications, MOT, road tax and recall fields with provider provenance. First registration uses `YYYY-MM` precision. Pending enrichment retries up to three requests within thirty seconds; missing vehicles allow research to continue and provider failures create retryable warnings. See [vehicle lookup](docs/setup/imports.md#vehicle-lookup).
 - Public research receives populated fields classified as `scope: GROUP` or `scope: CLASS`. Discovered resources are shared unowned Attachments with system-managed content and metadata. Owner-scoped links expose only the owner's associations. Unlink decisions survive research retries.
 - Recommendation runs one AI task for management tasks and one for purchasables in parallel. Each reads applicable Attachment content and saved fields, then uses web search for missing evidence or purchase links. Tasks become unscheduled suggestions; purchasables require cited compatibility and purchase links. Existing suggestions and owner decisions are preserved.
 - Authenticated revisioned SSE snapshots restore progress after navigation and reconnect. Source text, identity evidence and credentials remain outside ordinary Import responses.
@@ -199,6 +200,7 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `GOOGLE_VISION_API_KEY` | Server-only Google Vision key; required for image and scanned PDF page OCR |
 | `OPENAI_API_KEY`        | Server-only OpenAI credential; required at startup                         |
 | `ICECAT_ACCESS_TOKEN`   | Optional Icecat API token; free access covers participating brands         |
+| `ZYFY_API_KEY`          | Optional Zyfy API key for UK vehicle registration lookup                   |
 | `IMPORT_MAX_REQUESTS`   | Model request limit per Import or Attachment across retries; default 60    |
 | `IMPORT_MAX_RESOURCES`  | Discovered resource limit per Import; default 3                            |
 | `IMPORT_TIMEOUT_MS`     | Import attempt deadline; default 180000                                    |
