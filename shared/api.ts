@@ -1697,10 +1697,11 @@ export interface components {
             /** @description Applicable byte, text character or page limit, when known. */
             limit: number | null;
         };
-        /** @description Calendar interval applied to the original Task dates to generate each occurrence. */
+        /** @description Calendar interval counted from completion or the original Task dates. */
         TaskRecurrence: {
             interval: number;
             unit: components["schemas"]["RecurrenceUnitEnum"];
+            from: components["schemas"]["RecurrenceFromEnum"];
         };
         /** @description Followup option offered after completion or the end of an event. */
         CompletionAction: {
@@ -1954,6 +1955,11 @@ export interface components {
          * @enum {string}
          */
         TaskInitialStatusEnum: "SUGGESTED" | "ACTIVE";
+        /**
+         * @description Completion date or the original Task dates used for recurrence. DEADLINE can use scheduledOn when deadlineOn is absent.
+         * @enum {string}
+         */
+        RecurrenceFromEnum: "COMPLETION" | "DEADLINE";
     };
     responses: {
         /** @description A valid bearer token is required. */

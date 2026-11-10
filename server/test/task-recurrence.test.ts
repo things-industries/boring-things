@@ -9,7 +9,7 @@ import {
 } from '../src/application/task-recurrence.js';
 import type { Schema } from '../../shared/model.js';
 
-const monthly: Schema['TaskRecurrence'] = { interval: 1, unit: 'MONTH' };
+const monthly: Schema['TaskRecurrence'] = { interval: 1, unit: 'MONTH', from: 'DEADLINE' };
 test('both dates follow the original monthly cadence and skip missed occurrences', () => {
   const reference = { scheduledOn: '2026-01-20', deadlineOn: '2026-01-31' };
   const task = { ...reference, recurrence: monthly };
@@ -56,3 +56,32 @@ test('recurring suggestions can be undated until acceptance', () => {
   validateTaskSchedule(task, true);
   assert.throws(() => validateTaskSchedule(task), /need a date/);
 });
+
+// a139bfe removed completion-based recurrence and changed its reference to saved dates.
+test('completion recurrence advances the actual completion date and keeps the last lead time', () => {
+  const task = {
+    scheduledOn: '2026-01-10',
+    deadlineOn: '2026-01-20',
+    recurrence: { ...monthly, from: 'COMPLETION' as const },
+  };
+  assert.deepEqual(getNextTaskDates(task, task, '2026-01-31'), {
+    scheduledOn: '2026-02-18',
+    deadlineOn: '2026-02-28',
+  });
+});
+
+for (const key of ['scheduledOn', 'deadlineOn'] as const) {
+  test(`completion recurrence keeps only ${key} when the other date is absent`, () => {
+    const task = {
+      scheduledOn: null,
+      deadlineOn: null,
+      [key]: '2026-01-10',
+      recurrence: { ...monthly, from: 'COMPLETION' as const },
+    };
+    assert.deepEqual(getNextTaskDates(task, task, '2026-01-31'), {
+      scheduledOn: null,
+      deadlineOn: null,
+      [key]: '2026-02-28',
+    });
+  });
+}

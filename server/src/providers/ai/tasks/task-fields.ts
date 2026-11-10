@@ -42,7 +42,7 @@ export const taskProperties = {
       {
         type: 'object',
         description: 'Calendar interval for repeating the task.',
-        required: ['interval', 'unit'],
+        required: ['interval', 'unit', 'from'],
         properties: {
           interval: {
             type: 'integer',
@@ -53,6 +53,11 @@ export const taskProperties = {
             type: 'string',
             description: 'Calendar unit for task recurrence.',
             enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'],
+          },
+          from: {
+            type: 'string',
+            enum: ['COMPLETION', 'DEADLINE'],
+            description: 'Completion date or original Task dates used for recurrence.',
           },
         },
         additionalProperties: false,

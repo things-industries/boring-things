@@ -52,6 +52,17 @@ export function getNextTaskDates(
   ensure(recurrence, 'Recurrence is required');
   const current = task.deadlineOn ?? task.scheduledOn;
   ensure(current, 'Recurring tasks need a date');
+  if (recurrence.from === 'COMPLETION') {
+    const next = advance(today, recurrence, 1);
+    const lead =
+      task.scheduledOn && task.deadlineOn
+        ? differenceInCalendarDays(parseISO(task.deadlineOn), parseISO(task.scheduledOn))
+        : 0;
+    return {
+      deadlineOn: task.deadlineOn ? next : null,
+      scheduledOn: task.scheduledOn ? format(addDays(parseISO(next), -lead), 'yyyy-MM-dd') : null,
+    };
+  }
   const anchor = task.deadlineOn
     ? (reference.deadlineOn ?? task.deadlineOn)
     : (reference.scheduledOn ?? current);

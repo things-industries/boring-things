@@ -569,7 +569,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
   assert.deepEqual(suggestions.items, [
     {
       importance: item.importance,
-      recurrence: item.recurrence,
+      recurrence: { ...item.recurrence, from: 'COMPLETION' },
       completionActions: [],
       title: item.title,
       description: item.description,

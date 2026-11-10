@@ -49,7 +49,7 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
     scheduledOn: day(-2),
     deadlineOn: day(-1),
     importance: 'CRITICAL',
-    recurrence: { interval: 1, unit: 'MONTH' },
+    recurrence: { interval: 1, unit: 'MONTH', from: 'DEADLINE' },
     completionActions: chat,
   })) as Schema['Task'];
   await api(page, 'POST', '/tasks', {
@@ -84,7 +84,7 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
   await dialog
     .getByRole('combobox', { name: 'Repeat', exact: true })
     .selectOption({ label: 'Yes' });
-  await expect(dialog.getByText('Schedule next task from')).toHaveCount(0);
+  await dialog.getByRole('radio', { name: "The task's dates", exact: true }).check();
   await page.screenshot({ path: test.info().outputPath('task-recurrence.png') });
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   const tomorrow = page.locator('section', {
@@ -278,4 +278,162 @@ test('custom-field followups save typed answers and keep money currencies', asyn
     expect(closed.status).toBe('CLOSED');
     expect(closed.completedFollowup?.action.type).toBe('UPDATE_FIELD');
   }
+});
+
+// PR #139 supplied GBP for registry money answers, including masked EUR and USD values.
+for (const scenario of [
+  { currency: 'EUR', masked: false, kind: 'tasks' },
+  { currency: 'USD', masked: true, kind: 'events' },
+] as const) {
+  test(`registry money followups keep ${scenario.currency} with masked=${scenario.masked}`, async ({
+    page,
+  }) => {
+    const thing = await setup(page);
+    await api(page, 'PATCH', `/things/${thing.id}`, {
+      values: [
+        {
+          fieldSetId: null,
+          fieldId: 'common.pricePaid',
+          value: { amountMinor: 1250, currency: scenario.currency },
+        },
+      ],
+    });
+    if (scenario.masked) {
+      await page.route(`**/api/things/${thing.id}`, async (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        const response = await route.fetch();
+        const body: Schema['Thing'] = await response.json();
+        const field = body.standaloneFields.find((field) => field.id === 'common.pricePaid')!;
+        field.masked = true;
+        field.value = null;
+        await route.fulfill({ response, json: body });
+      });
+    }
+    const reveals: unknown[] = [];
+    page.on('request', (request) => {
+      if (request.url().endsWith(`/things/${thing.id}:reveal-field`))
+        reveals.push(request.postDataJSON());
+    });
+    const record = await api(page, 'POST', `/${scenario.kind}`, {
+      thingId: thing.id,
+      title: 'Review purchase price',
+      ...(scenario.kind === 'tasks' ? { status: 'ACTIVE' } : { startsAt: '2026-01-01T10:00:00Z' }),
+      completionActions: [
+        {
+          type: 'UPDATE_FIELD',
+          label: 'Confirm price',
+          fieldSetId: null,
+          fieldId: 'common.pricePaid',
+          customFieldId: null,
+        },
+      ],
+    });
+    if (scenario.kind === 'tasks') await api(page, 'POST', `/tasks/${record.id}:complete`, {});
+    await page.goto(`/things/${thing.id}/tasks`);
+    await page.getByRole('button', { name: 'Confirm price', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Confirm price' });
+    await dialog.getByLabel('Price paid', { exact: true }).fill('15.25');
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.unrouteAll({ behavior: 'wait' });
+    const saved = (await api(page, 'GET', `/things/${thing.id}`)) as Schema['Thing'];
+    expect(saved.standaloneFields.find((field) => field.id === 'common.pricePaid')?.value).toEqual({
+      amountMinor: 1525,
+      currency: scenario.currency,
+    });
+    if (scenario.masked)
+      expect(reveals).toContainEqual({ fieldSetId: null, fieldId: 'common.pricePaid' });
+  });
+}
+
+// PR #139 rendered registry booleans as text and converted an owner's Yes answer to false.
+test('registry boolean followups require Yes or No choices', async ({ page }) => {
+  const thing = await setup(page);
+  await api(page, 'PATCH', `/things/${thing.id}`, {
+    values: [{ fieldSetId: null, fieldId: 'membership.autoRenew', value: false }],
+  });
+  const task = await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title: 'Check renewal',
+    status: 'ACTIVE',
+    completionActions: [
+      {
+        type: 'UPDATE_FIELD',
+        label: 'Confirm renewal',
+        fieldSetId: null,
+        fieldId: 'membership.autoRenew',
+        customFieldId: null,
+      },
+    ],
+  });
+  await api(page, 'POST', `/tasks/${task.id}:complete`, {});
+  await page.goto(`/things/${thing.id}/tasks`);
+  await page.getByRole('button', { name: 'Confirm renewal', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Confirm renewal' });
+  const choice = dialog.getByRole('combobox', { name: 'Automatically renew', exact: true });
+  await expect(choice).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await choice.selectOption({ label: 'Yes' });
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const saved = (await api(page, 'GET', `/things/${thing.id}`)) as Schema['Thing'];
+  expect(saved.standaloneFields.find((field) => field.id === 'membership.autoRenew')?.value).toBe(
+    true,
+  );
+});
+
+// PR #139 fell back to a standalone value when the named followup field set was removed.
+test('missing field-set followups leave standalone values unchanged', async ({ page }) => {
+  const thing = await setup(page);
+  await api(page, 'PATCH', `/things/${thing.id}`, {
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.warranty'],
+    values: [
+      { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds', value: '2096-01-01' },
+      { fieldSetId: null, fieldId: 'common.warrantyEnds', value: '2097-02-02' },
+    ],
+  });
+  await api(page, 'POST', '/events', {
+    thingId: thing.id,
+    title: 'Warranty visit',
+    startsAt: '2026-01-01T10:00:00Z',
+    completionActions: [
+      {
+        type: 'UPDATE_FIELD',
+        label: 'Confirm warranty',
+        fieldSetId: 'appliances.warranty',
+        fieldId: 'common.warrantyEnds',
+        customFieldId: null,
+      },
+    ],
+  });
+  await api(page, 'PATCH', `/things/${thing.id}`, { removeFieldSetIds: ['appliances.warranty'] });
+  await page.goto(`/things/${thing.id}/tasks`);
+  await page.getByRole('button', { name: 'Confirm warranty', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Confirm warranty' });
+  await expect(dialog.getByText('This detail is no longer on the Thing.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  const saved = (await api(page, 'GET', `/things/${thing.id}`)) as Schema['Thing'];
+  expect(saved.standaloneFields.find((field) => field.id === 'common.warrantyEnds')?.value).toBe(
+    '2097-02-02',
+  );
+});
+
+// a139bfe closed CHAT followups on the server while the global Tasks collection stayed cached.
+test('global Task followup chat refreshes the closed Task before returning', async ({ page }) => {
+  const thing = await setup(page);
+  const title = 'Inspect global handle ' + thing.id.slice(0, 8);
+  const task = await api(page, 'POST', '/tasks', {
+    thingId: thing.id,
+    title,
+    status: 'ACTIVE',
+    completionActions: chat,
+  });
+  await api(page, 'POST', `/tasks/${task.id}:complete`, {});
+  await page.goto('/tasks');
+  await card(page, title).getByRole('button', { name: 'Discuss the result', exact: true }).click();
+  await expect(page.getByText('The saved details are ready.', { exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL('/tasks');
+  await expect(card(page, title)).toHaveCount(0);
 });

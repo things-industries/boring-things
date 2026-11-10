@@ -53,7 +53,18 @@ export const outputSchema = createObjectSchema(
             maxLength: 4000,
           },
           importance: taskProperties.importance,
-          recurrence: taskProperties.recurrence,
+          recurrence: {
+            anyOf: [
+              createObjectSchema(
+                {
+                  interval: taskProperties.recurrence.anyOf[0].properties.interval,
+                  unit: taskProperties.recurrence.anyOf[0].properties.unit,
+                },
+                'Documented recurrence interval for the task idea.',
+              ),
+              { type: 'null' },
+            ],
+          },
           completionActions: taskProperties.completionActions,
           sourceRefs: recommendationSourcesSchema,
         },
@@ -114,7 +125,7 @@ export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions
         .map((item) => ({
           title: item.title,
           importance: item.importance,
-          recurrence: item.recurrence,
+          recurrence: item.recurrence ? { ...item.recurrence, from: 'COMPLETION' as const } : null,
           completionActions: item.completionActions,
           description: item.description,
           sourceRefs: this.getSourceRefs(item.sourceRefs),

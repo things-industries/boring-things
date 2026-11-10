@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { TasksStore } from '../../core/state/tasks.store';
 import { Dialog } from '../dialog/dialog';
 import type { TaskInterval } from '../../interfaces/task.interface';
-import type { Task } from '../../interfaces/task.interface';
+import type { Task, TaskRecurrence } from '../../interfaces/task.interface';
 
 let nextId = 0;
 
@@ -25,6 +25,9 @@ export class RescheduleDialog {
   readonly interval = linkedSignal(() => this.task()?.recurrence?.interval ?? 1);
   readonly unit = linkedSignal<TaskInterval['unit']>(
     () => this.task()?.recurrence?.unit ?? 'MONTH',
+  );
+  readonly from = linkedSignal<TaskRecurrence['from']>(
+    () => this.task()?.recurrence?.from ?? 'COMPLETION',
   );
   readonly units: TaskInterval['unit'][] = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
   readonly formId = `reschedule-task-${nextId++}`;
@@ -72,7 +75,7 @@ export class RescheduleDialog {
       task.id,
       this.date() || null,
       this.deadline() || null,
-      this.repeats() ? { interval: this.interval(), unit: this.unit() } : null,
+      this.repeats() ? { interval: this.interval(), unit: this.unit(), from: this.from() } : null,
     );
     if (result.ok) this.close();
   }

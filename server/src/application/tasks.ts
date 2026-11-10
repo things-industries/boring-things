@@ -62,10 +62,12 @@ export async function writeTask(
     {
       ...task,
       referenceDates:
-        existing?.referenceDates ??
-        (task.scheduledOn || task.deadlineOn
-          ? { scheduledOn: task.scheduledOn, deadlineOn: task.deadlineOn }
-          : null),
+        task.scheduledOn || task.deadlineOn || existing?.referenceDates
+          ? {
+              scheduledOn: existing?.referenceDates?.scheduledOn ?? task.scheduledOn,
+              deadlineOn: existing?.referenceDates?.deadlineOn ?? task.deadlineOn,
+            }
+          : null,
     },
     !!id,
   );

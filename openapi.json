@@ -5493,8 +5493,8 @@
       },
       "TaskRecurrence": {
         "type": "object",
-        "description": "Calendar interval applied to the original Task dates to generate each occurrence.",
-        "required": ["interval", "unit"],
+        "description": "Calendar interval counted from completion or the original Task dates.",
+        "required": ["interval", "unit", "from"],
         "properties": {
           "interval": {
             "type": "integer",
@@ -5503,6 +5503,9 @@
           },
           "unit": {
             "$ref": "#/components/schemas/RecurrenceUnitEnum"
+          },
+          "from": {
+            "$ref": "#/components/schemas/RecurrenceFromEnum"
           }
         },
         "additionalProperties": false
@@ -6126,6 +6129,11 @@
         "type": "string",
         "description": "Initial task status.",
         "enum": ["SUGGESTED", "ACTIVE"]
+      },
+      "RecurrenceFromEnum": {
+        "type": "string",
+        "description": "Completion date or the original Task dates used for recurrence. DEADLINE can use scheduledOn when deadlineOn is absent.",
+        "enum": ["COMPLETION", "DEADLINE"]
       }
     },
     "responses": {

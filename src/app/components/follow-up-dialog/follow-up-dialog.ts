@@ -51,8 +51,8 @@ export class FollowUpDialog {
     const { fieldId, fieldSetId, customFieldId } = request.action;
     const detail = this.things.entityMap()[request.thingId]?.detail;
     const set = detail?.fieldSets.find((s) => s.id === fieldSetId);
-    const field = set
-      ? set.fields.find((f) => f.id === fieldId)
+    const field = fieldSetId
+      ? set?.fields.find((f) => f.id === fieldId)
       : detail?.standaloneFields.find((f) => f.id === fieldId);
 
     const custom = customFieldId ? detail?.customFields.find((f) => f.id === customFieldId) : null;
@@ -63,11 +63,20 @@ export class FollowUpDialog {
         : null;
   });
 
+  readonly valueType = computed(() => {
+    const target = this.target();
+    if (target?.custom) return target.custom.valueType;
+    if (target?.field?.schema.type === 'boolean') return 'BOOLEAN';
+    if (target?.field?.uiHint === 'MONEY') return 'MONEY';
+    if (['number', 'integer'].includes(target?.field?.schema.type ?? '')) return 'NUMBER';
+    return 'STRING';
+  });
+
   readonly ready = computed(() => {
     if (this.request()?.action.type === 'ADD_ATTACHMENT') return !!this.file();
     const draft = this.draft().trim();
     if (!draft) return false;
-    switch (this.target()?.custom?.valueType) {
+    switch (this.valueType()) {
       case 'NUMBER':
         return Number.isFinite(Number(draft));
       case 'BOOLEAN':
@@ -99,13 +108,19 @@ export class FollowUpDialog {
     if (request.action.type === 'UPDATE_FIELD') {
       if (!target) return;
       let value: Value = this.draft().trim();
-      if (target.custom?.valueType === 'NUMBER') value = Number(value);
-      if (target.custom?.valueType === 'BOOLEAN') value = value === 'true';
+      if (this.valueType() === 'NUMBER') value = Number(value);
+      if (this.valueType() === 'BOOLEAN') value = value === 'true';
       this.busy.set(true);
-      if (target.custom?.valueType === 'MONEY') {
-        const previous = target.custom.masked
-          ? await this.things.reveal(request.thingId, { customFieldId: target.custom.id })
-          : target.custom.value;
+      if (this.valueType() === 'MONEY') {
+        const field = target.custom ?? target.field;
+        const previous = field.masked
+          ? await this.things.reveal(
+              request.thingId,
+              target.custom
+                ? { customFieldId: target.custom.id }
+                : { fieldSetId: target.setId, fieldId: target.field.id },
+            )
+          : field.value;
         if (previous === undefined) {
           this.busy.set(false);
           return;
@@ -115,10 +130,12 @@ export class FollowUpDialog {
           currency: previous && typeof previous === 'object' ? previous.currency : 'GBP',
         };
       }
+      if (target.field && this.valueType() !== 'MONEY')
+        value = fieldValue(target.field, this.draft().trim(), 'GBP');
       const result = request.task
         ? await this.tasks.completeFollowup(request.task.id, {
             actionIndex: request.task.actionIndex,
-            value: target.field ? fieldValue(target.field, this.draft().trim(), 'GBP') : value,
+            value,
           })
         : await this.things.update(
             request.thingId,
@@ -138,7 +155,7 @@ export class FollowUpDialog {
                     {
                       fieldSetId: target.setId,
                       fieldId: target.field.id,
-                      value: fieldValue(target.field, this.draft().trim(), 'GBP'),
+                      value,
                     },
                   ],
                 },

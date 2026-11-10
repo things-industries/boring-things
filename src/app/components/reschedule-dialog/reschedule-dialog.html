@@ -50,8 +50,36 @@
           </select>
         </div>
       </div>
+      <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-from'">
+        <span class="reschedule-legend" [id]="formId + '-from'">Repeat from</span>
+        <label class="check-label">
+          <input
+            type="radio"
+            name="from"
+            value="COMPLETION"
+            [ngModel]="from()"
+            (ngModelChange)="from.set($event)"
+          />
+          When I complete this task
+        </label>
+        <label class="check-label">
+          <input
+            type="radio"
+            name="from"
+            value="DEADLINE"
+            [ngModel]="from()"
+            (ngModelChange)="from.set($event)"
+          />
+          The task's dates
+        </label>
+      </div>
       <p class="reschedule-note">
-        Each date repeats from the original task, skipping missed occurrences.
+        @if (from() === 'COMPLETION') {
+          The next task counts from completion and keeps the same gap between its scheduled date and
+          deadline.
+        } @else {
+          Each date repeats from the original task, skipping missed occurrences.
+        }
       </p>
     }
   </form>

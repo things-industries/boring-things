@@ -18,11 +18,11 @@
     } @else if (target(); as target) {
       <label class="follow-up-field"
         >{{ target.field?.name ?? target.custom?.label }}
-        @if (target.custom?.valueType === 'BOOLEAN') {
+        @if (valueType() === 'BOOLEAN') {
           <select
             name="value"
             required
-            [attr.aria-label]="target.custom?.label"
+            [attr.aria-label]="target.field?.name ?? target.custom?.label"
             [ngModel]="draft()"
             (ngModelChange)="draft.set($event)"
           >
@@ -37,11 +37,11 @@
             [type]="
               target.field?.uiHint === 'DATE' || target.custom?.valueType === 'DATE'
                 ? 'date'
-                : target.custom?.valueType === 'NUMBER' || target.custom?.valueType === 'MONEY'
+                : valueType() === 'NUMBER' || valueType() === 'MONEY'
                   ? 'number'
                   : 'text'
             "
-            [step]="target.custom?.valueType === 'MONEY' ? '0.01' : 'any'"
+            [step]="valueType() === 'MONEY' ? '0.01' : 'any'"
             [ngModel]="draft()"
             (ngModelChange)="draft.set($event == null ? '' : '' + $event)"
           />

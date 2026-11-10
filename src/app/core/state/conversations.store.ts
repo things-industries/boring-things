@@ -8,6 +8,7 @@ import {
   withState,
 } from '@ngrx/signals';
 import type { Schema } from '../../../../shared/model';
+import { TasksStore } from './tasks.store';
 import { ConversationsService } from '../data/conversations.service';
 import type { ConversationStreamEvent } from '../../interfaces/conversation.interface';
 import type { UiErrorCode } from '../../interfaces/error.interface';
@@ -34,6 +35,7 @@ export const ConversationsStore = signalStore(
 
   withProps(() => ({
     _service: inject(ConversationsService),
+    _tasks: inject(TasksStore),
     _streams: new Streams(),
     _latestInFlight: new Map<string, Promise<UiErrorCode | null>>(),
   })),
@@ -110,7 +112,11 @@ export const ConversationsStore = signalStore(
         () => store._service.create({ ...context, ...(thingId ? { thingId } : {}) }),
       );
 
-      if (result.ok && thingId) setCurrent(thingId, result.value.id);
+      if (result.ok) {
+        if (thingId) setCurrent(thingId, result.value.id);
+        if (context.taskId && context.actionIndex !== undefined)
+          await store._tasks.loadOne(context.taskId);
+      }
       return result;
     }
 

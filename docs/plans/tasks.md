@@ -27,9 +27,10 @@ Events use `SCHEDULED` and `CLOSED`. A timed Event ends at its end timestamp, or
 
 ## Recurrence
 
-Recurrence has an integer interval and a `DAY`, `WEEK`, `MONTH` or `YEAR` unit. Active recurring Tasks require at least one date. Suggestions can hold an interval with no dates; acceptance chooses their schedule.
+Recurrence has an integer interval, a `DAY`, `WEEK`, `MONTH` or `YEAR` unit, and a `COMPLETION` or `DEADLINE` basis. Active recurring Tasks require at least one date. Suggestions provide an interval with no dates and initially use completion-based recurrence. Acceptance chooses their dates, and the owner can edit the recurrence basis.
 
-- Each populated date advances from its original reference, so 31 January, 28 February and 31 March stay on the same monthly cadence. Missed occurrences are skipped until the next deadline, or scheduled date when no deadline exists, is in the future.
+- Completion-based recurrence sets the next deadline to completion date plus interval. The scheduled date keeps the just-completed Task's lead time in calendar days. When only a scheduled date exists, it becomes completion date plus interval and the deadline stays absent.
+- Date-based recurrence advances each populated date from its original reference, so 31 January, 28 February and 31 March stay on the same monthly cadence. Missed occurrences are skipped until the next deadline, or scheduled date when no deadline exists, is in the future.
 - `referenceTaskId` identifies the original occurrence. Private saved reference dates keep calculations independent of later edits or deletion of that record. Edits affect the selected occurrence and keep its original recurrence references.
 - Completion locks the Task and creates one successor in the same transaction. Repeated completion returns the completed record without generating another successor.
 - The successor copies importance, issue, recurrence, followups and citations. Closing or deleting an occurrence ends that occurrence without creating more work.
