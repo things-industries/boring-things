@@ -200,7 +200,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         runner,
         importEnabled: !!importAi,
       });
-      await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events, registry });
+      await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
       await authenticatedApi.register(taskRoutes, { db: dbPool, events, registry, taskScheduler });
       await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });
       await authenticatedApi.register(routes.conversationRoutes, {

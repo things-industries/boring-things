@@ -1538,7 +1538,7 @@
       "post": {
         "operationId": "createEvent",
         "summary": "Create event",
-        "description": "Creates an event with a start date or timestamp and optional followups.",
+        "description": "Creates an Event with a start date or timestamp. Ended Events offer contextual chat followup.",
         "tags": ["Activity"],
         "requestBody": {
           "required": true,
@@ -2981,64 +2981,6 @@
           }
         ]
       }
-    },
-    "/api/tasks/{id}:followup": {
-      "post": {
-        "operationId": "completeTaskFollowup",
-        "summary": "Complete task followup",
-        "description": "Runs one saved field, attachment or issue followup for a completed Task, records its completion and closes the Task in one transaction. Further followups return a conflict.",
-        "tags": ["Activity"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Task"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/InvalidInput"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/resourceId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TaskFollowupInput"
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -4373,7 +4315,7 @@
       },
       "Event": {
         "type": "object",
-        "description": "Appointment, visit or delivery with one start date or timestamp and independent followups.",
+        "description": "Appointment, visit or delivery with one start date or timestamp and chat followup after it ends.",
         "required": [
           "id",
           "thingId",
@@ -4386,8 +4328,8 @@
           "isSample",
           "startsOn",
           "endsAt",
-          "completionActions",
-          "closedAt"
+          "closedAt",
+          "completedFollowup"
         ],
         "properties": {
           "id": {
@@ -4433,23 +4375,27 @@
             "type": ["string", "null"],
             "format": "date-time"
           },
-          "completionActions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CompletionAction"
-            },
-            "maxItems": 12
-          },
           "closedAt": {
             "type": ["string", "null"],
             "format": "date-time"
+          },
+          "completedFollowup": {
+            "description": "Recorded chat followup, or null until the owner sends the first followup message.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompletedActivityFollowup"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false
       },
       "EventInput": {
         "type": "object",
-        "description": "Appointment, visit or delivery with one start date or timestamp and independent followups.",
+        "description": "Appointment, visit or delivery with one start date or timestamp and chat followup after it ends.",
         "required": ["thingId", "title"],
         "properties": {
           "id": {
@@ -4489,20 +4435,13 @@
           "endsAt": {
             "type": ["string", "null"],
             "format": "date-time"
-          },
-          "completionActions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CompletionAction"
-            },
-            "maxItems": 12
           }
         },
         "additionalProperties": false
       },
       "EventPatch": {
         "type": "object",
-        "description": "Appointment, visit or delivery with one start date or timestamp and independent followups.",
+        "description": "Appointment, visit or delivery with one start date or timestamp and chat followup after it ends.",
         "properties": {
           "issueId": {
             "type": ["string", "null"],
@@ -4529,13 +4468,6 @@
           "endsAt": {
             "type": ["string", "null"],
             "format": "date-time"
-          },
-          "completionActions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CompletionAction"
-            },
-            "maxItems": 12
           }
         },
         "additionalProperties": false
@@ -4757,7 +4689,7 @@
       },
       "ConversationInput": {
         "type": "object",
-        "description": "New conversation with optional Thing, Task or Event context and a CHAT followup index.",
+        "description": "New conversation with optional Thing, Task or Event context. Followups reuse their conversation.",
         "properties": {
           "id": {
             "type": "string",
@@ -4776,15 +4708,14 @@
             "type": "string",
             "format": "uuid"
           },
-          "actionIndex": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 11
-          },
           "timeZone": {
             "type": "string",
             "maxLength": 100,
             "description": "Local calendar timezone for date-only Event followup eligibility."
+          },
+          "followup": {
+            "type": "boolean",
+            "description": "Follow up on a completed Task or ended Event. The first owner message records the followup and closes the item."
           }
         },
         "additionalProperties": false
@@ -5555,102 +5486,6 @@
         },
         "additionalProperties": false
       },
-      "CompletionAction": {
-        "description": "Followup option offered after completion or the end of an event.",
-        "oneOf": [
-          {
-            "type": "object",
-            "description": "Followup offered after the item ends.",
-            "required": ["type", "label", "prompt"],
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "CHAT"
-              },
-              "label": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              },
-              "prompt": {
-                "type": ["string", "null"]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "description": "Followup offered after the item ends.",
-            "required": ["type", "label", "fieldSetId", "fieldId", "customFieldId"],
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "UPDATE_FIELD"
-              },
-              "label": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              },
-              "fieldSetId": {
-                "type": ["string", "null"]
-              },
-              "fieldId": {
-                "type": ["string", "null"]
-              },
-              "customFieldId": {
-                "type": ["string", "null"],
-                "format": "uuid"
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "description": "Followup offered after the item ends.",
-            "required": ["type", "label", "documentType"],
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "ADD_ATTACHMENT"
-              },
-              "label": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              },
-              "documentType": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/AttachmentDocumentTypeEnum"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "description": "Followup offered after the item ends.",
-            "required": ["type", "label"],
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "RESOLVE_ISSUE"
-              },
-              "label": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              }
-            },
-            "additionalProperties": false
-          }
-        ]
-      },
       "TaskInput": {
         "type": "object",
         "description": "Properties for creating a suggested or active task. Tasks with a deadline cannot recur. Active recurring Tasks require scheduledOn.",
@@ -5698,13 +5533,6 @@
               }
             ]
           },
-          "completionActions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CompletionAction"
-            },
-            "maxItems": 12
-          },
           "status": {
             "$ref": "#/components/schemas/TaskInitialStatusEnum"
           }
@@ -5748,13 +5576,6 @@
                 "type": "null"
               }
             ]
-          },
-          "completionActions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CompletionAction"
-            },
-            "maxItems": 12
           }
         },
         "additionalProperties": false
@@ -5772,7 +5593,6 @@
           "scheduledOn",
           "deadlineOn",
           "recurrence",
-          "completionActions",
           "status",
           "completedAt",
           "closedAt",
@@ -5824,13 +5644,6 @@
               }
             ]
           },
-          "completionActions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CompletionAction"
-            },
-            "maxItems": 12
-          },
           "status": {
             "$ref": "#/components/schemas/TaskStatusEnum"
           },
@@ -5856,10 +5669,10 @@
             "type": "boolean"
           },
           "completedFollowup": {
-            "description": "First completed followup, or null when none has completed.",
+            "description": "Recorded chat followup, or null until the owner sends the first followup message.",
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CompletedTaskFollowup"
+                "$ref": "#/components/schemas/CompletedActivityFollowup"
               },
               {
                 "type": "null"
@@ -6003,36 +5816,17 @@
         },
         "additionalProperties": false
       },
-      "CompletedTaskFollowup": {
+      "CompletedActivityFollowup": {
         "type": "object",
-        "description": "The followup chosen for a Task and the time it closed the Task. Field answers remain in the Thing.",
-        "required": ["action", "completedAt"],
+        "description": "Chat followup conversation and the time the owner first sent a message. Historical followups without a linked chat have a null conversationId.",
+        "required": ["conversationId", "completedAt"],
         "properties": {
-          "action": {
-            "$ref": "#/components/schemas/CompletionAction"
-          },
           "completedAt": {
             "type": "string",
             "format": "date-time"
-          }
-        },
-        "additionalProperties": false
-      },
-      "TaskFollowupInput": {
-        "type": "object",
-        "description": "Chosen field, attachment or issue followup. Chat followups start through conversation creation.",
-        "required": ["actionIndex"],
-        "properties": {
-          "actionIndex": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 11
           },
-          "value": {
-            "$ref": "#/components/schemas/Value"
-          },
-          "attachmentId": {
-            "type": "string",
+          "conversationId": {
+            "type": ["string", "null"],
             "format": "uuid"
           }
         },

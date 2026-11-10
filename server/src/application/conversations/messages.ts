@@ -1,3 +1,5 @@
+/** Owner-requested Task, Event and Issue creation with transactional retry receipts. */
+
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import * as database from '../../db/connection.js';
@@ -5,16 +7,15 @@ import * as conversationsDb from '../../db/entities/conversations.js';
 import type { ChatJob } from '../../db/entities/conversations.js';
 import { ensure } from '../errors.js';
 import { writeTask } from '../tasks.js';
-import type { Registry } from '../registry/registry.js';
 import { writeEvent, writeIssue } from '../activity.js';
 type ActivityInput = Pick<Schema['IssueInput'], 'thingId' | 'title' | 'description'>;
 
+/** Creates one requested record or returns the saved result when a message is retried. */
 export async function createChatActivity(
   pool: pg.Pool,
   job: ChatJob,
   name: 'create_task' | 'create_event' | 'create_issue',
   input: ActivityInput & Partial<Schema['TaskInput'] & Schema['EventInput']>,
-  registry: Registry,
   signal: AbortSignal,
 ) {
   return database.transaction(pool, async (db) => {
@@ -36,9 +37,9 @@ export async function createChatActivity(
 
     const activity =
       name === 'create_task'
-        ? await writeTask(db, job.ownerId, { ...input, status: 'SUGGESTED' }, registry)
+        ? await writeTask(db, job.ownerId, { ...input, status: 'SUGGESTED' })
         : name === 'create_event'
-          ? await writeEvent(db, job.ownerId, input, registry)
+          ? await writeEvent(db, job.ownerId, input)
           : await writeIssue(db, job.ownerId, input);
     const item = { id: activity.id, thingId: activity.thingId };
 

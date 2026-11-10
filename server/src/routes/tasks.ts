@@ -6,7 +6,6 @@ import { route } from '../contracts/routes.js';
 import * as database from '../db/connection.js';
 import * as tasksDb from '../db/entities/tasks.js';
 import * as thingsDb from '../db/entities/things.js';
-import { completeTaskFollowup } from '../application/task-followups.js';
 import { writeTask, changeTask, reopenTask } from '../application/tasks.js';
 import { acceptTask, type TaskScheduler } from '../application/task-scheduling.js';
 import { listThingDates } from '../application/thing-dates.js';
@@ -31,15 +30,13 @@ const taskRoutes: FastifyPluginAsync<Options> = async (
     listThingDates(db, req.ownerId, registry, req.query),
   );
   route(app, 'POST', '/api/tasks', async (req, reply) => {
-    const task = await database.transaction(db, (tx) =>
-      writeTask(tx, req.ownerId, req.body, registry),
-    );
+    const task = await database.transaction(db, (tx) => writeTask(tx, req.ownerId, req.body));
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(201).send(task);
   });
   route(app, 'PATCH', '/api/tasks/{id}', async (req) => {
     const task = await database.transaction(db, (tx) =>
-      writeTask(tx, req.ownerId, req.body, registry, req.params.id),
+      writeTask(tx, req.ownerId, req.body, req.params.id),
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return task;
@@ -79,13 +76,6 @@ const taskRoutes: FastifyPluginAsync<Options> = async (
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return change;
-  });
-  route(app, 'POST', '/api/tasks/{id}:followup', async (req) => {
-    const task = await database.transaction(db, (tx) =>
-      completeTaskFollowup(tx, req.ownerId, req.params.id, req.body, registry),
-    );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
-    return task;
   });
   route(app, 'POST', '/api/tasks/{id}:close', async (req) => {
     const change = await database.transaction(db, (tx) =>

@@ -1,7 +1,5 @@
 /** Coordinates one Thing's identity, public research, shared field population and cited recommendations. */
 
-import { validateFollowups } from '../activity-followups.js';
-import { ApplicationError } from '../errors.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import type pg from 'pg';
@@ -1103,23 +1101,6 @@ export class ImportWorkflow {
           for (const ref of task.sourceRefs)
             if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
               continue tasks;
-          try {
-            await validateFollowups(
-              db,
-              current.ownerId,
-              current.id,
-              null,
-              task.completionActions ?? [],
-              this.registry,
-            );
-          } catch (error) {
-            if (
-              error instanceof ApplicationError &&
-              ['INVALID_INPUT', 'NOT_FOUND'].includes(error.kind)
-            )
-              continue;
-            throw error;
-          }
           await activityDb.saveSuggestedTask(db, current.ownerId, current.id, task);
         }
       });

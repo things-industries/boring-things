@@ -17,7 +17,6 @@ const task: Schema['Task'] = {
   scheduledOn: null,
   deadlineOn: null,
   recurrence: null,
-  completionActions: [],
   completedAt: null,
   completedFollowup: null,
   closedAt: null,

@@ -5,8 +5,7 @@ import type { Database } from '../db/connection.js';
 import * as activityDb from '../db/entities/activity.js';
 import * as thingsDb from '../db/entities/things.js';
 import * as database from '../db/connection.js';
-import type { Registry } from './registry/registry.js';
-import { validateFollowups } from './activity-followups.js';
+import { validateIssueLink } from './activity-links.js';
 import { ensure } from './errors.js';
 
 export async function writeIssue(
@@ -61,7 +60,6 @@ export async function writeEvent(
   db: Database,
   owner: string,
   input: Schema['EventInput'] | Schema['EventPatch'],
-  registry: Registry,
   id?: string,
 ): Promise<Schema['Event']> {
   let existing = id
@@ -85,16 +83,7 @@ export async function writeEvent(
     !endsAt || (startsAt && Date.parse(endsAt) >= Date.parse(startsAt)),
     'End time must follow the timed start',
   );
-  const completionActions = input.completionActions ?? existing?.completionActions ?? [];
-  await validateFollowups(
-    db,
-    owner,
-    thingId,
-    issueId,
-    completionActions,
-    registry,
-    status === 'CLOSED',
-  );
+  await validateIssueLink(db, owner, thingId, issueId, status === 'CLOSED');
   const item = await activityDb.saveEvent(
     db,
     owner,
@@ -108,7 +97,7 @@ export async function writeEvent(
       startsOn,
       issueId,
       endsAt,
-      completionActions,
+      completedFollowup: existing?.completedFollowup ?? null,
       closedAt: existing?.closedAt ?? (status === 'CLOSED' ? new Date().toISOString() : null),
     },
     id,

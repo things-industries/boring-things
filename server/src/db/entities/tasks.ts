@@ -10,7 +10,7 @@ import type { RecurrenceReference } from '../../application/task-recurrence.js';
 
 export type TaskRow = Schema['Task'] & { referenceDates: RecurrenceReference | null };
 export const columns =
-  'id,thing_id,issue_id,title,description,status,importance,scheduled_on::text,deadline_on::text,recurrence,completion_actions,completed_at,closed_at,completed_followup,reference_task_id,reference_dates,source_refs,is_sample';
+  'id,thing_id,issue_id,title,description,status,importance,scheduled_on::text,deadline_on::text,recurrence,completed_at,closed_at,completed_followup,reference_task_id,reference_dates,source_refs,is_sample';
 
 /** Loads a Task, optionally locking it for a lifecycle transition. */
 export async function getOwnedTaskOrThrow(
@@ -84,7 +84,6 @@ export async function saveTask(
     task.scheduledOn,
     task.deadlineOn,
     task.recurrence ? JSON.stringify(task.recurrence) : null,
-    JSON.stringify(task.completionActions),
     task.completedAt,
     task.closedAt,
     task.completedFollowup ? JSON.stringify(task.completedFollowup) : null,
@@ -105,7 +104,6 @@ export async function saveTask(
     'scheduled_on',
     'deadline_on',
     'recurrence',
-    'completion_actions',
     'completed_at',
     'closed_at',
     'completed_followup',
@@ -117,7 +115,7 @@ export async function saveTask(
   const [saved] = await database.rows<TaskRow>(
     db,
     update
-      ? `update bt.tasks set ${names.map((n, i) => `${n}=$${i + 1}`).join(',')} where id=$18 and owner_id=$19 returning ${columns}`
+      ? `update bt.tasks set ${names.map((n, i) => `${n}=$${i + 1}`).join(',')} where id=$17 and owner_id=$18 returning ${columns}`
       : `insert into bt.tasks(${names.join(',')},id,owner_id) values(${values.map((_, i) => '$' + (i + 1)).join(',')}) returning ${columns}`,
     values,
   );
@@ -147,30 +145,4 @@ export async function deleteUneditedNextOccurrence(db: Database, owner: string, 
     [owner, task.referenceTaskId ?? task.id, task.id, task.completedAt],
   );
   return removed?.id ?? null;
-}
-
-/** Records the chosen followup and closes a Task already locked by its workflow. */
-export async function completeFollowup(
-  db: Database,
-  owner: string,
-  task: TaskRow,
-  action: Schema['CompletionAction'],
-): Promise<TaskRow> {
-  ensure(
-    task.status === 'COMPLETED' && !task.completedFollowup,
-    'Task followup unavailable',
-    'CONFLICT',
-  );
-  const now = new Date().toISOString();
-  return saveTask(
-    db,
-    owner,
-    {
-      ...task,
-      status: 'CLOSED',
-      closedAt: now,
-      completedFollowup: { action, completedAt: now },
-    },
-    true,
-  );
 }

@@ -23,7 +23,7 @@ const columns = {
   issues:
     'id,thing_id,title,description,status,status_text,due_date::text,resolved_at,is_sample,created_at,updated_at',
   events:
-    'id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,ends_at,closed_at,completion_actions,source_refs,is_sample,created_at,updated_at',
+    'id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,ends_at,closed_at,completed_followup,source_refs,is_sample,created_at,updated_at',
 } as const;
 export async function listActivity<K extends ActivityKind>(
   db: Database,
@@ -67,7 +67,7 @@ export async function listActivity<K extends ActivityKind>(
         params.push(value);
         const bound = `$${params.length}::timestamptz`;
         filters.push(
-          `((starts_at ${op} ${bound} or starts_on ${op} (${bound} at time zone ${zone})::date)${key === 'from' ? ` or (status='SCHEDULED' and jsonb_array_length(completion_actions)>0 and (coalesce(ends_at,starts_at)<=now() or starts_on<(now() at time zone ${zone})::date))` : ''})`,
+          `((starts_at ${op} ${bound} or starts_on ${op} (${bound} at time zone ${zone})::date)${key === 'from' ? ` or (status='SCHEDULED' and (coalesce(ends_at,starts_at)<=now() or starts_on<(now() at time zone ${zone})::date))` : ''})`,
         );
       }
     }
@@ -111,7 +111,7 @@ export type EventWrite = Pick<
   | 'startsOn'
   | 'endsAt'
   | 'closedAt'
-  | 'completionActions'
+  | 'completedFollowup'
   | 'issueId'
 >;
 export async function saveIssue(
@@ -156,13 +156,13 @@ export async function saveEvent(
     id ?? value.thingId,
     owner,
     value.closedAt,
-    JSON.stringify(value.completionActions),
+    value.completedFollowup ? JSON.stringify(value.completedFollowup) : null,
   ];
   const [item] = await database.rows<Schema['Event']>(
     db,
     id
-      ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,ends_at=$5,issue_id=$6,starts_on=$7,closed_at=$10,completion_actions=$11 where id=$8 and owner_id=$9 returning ${columns.events}`
-      : `insert into bt.events(title,description,status,starts_at,ends_at,issue_id,starts_on,thing_id,owner_id,closed_at,completion_actions,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::uuid,gen_random_uuid())) returning ${columns.events}`,
+      ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,ends_at=$5,issue_id=$6,starts_on=$7,closed_at=$10,completed_followup=$11 where id=$8 and owner_id=$9 returning ${columns.events}`
+      : `insert into bt.events(title,description,status,starts_at,ends_at,issue_id,starts_on,thing_id,owner_id,closed_at,completed_followup,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::uuid,gen_random_uuid())) returning ${columns.events}`,
     id ? params : [...params, value.id],
   );
   return item;
@@ -187,12 +187,12 @@ export async function saveSuggestedTask(
   owner: string,
   thingId: string,
   task: Pick<Schema['Task'], 'title' | 'description' | 'sourceRefs'> &
-    Partial<Pick<Schema['Task'], 'importance' | 'recurrence' | 'completionActions'>>,
+    Partial<Pick<Schema['Task'], 'importance' | 'recurrence'>>,
 ) {
   await database.execute(
     db,
-    `insert into bt.tasks(owner_id,thing_id,title,description,status,source_refs,import_key,importance,recurrence,scheduled_on,deadline_on,completion_actions)
-     select $1,$2,$3,$4,'SUGGESTED',$5,$6,$7,$8,$9,$10,$11
+    `insert into bt.tasks(owner_id,thing_id,title,description,status,source_refs,import_key,importance,recurrence)
+     select $1,$2,$3,$4,'SUGGESTED',$5,$6,$7,$8
      where not exists(select 1 from bt.tasks where owner_id=$1 and thing_id=$2 and lower(trim(title))=lower(trim($3)))
      on conflict(import_key) do nothing`,
     [
@@ -204,9 +204,6 @@ export async function saveSuggestedTask(
       activityKey(thingId, 'task', task.title),
       task.importance ?? 'RECOMMENDED',
       task.recurrence ? JSON.stringify(task.recurrence) : null,
-      null,
-      null,
-      JSON.stringify(task.completionActions ?? []),
     ],
   );
 }

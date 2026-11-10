@@ -27,7 +27,7 @@ Examples:
 - "Remove food residues before using the oven" is obvious routine care; omit it as a task.
 - "Reset the router" can qualify as a documented common remedy; its description explains the symptoms and procedure.
 - "Submit a claim" names the work; evidence requirements belong in the description.
-Include importance, a documented recurrence interval and useful followups justified by evidence. Suggest task ideas; dates are chosen separately when the owner accepts a suggestion. Use only supplied field addresses in followups. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
+Include importance and a documented recurrence interval justified by evidence. Suggest task ideas; dates are chosen separately when the owner accepts a suggestion. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
 
 export const outputSchema = createObjectSchema(
   {
@@ -65,7 +65,6 @@ export const outputSchema = createObjectSchema(
               { type: 'null' },
             ],
           },
-          completionActions: taskProperties.completionActions,
           sourceRefs: recommendationSourcesSchema,
         },
         'One maintenance procedure, administration action or common remedy justified by evidence applicable to the Thing.',
@@ -126,7 +125,6 @@ export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions
           title: item.title,
           importance: item.importance,
           recurrence: item.recurrence ? { ...item.recurrence, from: 'COMPLETION' as const } : null,
-          completionActions: item.completionActions,
           description: item.description,
           sourceRefs: this.getSourceRefs(item.sourceRefs),
         }))

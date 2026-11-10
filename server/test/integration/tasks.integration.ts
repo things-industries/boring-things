@@ -39,9 +39,6 @@ async function createTask(thingId: string, patch: Partial<Schema['TaskInput']> =
   assert.equal(response.statusCode, 201, response.body);
   return response.json<Schema['Task']>();
 }
-const chat = [
-  { type: 'CHAT', label: 'Discuss it', prompt: 'The filter still needs work.' },
-] satisfies Schema['CompletionAction'][];
 
 test('tasks accept missing dates, validate recurrence and reject lifecycle changes through edits', async () => {
   const thing = await createThing();
@@ -152,7 +149,6 @@ test('concurrent completion creates one successor and later edits and deletion d
   const task = await createTask(thing.id, {
     scheduledOn: '2026-01-20',
     recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
-    completionActions: chat,
   });
   const responses = await Promise.all([
     request('POST', `/tasks/${task.id}:complete`, { timeZone: 'Europe/London' }),
@@ -166,7 +162,7 @@ test('concurrent completion creates one successor and later edits and deletion d
   assert.equal(next.referenceTaskId, task.id);
   assert.ok(next.scheduledOn! > new Date().toISOString().slice(0, 10));
   assert.equal(next.deadlineOn, null);
-  assert.equal(next.completionActions[0].type, 'CHAT');
+  assert.equal(next.completedFollowup, null);
   const completed = changes[0].task;
   assert.ok(Date.now() - Date.parse(completed.completedAt!) < 10000);
   await request('PATCH', `/tasks/${task.id}`, { scheduledOn: '2026-12-01' });
@@ -229,18 +225,23 @@ test('reopening keeps an edited successor and work after a later completion', as
 test('only completed Tasks without an actioned followup can be reopened', async () => {
   const thing = await createThing();
   const suggested = await createTask(thing.id, { status: 'SUGGESTED' });
-  const dismissed = await createTask(thing.id, { completionActions: chat });
+  const dismissed = await createTask(thing.id, {});
   await complete(dismissed.id);
   await request('POST', `/tasks/${dismissed.id}:close`, {});
   const answered = await createTask(thing.id, {
-    completionActions: [{ type: 'RESOLVE_ISSUE', label: 'Is it fixed?' }],
     issueId: (await request('POST', '/issues', { thingId: thing.id, title: 'Leak' })).json<
       Schema['Issue']
     >().id,
   });
   await complete(answered.id);
-  const followup = await request('POST', `/tasks/${answered.id}:followup`, { actionIndex: 0 });
-  assert.equal(followup.statusCode, 200, followup.body);
+  const conversation = (
+    await request('POST', '/conversations', { taskId: answered.id, followup: true })
+  ).json<Schema['Conversation']>();
+  const followup = await request('POST', `/conversations/${conversation.id}/messages`, {
+    text: 'It went well.',
+    requestId: crypto.randomUUID(),
+  });
+  assert.equal(followup.statusCode, 202, followup.body);
   for (const id of [suggested.id, dismissed.id, answered.id]) {
     const response = await request('POST', `/tasks/${id}:reopen`);
     assert.equal(response.statusCode, 409, response.body);
@@ -254,7 +255,6 @@ test('issue resolution closes linked suggestions, active tasks, completed tasks 
   ).json<Schema['Issue']>();
   const active = await createTask(thing.id, {
     issueId: issue.id,
-    completionActions: [{ type: 'RESOLVE_ISSUE', label: 'Fixed' }],
   });
   const suggestion = await createTask(thing.id, { status: 'SUGGESTED', issueId: issue.id });
   const done = await createTask(thing.id, { issueId: issue.id });
@@ -266,7 +266,6 @@ test('issue resolution closes linked suggestions, active tasks, completed tasks 
       title: 'Engineer visit',
       startsAt: '2026-01-01T12:00:00Z',
       endsAt: '2026-01-01T13:00:00Z',
-      completionActions: chat,
     })
   ).json<Schema['Event']>();
   assert.ok(event.id);
@@ -287,38 +286,73 @@ test('issue resolution closes linked suggestions, active tasks, completed tasks 
     'CLOSED',
   );
   assert.equal(
-    (await request('POST', '/conversations', { taskId: active.id, actionIndex: 0 })).statusCode,
-    422,
+    (await request('POST', '/conversations', { taskId: active.id, followup: true })).statusCode,
+    409,
   );
 });
 
-test('chat followups send their saved prompt and include item and issue context', async () => {
+test('chat followups reuse conversations and record the first owner message with item and issue context', async (t) => {
   const thing = await createThing();
-  const task = await createTask(thing.id, { completionActions: chat });
+  const issue = (
+    await request('POST', '/issues', { thingId: thing.id, title: 'Filter leak' })
+  ).json<Schema['Issue']>();
+  const task = await createTask(thing.id, { issueId: issue.id });
   assert.equal(
-    (await request('POST', '/conversations', { taskId: task.id, actionIndex: 0 })).statusCode,
+    (await request('POST', '/conversations', { taskId: task.id, followup: true })).statusCode,
     422,
   );
-  await request('POST', `/tasks/${task.id}:complete`, {});
+  await complete(task.id);
   let context: unknown;
   app.chatAi.probe = async (input) => {
-    context = input.activityContext;
+    if (input.thingId === thing.id) context = input.activityContext;
   };
-  const response = await request('POST', '/conversations', { taskId: task.id, actionIndex: 0 });
-  assert.equal(response.statusCode, 201, response.body);
-  const conversation = response.json<Schema['Conversation']>();
-  assert.equal(conversation.messages[0].text, chat[0].prompt);
-  assert.equal(conversation.thingId, thing.id);
-  for (let i = 0; i < 100 && !context; i++) await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.equal((context as { item: { id: string } }).item.id, task.id);
-  app.chatAi.probe = undefined;
+  t.after(() => {
+    app.chatAi.probe = undefined;
+  });
+  const conversations = await Promise.all(
+    [1, 2].map(() => request('POST', '/conversations', { taskId: task.id, followup: true })),
+  );
+  conversations.forEach((r) => assert.equal(r.statusCode, 201, r.body));
+  const conversation = conversations[0].json<Schema['Conversation']>();
+  assert.equal(conversations[1].json<Schema['Conversation']>().id, conversation.id);
+  assert.deepEqual(conversation.messages, []);
+  assert.equal(
+    (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>().status,
+    'COMPLETED',
+  );
+  const message = { text: 'The filter no longer leaks.', requestId: crypto.randomUUID() };
+  const sent = await request('POST', `/conversations/${conversation.id}/messages`, message);
+  assert.equal(sent.statusCode, 202, sent.body);
   const saved = (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>();
   assert.equal(saved.status, 'CLOSED');
-  assert.equal(saved.completedFollowup?.action.type, 'CHAT');
-  assert.equal(saved.completedFollowup?.completedAt, saved.closedAt);
+  assert.deepEqual(saved.completedFollowup, {
+    conversationId: conversation.id,
+    completedAt: saved.closedAt,
+  });
   assert.equal(
-    (await request('POST', '/conversations', { taskId: task.id, actionIndex: 0 })).statusCode,
-    422,
+    (await request('POST', '/conversations', { taskId: task.id, followup: true })).json<
+      Schema['Conversation']
+    >().id,
+    conversation.id,
+  );
+  const retry = await request('POST', `/conversations/${conversation.id}/messages`, message);
+  assert.equal(retry.statusCode, 202, retry.body);
+  for (let i = 0; i < 100 && !context; i++) await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(
+    context &&
+      typeof context === 'object' &&
+      'item' in context &&
+      'issue' in context &&
+      'followup' in context,
+  );
+  assert.equal(context.followup, true);
+  assert.ok(context.item && typeof context.item === 'object' && 'id' in context.item);
+  assert.equal(context.item.id, task.id);
+  assert.ok(context.issue && typeof context.issue === 'object' && 'id' in context.issue);
+  assert.equal(context.issue.id, issue.id);
+  assert.equal(
+    (await request('GET', `/issues/${issue.id}`)).json<Schema['Issue']>().status,
+    'OPEN',
   );
 });
 
@@ -354,8 +388,8 @@ test('all Task operations and linked context enforce owner scope', async () => {
     ...['accept', 'complete', 'close', 'reopen'].map(
       (action) => ['POST', `/tasks/${task.id}:${action}`, {}] as const,
     ),
-    ['POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value: 'no' }],
     ['POST', '/conversations', { taskId: task.id }],
+    ['POST', '/conversations', { taskId: task.id, followup: true }],
   ] as const) {
     const response = await request(method, path, payload, other);
     assert.equal(response.statusCode, 404, response.body);
@@ -374,97 +408,93 @@ test('all Task operations and linked context enforce owner scope', async () => {
   );
 });
 
-// PR #139 offered independent Task followups; the first successful choice must now close it.
-test('one field followup closes the Task and competing answers make no further changes', async () => {
+test('ended Events record chat followups while ordinary Ask leaves the Event open', async () => {
   const thing = await createThing();
-  const updated = (
-    await request('PATCH', `/things/${thing.id}`, {
-      customFields: [{ label: 'Inspection count', value: 1, sensitive: true }],
+  for (const schedule of [{ startsAt: '2000-01-01T10:00:00Z' }, { startsOn: '2000-01-01' }]) {
+    const event = (
+      await request('POST', '/events', { thingId: thing.id, title: 'Engineer visit', ...schedule })
+    ).json<Schema['Event']>();
+    const ask = (await request('POST', '/conversations', { eventId: event.id })).json<
+      Schema['Conversation']
+    >();
+    await request('POST', `/conversations/${ask.id}/messages`, {
+      text: 'What was this visit for?',
+      requestId: crypto.randomUUID(),
+    });
+    assert.equal(
+      (await request('GET', `/events/${event.id}`)).json<Schema['Event']>().status,
+      'SCHEDULED',
+    );
+    const pending = (
+      await request('GET', `/events?thingId=${thing.id}&status=SCHEDULED&from=2099-01-01T00:00:00Z`)
+    ).json<Schema['EventList']>();
+    assert.ok(pending.items.some((item) => item.id === event.id));
+    const conversation = (
+      await request('POST', '/conversations', {
+        eventId: event.id,
+        followup: true,
+        timeZone: 'Europe/London',
+      })
+    ).json<Schema['Conversation']>();
+    assert.equal(
+      (await request('GET', `/events/${event.id}`)).json<Schema['Event']>().completedFollowup,
+      null,
+    );
+    const sent = await request('POST', `/conversations/${conversation.id}/messages`, {
+      text: 'The visit went well.',
+      requestId: crypto.randomUUID(),
+    });
+    assert.equal(sent.statusCode, 202, sent.body);
+    const saved = (await request('GET', `/events/${event.id}`)).json<Schema['Event']>();
+    assert.equal(saved.status, 'CLOSED');
+    assert.deepEqual(saved.completedFollowup, {
+      conversationId: conversation.id,
+      completedAt: saved.closedAt,
+    });
+    assert.equal(
+      (await request('POST', '/conversations', { eventId: event.id, followup: true })).json<
+        Schema['Conversation']
+      >().id,
+      conversation.id,
+    );
+  }
+  const future = (
+    await request('POST', '/events', {
+      thingId: thing.id,
+      title: 'Future visit',
+      startsOn: '2099-01-01',
     })
-  ).json<Schema['Thing']>();
-  const field = updated.customFields[0];
-  const task = await createTask(thing.id, {
-    completionActions: [
-      {
-        type: 'UPDATE_FIELD',
-        label: 'Record inspection',
-        customFieldId: field.id,
-        fieldSetId: null,
-        fieldId: null,
-      },
-      ...chat,
-    ],
-  });
+  ).json<Schema['Event']>();
   assert.equal(
-    (await request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value: 5 })).statusCode,
-    409,
-  );
-  await request('POST', `/tasks/${task.id}:complete`, {});
-  assert.equal(
-    (await request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0 })).statusCode,
-    422,
-  );
-  assert.equal(
-    (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>().status,
-    'COMPLETED',
-  );
-  const replies = await Promise.all(
-    [5, 6].map((value) => request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0, value })),
-  );
-  assert.deepEqual(replies.map((r) => r.statusCode).sort(), [200, 409]);
-  const saved = (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>();
-  assert.equal(saved.status, 'CLOSED');
-  assert.equal(saved.completedFollowup?.action.type, 'UPDATE_FIELD');
-  assert.equal(saved.completedFollowup?.completedAt, saved.closedAt);
-  assert.ok(!JSON.stringify(saved.completedFollowup).includes('value'));
-  const winner = replies.findIndex((r) => r.statusCode === 200);
-  const answer = (
-    await request('POST', `/things/${thing.id}:reveal-field`, { customFieldId: field.id })
-  ).json<Schema['RevealResult']>();
-  assert.equal(answer.value, winner === 0 ? 5 : 6);
-  assert.equal(
-    (await request('POST', '/conversations', { taskId: task.id, actionIndex: 1 })).statusCode,
+    (await request('POST', '/conversations', { eventId: future.id, followup: true })).statusCode,
     422,
   );
 });
 
-test('attachment and issue followups save their result and close Tasks', async () => {
+test('dismissed or reopened work rejects a pending followup message without recording it', async () => {
   const thing = await createThing();
-  const file = 'followup-fixture';
-  const { rows } = await app.pool.query<{ id: string }>(
-    `insert into bt.attachments(owner_id,filename,media_type,storage_key,byte_size) select owner_id,'receipt.txt','text/plain',$2,18 from bt.things where id=$1 returning id`,
-    [thing.id, file],
-  );
-  const attachment = await createTask(thing.id, {
-    completionActions: [{ type: 'ADD_ATTACHMENT', label: 'Add receipt', documentType: 'RECEIPT' }],
-  });
-  await request('POST', `/tasks/${attachment.id}:complete`, {});
-  const linked = await request('POST', `/tasks/${attachment.id}:followup`, {
-    actionIndex: 0,
-    attachmentId: rows[0].id,
-  });
-  assert.equal(linked.statusCode, 200, linked.body);
-  assert.equal(linked.json<Schema['Task']>().completedFollowup?.action.type, 'ADD_ATTACHMENT');
-  const savedFile = (await request('GET', `/attachments/${rows[0].id}`)).json<
-    Schema['Attachment']
-  >();
-  assert.equal(savedFile.documentType, 'RECEIPT');
-  assert.ok(savedFile.thingIds.includes(thing.id));
-  const issue = (
-    await request('POST', '/issues', { thingId: thing.id, title: 'Filter problem' })
-  ).json<Schema['Issue']>();
-  const task = await createTask(thing.id, {
-    issueId: issue.id,
-    completionActions: [{ type: 'RESOLVE_ISSUE', label: 'Fixed' }],
-  });
-  await request('POST', `/tasks/${task.id}:complete`, {});
-  const resolved = await request('POST', `/tasks/${task.id}:followup`, { actionIndex: 0 });
-  assert.equal(resolved.statusCode, 200, resolved.body);
-  assert.equal(resolved.json<Schema['Task']>().completedFollowup?.action.type, 'RESOLVE_ISSUE');
-  assert.equal(
-    (await request('GET', `/issues/${issue.id}`)).json<Schema['Issue']>().status,
-    'RESOLVED',
-  );
+  for (const action of ['close', 'reopen']) {
+    const task = await createTask(thing.id);
+    await complete(task.id);
+    const conversation = (
+      await request('POST', '/conversations', { taskId: task.id, followup: true })
+    ).json<Schema['Conversation']>();
+    await request('POST', `/tasks/${task.id}:${action}`, {});
+    const sent = await request('POST', `/conversations/${conversation.id}/messages`, {
+      text: 'Outcome.',
+      requestId: crypto.randomUUID(),
+    });
+    assert.equal(sent.statusCode, 409, sent.body);
+    assert.equal(
+      (await request('GET', `/tasks/${task.id}`)).json<Schema['Task']>().completedFollowup,
+      null,
+    );
+    assert.deepEqual(
+      (await request('GET', `/conversations/${conversation.id}`)).json<Schema['Conversation']>()
+        .messages,
+      [],
+    );
+  }
 });
 
 // a139bfe kept null references when a scheduled date was added, breaking later occurrences.

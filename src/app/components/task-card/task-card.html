@@ -34,17 +34,12 @@
       <span class="visually-hidden">(critical)</span>
     }
   </p>
-  @if (done() && actions().length) {
+  @if (done()) {
     <div class="task-card-actions" role="group" [attr.aria-label]="'Next steps for ' + name">
-      @for (action of actions(); track $index) {
-        <button type="button" class="task-card-action" (click)="actionChosen.emit(action)">
-          <ng-icon [name]="actionIcons[action.type]" aria-hidden="true" />
-          {{ action.label }}
-          @if (action.type === 'RESOLVE_ISSUE') {
-            <span class="visually-hidden">Closes all work linked to this issue</span>
-          }
-        </button>
-      }
+      <button type="button" class="task-card-action" (click)="followedUp.emit()">
+        <ng-icon name="followUpChat" aria-hidden="true" />
+        How did it go?
+      </button>
     </div>
   } @else {
     @let line = timeLine();
@@ -132,7 +127,7 @@
     }
   }
 </div>
-@if (done() && actions().length) {
+@if (done()) {
   <button type="button" class="button-link" (click)="dismissed.emit()">Dismiss</button>
 }
 <bt-menu class="task-card-menu" [label]="'Actions for ' + name" variant="plain" size="sm">

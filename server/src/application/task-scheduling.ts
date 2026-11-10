@@ -66,7 +66,7 @@ export async function acceptTask(
     );
     const schedule = { ...dates, recurrence: dates.deadlineOn ? null : current.recurrence };
     validateTaskSchedule(schedule);
-    const saved = await writeTask(db, owner, schedule, registry, id);
+    const saved = await writeTask(db, owner, schedule, id);
     const active = await tasksDb.saveTask(db, owner, { ...saved, status: 'ACTIVE' }, true);
     return { task: active, nextTask: null };
   });

@@ -76,7 +76,7 @@ test('OpenAPI 3.1 nulls, response omission and action-path validation work in Fa
     startsOn: req.body.startsOn ?? null,
     endsAt: null,
     closedAt: null,
-    completionActions: [],
+    completedFollowup: null,
     issueId: null,
     sourceRefs: [],
     isSample: false,

@@ -45,7 +45,6 @@ export class FixtureChat implements ChatAi {
               recurrence: null,
               scheduledOn: null,
               deadlineOn: null,
-              completionActions: [],
             }
           : this.creation === 'create_event'
             ? {
@@ -53,7 +52,6 @@ export class FixtureChat implements ChatAi {
                 startsAt: '2026-10-01T09:00:00Z',
                 startsOn: null,
                 endsAt: null,
-                completionActions: [],
               }
             : {}),
       });

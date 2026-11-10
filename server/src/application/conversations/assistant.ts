@@ -233,7 +233,7 @@ export class Assistant {
           'Assistant card limit',
         );
         const kind = name === 'create_task' ? 'task' : name === 'create_event' ? 'event' : 'issue';
-        const saved = await createChatActivity(this.pool, job, name, args, this.registry, signal);
+        const saved = await createChatActivity(this.pool, job, name, args, signal);
         if (!job.toolResults.some((r) => r.key === name)) job.toolResults.push(saved);
         if (saved.card) addCards(saved.card);
         const item = saved.result as { id: string };

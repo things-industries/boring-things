@@ -438,7 +438,7 @@ export interface paths {
         put?: never;
         /**
          * Create event
-         * @description Creates an event with a start date or timestamp and optional followups.
+         * @description Creates an Event with a start date or timestamp. Ended Events offer contextual chat followup.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -907,26 +907,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/tasks/{id}:followup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Complete task followup
-         * @description Runs one saved field, attachment or issue followup for a completed Task, records its completion and closes the Task in one transaction. Further followups return a conflict.
-         */
-        post: operations["completeTaskFollowup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1322,7 +1302,7 @@ export interface components {
              */
             dueDate?: string | null;
         };
-        /** @description Appointment, visit or delivery with one start date or timestamp and independent followups. */
+        /** @description Appointment, visit or delivery with one start date or timestamp and chat followup after it ends. */
         Event: {
             /** Format: uuid */
             id: string;
@@ -1344,11 +1324,12 @@ export interface components {
             startsOn: string | null;
             /** Format: date-time */
             endsAt: string | null;
-            completionActions: components["schemas"]["CompletionAction"][];
             /** Format: date-time */
             closedAt: string | null;
+            /** @description Recorded chat followup, or null until the owner sends the first followup message. */
+            completedFollowup: components["schemas"]["CompletedActivityFollowup"] | null;
         };
-        /** @description Appointment, visit or delivery with one start date or timestamp and independent followups. */
+        /** @description Appointment, visit or delivery with one start date or timestamp and chat followup after it ends. */
         EventInput: {
             /**
              * Format: uuid
@@ -1371,9 +1352,8 @@ export interface components {
             startsOn?: string | null;
             /** Format: date-time */
             endsAt?: string | null;
-            completionActions?: components["schemas"]["CompletionAction"][];
         };
-        /** @description Appointment, visit or delivery with one start date or timestamp and independent followups. */
+        /** @description Appointment, visit or delivery with one start date or timestamp and chat followup after it ends. */
         EventPatch: {
             /** Format: uuid */
             issueId?: string | null;
@@ -1388,7 +1368,6 @@ export interface components {
             startsOn?: string | null;
             /** Format: date-time */
             endsAt?: string | null;
-            completionActions?: components["schemas"]["CompletionAction"][];
         };
         /** @description Opportunity to buy a consumable, accessory or upgrade that maintains or improves a Thing, with supporting sources. Merchant actions for samples are disabled. */
         Purchasable: {
@@ -1459,7 +1438,7 @@ export interface components {
             items: components["schemas"]["ConversationSummary"][];
             nextCursor: string | null;
         };
-        /** @description New conversation with optional Thing, Task or Event context and a CHAT followup index. */
+        /** @description New conversation with optional Thing, Task or Event context. Followups reuse their conversation. */
         ConversationInput: {
             /**
              * Format: uuid
@@ -1472,9 +1451,10 @@ export interface components {
             taskId?: string;
             /** Format: uuid */
             eventId?: string;
-            actionIndex?: number;
             /** @description Local calendar timezone for date-only Event followup eligibility. */
             timeZone?: string;
+            /** @description Follow up on a completed Task or ended Event. The first owner message records the followup and closes the item. */
+            followup?: boolean;
         };
         /** @description A page of categories. nextCursor is null when no further page is available. */
         CategoryList: {
@@ -1723,30 +1703,6 @@ export interface components {
             unit: components["schemas"]["RecurrenceUnitEnum"];
             from: components["schemas"]["RecurrenceFromEnum"];
         };
-        /** @description Followup option offered after completion or the end of an event. */
-        CompletionAction: {
-            /** @constant */
-            type: "CHAT";
-            label: string;
-            prompt: string | null;
-        } | {
-            /** @constant */
-            type: "UPDATE_FIELD";
-            label: string;
-            fieldSetId: string | null;
-            fieldId: string | null;
-            /** Format: uuid */
-            customFieldId: string | null;
-        } | {
-            /** @constant */
-            type: "ADD_ATTACHMENT";
-            label: string;
-            documentType: components["schemas"]["AttachmentDocumentTypeEnum"] | null;
-        } | {
-            /** @constant */
-            type: "RESOLVE_ISSUE";
-            label: string;
-        };
         /** @description Properties for creating a suggested or active task. Tasks with a deadline cannot recur. Active recurring Tasks require scheduledOn. */
         TaskInput: {
             /** Format: uuid */
@@ -1763,7 +1719,6 @@ export interface components {
             /** Format: date */
             deadlineOn?: string | null;
             recurrence?: components["schemas"]["TaskRecurrence"] | null;
-            completionActions?: components["schemas"]["CompletionAction"][];
             status?: components["schemas"]["TaskInitialStatusEnum"];
         };
         /** @description Selected task properties to update. Null removes optional dates, recurrence or the issue link. Tasks with a deadline cannot recur. Edits affect this occurrence only. */
@@ -1778,7 +1733,6 @@ export interface components {
             /** Format: date */
             deadlineOn?: string | null;
             recurrence?: components["schemas"]["TaskRecurrence"] | null;
-            completionActions?: components["schemas"]["CompletionAction"][];
         };
         /** @description User action for a Thing, with optional schedule, deadline, recurrence and followups. Tasks with a deadline cannot recur. */
         Task: {
@@ -1796,7 +1750,6 @@ export interface components {
             /** Format: date */
             deadlineOn: string | null;
             recurrence: components["schemas"]["TaskRecurrence"] | null;
-            completionActions: components["schemas"]["CompletionAction"][];
             status: components["schemas"]["TaskStatusEnum"];
             /** Format: date-time */
             completedAt: string | null;
@@ -1806,8 +1759,8 @@ export interface components {
             referenceTaskId: string | null;
             sourceRefs: components["schemas"]["SourceRef"][];
             isSample: boolean;
-            /** @description First completed followup, or null when none has completed. */
-            completedFollowup: components["schemas"]["CompletedTaskFollowup"] | null;
+            /** @description Recorded chat followup, or null until the owner sends the first followup message. */
+            completedFollowup: components["schemas"]["CompletedActivityFollowup"] | null;
         };
         /** @description Page of tasks accessible to the owner. */
         TaskList: {
@@ -1853,18 +1806,12 @@ export interface components {
             items: components["schemas"]["ThingDate"][];
             nextCursor: string | null;
         };
-        /** @description The followup chosen for a Task and the time it closed the Task. Field answers remain in the Thing. */
-        CompletedTaskFollowup: {
-            action: components["schemas"]["CompletionAction"];
+        /** @description Chat followup conversation and the time the owner first sent a message. Historical followups without a linked chat have a null conversationId. */
+        CompletedActivityFollowup: {
             /** Format: date-time */
             completedAt: string;
-        };
-        /** @description Chosen field, attachment or issue followup. Chat followups start through conversation creation. */
-        TaskFollowupInput: {
-            actionIndex: number;
-            value?: components["schemas"]["Value"];
             /** Format: uuid */
-            attachmentId?: string;
+            conversationId: string | null;
         };
         /**
          * @description Whether an issue is open or resolved.
@@ -3866,39 +3813,6 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            422: components["responses"]["InvalidInput"];
-            500: components["responses"]["ServerError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    completeTaskFollowup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Id. */
-                id: components["parameters"]["resourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskFollowupInput"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Task"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
             422: components["responses"]["InvalidInput"];
             500: components["responses"]["ServerError"];
             503: components["responses"]["Unavailable"];
