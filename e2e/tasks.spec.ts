@@ -117,6 +117,24 @@ test('complete recurring work, use followups, dismiss, edit dates and delete', a
   await expect(page.getByText('Read the manual', { exact: true })).toHaveCount(0);
 });
 
+test('the Tasks tab names each task’s Thing above its title', async ({ page }) => {
+  const thing = await setup(page);
+  const title = 'Descale ' + thing.id.slice(0, 8);
+  await api(page, 'POST', '/tasks', { thingId: thing.id, title, status: 'ACTIVE' });
+  await page.goto('/tasks');
+  const tab = card(page, title);
+  await expect(tab.locator('.task-card-eyebrow')).toHaveText(thing.name);
+  await expect(tab.locator('.task-card-title')).toHaveText(title);
+  await expect(tab.getByRole('checkbox', { name: `${thing.name}: ${title}` })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('task-eyebrow.png') });
+  await page.goto(`/things/${thing.id}/tasks`);
+  await expect(card(page, title)).toBeVisible();
+  await expect(card(page, title).locator('.task-card-eyebrow')).toHaveCount(0);
+  await page.goto(`/things/${thing.id}`);
+  await expect(card(page, title)).toBeVisible();
+  await expect(card(page, title).locator('.task-card-eyebrow')).toHaveCount(0);
+});
+
 test('accept an unscheduled suggestion and open a new contextual followup conversation', async ({
   page,
 }) => {

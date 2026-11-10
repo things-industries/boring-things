@@ -47,6 +47,13 @@
   min-width: 0;
 }
 
+.task-card-eyebrow {
+  @include typography.role(caption);
+  margin: 0;
+  color: tokens.color(primary-muted);
+  overflow-wrap: anywhere;
+}
+
 .task-card-title {
   @include typography.role(body);
   margin: 0;

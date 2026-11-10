@@ -14,13 +14,14 @@ export type ThingDate = Schema['ThingDate'];
 interface AgendaEntry {
   key: string;
   thingId: string;
+  thingName: string;
   day: string;
   overdue: boolean;
 }
 export type AgendaItem =
   | (AgendaEntry & { type: 'TASK'; task: Task })
   | (AgendaEntry & { type: 'EVENT'; event: Appointment })
-  | (AgendaEntry & { type: 'THING_DATE'; thingDate: ThingDate; thingName: string });
+  | (AgendaEntry & { type: 'THING_DATE'; thingDate: ThingDate });
 export interface AgendaDay {
   date: string;
   items: AgendaItem[];

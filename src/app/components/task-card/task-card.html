@@ -1,11 +1,12 @@
 @let entry = item();
+@let name = showThing() ? entry.thingName + ': ' + title() : title();
 @if (checkable()) {
   <button
     type="button"
     class="task-card-check"
     role="checkbox"
     [attr.aria-checked]="done()"
-    [attr.aria-label]="title()"
+    [attr.aria-label]="name"
     [disabled]="done()"
     (click)="toggled.emit()"
   >
@@ -20,6 +21,9 @@
   </span>
 }
 <div class="task-card-copy">
+  @if (showThing()) {
+    <p class="task-card-eyebrow">{{ entry.thingName }}</p>
+  }
   <p class="task-card-title">
     @if (entry.type === 'THING_DATE') {
       {{ entry.thingName }} {{ entry.thingDate.label | lowercase }}
@@ -32,7 +36,7 @@
     }
   </p>
   @if (done() && actions().length) {
-    <div class="task-card-actions" role="group" [attr.aria-label]="'Next steps for ' + title()">
+    <div class="task-card-actions" role="group" [attr.aria-label]="'Next steps for ' + name">
       @for (action of actions(); track $index) {
         <button type="button" class="task-card-action" (click)="actionChosen.emit(action)">
           <ng-icon [name]="actionIcons[action.type]" aria-hidden="true" />
@@ -132,7 +136,7 @@
 @if (done()) {
   <button type="button" class="button-link" (click)="dismissed.emit()">Dismiss</button>
 }
-<bt-menu class="task-card-menu" [label]="'Actions for ' + title()" variant="plain" size="sm">
+<bt-menu class="task-card-menu" [label]="'Actions for ' + name" variant="plain" size="sm">
   <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
   @if (entry.type === 'TASK') {
     <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">

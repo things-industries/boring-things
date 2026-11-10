@@ -77,6 +77,9 @@ export class TaskCard {
 
   readonly title = computed(() => itemTitle(this.item()));
 
+  /** Names the Thing above the title; a Thing date's title already includes it. */
+  readonly showThing = computed(() => !this.inThing() && this.item().type !== 'THING_DATE');
+
   readonly actions = computed(() => {
     const item = this.item();
 

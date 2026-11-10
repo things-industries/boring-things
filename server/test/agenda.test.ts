@@ -123,6 +123,14 @@ test('overnight appointments stay in Today and previews until they end', () => {
   assert.deepEqual(ids(ended.followups), ['event:overnight']);
 });
 
+test('tasks and appointments carry their Thing name', () => {
+  const result = agenda([task('wash')], [event('visit')]);
+  assert.deepEqual(
+    result.today.map((item) => item.thingName),
+    ['Car', 'Car'],
+  );
+});
+
 test('future tasks and all future date fields form day groups', () => {
   const dates: ThingDate[] = [
     {
