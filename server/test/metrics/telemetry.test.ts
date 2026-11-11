@@ -194,6 +194,39 @@ test('concurrent jobs isolate traces and record provider usage without source co
   await assert.rejects(readImageText(Buffer.from('synthetic'), new AbortController().signal));
   await processor.forceFlush();
   assert.equal(exporter.getFinishedSpans().length, 0);
+
+  // Two messages and a retry share the conversation session but use one trace per message.
+  const conversationId = '20000000-0000-4000-8000-000000000001';
+  for (const messageId of [ids[0], ids[1], ids[0]]) {
+    await metrics.withChatTurn(messageId, conversationId, async () => {
+      metrics.recordProviderCall({
+        task: 'assistant_response',
+        provider: 'openai',
+        model: 'gpt-6-luna',
+        status: 'success',
+      });
+    });
+  }
+  await processor.forceFlush();
+  const chatSpans = exporter.getFinishedSpans();
+  assert.equal(chatSpans.length, 6);
+  assert(
+    chatSpans.every((span) => span.attributes[attributes.TRACE_SESSION_ID] === conversationId),
+  );
+  assert(
+    chatSpans.every(
+      (span) =>
+        span.attributes[`${attributes.TRACE_METADATA}.sessionKind`] ===
+        JSON.stringify('conversation'),
+    ),
+  );
+  assert.deepEqual(
+    ids.map(
+      (id) =>
+        chatSpans.filter((span) => span.spanContext().traceId === metrics.getJobTraceId(id)).length,
+    ),
+    [4, 2],
+  );
 });
 
 test('reports distinguish unknown costs and deduplicate shared-source calls', () => {

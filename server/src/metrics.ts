@@ -103,17 +103,22 @@ async function withScope<T>(name: string, work: () => Promise<T>, parentSpanCont
   return result.value;
 }
 
-// Groups attempts of one persisted job in a trace; independently processed sources keep their own IDs.
-export function withJob<T>(
+// Records one trace per job and groups related traces in a session.
+function withJobTrace<T>(
   kind: 'import' | 'attachment' | 'chat',
   id: string,
+  sessionId: string,
   work: () => Promise<T>,
 ) {
   return propagateAttributes(
     {
-      sessionId: id,
+      sessionId,
       traceName: `process_${kind}`,
-      metadata: { jobKind: kind, jobId: id },
+      metadata: {
+        jobKind: kind,
+        jobId: id,
+        ...(kind === 'chat' && { sessionKind: 'conversation' }),
+      },
     },
     () =>
       withScope(`process_${kind}`, work, {
@@ -123,6 +128,16 @@ export function withJob<T>(
         isRemote: true,
       }),
   );
+}
+
+// Gives each import and attachment its own trace and session.
+export function withJob<T>(kind: 'import' | 'attachment', id: string, work: () => Promise<T>) {
+  return withJobTrace(kind, id, id, work);
+}
+
+// Groups assistant message traces in their conversation's session.
+export function withChatTurn<T>(messageId: string, conversationId: string, work: () => Promise<T>) {
+  return withJobTrace('chat', messageId, conversationId, work);
 }
 
 // Measures a task invocation, including its model turns, tools, validation and conversion.
