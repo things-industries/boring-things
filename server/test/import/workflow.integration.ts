@@ -92,7 +92,7 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       productCandidates[0].map(({ name }) => name),
       ['Rinse aid', 'Dishwasher salt', 'Detergent tablets'],
     );
-    assert.deepEqual(taskCandidates[0][0].recurrence, { interval: 1, unit: 'MONTH' });
+    assert.equal(taskCandidates[0][0].recurrence, 'every month');
     assert.equal(taskCandidates[0][0].importance, 'RECOMMENDED');
     assert.equal(taskCandidates[0][1].recurrence, undefined);
     assert.ok(productCandidates[0][2].purchaseUrl);

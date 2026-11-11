@@ -13,7 +13,6 @@ import type { Schema } from '../../../../../shared/model.js';
 import type { RecommendationInput } from './recommendation.js';
 import {
   taskImportanceLevels,
-  taskRecurrenceUnits,
   type FieldSetTaskSuggestion,
 } from '../../../application/registry/recommendation-suggestions.js';
 
@@ -70,7 +69,7 @@ export const outputSchema = createObjectSchema(
                   unit: {
                     type: 'string',
                     description: 'Calendar unit for task recurrence.',
-                    enum: taskRecurrenceUnits,
+                    enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'],
                   },
                 },
                 'Documented or estimated calendar recurrence for the task idea.',

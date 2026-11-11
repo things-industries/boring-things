@@ -15,10 +15,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'The machine care programme removes built-up debris and residue from inside the dishwasher.',
           eligibility: 'The dishwasher has a dedicated machine care programme.',
           importance: 'RECOMMENDED',
-          recurrence: {
-            interval: 1,
-            unit: 'MONTH',
-          },
+          recurrence: 'every month',
         },
         {
           title: 'Refill salt and rinse aid',
@@ -62,10 +59,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'Running the drum-clean programme removes detergent residue and helps prevent odours inside the washing machine.',
           eligibility: 'The washing machine has a dedicated drum-clean programme.',
           importance: 'RECOMMENDED',
-          recurrence: {
-            interval: 1,
-            unit: 'MONTH',
-          },
+          recurrence: 'every month',
         },
         {
           title: 'Clean the drain pump filter',
@@ -73,10 +67,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           eligibility:
             'The washing machine has a drain pump filter that the owner can access and clean.',
           importance: 'RECOMMENDED',
-          recurrence: {
-            interval: 2,
-            unit: 'MONTH',
-          },
+          recurrence: 'every 2 months',
         },
       ],
       purchasables: [
@@ -125,10 +116,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             "Replacing the cartridge keeps the fridge's drinking water or ice supply filtered.",
           eligibility: 'The fridge uses a water filter cartridge that the owner can replace.',
           importance: 'RECOMMENDED',
-          recurrence: {
-            interval: 6,
-            unit: 'MONTH',
-          },
+          recurrence: 'every 6 months',
         },
       ],
       purchasables: [
@@ -204,10 +192,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           eligibility:
             'The owner is responsible for arranging service for the boiler or heat pump. ',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 1,
-            unit: 'YEAR',
-          },
+          recurrence: 'every year',
         },
       ],
       purchasables: [],
@@ -299,10 +284,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'Opening a file restored from backup shows whether you can recover it when you need it.',
           eligibility: 'The device uses a backup system that lets the owner restore a sample file.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 3,
-            unit: 'MONTH',
-          },
+          recurrence: 'every 3 months',
         },
       ],
       purchasables: [
@@ -460,10 +442,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'Checking the tyres reveals damage, wear or incorrect pressures that can affect grip and handling.',
           eligibility: 'The vehicle uses pneumatic tyres with manufacturer-specified pressures.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 1,
-            unit: 'WEEK',
-          },
+          recurrence: 'every week',
         },
       ],
       purchasables: [
@@ -536,10 +515,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'Booking ahead gives you time to get the vehicle tested before its MOT expires.',
           eligibility: 'The vehicle is subject to MOT testing in the UK.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 1,
-            unit: 'YEAR',
-          },
+          recurrence: 'every year',
         },
       ],
       purchasables: [],
@@ -684,10 +660,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           eligibility:
             'The caravan or motorhome has a fitted water system with a documented winter storage procedure.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 1,
-            unit: 'YEAR',
-          },
+          recurrence: 'every year',
         },
       ],
       purchasables: [],
@@ -796,10 +769,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'Checking renewal and payment details helps prevent the domain and its website or email from going offline.',
           eligibility: 'The domain registration can be renewed through its registrar.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 1,
-            unit: 'YEAR',
-          },
+          recurrence: 'every year',
         },
       ],
       purchasables: [],
@@ -813,10 +783,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           eligibility:
             'The subscription includes a backup the owner can access and a way to restore a sample.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 3,
-            unit: 'MONTH',
-          },
+          recurrence: 'every 3 months',
         },
       ],
       purchasables: [],
@@ -930,10 +897,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
             'Reviewing the new terms gives you time to adjust the cover or choose another policy before the renewal or expiry date.',
           eligibility: 'The policy has a fixed period of cover or a renewal process.',
           importance: 'IMPORTANT',
-          recurrence: {
-            interval: 1,
-            unit: 'YEAR',
-          },
+          recurrence: 'every year',
         },
       ],
       purchasables: [],

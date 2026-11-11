@@ -16,13 +16,6 @@ export const taskImportanceLevels = [
   'NICE_TO_HAVE',
 ] as const satisfies readonly Schema['TaskImportanceEnum'][];
 
-export const taskRecurrenceUnits = [
-  'DAY',
-  'WEEK',
-  'MONTH',
-  'YEAR',
-] as const satisfies readonly Schema['RecurrenceUnitEnum'][];
-
 const suggestionText = {
   type: 'string',
   pattern: '\\S',
@@ -44,15 +37,7 @@ export const fieldSetRecommendationSuggestionsSchema = {
           eligibility: suggestionText,
           description: suggestionText,
           importance: { type: 'string', enum: taskImportanceLevels },
-          recurrence: {
-            type: 'object',
-            required: ['interval', 'unit'],
-            additionalProperties: false,
-            properties: {
-              interval: { type: 'integer', minimum: 1, maximum: 1000 },
-              unit: { type: 'string', enum: taskRecurrenceUnits },
-            },
-          },
+          recurrence: suggestionText,
         },
       },
     },

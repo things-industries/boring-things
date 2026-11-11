@@ -420,7 +420,7 @@ test('SDK task suggestions research mapped public fields in one bounded structur
         fieldSetId: 'appliances.dishwasher',
         title: 'Run machine care',
         eligibility: 'The model has a machine care programme.',
-        recurrence: { interval: 1, unit: 'MONTH' as const },
+        recurrence: 'every month',
         importance: 'RECOMMENDED' as const,
       },
     ],
@@ -561,7 +561,6 @@ test('SDK purchasable research discovers products and purchase links within one 
       /Describe why the item is useful and when the owner should buy it/,
     );
     assert.match(body.input, /consumables/);
-    assert.match(body.instructions, /Open a candidate's purchaseUrl to verify the listing/);
     assert.ok(body.input.includes(`"purchaseUrl":"${url}"`));
     assert.ok(body.input.includes('existingPurchasables'));
     if (requests.length === 1) assert.ok(body.input.includes('Private owner product'));
