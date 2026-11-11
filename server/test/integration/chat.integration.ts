@@ -1373,3 +1373,96 @@ test('a field receipt persistence failure rolls back the field write and allows 
     'Sample 10',
   );
 });
+
+// PR #154 counted already-displayed fields twice and rejected updates below the distinct-card limit.
+for (const newFieldCount of [0, 4, 5])
+  test(`chat field card limit counts identities with ${newFieldCount} new custom fields`, async () => {
+    const { thing, chat } = await setup();
+    const saved = (
+      await request('PATCH', `/things/${thing.id}`, {
+        values: [{ fieldSetId: null, fieldId: 'common.model', value: 'Before' }],
+        customFields: Array.from({ length: 18 }, (_, index) => ({
+          label: `Example ${index}`,
+          value: 'Before',
+          sensitive: false,
+        })),
+      })
+    ).json<Schema['Thing']>();
+    const cardAddress = { fieldSetId: null, fieldId: null, customFieldId: null, page: null };
+    const selected = [
+      { ...cardAddress, type: 'THING' as const, id: thing.id },
+      { ...cardAddress, type: 'FIELD' as const, id: thing.id, fieldId: 'common.model' },
+      ...saved.customFields.map((field) => ({
+        ...cardAddress,
+        type: 'FIELD' as const,
+        id: thing.id,
+        customFieldId: field.id,
+      })),
+    ];
+    const patch: ChatFieldInput = {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [{ fieldSetId: null, fieldId: 'common.model', value: 'After', source: null }],
+      customFields: [
+        ...saved.customFields.slice(0, 4).map((field) => ({
+          customFieldId: field.id,
+          label: field.label,
+          value: 'After',
+          sensitive: false,
+          scope: field.scope,
+          source: null,
+        })),
+        ...Array.from({ length: newFieldCount }, (_, index) => ({
+          customFieldId: null,
+          label: `New ${index}`,
+          value: 'After',
+          sensitive: false,
+          scope: 'INSTANCE' as const,
+          source: null,
+        })),
+      ],
+    };
+    let output: unknown;
+    ai.probe = async (_input, execute) => {
+      await execute('search_fields', { labels: [{ label: 'common.model', context: '' }] });
+      for (let index = 0; index < selected.length; index += 12)
+        assert.deepEqual(
+          (await execute('show_cards', { cards: selected.slice(index, index + 12) })).output,
+          { shown: Math.min(12, selected.length - index) },
+        );
+      output = (await execute('update_thing_fields', patch)).output;
+    };
+    await request('POST', `/conversations/${chat.id}/messages`, {
+      text: 'Update the displayed fields',
+      requestId: randomUUID(),
+    });
+    const result = (await wait(chat.id)).message;
+    assert.equal(result.status, 'COMPLETE');
+    const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+    if (newFieldCount === 5) {
+      assert.deepEqual(output, { error: 'Assistant card limit' });
+      assert.equal(after.revision, saved.revision);
+      assert.equal(after.customFields.length, saved.customFields.length);
+      assert.equal(
+        after.standaloneFields.find((field) => field.id === 'common.model')?.value,
+        'Before',
+      );
+      assert.equal(result.cards.length, 20);
+    } else {
+      assert.ok(
+        output && typeof output === 'object' && !('error' in output),
+        JSON.stringify(output),
+      );
+      assert.equal(after.customFields.length, saved.customFields.length + newFieldCount);
+      assert.equal(
+        after.standaloneFields.find((field) => field.id === 'common.model')?.value,
+        'After',
+      );
+      for (const field of patch.customFields.filter((field) => field.customFieldId))
+        assert.equal(
+          after.customFields.find((stored) => stored.id === field.customFieldId)?.value,
+          'After',
+        );
+      assert.equal(result.cards.length, 20 + newFieldCount);
+    }
+  });

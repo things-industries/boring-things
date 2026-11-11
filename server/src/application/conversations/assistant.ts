@@ -252,9 +252,29 @@ export class Assistant {
         found.sources.slice(0, 3).forEach((url) => fieldEvidence.urls.add(url));
       } else if (name === 'update_thing_fields') {
         ensure(allowedThings.has(args.thingId), 'Read the Thing first');
+        const projected: Schema['ResourceCard'][] = args.values.map(({ fieldSetId, fieldId }) => ({
+          type: 'FIELD',
+          thingId: args.thingId,
+          fieldSetId,
+          fieldId,
+        }));
+
+        // New custom fields receive their IDs during the write, so reserve their card slots.
+        let newCustomFields = 0;
+        for (const field of args.customFields) {
+          if (field.customFieldId)
+            projected.push({
+              type: 'FIELD',
+              thingId: args.thingId,
+              fieldSetId: null,
+              fieldId: null,
+              customFieldId: field.customFieldId,
+            });
+          else newCustomFields++;
+        }
         ensure(
           job.toolResults.some((receipt) => receipt.key === name) ||
-            cards.length + args.values.length + args.customFields.length <= 24,
+            mergeResourceCards([...cards, ...projected]).length + newCustomFields <= 24,
           'Assistant card limit',
         );
         const saved = await updateChatFields(
