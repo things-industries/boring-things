@@ -15,9 +15,14 @@ import { publicUrl } from '../../web/resources.js';
 import { createObjectSchema } from '../schemas.js';
 import type { Schema } from '../../../../../shared/model.js';
 import type { RecommendationInput } from './recommendation.js';
+import {
+  purchasableKinds,
+  type FieldSetPurchasableSuggestion,
+} from '../../../application/registry/recommendation-suggestions.js';
 
 export interface PurchasableResearch extends RecommendationInput {
   existingPurchasables: Pick<Schema['Purchasable'], 'name' | 'kind'>[];
+  fieldSetSuggestions: (FieldSetPurchasableSuggestion & { fieldSetId: string })[];
 }
 
 const purchasableRecommendationInstructions = `Name each purchasable with its basic item name, usually 2–5 words. Omit the Thing's name, brands, model and product codes, part numbers and quantities. Keep only qualifiers needed to distinguish it from other purchasables, such as "Solid baking tray", "Deep baking tray" or "Wire baking shelf". Other suitable names include "Cleaning gel", "Detergent tablets" and "Water filter".
@@ -38,9 +43,9 @@ export const outputSchema = createObjectSchema(
         {
           kind: {
             type: 'string',
-            enum: ['CONSUMABLE', 'ACCESSORY'],
+            enum: purchasableKinds,
             description:
-              'Consumable used or replaced during operation, or an accessory compatible with the Thing.',
+              'Consumable used or replaced during operation, compatible accessory, or compatible upgrade.',
           },
           name: {
             type: 'string',
@@ -69,7 +74,7 @@ export const outputSchema = createObjectSchema(
       ),
     },
   },
-  'Supported consumables and accessories with purchase pages and compatibility evidence.',
+  'Supported consumables, accessories and upgrades with purchase pages and compatibility evidence.',
 );
 
 const guidance: Record<string, string> = {
@@ -82,7 +87,7 @@ const guidance: Record<string, string> = {
 
 // Builds task instructions from the supplied application context.
 function findPurchasablesPrompt(research: PurchasableResearch, searchCalls: number) {
-  return `Find items or services online (with links to purchase) that a user might want to purchase for their Thing. About the Thing: ${JSON.stringify(research)}. Suitable ideas for purchasables in the ${research.categoryId} category include: ${guidance[research.categoryId]} Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL. Include compatibility sources when available. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables or accessories. Include sourceRefs from linked Attachments or public sources when available. Provide a purchase URL when available. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
+  return `Find items or services online (with links to purchase) that a user might want to purchase for their Thing. About the Thing: ${JSON.stringify(research)}. Suitable ideas for purchasables in the ${research.categoryId} category include: ${guidance[research.categoryId]} Consult the supplied reference URLs. Prefer manufacturer purchase pages and authorised retailers. Establish compatibility with the model, variant, region, manufacturer part number or documented technical requirements. Every product needs a direct purchase URL. Include compatibility sources when available. Do not invent URLs, prices, availability or compatibility. Use at most ${searchCalls} web tool calls including page opens; stop at that limit. Return up to 5 distinct consumables, accessories or upgrades. Include sourceRefs from linked Attachments or public sources when available. Provide a purchase URL when available. Search for a purchase page when the Attachment identifies a product without a purchase URL. Return an empty items array when none are justified.  Finding no applicable purchasables is a valid outcome.`;
 }
 
 export type Output = FromSchema<typeof outputSchema>;

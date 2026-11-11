@@ -55,22 +55,31 @@ test('recommendations accept missing citations and skip malformed peers and purc
     referenceUrls: [],
   };
   const ai = new OpenAiImports();
-  assert.deepEqual((await ai.suggestTasks({ ...research, existingTasks: [] }, context)).items, [
-    {
-      title,
-      description: 'Review annually.',
-      sourceRefs: [],
-      importance: 'RECOMMENDED',
-      recurrence: null,
-    },
-  ]);
+  assert.deepEqual(
+    (await ai.suggestTasks({ ...research, existingTasks: [], fieldSetSuggestions: [] }, context))
+      .items,
+    [
+      {
+        title,
+        description: 'Review annually.',
+        sourceRefs: [],
+        importance: 'RECOMMENDED',
+        recurrence: null,
+      },
+    ],
+  );
   items = [
     product,
     { ...product, merchantUrl: 'javascript:invalid' },
     { ...product, kind: 'INVALID' },
   ];
   assert.deepEqual(
-    (await ai.findPurchasables({ ...research, existingPurchasables: [] }, context)).items,
+    (
+      await ai.findPurchasables(
+        { ...research, existingPurchasables: [], fieldSetSuggestions: [] },
+        context,
+      )
+    ).items,
     [product],
   );
 });

@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import * as attachmentsDb from '../../src/db/entities/attachments.js';
+import * as registrySeedDb from '../../src/db/seeds/registry.js';
+import * as database from '../../src/db/connection.js';
 import { setTimeout } from 'node:timers/promises';
 import { startTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
@@ -17,10 +19,22 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       researchNames.push(research?.name);
       return { items: [], sources: [] };
     };
+    app.importAi.selectFieldSets = async () => ({ setIds: ['appliances.dishwasher'] });
+    const taskCandidates: Parameters<ImportAi['suggestTasks']>[0]['fieldSetSuggestions'][] = [];
+    const productCandidates: Parameters<ImportAi['findPurchasables']>[0]['fieldSetSuggestions'][] =
+      [];
+    app.importAi.suggestTasks = async ({ fieldSetSuggestions }) => {
+      taskCandidates.push(fieldSetSuggestions);
+      return { items: [] };
+    };
+    app.importAi.findPurchasables = async ({ fieldSetSuggestions }) => {
+      productCandidates.push(fieldSetSuggestions);
+      return { items: [] };
+    };
     const request = (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
       app.app.inject({ method, url, payload, headers: { authorization: app.authorization } });
     const created = await request('POST', '/api/things', {
-      name: 'Test oven',
+      name: 'Test dishwasher',
       categoryId: 'appliances',
       addFieldSetIds: ['appliances.warranty'],
       values: [
@@ -69,6 +83,55 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
     assert.equal(recommendation.operation, 'RECOMMENDATION');
     assert.equal(recommendation.status, 'COMPLETE');
     assert.equal(recommendation.attachmentId, null);
+
+    assert.deepEqual(
+      taskCandidates[0].map(({ title }) => title),
+      ['Run the machine care programme', 'Refill salt and rinse aid'],
+    );
+    assert.deepEqual(
+      productCandidates[0].map(({ name }) => name),
+      ['Rinse aid', 'Dishwasher salt', 'Detergent tablets'],
+    );
+    assert.ok(
+      [...taskCandidates[0], ...productCandidates[0]].every(
+        ({ fieldSetId, eligibility }) => fieldSetId === 'appliances.dishwasher' && eligibility,
+      ),
+    );
+    assert.deepEqual(taskCandidates, [taskCandidates[0], taskCandidates[0]]);
+    assert.deepEqual(productCandidates, [productCandidates[0], productCandidates[0]]);
+
+    const fieldSet = await request('GET', '/api/field-sets/appliances.dishwasher');
+    assert.equal(fieldSet.statusCode, 200, fieldSet.body);
+    assert.ok(!('recommendationSuggestions' in fieldSet.json()));
+
+    const oven = await request('POST', '/api/things', {
+      name: 'Test oven',
+      categoryId: 'appliances',
+      addFieldSetIds: ['appliances.oven'],
+    });
+    assert.equal(oven.statusCode, 201, oven.body);
+    const ovenRefresh = await request(
+      'POST',
+      `/api/things/${oven.json<Schema['Thing']>().id}:recommend`,
+    );
+    assert.equal(ovenRefresh.statusCode, 202, ovenRefresh.body);
+    assert.equal(
+      (await wait(ovenRefresh.json<Schema['ImportAccepted']>().importId)).status,
+      'COMPLETE',
+    );
+    assert.deepEqual(taskCandidates[2], []);
+    assert.deepEqual(productCandidates[2], []);
+
+    await app.pool.query('update bt.field_sets set recommendation_suggestions = $1 where id = $2', [
+      JSON.stringify({ tasks: [{ title: 'Obsolete candidate' }], purchasables: [] }),
+      'appliances.oven',
+    ]);
+    await database.transaction(app.pool, registrySeedDb.seedRegistry);
+    const result = await app.pool.query(
+      'select recommendation_suggestions from bt.field_sets where id = $1',
+      ['appliances.oven'],
+    );
+    assert.deepEqual(result.rows[0].recommendation_suggestions, { tasks: [], purchasables: [] });
   } finally {
     await app.close();
   }

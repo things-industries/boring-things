@@ -524,8 +524,14 @@ for (const capability of ['tasks', 'purchasables'] as const) {
     const ai = new OpenAiImports();
     const result =
       capability === 'tasks'
-        ? await ai.suggestTasks({ ...research, existingTasks: [] }, usageContext)
-        : await ai.findPurchasables({ ...research, existingPurchasables: [] }, usageContext);
+        ? await ai.suggestTasks(
+            { ...research, existingTasks: [], fieldSetSuggestions: [] },
+            usageContext,
+          )
+        : await ai.findPurchasables(
+            { ...research, existingPurchasables: [], fieldSetSuggestions: [] },
+            usageContext,
+          );
     assert.deepEqual(result, { items: [item] });
     assert.equal(fetch.mock.callCount(), 3);
     assert.equal(reads, 2);
@@ -557,6 +563,7 @@ test('purchasable research skips categories without guidance without making AI r
           sources: input.sources,
           referenceUrls: [],
           existingPurchasables: [],
+          fieldSetSuggestions: [],
         },
         createContext(),
       ),
@@ -605,6 +612,7 @@ test('purchasables can use purchase links printed in attachment evidence without
       sources: input.sources,
       referenceUrls: [],
       existingPurchasables: [],
+      fieldSetSuggestions: [],
     },
     createContext(),
   );
@@ -677,6 +685,7 @@ test('task recommendations finish from gathered evidence when the tool budget is
       fields: [],
       sources: input.sources,
       existingTasks: [],
+      fieldSetSuggestions: [],
     },
     createImportTaskContext({
       sources: [{ attachmentId: 'source', text: 'Inspect the seal monthly.' }],
@@ -712,6 +721,7 @@ test('recommendation tools reject attachment IDs outside the run scope', async (
         fields: [],
         sources: input.sources,
         existingTasks: [],
+        fieldSetSuggestions: [],
       },
       createContext(),
     ),

@@ -45,6 +45,8 @@ Cost charts show known charges; unpriced requests are not free. Langfuse can dis
 
 The dashboard covers import execution and attachment preparation. It excludes chat traces and SDK experiments. Use Langfuse's trace view for individual request and tool timelines. The import or attachment UUID with its hyphens removed is its trace ID. Attempts share a trace and have separate root observations; every model turn has a separate generation. OpenAI web-search charges are separate tool observations under the invoking task. Their internal duration is unknown and remains included in the model request's duration.
 
+The [Chat costs dashboard](https://cloud.langfuse.com/project/cmw9d4c5y01ylad0d7wra3ifz/dashboards/cmwc4afnl01gjad0eimjxp2gv) ranks turns by trace ID and conversations by session ID. A chat trace ID is the assistant message UUID without hyphens. The conversation panel groups observations with `sessionKind=conversation` by conversation UUID. Older chat observations used the assistant message UUID as the session ID. Use the trace to see when the turn ran, which tasks ran, and which models they used.
+
 For an import and all its sources:
 
 ```bash
