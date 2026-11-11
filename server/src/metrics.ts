@@ -1,5 +1,6 @@
 /** Server telemetry scopes and provider measurements, exports content-free traces to Langfuse. */
 
+import { getEnv } from './config.js';
 import { randomBytes } from 'node:crypto';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
@@ -15,7 +16,7 @@ let sdk: NodeSDK | undefined;
 
 export interface ProviderCall {
   task: string;
-  provider: 'openai' | 'google_vision' | 'icecat' | 'web';
+  provider: 'openai' | 'google_vision' | 'icecat' | 'zyfy' | 'web';
   operation?: string;
   startedAt?: number;
   model?: string;
@@ -31,9 +32,9 @@ export interface ProviderCall {
 export function initializeMetrics() {
   if (
     sdk ||
-    process.env.LANGFUSE_TRACING_ENABLED === 'false' ||
-    !process.env.LANGFUSE_PUBLIC_KEY ||
-    !process.env.LANGFUSE_SECRET_KEY
+    !getEnv('LANGFUSE_TRACING_ENABLED') ||
+    !getEnv('LANGFUSE_PUBLIC_KEY', { optional: true }) ||
+    !getEnv('LANGFUSE_SECRET_KEY', { optional: true })
   )
     return;
   try {
@@ -42,9 +43,11 @@ export function initializeMetrics() {
       serviceName: 'boring-things',
       spanProcessors: [
         new LangfuseSpanProcessor({
-          environment:
-            process.env.LANGFUSE_TRACING_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development',
-          release: process.env.RENDER_GIT_COMMIT,
+          publicKey: getEnv('LANGFUSE_PUBLIC_KEY'),
+          secretKey: getEnv('LANGFUSE_SECRET_KEY'),
+          baseUrl: getEnv('LANGFUSE_BASE_URL'),
+          environment: getEnv('LANGFUSE_TRACING_ENVIRONMENT'),
+          release: getEnv('RENDER_GIT_COMMIT'),
           mediaUploadEnabled: false,
         }),
       ],

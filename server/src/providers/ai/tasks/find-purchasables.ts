@@ -90,7 +90,6 @@ export type Output = FromSchema<typeof outputSchema>;
 export class FindPurchasablesTask extends RecommendationTask<Output, PurchasableSuggestions> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
-  protected readonly searchCalls = 3;
   protected task = 'purchasable_suggestions';
   protected instructions = `${recommendationInstructions} ${purchasableRecommendationInstructions}`;
   protected outputSchema = outputSchema;

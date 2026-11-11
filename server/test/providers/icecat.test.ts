@@ -1,15 +1,21 @@
 /** Checks Icecat triggers, catalogue identity, free-access outcomes and cited field mapping. */
 
 // cspell:words generalinfo featuregroups
-import { test } from 'node:test';
+import { setEnvMode, setEnvValue } from '../../src/config.js';
+import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { IcecatProvider } from '../../src/application/import/specialists.js';
+import { IcecatProvider } from '../../src/providers/icecat/index.js';
 import { Registry } from '../../src/application/registry/registry.js';
 import { fields, sets } from '../../src/db/seeds/registry.js';
 import { addFieldSets, populateFields } from '../../src/application/thing-fields.js';
 import { patchData } from '../../src/application/thing-data.js';
 import { emptyData } from '../../../shared/model.js';
 import type { ThingRow } from '../../src/db/entities/things.js';
+
+beforeEach(() => {
+  setEnvMode('test');
+  setEnvValue('ICECAT_ACCESS_TOKEN', 'fixture-token');
+});
 
 const registry = new Registry(fields, sets);
 const signal = new AbortController().signal;
@@ -76,7 +82,7 @@ function createProduct(info: Record<string, unknown> = {}) {
 }
 
 test('Icecat requires catalogue identifiers on appliances or devices', () => {
-  const provider = new IcecatProvider('fixture-token');
+  const provider = new IcecatProvider();
   for (const category of ['appliances', 'devices']) {
     assert.equal(
       provider.applicable(createThing({ 'common.gtin': '0012345678905' }, category)),
@@ -111,7 +117,7 @@ test('Icecat authenticates by header, prefers product code to model and maps cit
     'appliances.productCode': 'X1/AB',
     'common.model': 'Marketing name',
   });
-  const provider = new IcecatProvider('fixture-token', async (input, init) => {
+  const provider = new IcecatProvider(async (input, init) => {
     const url = new URL(String(input));
     assert.equal(url.searchParams.get('Brand'), 'Example');
     assert.equal(url.searchParams.get('ProductCode'), 'X1/AB');
@@ -149,7 +155,7 @@ test('Icecat accepts model numbers as product codes and rejects a different bran
     { 'common.manufacturer': 'Example', 'common.model': 'X1/AB' },
     'devices',
   );
-  const provider = new IcecatProvider('fixture-token', async (input) => {
+  const provider = new IcecatProvider(async (input) => {
     assert.equal(new URL(String(input)).searchParams.get('ProductCode'), 'X1/AB');
     return Response.json(createProduct());
   });
@@ -159,23 +165,21 @@ test('Icecat accepts model numbers as product codes and rejects a different bran
     '1920 x 1080 pixels',
   );
   for (const info of [{ Brand: 'Different' }, { BrandPartCode: 'X1/ZZ' }]) {
-    const mismatched = new IcecatProvider('fixture-token', async () =>
-      Response.json(createProduct(info)),
-    );
+    const mismatched = new IcecatProvider(async () => Response.json(createProduct(info)));
     await assert.rejects(mismatched.lookup(thing, registry, signal), /identity mismatch/);
   }
 });
 
 test('Icecat GTIN lookup keeps leading zeroes and verifies the returned barcode', async () => {
   const thing = createThing({ 'common.gtin': '0012345678905' });
-  const provider = new IcecatProvider('fixture-token', async (input) => {
+  const provider = new IcecatProvider(async (input) => {
     const url = new URL(String(input));
     assert.equal(url.searchParams.get('GTIN'), '0012345678905');
     assert.equal(url.searchParams.has('Brand'), false);
     return Response.json(createProduct({ GTIN: ['12345678905'] }));
   });
   await assert.rejects(provider.lookup(thing, registry, signal), /identity mismatch/);
-  const matched = new IcecatProvider('fixture-token', async () =>
+  const matched = new IcecatProvider(async () =>
     Response.json(createProduct({ GTIN: ['00012345678905'] })),
   );
   const result = await matched.lookup(thing, registry, signal);
@@ -188,13 +192,13 @@ test('Icecat GTIN lookup keeps leading zeroes and verifies the returned barcode'
 test('Icecat catalogue misses and access restrictions return no field proposals', async () => {
   const thing = createThing({ 'common.gtin': '0012345678905' });
   for (const status of [8, 9, 12, 14, 15, 16, 17]) {
-    const provider = new IcecatProvider('fixture-token', async () =>
+    const provider = new IcecatProvider(async () =>
       Response.json({ StatusCode: status }, { status: 404 }),
     );
     assert.deepEqual(await provider.lookup(thing, registry, signal), { setIds: [], values: [] });
   }
   for (const body of [{ StatusCode: 18 }, { msg: 'OK', data: {} }]) {
-    const provider = new IcecatProvider('fixture-token', async () => Response.json(body));
+    const provider = new IcecatProvider(async () => Response.json(body));
     await assert.rejects(provider.lookup(thing, registry, signal));
   }
 });
@@ -210,7 +214,7 @@ test('Icecat proposals respect owner edits and disabled empty fields', async () 
     thing.categoryId,
     registry,
   );
-  const provider = new IcecatProvider('fixture-token', async () => Response.json(createProduct()));
+  const provider = new IcecatProvider(async () => Response.json(createProduct()));
   const result = await provider.lookup(thing, registry, signal);
   const data = populateFields(
     addFieldSets(thing.data, thing.categoryId, registry, result.setIds),

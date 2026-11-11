@@ -1,14 +1,12 @@
+/** Creates labelled sample Things, activities and purchasables when sample data is enabled. */
+
+import { getEnv } from '../../config.js';
 import type { FastifyPluginAsync } from 'fastify';
 import { route } from '../../contracts/routes.js';
 import { ensure } from '../../application/errors.js';
 import type { ApplicationEvents } from '../../application/events.js';
 import * as thingsDb from '../../db/entities/things.js';
 import * as usersDb from '../../db/entities/users.js';
-
-/**
- * Reads owner profiles and creates labelled demonstration Things, activities and purchasables once per owner when
- * sample creation is enabled.
- */
 
 import { format, addDays } from 'date-fns';
 import { randomUUID } from 'node:crypto';
@@ -213,16 +211,12 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
 interface Options {
   pool: pg.Pool;
   registry: Registry;
-  enabled: boolean;
   events: ApplicationEvents;
 }
 
-const sampleRoutes: FastifyPluginAsync<Options> = async (
-  app,
-  { pool, registry, enabled, events },
-) => {
+const sampleRoutes: FastifyPluginAsync<Options> = async (app, { pool, registry, events }) => {
   route(app, 'POST', '/api/profile:seed-samples', async (req) => {
-    ensure(enabled, 'Sample data is disabled', 'NOT_FOUND');
+    ensure(getEnv('ENABLE_SAMPLE_DATA'), 'Sample data is disabled', 'NOT_FOUND');
     const result = await seedSamples(pool, req.ownerId, registry);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return result;

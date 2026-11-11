@@ -2,6 +2,7 @@
  * Stores private blobs on the filesystem using random keys, restricted permissions and streamed reads.
  */
 
+import { getEnv } from '../../config.js';
 import { mkdir, writeFile, unlink } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { resolve } from 'node:path';
@@ -9,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import type { BlobStorage } from './index.js';
 
 export class LocalBlobs implements BlobStorage {
-  constructor(private directory: string) {}
+  constructor(private readonly directory = getEnv('BLOB_DIRECTORY')) {}
 
   private path(key: string) {
     // Only generated storage keys become paths; user filenames never control filesystem locations.

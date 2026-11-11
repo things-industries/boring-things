@@ -1,20 +1,19 @@
 // Checks streamed assistant turns and web research using mocked HTTP responses.
 
-import { test } from 'node:test';
+import { setEnvMode, setEnvValue } from '../src/config.js';
+import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
 import { AiTask } from '../src/providers/ai/tasks/task.js';
-import { createWebSearchOptions, readWebResult } from '../src/providers/ai/tools/web.js';
+import { readWebResult } from '../src/providers/ai/tools/web.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 import { chatFunctions } from '../src/providers/ai/tasks/assistant.js';
 import type { Usage } from '../src/application/import/types.js';
 import { createAi } from '../src/providers/ai/index.js';
-import { readConfig } from '../src/config.js';
-import { setEnvMode } from '../src/env.js';
 setEnvMode('test');
-const config = readConfig();
+beforeEach(() => setEnvMode('test'));
 
 const task = {
   thingId: null,
@@ -38,10 +37,12 @@ test('assistant research answers the supplied question in one bounded request wi
     assert.deepEqual(body.tools, [{ type: 'web_search' }]);
     assert.deepEqual(
       body.include,
-      fetch.mock.callCount() === 0 ? undefined : ['web_search_call.action.sources'],
+      fetch.mock.callCount() === 0
+        ? ['reasoning.encrypted_content']
+        : ['reasoning.encrypted_content', 'web_search_call.action.sources'],
     );
     assert.equal(body.text, undefined);
-    if (!body.include) {
+    if (fetch.mock.callCount() === 0) {
       assert.match(body.input, /How should the filter be cleaned\?/);
       assert.match(body.input, /Synthetic model/);
     }
@@ -71,13 +72,8 @@ test('assistant research answers the supplied question in one bounded request wi
       usage: { input_tokens: 20, output_tokens: 8, input_tokens_details: { cached_tokens: 4 } },
     });
   });
-  const ai = createAi(
-    readConfig({
-      CHAT_TOOL_CALLS: '3',
-    }),
-    {},
-    (entry) => turns.push(entry),
-  ).chatAi!;
+  setEnvValue('CHAT_TOOL_CALLS', 3);
+  const ai = createAi({}, (entry) => turns.push(entry)).chatAi!;
   const context = {
     signal: new AbortController().signal,
     record: async (entry: Partial<Usage>) => {
@@ -123,14 +119,11 @@ test('assistant research answers the supplied question in one bounded request wi
   class SourceSearchTask extends AiTask<never, Awaited<ReturnType<typeof readWebResult>>> {
     protected readonly model = 'gpt-6.1-sol';
     protected readonly effort = 'low';
+    protected override readonly searchCalls = 3;
     protected task = 'research';
     protected instructions = 'Find public manuals.';
     protected async runTask() {
-      return readWebResult(
-        await this.execute('Find manuals', createWebSearchOptions(3)),
-        this.context,
-        3,
-      );
+      return readWebResult(await this.execute('Find manuals'), this.context, 3);
     }
   }
   const discovery = await new SourceSearchTask(context).run();
@@ -231,9 +224,8 @@ test('Responses streaming collects split frames, passes function results and rec
       tokens += usage.inputTokens ?? 0;
     },
   };
-  const answer = await new OpenAiChat({ ...config, chatToolCalls: 3 }, (entry) =>
-    turns.push(entry),
-  ).respond(
+  setEnvValue('CHAT_TOOL_CALLS', 3);
+  const answer = await new OpenAiChat((entry) => turns.push(entry)).respond(
     task,
     {
       execute: async (name, args) => {
@@ -273,10 +265,9 @@ test('an interrupted provider stream cannot complete an assistant response', asy
   t.mock.method(globalThis, 'fetch', async () =>
     stream([{ type: 'response.output_text.delta', delta: 'Partial' }]),
   );
+  setEnvValue('CHAT_TOOL_CALLS', 1);
   await assert.rejects(
-    new OpenAiChat({ ...config, chatToolCalls: 1 }, () =>
-      assert.fail('interrupted response logged as complete'),
-    ).respond(
+    new OpenAiChat(() => assert.fail('interrupted response logged as complete')).respond(
       task,
       { execute: async () => ({ output: {} }) },
       {
@@ -332,7 +323,8 @@ test('one AI turn handles multiple tool calls and returns rejected calls for cor
       completed([]),
     ]);
   });
-  const answer = await new OpenAiChat({ ...config, chatToolCalls: 3 }).respond(
+  setEnvValue('CHAT_TOOL_CALLS', 3);
+  const answer = await new OpenAiChat().respond(
     task,
     {
       execute: async (_name, args) => {
@@ -396,7 +388,8 @@ test('PDF attachment input preserves text pages and original files for diagrams'
         completed([]),
       ]);
     });
-    const answer = await new OpenAiChat({ ...config, chatToolCalls: 2 }).respond(
+    setEnvValue('CHAT_TOOL_CALLS', 2);
+    const answer = await new OpenAiChat().respond(
       task,
       {
         execute: async () => ({
@@ -433,8 +426,9 @@ test('SDK streaming cancellation closes the response and prevents tool execution
         }),
       ),
   );
+  setEnvValue('CHAT_TOOL_CALLS', 1);
   await assert.rejects(
-    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+    new OpenAiChat().respond(
       task,
       {
         execute: async () => assert.fail('tool executed after cancellation'),
@@ -455,8 +449,9 @@ test('SDK failed and incomplete stream events expose sanitised errors', async (t
     t.mock.method(globalThis, 'fetch', async () =>
       stream([{ type, message: 'private source text' }]),
     );
+    setEnvValue('CHAT_TOOL_CALLS', 1);
     await assert.rejects(
-      new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+      new OpenAiChat().respond(
         task,
         {
           execute: async () => assert.fail('failed response executed a tool'),
@@ -481,8 +476,9 @@ test('SDK HTTP failures retain status without provider error text', async (t) =>
       { status: 429 },
     ),
   );
+  setEnvValue('CHAT_TOOL_CALLS', 1);
   await assert.rejects(
-    new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+    new OpenAiChat().respond(
       task,
       {
         execute: async () => assert.fail('HTTP failure executed a tool'),
@@ -517,7 +513,8 @@ test('assistant returns invalid tool arguments for correction before invoking ap
       completed(),
     ]);
   });
-  const answer = await new OpenAiChat({ ...config, chatToolCalls: 2 }).respond(
+  setEnvValue('CHAT_TOOL_CALLS', 2);
+  const answer = await new OpenAiChat().respond(
     task,
     {
       execute: async () => {
@@ -554,11 +551,95 @@ test('invalid assistant tool arguments consume the budget before finalization', 
       ),
     ]);
   });
-  const answer = await new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+  setEnvValue('CHAT_TOOL_CALLS', 1);
+  const answer = await new OpenAiChat().respond(
     task,
     { execute: async () => assert.fail('invalid arguments reached the application') },
     { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
   );
   assert.equal(answer, 'Choose a document.');
   assert.equal(requests, 2);
+});
+
+// Field tools must validate model arguments before the application receives a write.
+test('assistant validates field edits and exposes registry search tools', async (t) => {
+  const thingId = '00000000-0000-4000-8000-000000000001';
+  const values = [{ fieldSetId: null, fieldId: 'example.flag', value: false, source: null }];
+  for (const valid of [true, false]) {
+    let requests = 0;
+    let executions = 0;
+    t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      if (++requests === 1) {
+        for (const name of ['search_field_sets', 'search_fields', 'update_thing_fields'])
+          assert.ok(body.tools.some((tool: { name: string }) => tool.name === name));
+        assert.match(body.instructions, /Requested Tasks are active immediately/);
+        assert.match(body.instructions, /Never repeat a sensitive value/);
+        return stream([
+          completed([
+            {
+              type: 'function_call',
+              name: 'update_thing_fields',
+              call_id: 'edit',
+              arguments: JSON.stringify({
+                thingId,
+                addFieldSetIds: [],
+                values: valid ? values : [{ ...values[0], fieldId: null }],
+                customFields: [],
+              }),
+            },
+          ]),
+        ]);
+      }
+      assert.equal(executions, valid ? 1 : 0);
+      if (!valid)
+        assert.ok(JSON.stringify(body.input).includes('Invalid assistant tool arguments'));
+      return stream([
+        { type: 'response.output_text.delta', delta: 'The field result is ready.' },
+        completed(),
+      ]);
+    });
+    setEnvValue('CHAT_TOOL_CALLS', 1);
+    const answer = await new OpenAiChat().respond(
+      task,
+      {
+        execute: async (name, args) => {
+          assert.equal(name, 'update_thing_fields');
+          assert.deepEqual(args, { thingId, addFieldSetIds: [], values, customFields: [] });
+          executions++;
+          return { output: { thingId, changedFields: [] } };
+        },
+      },
+      { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
+    );
+    assert.equal(answer, 'The field result is ready.');
+    assert.equal(requests, 2);
+  }
+});
+
+// PR #154 added uniqueItems, which OpenAI rejects before an assistant turn can run.
+test('assistant tool arrays use the OpenAI strict schema subset', () => {
+  const allowed = new Set(['type', 'description', 'items', 'minItems', 'maxItems']);
+
+  // Checks array schemas throughout tool properties, item schemas and nullable unions.
+  function checkArrays(schema: unknown, path: string) {
+    if (!schema || typeof schema !== 'object') return;
+    if (
+      'type' in schema &&
+      (schema.type === 'array' || (Array.isArray(schema.type) && schema.type.includes('array')))
+    )
+      assert.deepEqual(
+        Object.keys(schema).filter((key) => !allowed.has(key)),
+        [],
+        path,
+      );
+    if ('properties' in schema && schema.properties && typeof schema.properties === 'object')
+      for (const [key, value] of Object.entries(schema.properties))
+        checkArrays(value, `${path}.${key}`);
+    if ('items' in schema) checkArrays(schema.items, `${path}.items`);
+    if ('anyOf' in schema && Array.isArray(schema.anyOf))
+      schema.anyOf.forEach((value, index) => checkArrays(value, `${path}.anyOf[${index}]`));
+  }
+
+  for (const tool of chatFunctions) checkArrays(tool.parameters, tool.name);
 });

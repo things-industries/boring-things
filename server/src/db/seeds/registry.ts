@@ -900,10 +900,21 @@ export const fields: FieldDefinition[] = [
   }),
   field('vehicles.modelYear', 'Model year', undefined, {
     scope: 'CLASS',
-    description: 'Vehicles with the corresponding identity and registration details.',
+    description:
+      'Manufacturer-designated model year, which can differ from the year of manufacture.',
     uiHint: 'TEXT',
     icon: 'fieldModel',
   }),
+  field(
+    'vehicles.yearOfManufacture',
+    'Year of manufacture',
+    { type: 'integer', minimum: 1, maximum: 9999 },
+    {
+      description: 'Calendar year in which this vehicle was manufactured.',
+      uiHint: 'NUMBER',
+      icon: 'fieldDate',
+    },
+  ),
   field('vehicles.registration', 'Registration', undefined, {
     description:
       'Vehicles with the corresponding identity and registration details. Vehicles registered with a road or vessel authority; retain jurisdiction-specific format.',
@@ -925,11 +936,10 @@ export const fields: FieldDefinition[] = [
   field(
     'vehicles.firstRegistered',
     'First registered',
-    { type: 'string', format: 'date' },
+    { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$', minLength: 7, maxLength: 7 },
     {
-      description:
-        'Vehicles with the corresponding identity and registration details. Registered vehicles.',
-      uiHint: 'DATE',
+      description: 'Month and year of first registration, formatted YYYY-MM.',
+      uiHint: 'TEXT',
       icon: 'fieldDate',
     },
   ),
@@ -982,6 +992,23 @@ export const fields: FieldDefinition[] = [
     uiHint: 'TEXT',
     icon: 'fieldSettings',
   }),
+  field('vehicles.co2Emissions', 'CO2 emissions', undefined, {
+    scope: 'CLASS',
+    description: 'Declared carbon dioxide emissions, including units such as g/km.',
+    uiHint: 'TEXT',
+    icon: 'fieldSettings',
+  }),
+  field(
+    'vehicles.londonUlezCompliant',
+    'London ULEZ compliant',
+    { type: 'boolean' },
+    {
+      description:
+        'Whether the vehicle meets London ULEZ emissions requirements. Unknown remains unset.',
+      uiHint: 'CHECKBOX',
+      icon: 'fieldSettings',
+    },
+  ),
   field('vehicles.frontTyreSpecification', 'Front tyre specification', undefined, {
     scope: 'CLASS',
     description: 'Road motor vehicles with the corresponding operating specification.',
@@ -1013,6 +1040,92 @@ export const fields: FieldDefinition[] = [
       'Vehicles subject to the named inspection, registration or maintenance requirement.',
     uiHint: 'TEXT',
     icon: 'fieldSettings',
+  }),
+  field(
+    'vehicles.testStatus',
+    'Test status',
+    { type: 'string', enum: ['Valid', 'Expired', 'No MOT', 'No details'] },
+    {
+      description:
+        'Status under the named roadworthiness scheme. No MOT and no details do not establish exemption.',
+      uiHint: 'SELECT',
+      icon: 'fieldSettings',
+    },
+  ),
+  field(
+    'vehicles.testExpiresOn',
+    'Test expires on',
+    { type: 'string', format: 'date' },
+    {
+      description: 'Expiry date of the current roadworthiness certificate.',
+      uiHint: 'DATE',
+      icon: 'fieldDate',
+    },
+  ),
+  field(
+    'vehicles.firstTestDueOn',
+    'First test due on',
+    { type: 'string', format: 'date' },
+    {
+      description: 'Date the vehicle first becomes due for a roadworthiness test.',
+      uiHint: 'DATE',
+      icon: 'fieldDate',
+    },
+  ),
+  field(
+    'vehicles.lastTestOn',
+    'Last test on',
+    { type: 'string', format: 'date' },
+    {
+      description: 'Date of the most recent recorded roadworthiness test.',
+      uiHint: 'DATE',
+      icon: 'fieldDate',
+    },
+  ),
+  field(
+    'vehicles.lastTestResult',
+    'Last test result',
+    { type: 'string', enum: ['Passed', 'Failed'] },
+    {
+      description: 'Result of the most recent recorded roadworthiness test.',
+      uiHint: 'SELECT',
+      icon: 'fieldSettings',
+    },
+  ),
+  field(
+    'vehicles.hasOutstandingRecall',
+    'Outstanding safety recall',
+    { type: 'boolean' },
+    {
+      description: 'Whether this vehicle has an outstanding safety recall. Unknown remains unset.',
+      uiHint: 'CHECKBOX',
+      icon: 'fieldSettings',
+    },
+  ),
+  field(
+    'vehicles.taxStatus',
+    'Road tax status',
+    { type: 'string', enum: ['Taxed', 'Untaxed', 'SORN'] },
+    {
+      description: 'Recorded road tax status. SORN means a statutory off road notification.',
+      uiHint: 'SELECT',
+      icon: 'fieldSettings',
+    },
+  ),
+  field(
+    'vehicles.taxDueOn',
+    'Road tax due on',
+    { type: 'string', format: 'date' },
+    {
+      description: 'Date road tax is due. A missing date does not establish exemption.',
+      uiHint: 'DATE',
+      icon: 'fieldDate',
+    },
+  ),
+  field('vehicles.annualTaxCost', 'Annual road tax cost', moneySchema, {
+    description: 'Annual road tax cost at the rates used by the source, with currency.',
+    uiHint: 'MONEY',
+    icon: 'fieldMoney',
   }),
   field('vehicles.serviceMileageInterval', 'Service mileage interval', undefined, {
     scope: 'CLASS',
@@ -3444,7 +3557,12 @@ export const sets: FieldSet[] = [
     'vehicles.maintenance',
     'Maintenance',
     'A vehicle requiring recurring maintenance.',
-    ['common.serviceProvider', 'common.serviceInterval', 'vehicles.serviceMileageInterval'],
+    [
+      'common.serviceProvider',
+      'common.serviceInterval',
+      'vehicles.serviceMileageInterval',
+      'vehicles.hasOutstandingRecall',
+    ],
     [],
     ['vehicles.support'],
     ['maintenance', 'service', 'servicing', 'mileage', 'kilometres'],
@@ -3458,6 +3576,7 @@ export const sets: FieldSet[] = [
       'common.model',
       'vehicles.vehicleType',
       'vehicles.modelYear',
+      'vehicles.yearOfManufacture',
       'vehicles.colour',
     ],
     [],
@@ -3508,6 +3627,8 @@ export const sets: FieldSet[] = [
       'vehicles.rearTyreSpecification',
       'vehicles.frontTyrePressure',
       'vehicles.rearTyrePressure',
+      'vehicles.co2Emissions',
+      'vehicles.londonUlezCompliant',
     ],
     ['vehicles.vehicle'],
     [
@@ -3516,6 +3637,7 @@ export const sets: FieldSet[] = [
       'vehicles.combustion',
       'vehicles.electric',
       'vehicles.roadworthiness',
+      'vehicles.roadTax',
       'vehicles.maintenance',
     ],
     ['road', 'vehicle', 'specifications', 'motor vehicle'],
@@ -3559,10 +3681,26 @@ export const sets: FieldSet[] = [
     'vehicles.roadworthiness',
     'Roadworthiness',
     'A vehicle subject to an applicable roadworthiness inspection scheme.',
-    ['vehicles.roadworthinessTestScheme'],
+    [
+      'vehicles.roadworthinessTestScheme',
+      'vehicles.testStatus',
+      'vehicles.testExpiresOn',
+      'vehicles.firstTestDueOn',
+      'vehicles.lastTestOn',
+      'vehicles.lastTestResult',
+    ],
     [],
     ['vehicles.registration'],
     ['roadworthiness', 'MOT', 'inspection'],
+  ),
+  set(
+    'vehicles.roadTax',
+    'Road tax',
+    'A vehicle covered by a road tax scheme.',
+    ['vehicles.taxStatus', 'vehicles.taxDueOn', 'vehicles.annualTaxCost'],
+    [],
+    ['vehicles.registration', 'vehicles.roadworthiness'],
+    ['road tax', 'VED', 'SORN', 'vehicle excise duty'],
   ),
   set(
     'vehicles.roofLoad',

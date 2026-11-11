@@ -5,7 +5,7 @@ import type { AiContext } from '../types.js';
 import type { PublicField } from '../../../application/public-fields.js';
 import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
-import { createWebSearchOptions, readWebResult } from '../tools/web.js';
+import { readWebResult } from '../tools/web.js';
 
 // Builds task instructions from the supplied application context.
 function chatResearchPrompt(question: string, fields: PublicField[], searchCalls: number) {
@@ -15,7 +15,8 @@ function chatResearchPrompt(question: string, fields: PublicField[], searchCalls
 export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
-  private readonly searchCalls = 3;
+  protected override readonly searchCalls = 3;
+  protected override readonly sourceMode = 'cited';
   protected readonly maxTextCharacters = Infinity;
   protected task = 'assistant_research';
   protected instructions = getPrompt('web-research-instructions');
@@ -32,9 +33,8 @@ export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
   protected async runTask() {
     const response = await this.execute(
       chatResearchPrompt(this.question, this.fields, this.searchCalls),
-      createWebSearchOptions(this.searchCalls, 'cited'),
     );
-    const result = await readWebResult(response, this.context, this.searchCalls, 'cited');
+    const result = await readWebResult(response, this.context, this.searchCalls, this.sourceMode);
     this.reportMetrics({ sourceCount: result.sources.length });
     return result;
   }

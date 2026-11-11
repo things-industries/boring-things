@@ -49,27 +49,31 @@ async function uploadAttachment(
   throw new Error('Fixture OCR timed out');
 }
 
-test('image OCR supplies literal text before the AI task and never falls back on empty results or missing keys', async () => {
+test('image analysis receives OCR text and the original image while OCR failures stop analysis', async () => {
   const content = await createCanvas(300, 300).encode('png');
   const text = 'Model: AX1/02\nZ-Nr: 00026\n';
   let outcome = 'text',
     ocrCalls = 0,
     aiCalls = 0;
   const env = await startTestApp({
-    readImageText: async (bytes, key, signal) => {
+    readImageText: async (bytes, signal) => {
       ocrCalls++;
       assert.deepEqual(bytes, content);
-      if (outcome === 'missing-key') return googleVision.readImageText(bytes, '', signal);
+      if (outcome === 'missing-key') return googleVision.readImageText(bytes, signal);
       if (outcome === 'error') throw new Error('Fixture OCR failure');
       return outcome === 'empty' ? '' : text;
     },
   });
   try {
     const ai: ImportAi = env.importAi;
-    ai.summarizeAttachment = async (input) => {
+    ai.summarizeAttachment = async ({ text: input, image }) => {
       aiCalls++;
-      assert.equal(ocrCalls, 1);
-      assert.equal(input, text);
+      assert.equal(ocrCalls, aiCalls);
+      assert.equal(input, outcome === 'empty' ? '' : text);
+      assert.deepEqual(image?.content, content);
+      assert.equal(image?.mediaType, 'image/png');
+      if (outcome === 'empty')
+        return { summary: null, terms: [], status: 'EMPTY', metadata: null, identifiers: [] };
       return {
         summary: 'Fixture label',
         terms: ['model'],
@@ -96,7 +100,118 @@ test('image OCR supplies literal text before the AI task and never falls back on
     outcome = 'error';
     await upload('FAILED');
     assert.equal(ocrCalls, 4);
-    assert.equal(aiCalls, 1);
+    assert.equal(aiCalls, 2);
+  } finally {
+    await env.close();
+  }
+});
+
+test('only uploaded images with fewer than 500 trimmed OCR characters include original content', async () => {
+  const content = await createCanvas(20, 20).encode('png');
+  let text = '';
+  const env = await startTestApp({ readImageText: async () => text });
+  try {
+    const ai: ImportAi = env.importAi;
+    const cases = [
+      { text: '  ' + 'x'.repeat(499) + '\n', mediaType: 'image/png', image: true },
+      { text: 'x'.repeat(500), mediaType: 'image/png', image: false },
+      { text: 'Short note', mediaType: 'text/plain', image: false },
+    ];
+    for (const entry of cases) {
+      text = entry.text;
+      let calls = 0;
+      ai.summarizeAttachment = async (input) => {
+        calls++;
+        assert.equal(input.text, text);
+        assert.equal(!!input.image, entry.image);
+        return { summary: 'Fixture source', terms: [], status: 'COMPLETE', metadata: null };
+      };
+      const source = await uploadAttachment(
+        env,
+        entry.mediaType === 'text/plain' ? Buffer.from(text) : content,
+        entry.mediaType,
+        'COMPLETE',
+      );
+      assert.equal(source.transcription, text);
+      assert.equal(calls, 1);
+    }
+  } finally {
+    await env.close();
+  }
+});
+
+test('images without OCR text supply visual summaries to Thing resolution and recommendations', async () => {
+  const env = await startTestApp({ readImageText: async () => '' });
+  try {
+    const ai: ImportAi = env.importAi;
+    const summary = 'A blue kettle with a handle and spout.';
+    ai.summarizeAttachment = async ({ text, image }) => {
+      assert.equal(text, '');
+      assert.ok(image);
+      return {
+        summary,
+        terms: ['kettle'],
+        status: 'COMPLETE',
+        metadata: { title: 'Kettle photo' },
+      };
+    };
+    const source = await uploadAttachment(
+      env,
+      await createCanvas(20, 20).encode('png'),
+      'image/png',
+      'COMPLETE',
+    );
+    assert.equal(source.transcription, '');
+    let resolutions = 0,
+      recommendations = 0;
+    env.importAi.resolveThing = async ({ sources }) => {
+      resolutions++;
+      assert.equal(sources[0]?.summary, summary);
+      return {
+        contradiction: false,
+        candidates: [
+          {
+            name: 'Kettle',
+            categoryId: 'appliances',
+            terms: ['kettle'],
+            identifiers: [],
+            attachmentIds: [source.id],
+            strength: 1,
+            matchedThingId: null,
+          },
+        ],
+      };
+    };
+    env.importAi.suggestTasks = async ({ sources }) => {
+      recommendations++;
+      assert.equal(sources[0]?.summary, summary);
+      return { items: [] };
+    };
+    const headers = { authorization: env.authorization };
+    const submitted = await env.app.inject({
+      method: 'POST',
+      url: '/api/imports',
+      headers,
+      payload: { attachmentIds: [source.id] },
+    });
+    assert.equal(submitted.statusCode, 202, submitted.body);
+    const id = submitted.json<Schema['ImportAccepted']>().importId;
+    let job: Schema['Import'] | undefined;
+    for (let attempt = 0; attempt < 250; attempt++) {
+      const result = await env.app.inject({ url: '/api/imports/' + id, headers });
+      assert.equal(result.statusCode, 200, result.body);
+      job = result.json<Schema['Import']>();
+      if (['COMPLETE', 'FAILED', 'INCOMPLETE'].includes(job.status)) break;
+      await setTimeout(20);
+    }
+    assert.equal(job?.status, 'COMPLETE', JSON.stringify(job));
+    assert.equal(resolutions, 1);
+    assert.equal(recommendations, 1);
+    const saved = await env.pool.query(
+      'select title,transcription_summary from bt.attachments where id=$1',
+      [source.id],
+    );
+    assert.deepEqual(saved.rows, [{ title: 'Kettle photo', transcription_summary: summary }]);
   } finally {
     await env.close();
   }
@@ -124,9 +239,10 @@ test('PDF OCR saves mixed-page text before summarization and handles empty or fa
   });
   try {
     const ai: ImportAi = env.importAi;
-    ai.summarizeAttachment = async (text) => {
+    ai.summarizeAttachment = async ({ text, image }) => {
       summaryCalls++;
       assert.equal(text, expectedText);
+      assert.equal(image, undefined);
       return {
         summary: 'Fixture manual',
         terms: ['manual'],

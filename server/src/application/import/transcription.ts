@@ -1,8 +1,8 @@
 // Prepares uploaded Attachments independently of any Import that later cites them.
 
+import { getEnv } from '../../config.js';
 import type pg from 'pg';
 import type { BlobStorage } from '../../providers/blobs/index.js';
-import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
 import { blankUsage } from './types.js';
 import { mapValidResults, normalizeWhitespace } from './evidence.js';
@@ -17,12 +17,13 @@ import { maxDocumentBytes, maxDocumentTextLength } from '../../lib/document-limi
 import * as googleVision from '../../providers/google-vision/index.js';
 import * as metrics from '../../metrics.js';
 
+const imageAnalysisTextThreshold = 500;
+
 export class AttachmentTranscriptionProcessor {
   constructor(
     private pool: pg.Pool,
     private blobs: BlobStorage,
     private ai: ImportAi | undefined,
-    private config: EnvConfig,
     private events: ApplicationEvents,
     private readImageText = googleVision.readImageText,
   ) {}
@@ -44,7 +45,7 @@ export class AttachmentTranscriptionProcessor {
       return true;
     }
     return metrics.withJob('attachment', file.id, async () => {
-      const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
+      const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('IMPORT_TIMEOUT_MS'))]);
       const usage = file.transcriptionUsage ?? blankUsage(),
         started = Date.now();
       const elapsed = usage.elapsedMs;
@@ -60,7 +61,7 @@ export class AttachmentTranscriptionProcessor {
         ensure(content.length <= maxDocumentBytes, 'Attachment too large', 'TOO_LARGE');
         const context = {
           signal,
-          beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
+          beforeRequest: () => ensure(requests++ < getEnv('IMPORT_MAX_REQUESTS'), 'tool_limit'),
           record: async (delta: Partial<import('./types.js').Usage>) => {
             if (!usage.model) usage.model = delta.model ?? usage.model;
             usage.inputTokens += delta.inputTokens ?? 0;
@@ -77,7 +78,7 @@ export class AttachmentTranscriptionProcessor {
           },
         };
         const readImageText = async (bytes: Buffer) => {
-          const text = await this.readImageText(bytes, this.config.googleVisionApiKey, signal);
+          const text = await this.readImageText(bytes, signal);
           await context.record({
             toolCalls: [
               { name: 'google_vision_ocr', resultCount: text.trim() ? 1 : 0, truncated: false },
@@ -114,9 +115,14 @@ export class AttachmentTranscriptionProcessor {
             ]);
         });
         extractedText = text;
-        const result: AttachmentSummary = !text.trim()
-          ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
-          : await ai.summarizeAttachment(text, context);
+        const image =
+          file.mediaType.startsWith('image/') && text.trim().length < imageAnalysisTextThreshold
+            ? { filename: file.filename, mediaType: file.mediaType, content }
+            : undefined;
+        const result: AttachmentSummary =
+          !text.trim() && !image
+            ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
+            : await ai.summarizeAttachment({ text, image }, context);
         signal.throwIfAborted();
         const metadata = mapValidResults(Object.entries(result.metadata ?? {}), ([key, value]) =>
           validateAttachmentMetadata({ [key]: value }),
@@ -148,7 +154,12 @@ export class AttachmentTranscriptionProcessor {
             text,
             summary: result.summary?.slice(0, 2000) ?? null,
             terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
-            status: !text.trim() ? 'EMPTY' : result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL',
+            status:
+              !text.trim() && !result.summary?.trim()
+                ? 'EMPTY'
+                : result.status === 'COMPLETE'
+                  ? 'COMPLETE'
+                  : 'PARTIAL',
             identifiers,
           });
           if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))

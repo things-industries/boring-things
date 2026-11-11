@@ -1,3 +1,5 @@
+/** Public page links and surrounding evidence for document and product-image research. */
+
 import { downloadResource, documentUrl } from './pdf.js';
 
 export interface ResourcePage {
@@ -5,24 +7,37 @@ export interface ResourcePage {
   links: { url: string; context: string }[];
 }
 
+// Resolves downloadable resources and image markup, including responsive and transformed URLs.
 export function resourceLinks(html: string, pageUrl: string): ResourcePage['links'] {
   const text = html
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/\\\//g, '/');
-  const links = new Map<string, string>();
+  const links = new Map<string, { context: string; image: boolean }>();
   for (const match of text.matchAll(
-    /https:\/\/[^\s"'<>\\]+|(?:href|src)\s*=\s*["']([^"']+)["']/gi,
+    /\b(href|src|srcset)\s*=\s*["']([^"']+)["']|https:\/\/[^\s"'<>\\]+/gi,
   )) {
-    try {
-      const url = documentUrl(new URL(match[1] ?? match[0], pageUrl).href).href;
-      if (!links.has(url))
-        links.set(
-          url,
-          text.slice(Math.max(0, match.index - 700), match.index + match[0].length + 250),
-        );
-    } catch {
-      continue;
+    const attribute = match[1]?.toLowerCase();
+    const tag = text.slice(text.lastIndexOf('<', match.index), match.index);
+    const image = attribute === 'srcset' || (attribute === 'src' && /^<img\b/i.test(tag));
+    const candidates =
+      attribute === 'srcset'
+        ? match[2].split(/,\s+|\s+[\d.]+[wx]\s*,\s*/).map((value) => value.trim().split(/\s+/)[0])
+        : [match[2] ?? match[0]];
+    for (const value of candidates) {
+      try {
+        const url = documentUrl(new URL(value, pageUrl).href).href;
+        if (!links.has(url) || (image && !links.get(url)?.image))
+          links.set(url, {
+            context: text.slice(
+              Math.max(0, match.index - 700),
+              match.index + match[0].length + 250,
+            ),
+            image,
+          });
+      } catch {
+        continue;
+      }
     }
   }
   const modelTokens = pageUrl
@@ -35,15 +50,17 @@ export function resourceLinks(html: string, pageUrl: string): ResourcePage['link
       : Number(modelTokens.some((token) => url.toLowerCase().includes(token)));
   return [...links]
     .filter(
-      ([url, context]) =>
-        /\.(pdf|png|(?:jpg|jpeg)|webp)(?:[?#]|$)|download|\/is\/image\//i.test(url) ||
+      ([url, { context, image }]) =>
+        image ||
+        /\.(pdf|png|(?:jpg|jpeg)|webp)(?:[/#?]|$)|download|\/is\/image\//i.test(url) ||
         /downloadUrl|og:image/.test(context),
     )
     .sort(([left], [right]) => priority(right) - priority(left))
     .slice(0, 30)
-    .map(([url, context]) => ({ url, context }));
+    .map(([url, { context }]) => ({ url, context }));
 }
 
+// Downloads public HTML through the resource provider's size and address checks.
 export async function readResourcePage(
   url: string,
   signal: AbortSignal,

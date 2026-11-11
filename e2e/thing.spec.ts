@@ -360,6 +360,8 @@ test('import steps show while discovering, then the sheet slides up once', async
   let loaded!: (thing: { id: string; revision: number }) => void;
   const original = new Promise<{ id: string; revision: number }>((resolve) => (loaded = resolve));
   let streams = 0;
+  let showDetails!: () => void;
+  const detailsReady = new Promise<void>((resolve) => (showDetails = resolve));
 
   // The Thing loads as a fresh import, then one snapshot delivers its first details.
   await page.route(/\/api\/things\/[0-9a-f-]+$/, async (route) => {
@@ -389,7 +391,7 @@ test('import steps show while discovering, then the sheet slides up once', async
   });
   await page.route('**/api/things/*/stream', async (route) => {
     if (streams++ > 0) return new Promise(() => undefined);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await detailsReady;
 
     const thing = await original;
     const snapshot = { ...thing, revision: thing.revision + 1 };
@@ -405,6 +407,7 @@ test('import steps show while discovering, then the sheet slides up once', async
   await expect(page.locator('.thing-discovering')).toContainText(
     'Step 1 of 4: Identifying your Thing',
   );
+  showDetails();
   await expect(page.locator('bt-sheet')).toHaveClass(/\barrive\b/);
   await expect(page.locator('bt-hero')).toHaveClass(/\barrive\b/);
   await expect(page.locator('bt-import-progress')).toContainText('Step 3 of 4: Adding details');

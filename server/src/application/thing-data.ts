@@ -18,11 +18,16 @@ import type { Registry } from './registry/registry.js';
 export const pinKey = (pin: Pin) =>
   pin.customFieldId ? `local:${pin.customFieldId}` : `${pin.fieldSetId ?? ''}:${pin.fieldId}`;
 
+/** Uses pin keys for existing addresses and local:new:index for new custom fields. */
+export type FieldProvenance = ReadonlyMap<string, Pick<StoredValue, 'origin' | 'sourceRefs'>>;
+
+/** Applies owner-requested changes with optional application-validated field provenance. */
 export function patchData(
   original: ThingData,
   patch: ThingPatch,
   categoryId: string,
   registry: Registry,
+  provenance?: FieldProvenance,
 ): ThingData {
   const data = structuredClone(original);
   // Track explicit clears and removals too, so later import retries cannot restore values the owner discarded.
@@ -94,6 +99,7 @@ export function patchData(
         value: entry.value,
         origin: 'USER',
         sourceRefs: [],
+        ...provenance?.get(pinKey(entry)),
         autoPopulate: entry.autoPopulate ?? false,
       };
     } else {
@@ -109,7 +115,7 @@ export function patchData(
   );
   data.customFields = data.customFields.filter((f) => !removeLocal.has(f.id));
 
-  for (const input of patch.customFields ?? []) {
+  for (const [index, input] of (patch.customFields ?? []).entries()) {
     ensure(!input.id || data.customFields.some((f) => f.id === input.id), 'Unknown local field');
     const field = {
       ...input,
@@ -118,6 +124,7 @@ export function patchData(
       origin: 'USER' as const,
       autoPopulate: false,
       sourceRefs: [],
+      ...provenance?.get(input.id ? `local:${input.id}` : `local:new:${index}`),
     };
     data.customFields = [...data.customFields.filter((f) => f.id !== field.id), field];
   }

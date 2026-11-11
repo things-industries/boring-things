@@ -1,10 +1,10 @@
 /** Scheduling provider coverage using mocked HTTP responses. */
 
+import { setEnvMode } from '../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Schema } from '../../shared/model.js';
 import { ScheduleTask } from '../src/providers/ai/tasks/schedule-task.js';
-import { setEnvMode } from '../src/env.js';
 
 const task: Schema['Task'] = {
   id: 'task',

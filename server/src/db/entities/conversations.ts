@@ -53,6 +53,7 @@ export type MessageRow = Schema['Message'] & {
     key: string;
     result: unknown;
     card?: Schema['ResourceCard'];
+    cards?: Schema['ResourceCard'][];
   }[];
 };
 

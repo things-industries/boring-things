@@ -1,4 +1,5 @@
 /** Checks structured task execution, awaited source retrieval and request text limits with mocked HTTP. */
+import { setEnvMode } from '../../src/config.js';
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
@@ -9,7 +10,6 @@ import type { Usage } from '../../src/application/import/types.js';
 import type { PopulationInput } from '../../src/providers/ai/tasks/populate-fields.js';
 import { createImportTaskContext } from '../support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
-import { setEnvMode } from '../../src/env.js';
 import type { AiTurnCompleted } from '../../src/providers/ai/types.js';
 import { getPrompt } from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
@@ -332,7 +332,7 @@ test('attachment summaries use bounded text requests without requesting or retur
   });
   const text = 'x'.repeat(180000);
   const result = await new OpenAiImports((turn) => turns.push(turn)).summarizeAttachment(
-    text,
+    { text },
     createContext(),
   );
   assert.equal(requests, 3);
@@ -350,6 +350,69 @@ test('attachment summaries use bounded text requests without requesting or retur
   assert.equal(result.summary, 'Long source\nLong source\nLong source');
   assert.deepEqual(result.terms, ['source']);
   assert.equal(result.status, 'COMPLETE');
+});
+
+test('attachment analysis sends original image bytes with sparse or empty OCR text', async (t) => {
+  const image = {
+    filename: 'photo.png',
+    mediaType: 'image/png',
+    content: Buffer.from('fixture-image'),
+  };
+  let text = 'Plate AX1';
+  let requests = 0;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    requests++;
+    const body = JSON.parse(String(options.body));
+    const parts = body.input[0].content;
+    assert.equal(body.model, 'gpt-6-luna');
+    assert.deepEqual(
+      parts.filter((part: { type: string }) => part.type === 'input_image'),
+      [
+        {
+          type: 'input_image',
+          detail: 'auto',
+          image_url: 'data:image/png;base64,' + image.content.toString('base64'),
+        },
+      ],
+    );
+    assert.equal(
+      parts.some((part: { text?: string }) => part.text === text),
+      !!text,
+    );
+    assert.match(parts[0].text, /visual observations/);
+    return response([
+      {
+        type: 'message',
+        role: 'assistant',
+        content: [
+          {
+            type: 'output_text',
+            text: JSON.stringify({
+              summary: 'Visual observation: a blue appliance.',
+              terms: ['appliance'],
+              status: 'COMPLETE',
+              metadata: {
+                title: 'Appliance photo',
+                documentType: null,
+                publisher: null,
+                documentDate: null,
+              },
+              identifiers: [],
+            }),
+          },
+        ],
+      },
+    ]);
+  });
+  for (const value of ['Plate AX1', '']) {
+    text = value;
+    const result = await new OpenAiImports().summarizeAttachment({ text, image }, createContext());
+    assert.equal(result.status, 'COMPLETE');
+    assert.equal(result.summary, 'Visual observation: a blue appliance.');
+    assert.equal(result.metadata?.title, 'Appliance photo');
+    assert.ok(!Object.hasOwn(result, 'text'));
+  }
+  assert.equal(requests, 2);
 });
 
 for (const capability of ['tasks', 'purchasables'] as const) {

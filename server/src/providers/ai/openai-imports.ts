@@ -1,13 +1,7 @@
 /** Assembles Import AI tasks behind the application's import capability contract. */
 
 import type { AiContext, AiTurnCompleted, RegistryResources } from './types.js';
-import type {
-  ImportAi,
-  Source,
-  ReferenceDocument,
-  EmptyResearchField,
-  ResearchThing,
-} from '../../application/import/types.js';
+import type { ImportAi, Source } from '../../application/import/types.js';
 import { readResourcePage } from '../web/resources.js';
 import { ResolveThingTask } from './tasks/resolve-thing.js';
 import { PopulateFieldsTask } from './tasks/populate-fields.js';
@@ -16,7 +10,6 @@ import { ResourceApplicabilityTask } from './tasks/resource-applicability.js';
 import { SelectFieldSetsTask } from './tasks/select-field-sets.js';
 import { SummarizeAttachmentTask } from './tasks/summarize-attachment.js';
 import { ExtractSourceTask } from './tasks/extract-source.js';
-import { ExtractDocumentTask } from './tasks/extract-document.js';
 import { FindResourcesTask } from './tasks/find-resources.js';
 import { SuggestTasksTask } from './tasks/suggest-tasks.js';
 import { FindPurchasablesTask } from './tasks/find-purchasables.js';
@@ -47,8 +40,8 @@ export class OpenAiImports implements ImportAi {
       .onTurnCompleted(this.onTurnCompleted)
       .run();
 
-  summarizeAttachment: ImportAi['summarizeAttachment'] = (text, context) =>
-    new SummarizeAttachmentTask(text, context).onTurnCompleted(this.onTurnCompleted).run();
+  summarizeAttachment: ImportAi['summarizeAttachment'] = (input, context) =>
+    new SummarizeAttachmentTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
   findResources: ImportAi['findResources'] = (input, context) =>
     new FindResourcesTask(input, context, this.readPage)
       .onTurnCompleted(this.onTurnCompleted)
@@ -61,18 +54,6 @@ export class OpenAiImports implements ImportAi {
   // Exposes source extraction for the existing evaluation and provider checks.
   extract(source: Source, categories: string[], context: AiContext) {
     return new ExtractSourceTask(source, categories, context)
-      .onTurnCompleted(this.onTurnCompleted)
-      .run();
-  }
-
-  // Exposes document extraction for the existing evaluation and provider checks.
-  extractDocument(
-    document: ReferenceDocument,
-    research: ResearchThing,
-    targets: EmptyResearchField[],
-    context: AiContext,
-  ) {
-    return new ExtractDocumentTask(document, research, targets, context)
       .onTurnCompleted(this.onTurnCompleted)
       .run();
   }

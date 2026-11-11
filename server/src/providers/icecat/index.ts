@@ -1,21 +1,12 @@
 /** Maps identified Icecat catalogue products to registry fields for specialist enrichment. */
 
 // cspell:words generalinfo featuregroups
+import { getEnv } from '../../config.js';
 import type { ThingRow } from '../../db/entities/things.js';
-import type { Registry } from '../registry/registry.js';
-import type { FieldProposal } from '../thing-fields.js';
-import { ensure } from '../errors.js';
+import type { Registry } from '../../application/registry/registry.js';
+import { SpecialistProvider, type SpecialistResult } from '../specialist-data.js';
+import { ensure } from '../../application/errors.js';
 import * as metrics from '../../metrics.js';
-
-export interface SpecialistResult {
-  setIds: string[];
-  values: FieldProposal[];
-}
-export interface SpecialistProvider {
-  id: string;
-  applicable(thing: ThingRow): boolean;
-  lookup(thing: ThingRow, registry: Registry, signal: AbortSignal): Promise<SpecialistResult>;
-}
 
 const endpoint = 'https://live.icecat.biz/api';
 const gtinPattern = /^(?:\d{8}|\d{12,14})$/;
@@ -60,13 +51,12 @@ const featureFields = [
   ['1585', 'devices.displayResolution'],
 ] as const;
 
-export class IcecatProvider implements SpecialistProvider {
-  id = 'ICECAT';
+export class IcecatProvider extends SpecialistProvider {
+  readonly id = 'ICECAT';
 
-  constructor(
-    private accessToken: string,
-    private request: typeof fetch = fetch,
-  ) {}
+  constructor(request: typeof fetch = fetch) {
+    super(request);
+  }
 
   // Requires a GTIN or manufacturer and product code/model number on an appliance or device.
   applicable(thing: ThingRow) {
@@ -90,7 +80,7 @@ export class IcecatProvider implements SpecialistProvider {
     return metrics.withProviderCall({ task: 'icecat_lookup', provider: 'icecat' }, async () => {
       const response = await this.request(url, {
         redirect: 'error',
-        headers: { 'api-token': this.accessToken },
+        headers: { 'api-token': getEnv('ICECAT_ACCESS_TOKEN') },
         signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
       });
       const body = getObject(await response.json());

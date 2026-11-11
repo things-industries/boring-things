@@ -2,8 +2,8 @@
  * Verifies Logto access tokens against the configured issuer, audience and remote signing keys.
  */
 
+import { getEnv } from '../../config.js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import type { EnvConfig } from '../../config.js';
 import { ApplicationError, ensure } from '../../application/errors.js';
 
 export interface Identity {
@@ -13,18 +13,18 @@ export interface Identity {
 
 export type VerifyIdentity = (token: string) => Promise<Identity>;
 
-export function logtoVerifier(config: EnvConfig): VerifyIdentity {
-  if (!config.logtoEndpoint || !config.logtoAppId)
+export function logtoVerifier(): VerifyIdentity {
+  if (!getEnv('LOGTO_ENDPOINT') || !getEnv('LOGTO_APP_ID'))
     return async () => {
       throw new ApplicationError('UNAVAILABLE', 'Authentication is not configured');
     };
 
-  const issuer = config.logtoEndpoint.replace(/\/$/, '') + '/oidc';
+  const issuer = getEnv('LOGTO_ENDPOINT').replace(/\/$/, '') + '/oidc';
   const jwks = createRemoteJWKSet(new URL(issuer + '/jwks'));
   return async (token) => {
     const { payload } = await jwtVerify(token, jwks, {
       issuer,
-      audience: config.apiResource,
+      audience: getEnv('LOGTO_API_RESOURCE'),
     });
     ensure(payload.sub, 'Invalid access token', 'UNAUTHENTICATED');
     return {

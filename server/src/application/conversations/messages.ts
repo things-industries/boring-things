@@ -37,7 +37,7 @@ export async function createChatActivity(
 
     const activity =
       name === 'create_task'
-        ? await writeTask(db, job.ownerId, { ...input, status: 'SUGGESTED' })
+        ? await writeTask(db, job.ownerId, { ...input, status: 'ACTIVE' })
         : name === 'create_event'
           ? await writeEvent(db, job.ownerId, input)
           : (await writeIssue(db, job.ownerId, input)).issue;

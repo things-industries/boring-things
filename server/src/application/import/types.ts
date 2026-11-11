@@ -10,6 +10,7 @@ import type { ResourceApplicabilityInput } from '../../providers/ai/tasks/resour
 import type { AdditionalInformationInput } from '../../providers/ai/tasks/additional-information.js';
 import type { TaskResearch } from '../../providers/ai/tasks/suggest-tasks.js';
 import type { PurchasableResearch } from '../../providers/ai/tasks/find-purchasables.js';
+import type { AttachmentSummaryInput } from '../../providers/ai/tasks/summarize-attachment.js';
 
 // Describes failures using fixed messages and database codes without source or provider content.
 export function getImportFailureReason(error: unknown): string {
@@ -21,6 +22,7 @@ export function getImportFailureReason(error: unknown): string {
     'Invalid AI output',
     'AI response incomplete',
     'ai_provider_failed',
+    'ai_refused',
     'Wrong additional source',
     'Invalid source evidence',
     'Invalid recommendation',
@@ -136,13 +138,6 @@ export interface EmptyResearchField {
 
 export type KnownResearchField = PublicField;
 
-export interface ReferenceDocument extends Source {
-  sourceContext?: { url: string; description: string };
-  attachmentId: string;
-  url: string;
-  pageCount: number;
-}
-
 export interface ImportAi {
   assessResource?(
     input: ResourceApplicabilityInput,
@@ -154,7 +149,10 @@ export interface ImportAi {
     input: AdditionalInformationInput,
     context: ImportTaskContext,
   ): Promise<AdditionalInformationResult>;
-  summarizeAttachment(text: string, context: AiContext): Promise<AttachmentSummary>;
+  summarizeAttachment(
+    input: AttachmentSummaryInput,
+    context: AiContext,
+  ): Promise<AttachmentSummary>;
   selectFieldSets(
     extractedThing: ExtractedThing,
     context: ImportTaskContext,
@@ -264,19 +262,6 @@ export interface Extraction {
   summary?: string | null;
   terms?: string[];
   transcriptionStatus?: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
-}
-
-export interface DocumentExtraction {
-  metadata: Schema['AttachmentPatch'] | null;
-  applicable: boolean;
-  applicability: { page: number; quote: string } | null;
-  values: {
-    fieldSetId: string | null;
-    fieldId: string;
-    value: Value;
-    page: number;
-    quote: string;
-  }[];
 }
 
 export interface Discovery {

@@ -1,4 +1,5 @@
 /** Stores private attachments through the S3 API. */
+import { getEnv } from '../../config.js';
 import { randomUUID } from 'node:crypto';
 import { Readable, addAbortSignal } from 'node:stream';
 import {
@@ -7,14 +8,16 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from './index.js';
 
-export function s3Client(config: NonNullable<EnvConfig['s3']>) {
+export function s3Client() {
   return new S3Client({
-    endpoint: config.endpoint,
-    region: config.region,
-    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+    endpoint: getEnv('S3_ENDPOINT'),
+    region: getEnv('S3_REGION'),
+    credentials: {
+      accessKeyId: getEnv('S3_ACCESS_KEY_ID'),
+      secretAccessKey: getEnv('S3_SECRET_ACCESS_KEY'),
+    },
     forcePathStyle: true,
     maxAttempts: 3,
     requestHandler: { connectionTimeout: 10000, requestTimeout: 30000 },
@@ -26,15 +29,15 @@ export function s3Client(config: NonNullable<EnvConfig['s3']>) {
 export class S3Blobs implements BlobStorage {
   private client: S3Client;
 
-  constructor(private config: NonNullable<EnvConfig['s3']>) {
-    this.client = s3Client(config);
+  constructor() {
+    this.client = s3Client();
   }
 
   async put(content: Buffer) {
     const key = randomUUID();
     await this.client.send(
       new PutObjectCommand({
-        Bucket: this.config.bucket,
+        Bucket: getEnv('S3_BUCKET'),
         Key: key,
         Body: content,
         ContentLength: content.length,
@@ -50,7 +53,7 @@ export class S3Blobs implements BlobStorage {
     const abortSignal = AbortSignal.any([AbortSignal.timeout(60000), ...(signal ? [signal] : [])]);
     const response = await this.client.send(
       new GetObjectCommand({
-        Bucket: this.config.bucket,
+        Bucket: getEnv('S3_BUCKET'),
         Key: key,
       }),
       { abortSignal },
@@ -60,7 +63,7 @@ export class S3Blobs implements BlobStorage {
   }
 
   async remove(key: string) {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }), {
+    await this.client.send(new DeleteObjectCommand({ Bucket: getEnv('S3_BUCKET'), Key: key }), {
       abortSignal: AbortSignal.timeout(60000),
     });
   }

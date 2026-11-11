@@ -1,13 +1,26 @@
+/** Returns public runtime settings and available application capabilities. */
+
 import type { FastifyPluginAsync } from 'fastify';
-import type { Schema } from '../../../shared/model.js';
+import { getEnv } from '../config.js';
+import { supportedMediaTypes } from '../application/attachments.js';
 import { route } from '../contracts/routes.js';
 
 interface Options {
-  config: Schema['Config'];
+  chatEnabled: boolean;
+  importEnabled: boolean;
 }
 
-const configRoutes: FastifyPluginAsync<Options> = async (app, { config }) => {
-  route(app, 'GET', '/api/config', async () => config);
+const configRoutes: FastifyPluginAsync<Options> = async (app, { chatEnabled, importEnabled }) => {
+  route(app, 'GET', '/api/config', async () => ({
+    logtoEndpoint: getEnv('LOGTO_ENDPOINT'),
+    logtoAppId: getEnv('LOGTO_APP_ID'),
+    apiResource: getEnv('LOGTO_API_RESOURCE'),
+    maxUploadBytes: getEnv('MAX_UPLOAD_BYTES'),
+    supportedMediaTypes,
+    sampleDataEnabled: getEnv('ENABLE_SAMPLE_DATA'),
+    chatEnabled,
+    importEnabled,
+  }));
 };
 
 export default configRoutes;

@@ -3,10 +3,12 @@
  * writes and streamed progress.
  */
 
+import { getEnv } from '../../config.js';
 import { createChatActivity } from './messages.js';
+import { updateChatFields, type ChatFieldEvidence } from './fields.js';
+import { searchFields, searchFieldSets } from '../registry/index.js';
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
-import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type {
@@ -43,7 +45,6 @@ export class Assistant {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ChatAi | undefined,
-    private config: EnvConfig,
     private events: ApplicationEvents,
     private reportFailure: (failure: ChatFailure) => void,
   ) {}
@@ -78,7 +79,7 @@ export class Assistant {
     const key = job.ownerId + ':' + job.conversationId;
     const live = { messageId: job.id, text: '' };
     this.live.set(key, live);
-    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.chatTimeoutMs)]);
+    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('CHAT_TIMEOUT_MS'))]);
     const usage = job.usage ?? blankUsage();
     const started = Date.now();
     const elapsed = usage.elapsedMs;
@@ -88,6 +89,12 @@ export class Assistant {
     const allowedThings = new Map<string, Schema['Thing']>();
     const allowedResources = new Set<string>();
     const retrievedFiles = new Set<string>();
+    const fieldEvidence: ChatFieldEvidence = {
+      fieldIds: new Set(),
+      setIds: new Set(),
+      attachmentIds: new Set(),
+      urls: new Set(),
+    };
     let calls = 0,
       researched = false,
       files = 0;
@@ -129,7 +136,7 @@ export class Assistant {
 
     const execute = async ({ name, args }: ChatToolCall): Promise<ChatToolResult> => {
       signal.throwIfAborted();
-      ensure(++calls <= this.config.chatToolCalls, 'tool_limit', 'UNAVAILABLE');
+      ensure(++calls <= getEnv('CHAT_TOOL_CALLS'), 'tool_limit', 'UNAVAILABLE');
       let output: unknown;
 
       if (name === 'search_things') {
@@ -140,7 +147,25 @@ export class Assistant {
         output = allowedThings.has(args.thingId)
           ? { thingId: args.thingId, alreadyRead: true }
           : await readThing(args.thingId);
-      else if (name === 'read_attachment') {
+      else if (name === 'search_field_sets') {
+        ensure(
+          [...allowedThings.values()].some((thing) => thing.categoryId === args.categoryId),
+          'Read a Thing in this category first',
+        );
+        const result = await searchFieldSets(this.pool, this.registry, args.categoryId, args.terms);
+        for (const set of result.sets) {
+          fieldEvidence.setIds.add(set.id);
+          set.fields.forEach((field) => fieldEvidence.fieldIds.add(field.id));
+        }
+        output = result;
+      } else if (name === 'search_fields') {
+        ensure(allowedThings.size, 'Read the Thing first');
+        const result = await searchFields(this.pool, this.registry, args.labels);
+        result.results
+          .flatMap((entry) => entry.fields)
+          .forEach((field) => fieldEvidence.fieldIds.add(field.id));
+        output = result;
+      } else if (name === 'read_attachment') {
         ensure(allowedResources.has('attachment:' + args.attachmentId), 'Read its Thing first');
         const includeImages = args.includeImages === true;
         const fileKey = JSON.stringify([args.attachmentId, includeImages]);
@@ -154,7 +179,7 @@ export class Assistant {
           job.ownerId,
           args.attachmentId,
         );
-        ensure(file && file.byteSize <= this.config.maxUploadBytes, 'Attachment unavailable');
+        ensure(file && file.byteSize <= getEnv('MAX_UPLOAD_BYTES'), 'Attachment unavailable');
         files++;
         const chunks: Buffer[] = [];
         let bytes = 0;
@@ -162,7 +187,7 @@ export class Assistant {
         for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
           signal.throwIfAborted();
           bytes += chunk.length;
-          ensure(bytes <= this.config.maxUploadBytes, 'Attachment too large');
+          ensure(bytes <= getEnv('MAX_UPLOAD_BYTES'), 'Attachment too large');
           chunks.push(Buffer.from(chunk));
         }
 
@@ -170,6 +195,7 @@ export class Assistant {
         refs.push({ attachmentId: file.id });
         const output = { attachmentId: file.id, filename: file.filename };
         retrievedFiles.add(fileKey);
+        fieldEvidence.attachmentIds.add(file.id);
         await record({
           toolCalls: [{ name, resultCount: 1, truncated: false }],
         });
@@ -196,7 +222,7 @@ export class Assistant {
           ResearchAnswer | undefined;
         const researchSignal = AbortSignal.any([
           signal,
-          AbortSignal.timeout(this.config.discoveryTimeoutMs),
+          AbortSignal.timeout(getEnv('DISCOVERY_TIMEOUT_MS')),
         ]);
         if (!found) {
           try {
@@ -222,6 +248,47 @@ export class Assistant {
           await conversationsDb.saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
         output = { ...found, sources: found.sources.slice(0, 3) };
+        found.sources.slice(0, 3).forEach((url) => fieldEvidence.urls.add(url));
+      } else if (name === 'update_thing_fields') {
+        ensure(allowedThings.has(args.thingId), 'Read the Thing first');
+        const projected: Schema['ResourceCard'][] = args.values.map(({ fieldSetId, fieldId }) => ({
+          type: 'FIELD',
+          thingId: args.thingId,
+          fieldSetId,
+          fieldId,
+        }));
+
+        // New custom fields receive their IDs during the write, so reserve their card slots.
+        let newCustomFields = 0;
+        for (const field of args.customFields) {
+          if (field.customFieldId)
+            projected.push({
+              type: 'FIELD',
+              thingId: args.thingId,
+              fieldSetId: null,
+              fieldId: null,
+              customFieldId: field.customFieldId,
+            });
+          else newCustomFields++;
+        }
+        ensure(
+          job.toolResults.some((receipt) => receipt.key === name) ||
+            mergeResourceCards([...cards, ...projected]).length + newCustomFields <= 24,
+          'Assistant card limit',
+        );
+        const saved = await updateChatFields(
+          this.pool,
+          job,
+          args,
+          this.registry,
+          fieldEvidence,
+          signal,
+        );
+        if (!job.toolResults.some((receipt) => receipt.key === name)) job.toolResults.push(saved);
+        addCards(...(saved.cards ?? []));
+        output = saved.result;
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        await readThing(args.thingId);
       } else if (name === 'create_task' || name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(args.thingId), 'Read the Thing first');
         ensure(
@@ -331,7 +398,10 @@ export class Assistant {
 
       const activeThing = job.thingId ? await readThing(job.thingId) : undefined;
 
-      for (const receipt of job.toolResults) if (receipt.card) addCards(receipt.card);
+      for (const receipt of job.toolResults) {
+        if (receipt.card) addCards(receipt.card);
+        addCards(...(receipt.cards ?? []));
+      }
       const text = await awaitWithSignal(
         this.ai!.respond(
           {
@@ -344,7 +414,9 @@ export class Assistant {
               )
             ).activityContext,
             thingId: job.thingId,
-            completedWrites: job.toolResults.filter((r) => r.key.startsWith('create_')),
+            completedWrites: job.toolResults.filter(
+              (r) => r.key.startsWith('create_') || r.key === 'update_thing_fields',
+            ),
             activeThing,
           },
           { execute: executeTool },

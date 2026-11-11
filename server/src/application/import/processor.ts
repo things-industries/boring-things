@@ -1,8 +1,8 @@
 /** Claims one persisted request and supplies cancellation, usage accounting and recovery to its workflow. */
+import { getEnv } from '../../config.js';
 import type pg from 'pg';
 import type { Registry } from '../registry/registry.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
-import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
 import type { ImportAi } from './types.js';
 import type { AiContext } from '../../providers/ai/types.js';
@@ -18,7 +18,6 @@ export class ImportProcessor {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ImportAi | undefined,
-    private config: EnvConfig,
     private events: ApplicationEvents,
     private options: WorkflowOptions = {},
   ) {}
@@ -38,11 +37,11 @@ export class ImportProcessor {
     let requests = usage.entries?.length ?? 0;
     const started = Date.now(),
       elapsed = usage.elapsedMs;
-    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.importTimeoutMs)]);
+    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('IMPORT_TIMEOUT_MS'))]);
     let usageWrites = Promise.resolve();
     const context: AiContext = {
       signal,
-      beforeRequest: () => ensure(requests++ < this.config.importMaxRequests, 'tool_limit'),
+      beforeRequest: () => ensure(requests++ < getEnv('IMPORT_MAX_REQUESTS'), 'tool_limit'),
       record: async (delta) => {
         if (!usage.model) usage.model = delta.model ?? usage.model;
         usage.inputTokens += delta.inputTokens ?? 0;
@@ -69,7 +68,6 @@ export class ImportProcessor {
           this.registry,
           this.blobs,
           ai,
-          this.config,
           this.events,
           job,
           context,
