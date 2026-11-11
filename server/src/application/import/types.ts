@@ -137,13 +137,6 @@ export interface EmptyResearchField {
 
 export type KnownResearchField = PublicField;
 
-export interface ReferenceDocument extends Source {
-  sourceContext?: { url: string; description: string };
-  attachmentId: string;
-  url: string;
-  pageCount: number;
-}
-
 export interface ImportAi {
   assessResource?(
     input: ResourceApplicabilityInput,
@@ -268,19 +261,6 @@ export interface Extraction {
   summary?: string | null;
   terms?: string[];
   transcriptionStatus?: 'COMPLETE' | 'EMPTY' | 'PARTIAL' | 'INSUFFICIENT_LANGUAGE';
-}
-
-export interface DocumentExtraction {
-  metadata: Schema['AttachmentPatch'] | null;
-  applicable: boolean;
-  applicability: { page: number; quote: string } | null;
-  values: {
-    fieldSetId: string | null;
-    fieldId: string;
-    value: Value;
-    page: number;
-    quote: string;
-  }[];
 }
 
 export interface Discovery {

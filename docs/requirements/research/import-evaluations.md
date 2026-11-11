@@ -14,11 +14,7 @@ The run used one read-only registry search and two model requests, totalling 4,8
 
 ## Reference extraction model evaluation
 
-The standalone `ExtractDocumentTask` helper declares `gpt-6-luna` with low reasoning. The evaluation script defaults to comparing `gpt-6-luna` and `gpt-6.1-sol` at low effort in standard mode, using script-local task subclasses for the selected models. This helper is separate from the current import field population and additional-information tasks. Text and image inputs and Responses structured outputs are supported by the compared models; [OpenAI file-input guidance](https://developers.openai.com/api/docs/guides/file-inputs) describes PDF text and page-image processing.
-
-Run `node --import tsx --env-file=.env scripts/evaluate-document-extraction.ts` for a **paid** comparison on [labelled synthetic fixtures](../../../server/test/fixtures/reference-documents.ts). `--models=model-a,model-b` selects models; `DOCUMENT_EVAL_RATES` supplies USD-per-million input, cached and output rates for additional models. Results, per-task usage, latency and cost including retries are saved in ignored `test-results/document-extraction-evaluation.json`.
-
-The baseline requires all six supported values, correct applicability for all four documents, no incorrect values and verbatim quotes on the labelled pages. It covers a family manual, a typed specification (zero, false, empty text and money), a policy version and an incompatible variant. Two fixtures are PDFs and two are text. Image extraction capability is documented; image quality is unmeasured.
+The comparison required all six supported values, correct applicability for all four documents, no incorrect values and verbatim quotes on the labelled pages. It covered a family manual, a typed specification (zero, false, empty text and money), a policy version and an incompatible variant. Two fixtures were PDFs and two were text. Image quality was unmeasured.
 
 Measured on 4 October 2026, one run per model over the same four documents:
 

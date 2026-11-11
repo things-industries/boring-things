@@ -6,11 +6,8 @@ import { PDFDocument } from 'pdf-lib';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
 import { extractedThings, extractionBaseline } from './fixtures/imports.js';
-import { createAi } from '../src/providers/ai/index.js';
-import { readConfig } from '../src/config.js';
 import { setEnvMode } from '../src/env.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
-import { getPrompt } from '../src/providers/ai/prompts.js';
 
 import { createImportTaskContext } from './support/import-context.js';
 
@@ -96,52 +93,6 @@ test('camera source extraction requests and returns a descriptive attachment tit
     context(),
   );
   assert.equal(result.metadata?.title, 'Data plate photo');
-});
-
-test('reference extraction consumes page-labelled PDF text with original citations', async (t) => {
-  const pdf = await PDFDocument.create();
-  for (let page = 1; page <= 101; page++) {
-    const sheet = pdf.addPage();
-    if (page === 1) sheet.drawText('Cover');
-    if (page === 101) sheet.drawText('Supported');
-  }
-  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
-    const body = JSON.parse(init.body as string);
-    assert.deepEqual(body.input[0].content[1], {
-      type: 'input_text',
-      text: '[PDF page 1]\nCover\n\n[PDF page 101]\nSupported',
-    });
-    return jsonResponse(
-      output({
-        metadata: null,
-        applicable: true,
-        applicability: { page: 1, quote: 'Cover' },
-        values: [
-          {
-            fieldSetId: null,
-            fieldId: 'common.model',
-            value: 'Supported',
-            page: 101,
-            quote: 'Supported',
-          },
-        ],
-      }),
-    );
-  });
-  const result = await new OpenAiImports().extractDocument(
-    {
-      attachmentId: 'document',
-      url: 'https://example.com/manual.pdf',
-      filename: 'manual.pdf',
-      mediaType: 'application/pdf',
-      content: Buffer.from(await pdf.save()),
-      pageCount: 101,
-    },
-    { id: 'subject', categoryId: 'devices', knownFields: [], emptyFields: [] },
-    [],
-    context(),
-  );
-  assert.equal(result.values[0].page, 101);
 });
 
 test('PDFs without embedded text reject excessive pages before calling the model', async (t) => {
@@ -258,7 +209,7 @@ test('SDK import cancellation reaches the request signal', async (t) => {
   );
 });
 
-test('discovery retains opened PDF URLs and structures a cited product identity', async (t) => {
+test('discovery reads page links and structures a cited identity in one conversation', async (t) => {
   const source = 'https://manufacturer.example/oven';
   const pdf = 'https://documents.example/download?id=123';
   const linkedPdf = 'https://documents.example/manual.pdf';
@@ -295,6 +246,12 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
                   action: { sources: [{ url: source }] },
                 },
                 { type: 'web_search_call', action: { url: pdf } },
+                {
+                  type: 'function_call',
+                  name: 'read_resource_page',
+                  call_id: 'read-page',
+                  arguments: JSON.stringify({ url: source }),
+                },
                 {
                   type: 'message',
                   content: [
@@ -339,19 +296,23 @@ test('discovery retains opened PDF URLs and structures a cited product identity'
   assert.equal(requests[0].max_tool_calls, 3);
   assert.equal(requests[0].model, 'gpt-6.1-sol');
   assert.deepEqual(requests[0].reasoning, { mode: 'standard', effort: 'medium' });
-  assert.equal(requests[1].model, 'gpt-6-luna');
-  assert.deepEqual(requests[1].reasoning, { mode: 'standard', effort: 'none' });
+  assert.equal(requests[1].model, 'gpt-6.1-sol');
+  assert.equal(requests[1].max_tool_calls, 1);
+  assert.deepEqual(requests[1].reasoning, { mode: 'standard', effort: 'medium' });
   assert.ok(requests.every((request) => !Object.hasOwn(request, 'effort')));
   assert.deepEqual(
     usage.flatMap((entry) => entry.entries ?? []).map((entry) => entry.model),
-    ['gpt-6.1-sol', 'gpt-6-luna'],
+    ['gpt-6.1-sol', 'gpt-6.1-sol'],
   );
   assert.deepEqual(
     usage.flatMap((entry) => entry.entries ?? []).map((entry) => entry.task),
-    ['find_resources_search', 'find_resources_selection'],
+    ['find_resources', 'find_resources'],
   );
   assert.ok(JSON.stringify(requests[1].input).includes(linkedPdf));
-  assert.equal(usage.flatMap((entry) => entry.toolCalls ?? []).length, 2);
+  assert.deepEqual(
+    usage.flatMap((entry) => entry.toolCalls ?? []).map((call) => call.name),
+    ['web_search', 'web_search', 'read_resource_page'],
+  );
 });
 
 // Research omitted the source-derived name, losing the year for models with reused names.
@@ -394,74 +355,8 @@ test('public research keeps the source-derived product generation across its req
   await ai.findResources(research, context());
   await ai.suggestTasks({ ...research, existingTasks: [] }, context());
   await ai.findPurchasables({ ...research, existingPurchasables: [] }, context());
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 3);
   for (const request of requests) assert.ok(JSON.stringify(request.input).includes(research.name));
-});
-
-test('SDK document extraction uses its task model, contained schema and per-task usage without search or write tools', async (t) => {
-  const usage: Partial<Usage>[] = [];
-  const turns: Parameters<AiTurnCompleted>[0][] = [];
-  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
-    const body = JSON.parse(init.body as string);
-    assert.equal(body.model, 'gpt-6-luna');
-    assert.deepEqual(body.reasoning, { mode: 'standard', effort: 'low' });
-    assert.ok(body.instructions.includes(getPrompt('thing-definition')));
-    assert.ok(JSON.stringify(body.input).includes('Fixture device (2024)'));
-    assert.equal(body.store, false);
-    assert.equal(body.tools, undefined);
-    assert.equal(body.text.format.schema.properties.applicable.type, 'boolean');
-    assert.ok(body.input[0].content.some((part: { type: string }) => part.type === 'input_file'));
-    return jsonResponse({
-      ...output({ metadata: null, applicable: false, applicability: null, values: [] }),
-      usage: { input_tokens: 25, output_tokens: 10, input_tokens_details: { cached_tokens: 5 } },
-    });
-  });
-  const ai = createAi(readConfig({}), {}, (entry) => turns.push(entry)).importAi!;
-  const pdf = await PDFDocument.create();
-  pdf.addPage();
-  assert.ok(ai instanceof OpenAiImports);
-  await ai.extractDocument(
-    {
-      attachmentId: 'document',
-      url: 'https://example.com/manual.pdf',
-      filename: 'manual.pdf',
-      mediaType: 'application/pdf',
-      content: Buffer.from(await pdf.save()),
-      pageCount: 1,
-    },
-    {
-      id: 'subject',
-      name: 'Fixture device (2024)',
-      categoryId: 'devices',
-      knownFields: [],
-      emptyFields: [],
-    },
-    [],
-    {
-      ...context(),
-      record: async (entry) => {
-        usage.push(entry);
-      },
-    },
-  );
-  assert.equal(usage[0].entries?.[0].task, 'document_extraction');
-  assert.equal(usage[0].entries?.[0].model, 'gpt-6-luna');
-  assert.equal(usage[0].entries?.[0].inputTokens, 25);
-  assert.equal(usage[0].cachedTokens, 5);
-  assert.deepEqual(turns, [
-    {
-      task: 'document_extraction',
-      model: 'gpt-6-luna',
-      toolCalls: [],
-      metrics: {
-        tokens: [25, 10],
-        elapsedMs: usage[0].entries![0].elapsedMs,
-        aiCount: 0,
-        validCount: 0,
-      },
-    },
-  ]);
-  assert.ok(turns[0].metrics.elapsedMs >= 0);
 });
 
 test('AI attachment metadata validates calendar dates without unknown-format warnings', async (t) => {
