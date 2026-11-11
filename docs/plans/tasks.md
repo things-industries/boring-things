@@ -10,7 +10,7 @@
 
 ## Lifecycle
 
-Tasks start as `SUGGESTED` or `ACTIVE`. Accepting a suggestion invokes the scheduling AI task and makes it active. Completing an active Task records the server's current `completedAt` and generates its next occurrence when configured. Sending the first owner message in a followup conversation or dismissing the followup closes the Task and records `closedAt`. A chat followup records `conversationId` and `completedAt` in `completedFollowup`. Closed records stay available for history. Tasks can be deleted in every state.
+Tasks start as `SUGGESTED` or `ACTIVE`. Tasks requested through chat start active, with a first scheduled date required for recurrence. Accepting a suggestion invokes the scheduling AI task and makes it active. Completing an active Task records the server's current `completedAt` and generates its next occurrence when configured. Sending the first owner message in a followup conversation or dismissing the followup closes the Task and records `closedAt`. A chat followup records `conversationId` and `completedAt` in `completedFollowup`. Closed records stay available for history. Tasks can be deleted in every state.
 
 Task edits affect the selected occurrence. A completed Task can be unchecked until followup or dismissal closes it. Unchecking removes its unedited successor unless a later occurrence was completed. Accepted Tasks cannot return to suggestions. Status transitions use the accept, complete, reopen and close operations; ordinary edits update task properties.
 
@@ -40,7 +40,7 @@ Recurrence has an integer interval, a `DAY`, `WEEK`, `MONTH` or `YEAR` unit, and
 
 Every completed Task and ended Event offers **How did it go?** and **Dismiss**, independently of how it was created. Opening followup chat creates or reuses one conversation with the item and linked Issue context. Opening an empty chat leaves the item pending. The first owner message records `completedFollowup: { conversationId, completedAt }` and closes the item in the message transaction. Later messages continue the same conversation. Dismissal closes the item without recording a followup.
 
-`POST /api/conversations` accepts `taskId` or `eventId`, with `followup: true` for followup chat. Ordinary Ask uses item context without closing or recording a followup. Chat discusses the outcome using its existing tools; field updates, uploads and Issue resolution through chat are future work. Recurring occurrences have independent followup conversations.
+`POST /api/conversations` accepts `taskId` or `eventId`, with `followup: true` for followup chat. Ordinary Ask uses item context without closing or recording a followup. Chat can save owner-requested field changes with citations and retry receipts. Uploads and Issue resolution through chat are future work. Recurring occurrences have independent followup conversations.
 
 ## Timeline
 

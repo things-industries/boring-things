@@ -5,6 +5,8 @@
 
 import { getEnv } from '../../config.js';
 import { createChatActivity } from './messages.js';
+import { updateChatFields, type ChatFieldEvidence } from './fields.js';
+import { searchFields, searchFieldSets } from '../registry/index.js';
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
@@ -87,6 +89,12 @@ export class Assistant {
     const allowedThings = new Map<string, Schema['Thing']>();
     const allowedResources = new Set<string>();
     const retrievedFiles = new Set<string>();
+    const fieldEvidence: ChatFieldEvidence = {
+      fieldIds: new Set(),
+      setIds: new Set(),
+      attachmentIds: new Set(),
+      urls: new Set(),
+    };
     let calls = 0,
       researched = false,
       files = 0;
@@ -139,7 +147,25 @@ export class Assistant {
         output = allowedThings.has(args.thingId)
           ? { thingId: args.thingId, alreadyRead: true }
           : await readThing(args.thingId);
-      else if (name === 'read_attachment') {
+      else if (name === 'search_field_sets') {
+        ensure(
+          [...allowedThings.values()].some((thing) => thing.categoryId === args.categoryId),
+          'Read a Thing in this category first',
+        );
+        const result = await searchFieldSets(this.pool, this.registry, args.categoryId, args.terms);
+        for (const set of result.sets) {
+          fieldEvidence.setIds.add(set.id);
+          set.fields.forEach((field) => fieldEvidence.fieldIds.add(field.id));
+        }
+        output = result;
+      } else if (name === 'search_fields') {
+        ensure(allowedThings.size, 'Read the Thing first');
+        const result = await searchFields(this.pool, this.registry, args.labels);
+        result.results
+          .flatMap((entry) => entry.fields)
+          .forEach((field) => fieldEvidence.fieldIds.add(field.id));
+        output = result;
+      } else if (name === 'read_attachment') {
         ensure(allowedResources.has('attachment:' + args.attachmentId), 'Read its Thing first');
         const includeImages = args.includeImages === true;
         const fileKey = JSON.stringify([args.attachmentId, includeImages]);
@@ -169,6 +195,7 @@ export class Assistant {
         refs.push({ attachmentId: file.id });
         const output = { attachmentId: file.id, filename: file.filename };
         retrievedFiles.add(fileKey);
+        fieldEvidence.attachmentIds.add(file.id);
         await record({
           toolCalls: [{ name, resultCount: 1, truncated: false }],
         });
@@ -221,6 +248,47 @@ export class Assistant {
           await conversationsDb.saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
         output = { ...found, sources: found.sources.slice(0, 3) };
+        found.sources.slice(0, 3).forEach((url) => fieldEvidence.urls.add(url));
+      } else if (name === 'update_thing_fields') {
+        ensure(allowedThings.has(args.thingId), 'Read the Thing first');
+        const projected: Schema['ResourceCard'][] = args.values.map(({ fieldSetId, fieldId }) => ({
+          type: 'FIELD',
+          thingId: args.thingId,
+          fieldSetId,
+          fieldId,
+        }));
+
+        // New custom fields receive their IDs during the write, so reserve their card slots.
+        let newCustomFields = 0;
+        for (const field of args.customFields) {
+          if (field.customFieldId)
+            projected.push({
+              type: 'FIELD',
+              thingId: args.thingId,
+              fieldSetId: null,
+              fieldId: null,
+              customFieldId: field.customFieldId,
+            });
+          else newCustomFields++;
+        }
+        ensure(
+          job.toolResults.some((receipt) => receipt.key === name) ||
+            mergeResourceCards([...cards, ...projected]).length + newCustomFields <= 24,
+          'Assistant card limit',
+        );
+        const saved = await updateChatFields(
+          this.pool,
+          job,
+          args,
+          this.registry,
+          fieldEvidence,
+          signal,
+        );
+        if (!job.toolResults.some((receipt) => receipt.key === name)) job.toolResults.push(saved);
+        addCards(...(saved.cards ?? []));
+        output = saved.result;
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        await readThing(args.thingId);
       } else if (name === 'create_task' || name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(args.thingId), 'Read the Thing first');
         ensure(
@@ -330,7 +398,10 @@ export class Assistant {
 
       const activeThing = job.thingId ? await readThing(job.thingId) : undefined;
 
-      for (const receipt of job.toolResults) if (receipt.card) addCards(receipt.card);
+      for (const receipt of job.toolResults) {
+        if (receipt.card) addCards(receipt.card);
+        addCards(...(receipt.cards ?? []));
+      }
       const text = await awaitWithSignal(
         this.ai!.respond(
           {
@@ -343,7 +414,9 @@ export class Assistant {
               )
             ).activityContext,
             thingId: job.thingId,
-            completedWrites: job.toolResults.filter((r) => r.key.startsWith('create_')),
+            completedWrites: job.toolResults.filter(
+              (r) => r.key.startsWith('create_') || r.key === 'update_thing_fields',
+            ),
             activeThing,
           },
           { execute: executeTool },

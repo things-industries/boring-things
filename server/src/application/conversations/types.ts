@@ -8,6 +8,8 @@ import type { Source } from '../import/types.js';
 import type { AiContext } from '../../providers/ai/types.js';
 import type { PublicField } from '../public-fields.js';
 import type { ChatInput } from '../../providers/ai/tasks/assistant.js';
+import type { ChatFieldInput } from './fields.js';
+import type { FieldSearchLabel } from '../registry/registry.js';
 
 export interface ActivityContext {
   item: Schema['Task'] | Schema['Event'];
@@ -21,6 +23,9 @@ export interface ChatToolInputs {
   read_thing: { thingId: string };
   read_attachment: { attachmentId: string; includeImages: boolean | null };
   research: { thingId: string; question: string };
+  search_field_sets: { categoryId: string; terms: string[] };
+  search_fields: { labels: FieldSearchLabel[] };
+  update_thing_fields: ChatFieldInput;
   create_task: Required<Omit<Schema['TaskInput'], 'id' | 'status'>>;
   create_event: Required<Omit<Schema['EventInput'], 'id' | 'status'>>;
   create_issue: { thingId: string; title: string; description: string };
