@@ -25,7 +25,7 @@ const cases = [
   {
     name: 'event',
     messages: [user('Add a maintenance task to clean this dishwasher filter.')],
-    writes: ['create_event'],
+    writes: ['create_task'],
   },
   {
     name: 'issue',
@@ -40,7 +40,7 @@ const cases = [
       assistant('Would you like a suggested maintenance task to clean this dishwasher filter?'),
       user('Yes, add that.'),
     ],
-    writes: ['create_event'],
+    writes: ['create_task'],
   },
   {
     name: 'negation',
@@ -79,6 +79,9 @@ for (const scenario of cases) {
       standaloneFields: [],
       customFields: [],
     },
+    tasks: scenario.existing
+      ? [{ id: eventId, thingId, title: 'Clean the filter', status: 'SUGGESTED' }]
+      : [],
     attachments: [
       {
         id: attachmentId,
@@ -89,9 +92,7 @@ for (const scenario of cases) {
         pageCount: null,
       },
     ],
-    events: scenario.existing
-      ? [{ id: eventId, thingId, title: 'Clean the filter', status: 'SUGGESTED' }]
-      : [],
+    events: [],
     issues: [],
     purchasables: [],
     truncated: false,
@@ -114,7 +115,7 @@ for (const scenario of cases) {
             assert.equal(input['thingId'], thingId);
             return { output: context };
           }
-          if (name === 'create_event' || name === 'create_issue') {
+          if (name === 'create_task' || name === 'create_issue') {
             assert.equal(input['thingId'], thingId);
             return { output: { id: eventId, thingId } };
           }

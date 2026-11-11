@@ -1,17 +1,21 @@
+/** Owner-requested Task, Event and Issue creation with transactional retry receipts. */
+
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import * as database from '../../db/connection.js';
 import * as conversationsDb from '../../db/entities/conversations.js';
 import type { ChatJob } from '../../db/entities/conversations.js';
 import { ensure } from '../errors.js';
+import { writeTask } from '../tasks.js';
 import { writeEvent, writeIssue } from '../activity.js';
 type ActivityInput = Pick<Schema['IssueInput'], 'thingId' | 'title' | 'description'>;
 
+/** Creates one requested record or returns the saved result when a message is retried. */
 export async function createChatActivity(
   pool: pg.Pool,
   job: ChatJob,
-  name: 'create_event' | 'create_issue',
-  input: ActivityInput,
+  name: 'create_task' | 'create_event' | 'create_issue',
+  input: ActivityInput & Partial<Schema['TaskInput'] & Schema['EventInput']>,
   signal: AbortSignal,
 ) {
   return database.transaction(pool, async (db) => {
@@ -19,7 +23,7 @@ export async function createChatActivity(
     const current = await conversationsDb.getProcessingMessageOrThrow(db, job);
     ensure(current, 'Message is no longer processing', 'CONFLICT');
     const previous = current.toolResults.find(
-      (r) => r.key === 'create_event' || r.key === 'create_issue',
+      (r) => r.key === 'create_task' || r.key === 'create_event' || r.key === 'create_issue',
     );
 
     if (previous) {
@@ -32,15 +36,19 @@ export async function createChatActivity(
     }
 
     const activity =
-      name === 'create_event'
-        ? await writeEvent(db, job.ownerId, input)
-        : await writeIssue(db, job.ownerId, input);
+      name === 'create_task'
+        ? await writeTask(db, job.ownerId, { ...input, status: 'SUGGESTED' })
+        : name === 'create_event'
+          ? await writeEvent(db, job.ownerId, input)
+          : (await writeIssue(db, job.ownerId, input)).issue;
     const item = { id: activity.id, thingId: activity.thingId };
 
     const card: Schema['ResourceCard'] =
-      name === 'create_event'
-        ? { type: 'EVENT', eventId: item.id }
-        : { type: 'ISSUE', issueId: item.id };
+      name === 'create_task'
+        ? { type: 'TASK', taskId: item.id }
+        : name === 'create_event'
+          ? { type: 'EVENT', eventId: item.id }
+          : { type: 'ISSUE', issueId: item.id };
 
     const result = { key: name, result: item, card };
     // Commit the record and receipt together, so retry can reuse its result.

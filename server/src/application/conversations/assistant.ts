@@ -118,6 +118,7 @@ export class Assistant {
 
       for (const [kind, table] of [
         ['event', 'events'],
+        ['task', 'tasks'],
         ['issue', 'issues'],
         ['purchasable', 'purchasables'],
       ] as const)
@@ -221,7 +222,7 @@ export class Assistant {
           await conversationsDb.saveMessage(this.pool, job, { toolResults: job.toolResults });
         }
         output = { ...found, sources: found.sources.slice(0, 3) };
-      } else if (name === 'create_event' || name === 'create_issue') {
+      } else if (name === 'create_task' || name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(args.thingId), 'Read the Thing first');
         ensure(
           args.title.trim() && args.title.length <= 200 && args.description.length <= 4000,
@@ -231,18 +232,8 @@ export class Assistant {
           job.toolResults.some((result) => result.card) || cards.length < 24,
           'Assistant card limit',
         );
-        const kind = name === 'create_event' ? 'event' : 'issue';
-        const saved = await createChatActivity(
-          this.pool,
-          job,
-          name,
-          {
-            thingId: args.thingId,
-            title: args.title,
-            description: args.description,
-          },
-          signal,
-        );
+        const kind = name === 'create_task' ? 'task' : name === 'create_event' ? 'event' : 'issue';
+        const saved = await createChatActivity(this.pool, job, name, args, signal);
         if (!job.toolResults.some((r) => r.key === name)) job.toolResults.push(saved);
         if (saved.card) addCards(saved.card);
         const item = saved.result as { id: string };
@@ -294,6 +285,7 @@ export class Assistant {
               ...(c.page ? { page: c.page } : {}),
             });
           } else if (c.type === 'EVENT') selectedCards.push({ type: 'EVENT', eventId: c.id });
+          else if (c.type === 'TASK') selectedCards.push({ type: 'TASK', taskId: c.id });
           else if (c.type === 'ISSUE') selectedCards.push({ type: 'ISSUE', issueId: c.id });
           else selectedCards.push({ type: 'PURCHASABLE', purchasableId: c.id });
         }
@@ -344,6 +336,13 @@ export class Assistant {
         this.ai!.respond(
           {
             messages,
+            activityContext: (
+              await conversationsDb.getOwnedConversationOrThrow(
+                this.pool,
+                job.ownerId,
+                job.conversationId,
+              )
+            ).activityContext,
             thingId: job.thingId,
             completedWrites: job.toolResults.filter((r) => r.key.startsWith('create_')),
             activeThing,

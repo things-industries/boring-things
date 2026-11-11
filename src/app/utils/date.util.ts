@@ -1,4 +1,8 @@
 import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
   differenceInCalendarDays,
   differenceInMonths,
   differenceInYears,
@@ -7,6 +11,7 @@ import {
   parseISO,
   startOfDay,
 } from 'date-fns';
+import type { TaskInterval } from '../interfaces/task.interface';
 export function localDateTimeToUtc(value: string): string | null {
   const date = parseISO(value);
   return isValid(date) ? date.toISOString() : null;
@@ -48,14 +53,6 @@ export function eventStart(event: {
   const value = event.startsAt ?? event.startsOn;
   return value ? parseISO(value).getTime() : null;
 }
-/** Whether an event starts at or after `now`; a date-only event counts for its whole day. */
-export function startsFrom(
-  event: { startsAt: string | null; startsOn: string | null },
-  now = new Date(),
-): boolean {
-  if (event.startsAt) return parseISO(event.startsAt).getTime() >= now.getTime();
-  return !!event.startsOn && event.startsOn >= format(now, 'yyyy-MM-dd');
-}
 
 /**
  * Time left until `value`: whole years from two years, whole months from one month, otherwise days.
@@ -83,4 +80,16 @@ export function timeSince(
   return months < 12
     ? { amount: months, unit: 'month' }
     : { amount: Math.floor(months / 6) / 2, unit: 'year' };
+}
+
+/** Local calendar date of `value`, as `yyyy-MM-dd`. */
+export function dayKey(value: Date | string): string {
+  return format(typeof value === 'string' ? parseISO(value) : value, 'yyyy-MM-dd');
+}
+
+const addUnit = { DAY: addDays, WEEK: addWeeks, MONTH: addMonths, YEAR: addYears };
+
+/** The calendar date one recurrence interval after `day`. */
+export function addRecurrence(day: string, { interval, unit }: TaskInterval): string {
+  return dayKey(addUnit[unit](parseISO(day), interval));
 }

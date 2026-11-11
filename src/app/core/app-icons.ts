@@ -10,7 +10,6 @@ import {
   remixBox3Fill,
   remixBox3Line,
   remixCalendarEventLine,
-  remixCalendarFill,
   remixCalendarLine,
   remixChat3Fill,
   remixChat3Line,
@@ -45,6 +44,8 @@ import {
   remixEyeLine,
   remixEyeOffLine,
   remixText,
+  remixTaskFill,
+  remixTaskLine,
   remixTimeLine,
   remixToolsLine,
   remixCameraLine,
@@ -92,6 +93,10 @@ import {
   remixGasStationLine,
   remixListOrdered2,
   remixCheckboxCircleLine,
+  remixCheckboxBlankCircleLine,
+  remixCheckboxCircleFill,
+  remixFlagFill,
+  remixArrowDownSLine,
   remixSparkling2Line,
   remixSearchEyeLine,
   remixHammerLine,
@@ -129,8 +134,8 @@ export const navHome = remixHome5Line;
 export const navHomeActive = remixHome5Fill;
 export const navThings = remixBox3Line;
 export const navThingsActive = remixBox3Fill;
-export const navTimeline = remixCalendarLine;
-export const navTimelineActive = remixCalendarFill;
+export const navTasks = remixTaskLine;
+export const navTasksActive = remixTaskFill;
 export const navAsk = remixChat3Line;
 export const navAskActive = remixChat3Fill;
 export const openProfile = remixAccountCircleLine;
@@ -196,6 +201,19 @@ export const taskRepair = remixHammerLine;
 export const taskReplacement = remixSwapLine;
 export const taskService = remixToolsLine;
 export const taskOther = remixCalendarCheckLine;
+
+// Tasks
+export const taskOpen = remixCheckboxBlankCircleLine;
+export const taskDone = remixCheckboxCircleFill;
+export const taskCritical = remixFlagFill;
+export const taskOverdue = remixTimeLine;
+export const agendaEvent = remixCalendarCheckLine;
+export const followUpChat = remixChat3Fill;
+export const askAboutTask = remixChat3Line;
+export const rescheduleTask = remixCalendarLine;
+export const goToThing = remixBox3Line;
+export const deleteTask = remixDeleteBinLine;
+export const expandSection = remixArrowDownSLine;
 
 // Chat
 export const attachToMessage = remixAttachment2;

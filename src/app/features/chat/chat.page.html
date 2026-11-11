@@ -65,7 +65,7 @@
                 }
               }
               @for (card of entry.others; track $index) {
-                <bt-resource-card [card]="card" (schedule)="scheduling.set($event)" />
+                <bt-resource-card [card]="card" (schedule)="addTask($event.id)" />
               }
               @if (message.sourceRefs.length) {
                 <ul class="chat-sources" aria-label="Sources">
@@ -120,7 +120,11 @@
           >
             <p class="text-primary-muted">
               <bt-typewriter
-                text="Ask about a detail, a manual, maintenance or compatible products."
+                [text]="
+                  followup()
+                    ? 'How did it go? Tell me what happened and what you need help with.'
+                    : 'Ask about a detail, a manual, maintenance or compatible products.'
+                "
                 [animate]="phase === 'typing'"
                 (typed)="introStep('typing', 'reveal')"
               />
@@ -169,7 +173,13 @@
     }
   </div>
   <bt-chat-composer
-    [placeholder]="thingId ? 'Ask about this Thing' : 'Ask across all your Things'"
+    [placeholder]="
+      followup()
+        ? 'How did it go?'
+        : thingId
+          ? 'Ask about this Thing'
+          : 'Ask across all your Things'
+    "
     [disabled]="!conversation() || sending() || inFlight()"
     [(text)]="text"
     (send)="send()"
@@ -177,5 +187,3 @@
     (focusout)="composerFocus($event)"
   />
 }
-
-<bt-schedule-dialog [event]="scheduling()" (closed)="scheduling.set(null)" />

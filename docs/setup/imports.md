@@ -138,6 +138,6 @@ Run `pnpm db:migrate`, `pnpm db:seed` and restart the API after updating. The ke
 
 ## Validation
 
-`server/tests/import/`, `server/tests/fields/` and `server/tests/jobs/` cover the workflow, owner permissions, shared-resource lifecycle, specialist mapping and concurrent execution. Integration and browser tests use fixture providers and isolated databases. `pnpm check` checks authored and generated contracts, types, lint, unit tests and builds. `pnpm test:integration` requires local PostgreSQL and a built frontend.
+`server/test/import/`, `server/test/fields/` and `server/test/jobs/` cover the workflow, owner permissions, shared-resource lifecycle, specialist mapping and concurrent execution. Integration and browser tests use fixture providers and isolated databases. `pnpm check` checks authored and generated contracts, types, lint, unit tests and builds. `pnpm test:integration` requires local PostgreSQL and a built frontend.
 
 The paid smoke script traces the current workflow. Standalone extraction and document-evaluation helpers remain for the opt-in model evaluations documented in [import evaluations](../requirements/research/import-evaluations.md). Each invocation requires explicit approval under [metered AI validation](../agents/agent-behaviour.md#metered-ai-validation).

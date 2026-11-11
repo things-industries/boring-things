@@ -1,0 +1,164 @@
+@let entry = item();
+@let name = showThing() ? entry.thingName + ': ' + title() : title();
+<bt-task-row [eyebrow]="showThing() ? entry.thingName : null" [compact]="thingDate()">
+  @if (checkable()) {
+    <button
+      taskRowLeading
+      type="button"
+      class="task-card-check"
+      role="checkbox"
+      [attr.aria-checked]="done()"
+      [attr.aria-label]="name"
+      (click)="toggled.emit()"
+    >
+      <ng-icon [name]="done() ? 'taskDone' : 'taskOpen'" aria-hidden="true" />
+    </button>
+  } @else if (!thingDate()) {
+    <span taskRowLeading class="task-card-icon">
+      <ng-icon name="agendaEvent" aria-hidden="true" />
+    </span>
+  }
+  <ng-container taskRowTitle>
+    @if (entry.type === 'THING_DATE' && !showThing()) {
+      {{ entry.thingDate.label | lowercase }}
+    } @else {
+      {{ title() }}
+    }
+    @if (critical()) {
+      <ng-icon class="task-card-flag" name="taskCritical" aria-hidden="true" />
+      <span class="visually-hidden">(critical)</span>
+    }
+  </ng-container>
+  @if (done()) {
+    <div class="task-card-actions" role="group" [attr.aria-label]="'Next steps for ' + name">
+      <button type="button" class="task-card-action" (click)="followedUp.emit()">
+        <ng-icon name="followUpChat" aria-hidden="true" />
+        How did it go?
+      </button>
+    </div>
+  } @else {
+    @let line = timeLine();
+    @if (overdueDays(); as days) {
+      <p class="task-card-meta overdue">
+        <ng-icon name="taskOverdue" aria-hidden="true" />
+        @if (days === 1) {
+          Yesterday
+        } @else {
+          {{ days }} days ago
+        }
+      </p>
+    } @else if (line || showDay()) {
+      <p class="task-card-meta">
+        @if (showDay()) {
+          @switch (dayOffset()) {
+            @case (0) {
+              Today
+            }
+            @case (1) {
+              Tomorrow
+            }
+            @default {
+              {{ entry.day | date: 'EEE d MMM' }}
+            }
+          }
+          @if (line) {
+            ·
+          }
+        }
+        @if (line) {
+          @switch (line.type) {
+            @case ('countdown') {
+              @if (line.days === 0) {
+                Due today
+              } @else if (line.days === 1) {
+                Due tomorrow
+              } @else {
+                Due in {{ line.days }} days
+              }
+              · {{ line.date | date: 'd MMM' }}
+            }
+            @case ('interval') {
+              @let n = line.recurrence.interval;
+              @switch (line.recurrence.unit) {
+                @case ('DAY') {
+                  @if (n === 1) {
+                    Every day
+                  } @else {
+                    Every {{ n }} days
+                  }
+                }
+                @case ('WEEK') {
+                  @if (n === 1) {
+                    Every week
+                  } @else {
+                    Every {{ n }} weeks
+                  }
+                }
+                @case ('MONTH') {
+                  @if (n === 1) {
+                    Every month
+                  } @else {
+                    Every {{ n }} months
+                  }
+                }
+                @case ('YEAR') {
+                  @if (n === 1) {
+                    Every year
+                  } @else {
+                    Every {{ n }} years
+                  }
+                }
+              }
+            }
+            @case ('time') {
+              {{ line.start | date: 'HH:mm' }}
+              @if (line.end) {
+                – {{ line.end | date: 'HH:mm' }}
+              }
+            }
+          }
+        }
+      </p>
+    }
+  }
+  @if (done()) {
+    <button taskRowTrailing type="button" class="button-link" (click)="dismissed.emit()">
+      Dismiss
+    </button>
+  }
+  @if (thingDate()) {
+    <button
+      taskRowTrailing
+      type="button"
+      btIconButton
+      variant="plain"
+      size="sm"
+      icon="askAboutTask"
+      [label]="'Ask about ' + entry.thingName + ' ' + title()"
+      (click)="asked.emit()"
+    ></button>
+  } @else {
+    <bt-menu
+      taskRowTrailing
+      class="task-card-menu"
+      [label]="'Actions for ' + name"
+      variant="plain"
+      size="sm"
+    >
+      <button type="button" btMenuItem icon="askAboutTask" (click)="asked.emit()">Ask</button>
+      @if (entry.type === 'TASK') {
+        <button type="button" btMenuItem icon="rescheduleTask" (click)="rescheduled.emit()">
+          Edit schedule
+        </button>
+      }
+      @if (!inThing()) {
+        <a btMenuItem icon="goToThing" [routerLink]="['/things', entry.thingId]">Go to Thing</a>
+      }
+      @if (entry.type === 'TASK') {
+        <button type="button" btMenuItem icon="deleteTask" (click)="removed.emit()">
+          Delete task
+        </button>
+      }
+    </bt-menu>
+  }
+</bt-task-row>

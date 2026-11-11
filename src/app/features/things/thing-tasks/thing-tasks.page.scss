@@ -1,0 +1,39 @@
+@use 'tokens';
+@use 'mixins';
+
+:host {
+  @include mixins.viewport-page;
+}
+
+.thing-tasks-content {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(6);
+  padding-block: tokens.space(2) tokens.space(7);
+}
+
+.thing-tasks-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: tokens.space(3);
+}
+
+.thing-tasks-empty {
+  margin: 0;
+  color: tokens.color(primary-muted);
+}
+
+// Lines the rows up with the agenda's cards, which sit beside its timeline.
+.thing-tasks-suggested {
+  padding-inline-start: tokens.space(7);
+}
+
+.thing-tasks-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

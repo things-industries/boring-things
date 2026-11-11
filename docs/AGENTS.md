@@ -24,7 +24,7 @@ The following are used as working documents and are more freely updated.
 - `requirements/research/assumptions.md`: explicit assumptions and unresolved questions that still need validation.
 - `requirements/roadmap/MILESTONES.md`: staged execution plan.
 - `meeting-notes/`: dated discussion records; preserve their historical context.
-- `plans/`: scoped implementation plans. `plans/poc-scaffolding.md` records confirmed scaffold decisions and subsequent work. `plans/poc-frontend.md` stages the Figma-based frontend rebuild; `plans/poc-frontend-progress.md` tracks it. `plans/app-state.md` designs the front-end stores, domain services and optimistic mutations.
+- `plans/`: scoped implementation plans. `plans/poc-scaffolding.md` records confirmed scaffold decisions and subsequent work. `plans/poc-frontend.md` stages the Figma-based frontend rebuild; `plans/poc-frontend-progress.md` tracks it. `plans/app-state.md` designs the front-end stores, domain services and optimistic mutations. `plans/tasks.md` plans the Tasks screen.
 - `setup/`: operational setup instructions, including Logto.
 - `agents/`: agent behaviour and GitHub issue conventions, referenced from root `AGENTS.md`.
 

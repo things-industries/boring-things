@@ -25,6 +25,8 @@ import { logtoVerifier, type VerifyIdentity } from './providers/auth/logto.js';
 import { loadRegistry } from './application/registry/index.js';
 import { createBlobs, type BlobStorage } from './providers/blobs/index.js';
 import { Assistant } from './application/conversations/assistant.js';
+import taskRoutes from './routes/tasks.js';
+import type { TaskScheduler } from './application/task-scheduling.js';
 import { createAi } from './providers/ai/index.js';
 import type { ChatAi } from './application/conversations/types.js';
 import type { ImportAi } from './application/import/types.js';
@@ -43,6 +45,7 @@ export interface BuildAppOptions {
   logger?: boolean;
   importAi?: ImportAi;
   chatAi?: ChatAi;
+  taskScheduler?: TaskScheduler;
   importWorkflow?: import('./application/import/workflow.js').WorkflowOptions;
   readImageText?: typeof googleVision.readImageText;
 }
@@ -86,7 +89,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
     // Registry definitions are cached at startup; restart the server after changing seeded metadata.
     const registry = await loadRegistry(dbPool);
-    const { importAi, chatAi } = createAi(
+    const { importAi, chatAi, taskScheduler } = createAi(
       config,
       options,
       (turn) => app.log.info(turn, 'AI turn completed'),
@@ -198,6 +201,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
         importEnabled: !!importAi,
       });
       await authenticatedApi.register(routes.activityRoutes, { db: dbPool, events });
+      await authenticatedApi.register(taskRoutes, { db: dbPool, events, registry, taskScheduler });
       await authenticatedApi.register(routes.purchasableRoutes, { db: dbPool });
       await authenticatedApi.register(routes.conversationRoutes, {
         db: dbPool,

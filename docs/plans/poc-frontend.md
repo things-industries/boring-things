@@ -401,7 +401,7 @@ Styles: size tokens `hero` (400px) and `hero-overlap` (104px); icon size `artwor
 
 Icons: field icons keyed by `Field.icon` (README mapping) through `fieldIcon()` in `app/utils/field-icon.util.ts`, `fieldDefault` for unknown keys and custom fields; attachment kind icons; suggested task kind icons; `upcomingEvent` on the event card.
 
-Mocks: `event-recurrence.mock.ts` (#11) infers kind from the Event title and recurrence from "every {n} {unit}" in its description. Field icons (#7), attachment metadata (#12) and the warranty and ownership fields (#6) are delivered; the Thing image (#13) needs no mock.
+Task and Event cards read persisted records. Task importance, recurrence and followups come from the API. Field icons (#7), attachment metadata (#12), warranty and ownership fields (#6) and Thing images (#13) are delivered.
 
 Stores:
 

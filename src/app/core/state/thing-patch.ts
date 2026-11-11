@@ -147,7 +147,9 @@ function withValue(field: Schema['Field'], value: Schema['Value']): Schema['Fiel
 }
 
 function valueType(value: Schema['Value']): Schema['ValueTypeEnum'] {
-  return typeof value === 'object'
-    ? 'MONEY'
-    : ((typeof value).toUpperCase() as Schema['ValueTypeEnum']);
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? 'DATE'
+    : typeof value === 'object'
+      ? 'MONEY'
+      : ((typeof value).toUpperCase() as Schema['ValueTypeEnum']);
 }

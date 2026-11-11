@@ -10,6 +10,9 @@ import * as usersDb from '../../db/entities/users.js';
  * sample creation is enabled.
  */
 
+import { format, addDays } from 'date-fns';
+import { randomUUID } from 'node:crypto';
+import * as tasksDb from '../../db/entities/tasks.js';
 import type pg from 'pg';
 import type { Schema, ThingPatch, Value } from '../../../../shared/model.js';
 import { emptyData } from '../../../../shared/model.js';
@@ -51,6 +54,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       return item.id;
     };
 
+    const on = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd');
     const v = (fieldSetId: string, fieldId: string, value: Value) => ({
       fieldSetId,
       fieldId,
@@ -66,7 +70,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         v('appliances.appliance', 'appliances.zNumber', '00015'),
       ],
     );
-    await add(
+    const van = await add(
       'Weekend van',
       'vehicles',
       ['vehicles.van'],
@@ -80,6 +84,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       'insurance',
       ['insurance.combined'],
       [
+        { fieldSetId: null, fieldId: 'insurance.policyEnds', value: on(30) },
         v('insurance.buildings', 'insurance.sumInsured', {
           amountMinor: 50000000,
           currency: 'GBP',
@@ -90,7 +95,7 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         }),
       ],
     );
-    await add(
+    const membership = await add(
       'Museum membership',
       'memberships',
       ['memberships.museum', 'memberships.access'],
@@ -114,17 +119,73 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         owner,
       ]);
 
-    await db.query(
-      "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true)",
+    const [issue] = await database.rows<{ id: string }>(
+      db,
+      "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true) returning id",
       [owner, hob],
     );
+    const addTask = async (
+      thingId: string,
+      title: string,
+      properties: Partial<Schema['Task']> = {},
+    ) =>
+      tasksDb.saveTask(db, owner, {
+        id: randomUUID(),
+        thingId,
+        title,
+        description: 'Sample task for exploring the interface.',
+        issueId: null,
+        status: 'ACTIVE',
+        importance: 'RECOMMENDED',
+        scheduledOn: null,
+        deadlineOn: null,
+        recurrence: null,
+        completedAt: null,
+        completedFollowup: null,
+        closedAt: null,
+        referenceTaskId: null,
+        sourceRefs: [],
+        isSample: true,
+        ...properties,
+      });
+    await addTask(hob, 'Check the hob manual', { status: 'SUGGESTED' });
+    await addTask(hob, 'Deep clean', {
+      scheduledOn: on(1),
+      recurrence: { interval: 1, unit: 'MONTH', from: 'SCHEDULED' },
+    });
+    await addTask(hob, 'Inspect the cable', { importance: 'NICE_TO_HAVE' });
+    await addTask(van, 'MOT test', {
+      scheduledOn: on(6),
+      deadlineOn: on(20),
+      importance: 'CRITICAL',
+    });
+    await addTask(insurance, 'Review home cover', { scheduledOn: on(5), importance: 'IMPORTANT' });
+    await addTask(insurance, 'Renew the policy', {
+      scheduledOn: on(0),
+      deadlineOn: on(30),
+      importance: 'IMPORTANT',
+    });
+    await addTask(membership, 'Renew the membership', {
+      scheduledOn: on(2),
+      importance: 'RECOMMENDED',
+    });
+    await addTask(hob, 'Check the filter', {
+      scheduledOn: on(-3),
+      deadlineOn: on(-1),
+      importance: 'CRITICAL',
+    });
+    await addTask(van, 'Review the service record', {
+      scheduledOn: on(-2),
+      status: 'COMPLETED',
+      completedAt: new Date().toISOString(),
+    });
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,description,status,starts_at,is_sample) values($1,$2,'Review home cover','Example reminder. Check the actual renewal date.','SCHEDULED',now()+interval '5 days',true)",
-      [owner, insurance],
+      "insert into bt.events(owner_id,thing_id,issue_id,title,description,status,starts_at,ends_at,is_sample) values($1,$2,$3,'Engineer visit','Sample appointment.','SCHEDULED',now()-interval '2 hours',now()-interval '1 hour',true)",
+      [owner, hob, issue.id],
     );
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,description,is_sample) values($1,$2,'Check the hob manual','Example task for exploring maintenance cards.',true)",
-      [owner, hob],
+      "insert into bt.events(owner_id,thing_id,title,status,starts_at,ends_at,is_sample) values($1,$2,'Annual service at the mechanic','SCHEDULED',now()-interval '2 days',now()-interval '47 hours',true)",
+      [owner, van],
     );
 
     for (const [kind, name] of [

@@ -27,7 +27,7 @@ export class Activity {
       this.action.emit({
         kind: 'events',
         id,
-        patch: { status: 'SCHEDULED', startsAt, startsOn },
+        patch: { startsAt, startsOn },
       });
   }
 }

@@ -15,6 +15,8 @@ import { DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import type { Schema } from '../../../../shared/model';
+import { EventsStore } from '../../core/state/events.store';
+import { TasksStore } from '../../core/state/tasks.store';
 import {
   chatHistory,
   chatUnavailable,
@@ -35,7 +37,6 @@ import { Menu } from '../../components/menu/menu';
 import { MenuItem } from '../../components/menu/menu-item';
 import { Notice } from '../../components/notice/notice';
 import { RichText } from '../../components/rich-text/rich-text';
-import { ScheduleDialog } from '../../components/schedule-dialog/schedule-dialog';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { ThingCard } from '../../components/thing-card/thing-card';
 import { TopBar } from '../../components/top-bar/top-bar';
@@ -68,7 +69,6 @@ type IntroPhase = 'typing' | 'reveal' | 'shown';
     Notice,
     ResourceCard,
     RichText,
-    ScheduleDialog,
     ScrollContainer,
     TermPipe,
     ThingCard,
@@ -87,6 +87,8 @@ type IntroPhase = 'typing' | 'reveal' | 'shown';
 export class ChatPage {
   private conversations = inject(ConversationsStore);
   private things = inject(ThingsStore);
+  private tasks = inject(TasksStore);
+  private events = inject(EventsStore);
   private categories = inject(CategoriesStore);
   private files = inject(AttachmentsService);
   private toasts = inject(Toasts);
@@ -97,13 +99,26 @@ export class ChatPage {
   private destroyed = false;
 
   readonly config = inject(CONFIG);
-  readonly thingId = inject(ActivatedRoute).snapshot.paramMap.get('id');
+  private readonly snapshot = inject(ActivatedRoute).snapshot;
+  readonly thingId = this.snapshot.paramMap.get('id');
+  private readonly itemContext: Pick<
+    Schema['ConversationInput'],
+    'taskId' | 'eventId' | 'followup'
+  > = {
+    ...(this.snapshot.queryParamMap.get('taskId')
+      ? { taskId: this.snapshot.queryParamMap.get('taskId')! }
+      : {}),
+    ...(this.snapshot.queryParamMap.get('eventId')
+      ? { eventId: this.snapshot.queryParamMap.get('eventId')! }
+      : {}),
+    ...(this.snapshot.queryParamMap.get('followup') === 'true' ? { followup: true } : {}),
+  };
+  readonly followup = signal(this.itemContext.followup ?? false);
   readonly id = signal<string | null>(null);
   readonly starting = signal(false);
   readonly error = signal<UiErrorCode | null>(null);
   readonly sending = signal(false);
   readonly text = signal('');
-  readonly scheduling = signal<Schema['Event'] | null>(null);
 
   /** Visible area while the composer has focus, so the page fits above the on-screen keyboard. */
   readonly visible = signal<{ top: number; height: number } | null>(null);
@@ -191,9 +206,15 @@ export class ChatPage {
 
   /**
    * Resumes the Thing's current conversation, straight away when the Thing page preloaded it, or
-   * starts a new one for global chat.
+   * starts a new one for global chat. A `draft` starts a new Thing conversation with it in the
+   * composer.
    */
   start() {
+    if (this.itemContext.taskId || this.itemContext.eventId) {
+      void this.open(() => this.conversations.create(this.thingId, this.itemContext));
+      return;
+    }
+
     const loaded = this.thingId ? this.conversations.current(this.thingId) : null;
 
     if (loaded && this.config.chatEnabled) {
@@ -209,6 +230,7 @@ export class ChatPage {
   /** Replaces the current conversation with a new one. */
   newChat() {
     if (this.sending() || this.inFlight()) return;
+    this.followup.set(false);
     void this.open(() => this.conversations.create(this.thingId));
   }
 
@@ -248,6 +270,11 @@ export class ChatPage {
     if (id && this.introPhase() === from) this.intro.set({ id, phase: to });
   }
 
+  /** Adds a suggested task from a card to the schedule; the day is chosen for the owner. */
+  addTask(id: string) {
+    void this.tasks.schedule(id);
+  }
+
   send() {
     const id = this.id();
     const text = this.text().trim();
@@ -284,6 +311,10 @@ export class ChatPage {
     this.sending.set(false);
     if (result.ok) {
       if (this.pending === input) this.pending = null;
+      if (this.followup()) {
+        if (this.itemContext.taskId) await this.tasks.loadOne(this.itemContext.taskId);
+        else if (this.itemContext.eventId) await this.events.loadOne(this.itemContext.eventId);
+      }
     } else if (this.pending === input && !this.text()) this.text.set(input.text);
   }
 

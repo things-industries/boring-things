@@ -19,6 +19,7 @@
     "ADF",
     "AEG",
     "agg",
+    "Aircon",
     "apidevtools",
     "backpressure",
     "BEV",
@@ -199,7 +200,7 @@
       "words": ["sslmode"]
     },
     {
-      "filename": ["server/test/integration/job-lease.test.ts", "cspell.json"],
+      "filename": ["server/test/integration/job-lease.integration.ts", "cspell.json"],
       "words": ["classid", "datname", "locktype", "objid", "oid"]
     }
   ]

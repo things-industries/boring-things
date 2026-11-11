@@ -101,11 +101,11 @@ Boring Things does not need to replace every adjacent product to be useful. In m
 
 ## Features
 
-Activities are ongoing or scheduled work the owner manages, including suggested tasks, Events and Issues. Purchasables are opportunities to buy something that maintains or improves a Thing, such as consumables, accessories or upgrades. They retain purchase links and supporting evidence independently of activity scheduling.
+Activities are ongoing or scheduled work the owner manages, including Tasks, Events and Issues. Tasks are actions the owner performs. Events are appointments, visits and deliveries; their end follows their dates. Issues connect related work. Purchasables are opportunities to buy something that maintains or improves a Thing, such as consumables, accessories or upgrades. They retain purchase links and supporting evidence independently of activity scheduling.
 
 ### Thing fields
 
-- Fields capture durable attributes and contractual terms. Upcoming event dates belong to a separate event primitive. Transient observations, account balances and physical-item locations are outside the field registry.
+- Fields capture durable attributes and contractual terms. Populated date fields contribute Thing dates to the timeline. Transient observations, account balances and physical-item locations are outside the field registry.
 - Each category has a base field set. Sets for identifiable subtypes carry their distinct fields; shared traits and functions compose across types. Manufacturer groups share proprietary identifier sets where their markings have the same meaning.
 - Documents belong to attachments.
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
@@ -127,7 +127,7 @@ Public reference documents and images are unowned attachments that can be linked
 
 Populate matching fields in selected field sets first, then other registry fields, then useful custom fields. Keep incidental source content in the Attachment transcription. Classify fields by scope: manufacturer/provider group, product model/service plan, or owned instance. Mark fields that contribute to Thing identification independently. Use populated group/class fields for public research and fill their missing values from cited evidence. Purchase date and price paid describe an instance without identifying it. Custom fields default to instance scope. Sensitivity independently governs masking. Category prompts specify the supporting documents to find. Preserve owner edits and requests that clear values as results arrive progressively.
 
-Imports also suggest management tasks and purchasables from applicable sources. Category prompts guide manufacturer maintenance and consumables for appliances, care and accessories for devices, and documented administration actions for services. Tasks prioritise maintenance specific to the Thing that is easy to forget and common remedies nearly every owner is likely to need, accounting for supplied age, usage and condition. Titles name the overall procedure; descriptions hold its conditions and preparation steps. Extremely obvious actions and work done very frequently during normal use are excluded. Tasks retain citations, instructions, intervals and conditions as unscheduled suggestions for the owner. Purchasables require observed purchase links and compatibility evidence; memberships, subscriptions and insurance usually yield none. Optional suggestion failures preserve imported details and permit retries. Existing tasks, purchasables and owner edits survive retries and subsequent imports. Persisted recurrence remains future work.
+Imports also suggest management tasks and purchasables from applicable sources. Category prompts guide manufacturer maintenance and consumables for appliances, care and accessories for devices, and documented administration actions for services. Tasks prioritise maintenance specific to the Thing that is easy to forget and common remedies nearly every owner is likely to need, accounting for supplied age, usage and condition. Titles name the overall procedure; descriptions hold its conditions and preparation steps. Extremely obvious actions and work done very frequently during normal use are excluded. Tasks retain citations, instructions, intervals and conditions as unscheduled suggestions for the owner. Purchasables require observed purchase links and compatibility evidence; memberships, subscriptions and insurance usually yield none. Optional suggestion failures preserve imported details and permit retries. Existing tasks, purchasables and owner edits survive retries and subsequent imports. Tasks store a recurrence interval and a completion-based or date-based policy. The scheduling task chooses absolute dates when the owner accepts a suggestion. An evidenced deadline makes the accepted Task one-off and removes recurrence.
 
 ### User stories
 
@@ -141,7 +141,7 @@ As a Boring things user, I must be able to:
 - Ask natural-language questions about my Things and get smart, accurate answers
 - See questions I've previously asked and review those chats
 - See a timeline of upcoming and past events related to my Things, and have them synced to my device calendar
-- Add events (recurring or one off) to the timeline
+- Add Tasks with optional recurrence and one-off Events to the timeline
 - Track 'active issues' relating to Things that I am currently dealing with (eg. "Broken microwave", "Water leak from upstairs")
 
 I expect Boring Things to:
@@ -189,18 +189,20 @@ See the `UI Inspiration` folder for ideas for specific components
         - Start chat UI
     - **Thing editor**:
         - Ability to add/remove any of the user-editable parts of a Thing
-- **Timeline**:
-    - **Main timeline view**
-        - Search accepts keywords, filters for Thing name, date range, etc
-        - Each event shows date, name of event, thing. Events can have a calendar date without a time, or a scheduled instant. Recurrence is outside the current scope.
-    - **Event view**
-        - Date, name, details
-        - Links to any related Things
+- **Tasks**:
+    - **Main tasks view**: Today and Tomorrow always appear; Upcoming expands to later dates. Items are Tasks, Events and Thing dates derived from populated date fields. Thing dates appear only on the timeline under their day, as compact shaded cards with a chat action.
+    - Tasks use `SUGGESTED`, `ACTIVE`, `COMPLETED` and `CLOSED`. Accepting a suggestion invokes a scheduling AI task. Missing dates are allowed; active recurring Tasks need `scheduledOn`. Tasks with `deadlineOn` are one-off. Suggestions can hold a recurrence interval until acceptance chooses dates. `scheduledOn` controls placement; `deadlineOn` controls overdue messaging. Scheduled dates cannot follow deadlines.
+    - Today starts with unscheduled and overdue Tasks, followed by Events, Thing dates and other Tasks. Task groups sort by importance: critical, important, recommended and nice to have.
+    - Completing a Task records the current timestamp. Recurrence creates one successor. Completion-based recurrence sets the scheduled date to the actual completion date plus interval. Scheduled-date recurrence advances the original scheduled date, skips missed occurrences and keeps calendar-month and year references. Edits affect one occurrence. Unchecking a completed Task with no actioned followup returns it to active and removes its successor, unless the successor was edited or a later occurrence was completed.
+    - Events use `SCHEDULED` and `CLOSED`, with chat followup available after their end time or date-only day passes.
+    - **How did it go?** offers chat for every completed Task and ended Event until dismissal or the first owner message. Followup chat receives the item and linked Issue context and reuses its conversation. The first owner message records the conversation ID and timestamp against the item and closes it. Dismissal records `closedAt` without a followup. Opening and leaving an empty chat keeps the item pending. Field updates, uploads and Issue resolution through chat are future work.
+    - Resolving an issue closes all linked Tasks and Events. Deleting a Task is available in every state.
+    - **Thing tasks view**: one Thing's suggestions by importance, three at a time with Show all, each with Add and Dismiss actions. Below them, the same view for one Thing, showing every later day.
 - **Assistant**:
     - **List of previous chats**
     - **Conversation view**
         - Users send natural-language messages. The assistant infers requested actions from the conversation and asks a follow-up when the action, Thing or required details are ambiguous.
-        - The current backend supports one suggested maintenance Event or open Issue creation per message. Events are scheduled through their cards. Model judgement determines the requested action; application checks enforce ownership, valid inputs and retry-safe writes.
+        - The current backend supports one Task, Event or open Issue creation per message. Tasks describe user work; Events require a visit, delivery or appointment date. Model judgement determines the requested action; application checks enforce ownership, valid inputs and retry-safe writes.
 - **Insights**:
     - **Dashboard**
     - **Cost analysis**

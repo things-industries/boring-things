@@ -70,6 +70,13 @@ export const routes: Routes = [
       import('./features/things/thing-details/thing-details.page').then((m) => m.ThingDetailsPage),
   },
   {
+    path: 'things/:id/tasks',
+    title: APP_TERMS.tasks,
+    canActivate: [authenticated],
+    loadComponent: () =>
+      import('./features/things/thing-tasks/thing-tasks.page').then((m) => m.ThingTasksPage),
+  },
+  {
     path: 'things/:id/chat',
     title: APP_TERMS.assistant,
     canActivate: [authenticated],
@@ -82,11 +89,11 @@ export const routes: Routes = [
     loadComponent: chatPage,
   },
   {
-    path: 'timeline',
-    title: APP_TERMS.timeline,
+    path: 'tasks',
+    title: APP_TERMS.tasks,
     canActivate: [authenticated],
     data: { bottomNav: true },
-    loadComponent: () => import('./features/timeline/timeline.page').then((m) => m.TimelinePage),
+    loadComponent: () => import('./features/tasks/tasks.page').then((m) => m.TasksPage),
   },
   {
     path: 'profile',

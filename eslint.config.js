@@ -6,6 +6,8 @@ export default ts.config(
     ignores: [
       'node_modules/**',
       'dist/**',
+      'test-results/**',
+      'playwright-report/**',
       '.angular/**',
       'test-results/**',
       'playwright-report/**',

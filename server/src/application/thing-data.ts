@@ -177,11 +177,13 @@ export function projectData(
       scope: f.scope ?? 'INSTANCE',
       valueType:
         f.valueType ??
-        ((f.value === null
-          ? 'STRING'
-          : typeof f.value === 'object'
-            ? 'MONEY'
-            : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum']),
+        ((typeof f.value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.value)
+          ? 'DATE'
+          : f.value === null
+            ? 'STRING'
+            : typeof f.value === 'object'
+              ? 'MONEY'
+              : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum']),
       value: f.sensitive ? null : f.value,
       masked: f.sensitive,
       sourceRefs: f.sensitive ? [] : f.sourceRefs,

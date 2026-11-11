@@ -12,6 +12,7 @@ import { dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { FixtureTaskScheduler } from '../fixtures/task-scheduling.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
@@ -99,11 +100,13 @@ export async function startTestApp(
     await database.transaction(pool, registrySeedDb.seedRegistry);
     const importAi = new FixtureAi({ db: pool, registry: await loadRegistry(pool) });
     const chatAi = new FixtureChat();
+    const taskScheduler = new FixtureTaskScheduler();
     const app = await buildApp({
       dbPool: pool,
       config,
       importAi,
       chatAi,
+      taskScheduler,
       importWorkflow: { specialists: [], ...options.importWorkflow },
       readImageText: options.readImageText ?? (async () => 'neff'),
     });
@@ -114,6 +117,7 @@ export async function startTestApp(
     const signToken = (
       claims: {
         audience?: string;
+        subject?: string;
         expiresIn?: string | number;
         issuer?: string;
         key?: Parameters<SignJWT['sign']>[0];
@@ -121,7 +125,7 @@ export async function startTestApp(
     ) =>
       new SignJWT({})
         .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
-        .setSubject(subject)
+        .setSubject(claims.subject ?? subject)
         .setAudience(claims.audience ?? config.apiResource)
         .setIssuer(claims.issuer ?? issuer + '/oidc')
         .setIssuedAt()
@@ -176,6 +180,7 @@ export async function startTestApp(
       config,
       importAi,
       chatAi,
+      taskScheduler,
       issuer,
       signToken,
       accessToken,

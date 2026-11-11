@@ -31,11 +31,19 @@ dialog {
   }
 }
 .dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: tokens.space(2);
   &:empty {
     display: none;
+  }
+
+  // Projected content keeps the host's encapsulation, so reach the `[dialogActions]` wrapper.
+  ::ng-deep [dialogActions] {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: tokens.space(3);
+
+    > :is(button, a) {
+      border-radius: tokens.radius(tile);
+    }
   }
 }

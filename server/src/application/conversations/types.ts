@@ -1,6 +1,6 @@
 /**
- * Defines the provider boundary for assistant input, tool results, attachment content and streamed
- * text updates.
+ * Conversation activity context and provider contracts for assistant tools, attachment content
+ * and streamed text updates.
  */
 
 import type { Schema } from '../../../../shared/model.js';
@@ -9,13 +9,21 @@ import type { AiContext } from '../../providers/ai/types.js';
 import type { PublicField } from '../public-fields.js';
 import type { ChatInput } from '../../providers/ai/tasks/assistant.js';
 
+export interface ActivityContext {
+  item: Schema['Task'] | Schema['Event'];
+  issue: Schema['Issue'] | null;
+  followup: boolean;
+  timeZone?: string;
+}
+
 export interface ChatToolInputs {
   search_things: { query: string };
   read_thing: { thingId: string };
   read_attachment: { attachmentId: string; includeImages: boolean | null };
   research: { thingId: string; question: string };
-  create_event: { thingId: string; title: string; description: string };
-  create_issue: ChatToolInputs['create_event'];
+  create_task: Required<Omit<Schema['TaskInput'], 'id' | 'status'>>;
+  create_event: Required<Omit<Schema['EventInput'], 'id' | 'status'>>;
+  create_issue: { thingId: string; title: string; description: string };
   show_cards: {
     cards: {
       type: Schema['ResourceCard']['type'];
