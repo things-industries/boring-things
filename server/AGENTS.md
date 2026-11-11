@@ -18,6 +18,8 @@ Paths are relative to `server/`.
 - `src/metrics.ts`: global OpenTelemetry scopes and content-free provider measurements. `src/metrics-report.ts` summarizes calls across import and source traces. Setup and evaluation commands are in [Import observability](../docs/setup/observability.md).
 - `test/`: all server tests, fixtures and helpers, organised by capability. Unit and contract checks use `.test.ts`; integration checks use `.integration.ts`. Shared integration checks are in `test/integration/`.
 
+Specialist data providers extend `SpecialistProvider` in `src/providers/specialist-data.ts`; each integration occupies a provider subfolder such as `src/providers/icecat` or `src/providers/zyfy`. The Import workflow owns persistence and completion checkpoints.
+
 Use typed functions accepting a database executor, owner ID and named input where applicable. Share a transaction executor across related writes. Keep application workflows responsible for rules; simple CRUD routes can call persistence directly. Publish `data.changed` after successful mutations, using `ownerId` to scope delivery to that user, independently of HTTP response delivery. Subscribe before the initial snapshot and retain periodic refresh for cross-process changes. Keep transport lifecycle outside route modules. Use `dbPool` for the assembled database pool and retain provider names such as `importAi`. Make Fastify schema registration and validator installation explicit in `buildApp`. Add classes for state or lifecycle. Import research uses `ResearchThing` with public `knownFields` and eligible `emptyFields`; `ThingCandidate` describes the selected identity; `ImportWorkflow` persists its stages. Use named declarations for complex function types and small barrels at module boundaries. Server imports use `.js` extensions.
 
 Use namespace imports for database modules throughout the repository, including routes, application workflows, other DB modules, scripts and tests; call functions through names such as `thingsDb` and `importsDb`. Named type imports remain suitable. Prefer readable boundaries and development speed at the current traffic volume; retain transaction support for associated queries. The [single-Thing Import plan](../docs/plans/import-improvements.md) describes the workflow and shared-attachment lifecycle.
@@ -37,6 +39,7 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 
 ## Registry and field invariants
 
+- Vehicle first registration uses month precision (`YYYY-MM`).
 - Field definitions use `scope` (`GROUP`, `CLASS`, `INSTANCE`) and `isIdentifier`. Scope controls public research eligibility; identifier status controls Thing identification. Sensitivity controls masking independently. Custom fields default to `INSTANCE`.
 - Categories own field sets. Field definitions may be reused across sets and categories. Registry IDs are stable authored IDs; custom fields do not create global definitions.
 - Give category-wide sets null eligibility. Describe other eligibility as a short statement that can be checked against a source summary. Put field-specific mapping guidance in field descriptions.
@@ -80,8 +83,9 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 - Explain Boring Things terminology that carries domain meaning in prompts. Include `src/providers/ai/prompt-content/thing-definition.md` when the task needs the definition of a Thing.
 
 - Implement specialist integrations when the owner selects a provider and grants access; examples in requirements describe potential integrations. Icecat uses GTIN or manufacturer plus product code/model for appliances and devices, with free-account coverage determined by the API.
+- Research documents and product photos together within the existing web-search and page-read limits.
 - Discovered product photographs are display assets: skip their OCR and field/recommendation evidence. Continue to transcribe uploaded label and document photos.
-- Put Google Vision OCR in `providers/google-vision` and invoke it from attachment processing before OpenAI-related modules. Extract embedded PDF text per page, and render pages without text for the same image OCR path. Missing `GOOGLE_VISION_API_KEY` fails OCR; do not fall back to OpenAI vision. `summarize-attachment` accepts extracted text and returns analysis without source text.
+- Put Google Vision OCR in `providers/google-vision` and invoke it from attachment processing before OpenAI-related modules. Extract embedded PDF text per page, and render pages without text for the same image OCR path. Missing `GOOGLE_VISION_API_KEY` fails OCR. `summarize-attachment` accepts extracted text and, for uploaded images with fewer than 500 trimmed OCR characters, the original image. Keep visual observations in the summary and OCR text in the transcription. See [Attachment preparation](../docs/setup/imports.md#workflow).
 - Imports save identity and mandatory identifier fields before Research, then select fieldsets and populate from applicable linked evidence. Await writes and save completion checkpoints with application changes.
 - Every automatic field writer uses current `autoPopulate` permissions under a Thing row lock. Manual values and explicit removals disable population; empty manually added registry fields remain enabled.
 - Queued Imports permit Thing edits. Active jobs protect their target; unlinking remains allowed and records a decision automatic work must preserve.

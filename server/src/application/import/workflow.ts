@@ -32,7 +32,9 @@ import { publicUrl } from '../../providers/web/resources.js';
 import { downloadPdf } from '../../providers/web/pdf.js';
 import { downloadImage } from '../../providers/web/image.js';
 import { validateResource, saveResourceAttachment, resourceKey } from './resources.js';
-import { IcecatProvider, type SpecialistProvider } from './specialists.js';
+import type { SpecialistProvider } from '../../providers/specialist-data.js';
+import { IcecatProvider } from '../../providers/icecat/index.js';
+import { ZyfyProvider } from '../../providers/zyfy/index.js';
 
 export interface WorkflowOptions {
   download?: typeof downloadPdf;
@@ -249,7 +251,8 @@ export class ImportWorkflow {
     let candidate: ThingCandidate;
     const usable = this.sources.filter(
       (source) =>
-        source.transcription && ['COMPLETE', 'PARTIAL'].includes(source.transcriptionStatus),
+        (source.transcription || source.transcriptionSummary) &&
+        ['COMPLETE', 'PARTIAL'].includes(source.transcriptionStatus),
     );
     if (!usable.length && this.job.targetThingId) {
       const thing = await this.thing();
@@ -437,9 +440,10 @@ export class ImportWorkflow {
   private async specialists() {
     if (this.job.workflow.done.includes('specialists')) return;
     await this.stage('RESEARCH', 'DISCOVERING');
-    const providers =
-      this.options.specialists ??
-      (this.config.icecatAccessToken ? [new IcecatProvider(this.config.icecatAccessToken)] : []);
+    const providers = this.options.specialists ?? [
+      ...(this.config.icecatAccessToken ? [new IcecatProvider(this.config.icecatAccessToken)] : []),
+      ...(this.config.zyfyApiKey ? [new ZyfyProvider(this.config.zyfyApiKey)] : []),
+    ];
     for (const provider of providers) {
       const key = 'specialist:' + provider.id;
       const thing = await this.thing();
@@ -670,7 +674,7 @@ export class ImportWorkflow {
     ).filter(
       (file) =>
         (file.ownerId !== null || !file.mediaType.startsWith('image/')) &&
-        file.transcription &&
+        (file.transcription || file.transcriptionSummary) &&
         ['COMPLETE', 'PARTIAL'].includes(file.transcriptionStatus),
     );
   }

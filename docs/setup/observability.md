@@ -81,17 +81,3 @@ These are calculated service charges before account credits, Google Vision's mon
 `pnpm metrics:check` exercises the application task and telemetry boundaries with invented responses. It uploads synthetic traces in the `setup-check` environment, uses a mocked OpenAI request and makes no AI provider requests. It prints trace IDs for two imports and one attachment. Read them back through the current Langfuse Observations API, including `usage` and `metadata` fields. Check the trace hierarchy, four model turns, one OCR charge and cached-token counts.
 
 Default unit and integration checks use an in-memory exporter or no exporter. They do not upload telemetry or invoke metered models. Provider tests check context isolation, sanitised failures and accounting; import and transcription integration tests exercise their existing workflow paths.
-
-## Evaluating task changes
-
-The document-extraction evaluator can publish experiments using its authored synthetic fixtures:
-
-```bash
-node --import tsx --env-file=.env scripts/evaluate-document-extraction.ts --langfuse
-```
-
-This is a **paid** command. Obtain approval for each invocation under [metered AI validation](../agents/agent-behaviour.md#metered-ai-validation). `--models=model-a,model-b` selects models; each has four fixture cases with up to two attempts per case. The default comparison can therefore make up to sixteen model requests. The evaluator uploads its synthetic inputs, expected labels, outputs and scores to Langfuse and writes its local JSON report.
-
-Each model produces an experiment with its code revision. Scores measure fixture pass/fail, correct fields, incorrect fields and citation errors. Use the same fixtures and scoring definitions when comparing revisions. Review case-level regressions alongside costs and latency. A missing case or missing pass/fail score fails the evaluation run. These fixtures evaluate the document helper; they do not establish full-import quality.
-
-The scoring functions run locally and need no hosted LLM connection. Hosted model judges can be added after choosing and calibrating their rubrics. [Langfuse experiments](https://langfuse.com/docs/evaluation/experiments/experiments-via-sdk) describes the runner and comparison workflow.

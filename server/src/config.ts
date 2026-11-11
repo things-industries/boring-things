@@ -49,6 +49,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     googleVisionApiKey: env.GOOGLE_VISION_API_KEY?.trim() ?? '',
     importTimeoutMs: numberOrFallback(env, 'IMPORT_TIMEOUT_MS', 180000),
     icecatAccessToken: env.ICECAT_ACCESS_TOKEN?.trim() ?? '',
+    zyfyApiKey: env.ZYFY_API_KEY?.trim() ?? '',
     importMaxRequests: numberOrFallback(env, 'IMPORT_MAX_REQUESTS', 60),
     importMaxResources: numberOrFallback(env, 'IMPORT_MAX_RESOURCES', 3),
     importToolRounds: numberOrFallback(env, 'IMPORT_TOOL_ROUNDS', 4),

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
-import { IcecatProvider } from '../../src/application/import/specialists.js';
+import { IcecatProvider } from '../../src/providers/icecat/index.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
 import { startTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';

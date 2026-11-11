@@ -3,7 +3,7 @@
 // cspell:words generalinfo featuregroups
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { IcecatProvider } from '../../src/application/import/specialists.js';
+import { IcecatProvider } from '../../src/providers/icecat/index.js';
 import { Registry } from '../../src/application/registry/registry.js';
 import { fields, sets } from '../../src/db/seeds/registry.js';
 import { addFieldSets, populateFields } from '../../src/application/thing-fields.js';

@@ -75,7 +75,7 @@ export class FixtureAi implements ImportAi {
   arbitraryId = false;
   pause?: Promise<void>;
 
-  async summarizeAttachment(text: string) {
+  async summarizeAttachment({ text }: Parameters<ImportAi['summarizeAttachment']>[0]) {
     return {
       summary: `Source for ${text}`,
       terms: text.toLowerCase().includes('neff')
