@@ -1,12 +1,37 @@
-<bt-top-bar title="All details" [back]="['/things', id()]" backLabel="Back to thing">
-  <button
-    type="button"
-    btIconButton
-    icon="editDetails"
-    variant="elevated"
-    label="Edit details (coming soon)"
-    disabled
-  ></button>
+<bt-top-bar
+  [title]="form() ? 'Edit details' : 'All details'"
+  [back]="form() ? null : ['/things', id()]"
+  backLabel="Back to thing"
+>
+  @if (form()) {
+    <button
+      topBarStart
+      type="button"
+      btIconButton
+      icon="close"
+      label="Cancel editing"
+      (click)="cancelEdit()"
+    ></button>
+  }
+  @if (form()) {
+    <button
+      type="button"
+      btIconButton
+      icon="complete"
+      variant="primary"
+      label="Save details"
+      (click)="save()"
+    ></button>
+  } @else {
+    <button
+      type="button"
+      btIconButton
+      icon="editDetails"
+      label="Edit details"
+      [disabled]="!thing() || processing()"
+      (click)="startEdit()"
+    ></button>
+  }
 </bt-top-bar>
 <bt-scroll-container>
   @if (error()) {
@@ -22,142 +47,184 @@
     <bt-row-skeleton kind="key-value" [rows]="6" />
     <span class="visually-hidden" role="status">Loading thing details…</span>
   } @else if (thing(); as t) {
-    <div class="details-content">
-      <section class="details-section">
-        <bt-section-header title="Thing details" />
-        <bt-card-group hasAction>
-          <bt-key-value-row label="Name" copyable>
-            <span class="details-fixed-value">{{ t.name }}</span>
-            <bt-menu
-              keyValueEnd
-              icon="moreDetails"
-              variant="plain"
-              size="sm"
-              label="Actions for Name"
-            >
-              <button type="button" btMenuItem icon="editDetails" disabled>
-                Edit<span class="visually-hidden"> (coming soon)</span>
-              </button>
-            </bt-menu>
-          </bt-key-value-row>
-          <bt-key-value-row label="Category" copyable>
-            <span class="details-fixed-value">{{ category() ?? t.categoryId }}</span>
-            <bt-menu
-              keyValueEnd
-              icon="moreDetails"
-              variant="plain"
-              size="sm"
-              label="Actions for Category"
-            >
-              <button type="button" btMenuItem icon="editDetails" disabled>
-                Edit<span class="visually-hidden"> (coming soon)</span>
-              </button>
-            </bt-menu>
-          </bt-key-value-row>
-          @if (t.description) {
-            <bt-key-value-row label="Description" copyable>
-              <span class="details-fixed-value">{{ t.description }}</span>
-              <bt-menu
-                keyValueEnd
-                icon="moreDetails"
-                variant="plain"
-                size="sm"
-                label="Actions for Description"
-              >
-                <button type="button" btMenuItem icon="editDetails" disabled>
-                  Edit<span class="visually-hidden"> (coming soon)</span>
-                </button>
-              </bt-menu>
-            </bt-key-value-row>
-          }
-        </bt-card-group>
-      </section>
-
-      @for (group of groups(); track group.id) {
+    @if (form(); as f) {
+      <div class="details-content" [formGroup]="f">
         <section class="details-section">
-          @switch (group.kind) {
-            @case ('standalone') {
-              <bt-section-header title="Other details" />
-            }
-            @case ('custom') {
-              <bt-section-header title="Custom fields" />
-            }
-            @default {
-              <bt-section-header [title]="group.title" />
-            }
-          }
-          <bt-card-group hasAction>
-            @for (row of group.rows; track row.anchor) {
-              <bt-key-value-row
-                [label]="row.label"
-                [attr.id]="row.anchor"
-                [copyable]="copyable(row)"
+          <bt-section-header title="Thing details" />
+          <bt-card-group>
+            <bt-key-value-row label="Name" editing [stacked]="nameControl.long()">
+              <bt-field-control
+                #nameControl
+                formControlName="name"
+                label="Name"
+                [field]="nameInput"
+              />
+            </bt-key-value-row>
+            <bt-key-value-row label="Category" editing>
+              <bt-field-control
+                formControlName="categoryId"
+                label="Category"
+                [field]="categoryInput()"
+              />
+            </bt-key-value-row>
+            <bt-key-value-row label="Description" editing [stacked]="descriptionControl.long()">
+              <bt-field-control
+                #descriptionControl
+                formControlName="description"
+                label="Description"
+                placeholder="Not recorded"
+                [field]="descriptionInput"
+              />
+            </bt-key-value-row>
+          </bt-card-group>
+          @if (f.controls.categoryId.value !== t.categoryId) {
+            <bt-notice tone="warning" icon="issueFault">
+              <span noticeDetail
+                >Populated fields from sections that don't fit the new category are kept as custom
+                fields.</span
               >
-                @if (row.pinned) {
-                  <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
-                    <ng-icon name="pinField" aria-hidden="true" />
-                  </span>
-                }
-                @if (revealed().has(row.anchor)) {
-                  <ng-container
-                    *ngTemplateOutlet="
-                      value;
-                      context: { $implicit: row, value: revealed().get(row.anchor) }
+            </bt-notice>
+          }
+        </section>
+
+        @for (group of groups(); track group.id) {
+          <section class="details-section" formGroupName="fields">
+            <ng-container *ngTemplateOutlet="groupHeader; context: { $implicit: group }" />
+            <bt-card-group>
+              @for (row of group.rows; track row.anchor) {
+                @let visible = shown().has(row.anchor);
+                <bt-key-value-row
+                  [label]="row.label"
+                  [attr.id]="row.anchor"
+                  editing
+                  [stacked]="fieldControl.long()"
+                >
+                  @if (row.pinned) {
+                    <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
+                      <ng-icon name="pinField" aria-hidden="true" />
+                    </span>
+                  }
+                  <bt-field-control
+                    #fieldControl
+                    [formControlName]="row.anchor"
+                    [label]="row.label"
+                    [field]="row.input"
+                    [concealed]="row.input.sensitive && !visible"
+                    [placeholder]="
+                      row.masked && !revealed().has(row.anchor) ? '••••••••' : 'Not recorded'
                     "
                   />
-                } @else if (row.masked) {
-                  ••••••••
-                } @else {
-                  <ng-container
-                    *ngTemplateOutlet="value; context: { $implicit: row, value: row.value }"
-                  />
-                }
-                <bt-menu
-                  keyValueEnd
-                  icon="moreDetails"
-                  variant="plain"
-                  size="sm"
-                  [label]="'Actions for ' + row.label"
-                >
-                  <button type="button" btMenuItem icon="editDetails" disabled>
-                    Edit<span class="visually-hidden"> (coming soon)</span>
-                  </button>
-                  <button
-                    type="button"
-                    btMenuItem
-                    [icon]="row.pinned ? 'unpinField' : 'pinField'"
-                    [disabled]="processing()"
-                    (click)="togglePin(row)"
-                  >
-                    {{ row.pinned ? 'Unpin' : 'Pin' }}
-                  </button>
-                  @if (row.masked) {
+                  @if (row.input.sensitive) {
                     <button
+                      keyValueEnd
                       type="button"
-                      btMenuItem
-                      [icon]="revealed().has(row.anchor) ? 'hideValue' : 'revealValue'"
+                      btIconButton
+                      variant="plain"
+                      size="sm"
+                      [icon]="visible ? 'hideValue' : 'revealValue'"
+                      [label]="(visible ? 'Hide ' : 'Reveal ') + row.label"
                       [disabled]="revealing() === row.anchor"
-                      (click)="toggleReveal(row)"
-                    >
-                      {{ revealed().has(row.anchor) ? 'Hide' : 'Reveal' }}
-                    </button>
+                      (click)="toggleShown(row)"
+                    ></button>
                   }
-                  <button
-                    type="button"
-                    btMenuItem
-                    icon="deleteItem"
-                    [disabled]="processing()"
-                    (click)="deleting.set(row)"
-                  >
-                    Delete
-                  </button>
-                </bt-menu>
+                </bt-key-value-row>
+              }
+            </bt-card-group>
+          </section>
+        }
+      </div>
+    } @else {
+      <div class="details-content">
+        <section class="details-section">
+          <bt-section-header title="Thing details" />
+          <bt-card-group>
+            <bt-key-value-row label="Name" copyable>
+              <span class="details-fixed-value">{{ t.name }}</span>
+            </bt-key-value-row>
+            <bt-key-value-row label="Category" copyable>
+              <span class="details-fixed-value">{{ category() ?? t.categoryId }}</span>
+            </bt-key-value-row>
+            @if (t.description) {
+              <bt-key-value-row label="Description" copyable>
+                <span class="details-fixed-value">{{ t.description }}</span>
               </bt-key-value-row>
             }
           </bt-card-group>
         </section>
-      }
-    </div>
+
+        @for (group of groups(); track group.id) {
+          <section class="details-section">
+            <ng-container *ngTemplateOutlet="groupHeader; context: { $implicit: group }" />
+            <bt-card-group hasAction>
+              @for (row of group.rows; track row.anchor) {
+                <bt-key-value-row
+                  [label]="row.label"
+                  [attr.id]="row.anchor"
+                  [copyable]="copyable(row)"
+                >
+                  @if (row.pinned) {
+                    <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
+                      <ng-icon name="pinField" aria-hidden="true" />
+                    </span>
+                  }
+                  @if (revealed().has(row.anchor)) {
+                    <ng-container
+                      *ngTemplateOutlet="
+                        value;
+                        context: { $implicit: row, value: revealed().get(row.anchor) }
+                      "
+                    />
+                  } @else if (row.masked) {
+                    ••••••••
+                  } @else {
+                    <ng-container
+                      *ngTemplateOutlet="value; context: { $implicit: row, value: row.value }"
+                    />
+                  }
+                  <bt-menu
+                    keyValueEnd
+                    icon="moreDetails"
+                    variant="plain"
+                    size="sm"
+                    [label]="'Actions for ' + row.label"
+                  >
+                    <button
+                      type="button"
+                      btMenuItem
+                      [icon]="row.pinned ? 'unpinField' : 'pinField'"
+                      [disabled]="processing()"
+                      (click)="togglePin(row)"
+                    >
+                      {{ row.pinned ? 'Unpin' : 'Pin' }}
+                    </button>
+                    @if (row.masked) {
+                      <button
+                        type="button"
+                        btMenuItem
+                        [icon]="revealed().has(row.anchor) ? 'hideValue' : 'revealValue'"
+                        [disabled]="revealing() === row.anchor"
+                        (click)="toggleReveal(row)"
+                      >
+                        {{ revealed().has(row.anchor) ? 'Hide' : 'Reveal' }}
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      btMenuItem
+                      icon="deleteItem"
+                      [disabled]="processing()"
+                      (click)="deleting.set(row)"
+                    >
+                      Delete
+                    </button>
+                  </bt-menu>
+                </bt-key-value-row>
+              }
+            </bt-card-group>
+          </section>
+        }
+      </div>
+    }
 
     <bt-dialog
       [title]="'Delete ' + (deleting()?.label ?? '') + '?'"
@@ -176,6 +243,20 @@
     </bt-dialog>
   }
 </bt-scroll-container>
+
+<ng-template #groupHeader let-group>
+  @switch (group.kind) {
+    @case ('standalone') {
+      <bt-section-header title="Other details" />
+    }
+    @case ('custom') {
+      <bt-section-header title="Custom fields" />
+    }
+    @default {
+      <bt-section-header [title]="group.title" />
+    }
+  }
+</ng-template>
 
 <ng-template #value let-row let-value="value">
   @if (value === null) {

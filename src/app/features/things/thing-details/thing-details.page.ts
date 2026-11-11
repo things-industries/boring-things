@@ -9,13 +9,17 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import type { Value } from '../../../../../shared/model';
+import type { Schema, Value } from '../../../../../shared/model';
 import {
+  close,
+  complete,
   deleteItem,
   editDetails,
   hideValue,
+  issueFault,
   moreDetails,
   pinField,
   revealValue,
@@ -26,21 +30,35 @@ import { ThingsStore } from '../../../core/state/things.store';
 import { CardGroup } from '../../../components/card-group/card-group';
 import { Dialog } from '../../../components/dialog/dialog';
 import { ErrorMessage } from '../../../components/error-message/error-message';
+import { FieldControl } from '../../../components/field-control/field-control';
 import { IconButton } from '../../../components/icon-button/icon-button';
 import { KeyValueRow } from '../../../components/key-value-row/key-value-row';
 import { Menu } from '../../../components/menu/menu';
+import { Notice } from '../../../components/notice/notice';
 import { MenuItem } from '../../../components/menu/menu-item';
 import { ScrollContainer } from '../../../components/scroll-container/scroll-container';
 import { SectionHeader } from '../../../components/section-header/section-header';
 import { TopBar } from '../../../components/top-bar/top-bar';
-import { formatFieldValue } from '../../../utils/field.util';
+import type { FieldInput } from '../../../interfaces/field-input.interface';
+import { formatFieldValue, valueDraft } from '../../../utils/field.util';
 import { samePin } from '../../../utils/sections.util';
 import { activeImport } from '../thing.view';
-import { type DetailRow, detailGroups } from './thing-details.view';
+import {
+  type DetailRow,
+  descriptionInput,
+  detailGroups,
+  detailsDraft,
+  detailsPatches,
+  nameInput,
+} from './thing-details.view';
+import { type DetailsForm, detailsForm } from './thing-details.edit';
 import { routeThing } from '../thing-loader';
 import { RowSkeleton } from '../row-skeleton/row-skeleton';
 
-/** Every detail of a Thing in grouped cards, with pin, reveal and delete actions per row. */
+/**
+ * Every detail of a Thing in grouped cards, with pin, reveal and delete actions per row. Edit mode
+ * turns every value into an inline control and saves the changes together.
+ */
 @Component({
   selector: 'bt-thing-details',
   imports: [
@@ -51,10 +69,13 @@ import { RowSkeleton } from '../row-skeleton/row-skeleton';
     CardGroup,
     Dialog,
     ErrorMessage,
+    FieldControl,
     IconButton,
     KeyValueRow,
     Menu,
     MenuItem,
+    Notice,
+    ReactiveFormsModule,
     RowSkeleton,
     ScrollContainer,
     SectionHeader,
@@ -62,9 +83,12 @@ import { RowSkeleton } from '../row-skeleton/row-skeleton';
   ],
   viewProviders: [
     provideIcons({
+      close,
+      complete,
       deleteItem,
       editDetails,
       hideValue,
+      issueFault,
       moreDetails,
       pinField,
       revealValue,
@@ -121,6 +145,22 @@ export class ThingDetailsPage {
   readonly revealing = signal<string | null>(null);
   readonly deleting = signal<DetailRow | null>(null);
 
+  readonly nameInput = nameInput;
+  readonly descriptionInput = descriptionInput;
+
+  readonly categoryInput = computed<FieldInput>(() => ({
+    kind: 'select',
+    sensitive: false,
+    required: true,
+    options: this.categories.entities().map((c) => ({ value: c.id, label: c.name })),
+  }));
+
+  /** The edit form while editing; `null` while viewing. */
+  readonly form = signal<DetailsForm | null>(null);
+
+  /** Sensitive rows whose typed value is visible while editing. */
+  readonly shown = signal<ReadonlySet<string>>(new Set());
+
   constructor() {
     void this.categories.ensureLoaded();
 
@@ -143,6 +183,62 @@ export class ThingDetailsPage {
 
   retry() {
     this.current.retry();
+  }
+
+  startEdit() {
+    const thing = this.thing();
+
+    if (!thing || this.processing()) return;
+    this.shown.set(new Set(this.revealed().keys()));
+    this.form.set(detailsForm(detailsDraft(thing, this.rows(), this.revealed()), this.rows()));
+  }
+
+  cancelEdit() {
+    this.form.set(null);
+  }
+
+  /** Saves every changed value and leaves edit mode, or points at the first invalid value. */
+  save() {
+    const form = this.form();
+    const thing = this.thing();
+    const detail = this.detail();
+
+    if (!form || !thing || !detail) return;
+
+    if (form.invalid) {
+      form.markAllAsTouched();
+      afterNextRender(
+        () =>
+          document.querySelector<HTMLElement>('bt-field-control [aria-invalid="true"]')?.focus(),
+        { injector: this.injector },
+      );
+      return;
+    }
+
+    const patches = detailsPatches(thing, detail, this.rows(), form.getRawValue(), this.revealed());
+
+    this.form.set(null);
+    void this.send(patches);
+  }
+
+  /** Reveals or hides a sensitive value while editing, fetching it when it is masked. */
+  async toggleShown(row: DetailRow) {
+    if (this.shown().has(row.anchor)) {
+      this.shown.update((set) => new Set([...set].filter((anchor) => anchor !== row.anchor)));
+      return;
+    }
+
+    if (row.masked && !this.revealed().has(row.anchor)) {
+      await this.toggleReveal(row);
+      if (!this.revealed().has(row.anchor)) return;
+
+      const control = this.form()?.controls.fields.controls[row.anchor];
+
+      if (control?.pristine)
+        control.setValue(valueDraft(row.input, this.revealed().get(row.anchor) ?? null));
+    }
+
+    this.shown.update((set) => new Set(set).add(row.anchor));
   }
 
   togglePin(row: DetailRow) {
@@ -172,6 +268,17 @@ export class ThingDetailsPage {
     this.hide(row.anchor);
     this.deleting.set(null);
     void this.things.update(this.id(), row.remove);
+  }
+
+  private readonly rows = computed(() => this.groups().flatMap((group) => group.rows));
+
+  /** Sends each patch after the previous one succeeds; a failure has already reverted and toasted. */
+  private async send(patches: Schema['ThingPatch'][]) {
+    for (const patch of patches) {
+      const result = await this.things.update(this.id(), patch);
+
+      if (!result.ok) return;
+    }
   }
 
   private hide(anchor: string) {

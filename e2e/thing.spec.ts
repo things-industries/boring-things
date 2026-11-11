@@ -8,14 +8,17 @@ const png = Buffer.from(
   'base64',
 );
 
-/** Creates an appliance with a warranty section through the manual form and opens it. */
-async function createThing(page: Page, name: string) {
+/** Creates a Thing through the manual form, by default an appliance with a warranty, and opens it. */
+async function createThing(
+  page: Page,
+  name: string,
+  category = 'appliances',
+  section = 'appliances.warranty',
+) {
   await page.goto('/things/new/manual');
   await page.getByRole('textbox', { name: 'Name' }).fill(name);
-  await page.getByRole('combobox', { name: 'Category' }).selectOption('appliances');
-  await page
-    .getByRole('combobox', { name: 'Details to include' })
-    .selectOption('appliances.warranty');
+  await page.getByRole('combobox', { name: 'Category' }).selectOption(category);
+  await page.getByRole('combobox', { name: 'Details to include' }).selectOption(section);
   await page.getByRole('button', { name: 'Create thing' }).click();
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   return page.url();
@@ -154,13 +157,12 @@ test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   await expect(page.getByText('Pin details to see them here.')).toBeVisible();
   await page.getByRole('link', { name: 'See all details' }).click();
   await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Edit details (coming soon)' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Edit details' })).toBeEnabled();
 
   const ends = page.locator('bt-key-value-row').filter({ hasText: 'Warranty ends' });
 
   await expect(ends).toContainText('Not recorded');
   await ends.getByRole('button', { name: 'Actions for Warranty ends' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Edit (coming soon)' })).toBeDisabled();
   await expect(page.getByRole('menuitem', { name: 'Delete', exact: true })).toBeEnabled();
   await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
   await expect(ends.getByRole('img', { name: 'Pinned' })).toBeVisible();
@@ -198,12 +200,91 @@ test('All details deletes a value after confirmation', async ({ page }) => {
   await expect(payload).toContainText('Not recorded');
 });
 
-test('Thing details rows offer only a disabled Edit', async ({ page }) => {
-  await createThing(page, `Fixed kettle ${Date.now()}`);
+test('edit mode saves changed details together', async ({ page }) => {
+  const name = `Edited kettle ${Date.now()}`;
+
+  await createThing(page, `Draft kettle ${Date.now()}`);
   await page.getByRole('link', { name: 'See all details' }).click();
-  await page.getByRole('button', { name: 'Actions for Name' }).click();
-  await expect(page.getByRole('menuitem')).toHaveCount(1);
-  await expect(page.getByRole('menuitem', { name: 'Edit (coming soon)' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Actions for Name' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit details', level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to thing' })).toHaveCount(0);
+
+  // Clicking and typing, rather than filling, checks the controls receive pointer input.
+  const nameBox = page.getByRole('textbox', { name: 'Name' });
+
+  await nameBox.click();
+  await nameBox.press('ControlOrMeta+a');
+  await page.keyboard.type(name);
+  await page.getByRole('textbox', { name: 'Warranty provider' }).click();
+  await page.keyboard.type('Example Care Extended Warranty Services');
+  // Single-line text ignores Enter, and long text moves to its own row under the label.
+  await page.keyboard.press('Enter');
+  await expect(
+    page.locator('bt-key-value-row', { hasText: 'Warranty provider' }).first(),
+  ).toHaveClass(/is-stacked/);
+  await page.locator('input[aria-label="Warranty ends"]').fill('2027-03-12');
+  const saved = page.waitForResponse((response) => response.request().method() === 'PATCH');
+
+  await page.getByRole('button', { name: 'Save details' }).click();
+  expect((await saved).request().postDataJSON()).toMatchObject({
+    name,
+    values: [
+      { fieldId: 'common.warrantyProvider', value: 'Example Care Extended Warranty Services' },
+      { fieldId: 'common.warrantyEnds', value: '2027-03-12' },
+    ],
+  });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
+  await expect(page.locator('bt-key-value-row', { hasText: 'Name' }).first()).toContainText(name);
+  await expect(page.locator('bt-key-value-row', { hasText: 'Warranty ends' })).toContainText(
+    '12 Mar 2027',
+  );
+});
+
+test('edit mode saves money with a currency and two decimal places', async ({ page }) => {
+  await createThing(page, `Edited policy ${Date.now()}`, 'insurance', 'insurance.buildings');
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+
+  const amount = page.getByRole('spinbutton', { name: 'Sum insured' });
+
+  await amount.click();
+  await page.keyboard.type('1250.5');
+  await amount.blur();
+  await expect(amount).toHaveValue('1250.50');
+  await page.getByRole('combobox', { name: 'Sum insured currency' }).selectOption('EUR');
+  const saved = page.waitForResponse((response) => response.request().method() === 'PATCH');
+
+  await page.getByRole('button', { name: 'Save details' }).click();
+  expect((await saved).request().postDataJSON()).toMatchObject({
+    values: [{ fieldId: 'insurance.sumInsured', value: { amountMinor: 125050, currency: 'EUR' } }],
+  });
+  await expect(page.locator('bt-key-value-row', { hasText: 'Sum insured' })).toContainText(
+    '€1,250.50',
+  );
+});
+
+test('edit mode rejects an invalid email, and cancelling discards changes', async ({ page }) => {
+  await page.goto('/things');
+  await page.getByRole('link', { name: 'Museum membership', exact: true }).click();
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+
+  const email = page.getByRole('textbox', { name: 'Account email' });
+
+  await email.click();
+  await page.keyboard.type('not-an-email');
+  await page.getByRole('button', { name: 'Save details' }).click();
+  await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+  await expect(email).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Edit details', level: 1 })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Cancel editing' }).click();
+  await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
+  await expect(page.locator('bt-key-value-row', { hasText: 'Account email' })).toContainText(
+    'Not recorded',
+  );
 });
 
 test('choosing a detail copies its value', async ({ page }) => {
