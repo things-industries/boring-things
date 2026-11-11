@@ -1,6 +1,5 @@
 /** Researches and converts cited suggestTasks results. */
 
-import { taskProperties } from './task-fields.js';
 import type { FromSchema } from 'json-schema-to-ts';
 import type { TaskSuggestions, ImportTaskContext } from '../../../application/import/types.js';
 import type { Response } from 'openai/resources/responses/responses';
@@ -52,13 +51,21 @@ export const outputSchema = createObjectSchema(
             minLength: 1,
             maxLength: 4000,
           },
-          importance: taskProperties.importance,
+          importance: {
+            type: 'string',
+            description: 'Prominence and ordering within a day, independent of scheduling.',
+            enum: ['CRITICAL', 'IMPORTANT', 'RECOMMENDED', 'NICE_TO_HAVE'],
+          },
           recurrence: {
             anyOf: [
               createObjectSchema(
                 {
-                  interval: taskProperties.recurrence.anyOf[0].properties.interval,
-                  unit: taskProperties.recurrence.anyOf[0].properties.unit,
+                  interval: { type: 'integer', minimum: 1, maximum: 1000 },
+                  unit: {
+                    type: 'string',
+                    description: 'Calendar unit for task recurrence.',
+                    enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'],
+                  },
                 },
                 'Documented recurrence interval for the task idea.',
               ),

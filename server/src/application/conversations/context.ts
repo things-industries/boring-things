@@ -2,32 +2,44 @@
 import type { Schema } from '../../../../shared/model.js';
 import type * as conversationsDb from '../../db/entities/conversations.js';
 
-// Keep populated values and addresses; the application retains provenance for citations.
+// Include empty field addresses and definitions so requested edits can use the registry.
 export function chatThingContext(
   thing: Schema['Thing'],
   resources: Awaited<ReturnType<typeof conversationsDb.getOwnedChatResources>>,
 ) {
   const fields = (items: Schema['Field'][]) =>
-    items
-      .filter((field) => field.value !== null || field.masked)
-      .map(({ id, name, value, masked }) => ({ id, name, value, masked }));
+    items.map(({ id, name, description, value, masked, schema, scope, sensitive }) => ({
+      id,
+      name,
+      description,
+      value,
+      masked,
+      schema,
+      scope,
+      sensitive,
+    }));
   return {
     thing: {
       id: thing.id,
       name: thing.name,
       categoryId: thing.categoryId,
-      fieldSets: thing.fieldSets
-        .map(({ id, name, fields: items }) => ({ id, name, fields: fields(items) }))
-        .filter((set) => set.fields.length),
+      fieldSets: thing.fieldSets.map(({ id, name, fields: items }) => ({
+        id,
+        name,
+        fields: fields(items),
+      })),
       standaloneFields: fields(thing.standaloneFields),
-      customFields: thing.customFields
-        .filter((field) => field.value !== null || field.masked)
-        .map(({ id, label, value, masked }) => ({
+      customFields: thing.customFields.map(
+        ({ id, label, value, masked, sensitive, scope, valueType }) => ({
           id,
           label,
           value,
           masked,
-        })),
+          sensitive,
+          scope,
+          valueType,
+        }),
+      ),
     },
     attachments: resources.attachments.map(
       ({ id, filename, title, mediaType, documentType, pageCount }) => ({

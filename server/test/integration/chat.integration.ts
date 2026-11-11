@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { PDFDocument } from 'pdf-lib';
 import type { FastifyInstance } from 'fastify';
 import type { Schema } from '../../../shared/model.js';
 import { FixtureChat } from '../fixtures/chat.js';
@@ -13,6 +14,7 @@ import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { ApplicationError } from '../../src/application/errors.js';
+import type { ChatFieldInput } from '../../src/application/conversations/fields.js';
 
 const url = new URL(
   process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
@@ -273,6 +275,8 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
     items: Schema['Task'][];
   }>();
   assert.equal(events.items.length, 1);
+  assert.equal(events.items[0].status, 'ACTIVE');
+  assert.equal(events.items[0].scheduledOn, null);
   assert.equal(
     (await request('POST', `/conversations/${chat.id}/messages`, input)).statusCode,
     202,
@@ -882,3 +886,583 @@ test('research provider validation failures and exhausted tool budgets fail the 
   assert.equal(result.message.error, 'assistant_failed');
   assert.deepEqual(result.message.cards, []);
 });
+
+test('chat creates active dated and recurring Tasks and reports invalid schedules as tool errors', async () => {
+  const { thing, chat } = await setup();
+  for (const [scheduledOn, deadlineOn, recurrence, valid] of [
+    ['2027-01-10', '2027-01-12', null, true],
+    ['2027-01-10', null, { interval: 1, unit: 'MONTH', from: 'COMPLETION' }, true],
+    [null, null, { interval: 1, unit: 'MONTH', from: 'COMPLETION' }, false],
+    ['2027-01-10', '2027-01-12', { interval: 1, unit: 'MONTH', from: 'SCHEDULED' }, false],
+  ] as const) {
+    ai.probe = async (_input, execute) => {
+      const result = await execute('create_task', {
+        thingId: thing.id,
+        issueId: null,
+        title: 'Check filter',
+        description: '',
+        importance: 'RECOMMENDED',
+        scheduledOn,
+        deadlineOn,
+        recurrence,
+      });
+      assert.equal('error' in (result.output as object), !valid);
+    };
+    await request('POST', `/conversations/${chat.id}/messages`, {
+      text: 'Create a filter task',
+      requestId: randomUUID(),
+    });
+    assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  }
+  const tasks = (await request('GET', `/tasks?thingId=${thing.id}`)).json<{
+    items: Schema['Task'][];
+  }>().items;
+  assert.equal(tasks.length, 2);
+  assert.ok(tasks.every((task) => task.status === 'ACTIVE'));
+  assert.equal(tasks.find((task) => task.recurrence)?.recurrence?.unit, 'MONTH');
+});
+
+test('chat field batches add sets, update custom fields, clear values and reuse receipts after owner edits', async (t) => {
+  const { thing, chat } = await setup();
+  const controller = new AbortController();
+  t.after(() => controller.abort());
+  const stream = await fetch(base + `/api/things/${thing.id}/stream`, {
+    headers: { authorization: 'Bearer alice' },
+    signal: AbortSignal.any([controller.signal, AbortSignal.timeout(7000)]),
+  });
+  assert.equal(stream.status, 200);
+  const reader = stream.body!.getReader();
+  await reader.read();
+  const input = { text: 'Save these details', requestId: randomUUID() };
+  const patch: ChatFieldInput = {
+    thingId: thing.id,
+    addFieldSetIds: ['appliances.dimensions'],
+    values: [
+      {
+        fieldSetId: 'appliances.dimensions',
+        fieldId: 'common.width',
+        value: '60 cm',
+        source: null,
+      },
+      { fieldSetId: null, fieldId: 'common.serialNumber', value: '000123', source: null },
+    ],
+    customFields: [
+      {
+        customFieldId: null,
+        label: 'Filter size',
+        value: 'Medium',
+        sensitive: false,
+        scope: 'CLASS',
+        source: null,
+      },
+    ],
+  };
+  let firstResult: unknown;
+  ai.probe = async (context, execute) => {
+    assert.ok(
+      context.activeThing?.thing.fieldSets
+        .flatMap((set) => set.fields)
+        .some((field) => field.value === null),
+    );
+    if (firstResult) {
+      assert.ok(
+        context.completedWrites.some(
+          (receipt) => (receipt as { key: string }).key === 'update_thing_fields',
+        ),
+      );
+      assert.deepEqual((await execute('update_thing_fields', patch)).output, firstResult);
+      return;
+    }
+    await execute('search_field_sets', { categoryId: 'appliances', terms: ['dimensions'] });
+    await execute('search_fields', { labels: [{ label: 'Serial number', context: '' }] });
+    const result = await execute('update_thing_fields', patch);
+    assert.ok(!('error' in (result.output as object)), JSON.stringify(result.output));
+    firstResult = result.output;
+    const customId = (
+      result.output as { changedFields: { customFieldId: string | null }[] }
+    ).changedFields.find((field) => field.customFieldId)!.customFieldId!;
+    assert.deepEqual(
+      (
+        await execute('show_cards', {
+          cards: [
+            {
+              type: 'FIELD',
+              id: thing.id,
+              fieldSetId: null,
+              fieldId: null,
+              customFieldId: customId,
+              page: null,
+            },
+          ],
+        })
+      ).output,
+      { shown: 1 },
+    );
+  };
+  ai.creation = 'create_task';
+  ai.failOnce = true;
+  await request('POST', `/conversations/${chat.id}/messages`, input);
+  const failed = (await wait(chat.id)).message;
+  assert.equal(failed.status, 'FAILED');
+  assert.equal(
+    failed.cards.filter(
+      (card) =>
+        card.type === 'FIELD' &&
+        (card.fieldId === 'common.serialNumber' ||
+          card.fieldId === 'common.width' ||
+          card.customFieldId),
+    ).length,
+    3,
+  );
+  let refreshed = '';
+  while (!refreshed.includes('000123')) {
+    const chunk = await reader.read();
+    assert.equal(chunk.done, false);
+    refreshed += new TextDecoder().decode(chunk.value);
+  }
+  controller.abort();
+  const saved = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.ok(saved.revision > thing.revision);
+  assert.ok(saved.fieldSets.some((set) => set.id === 'appliances.appliance'));
+  assert.ok(saved.fieldSets.some((set) => set.id === 'appliances.dimensions'));
+  assert.equal(
+    saved.standaloneFields.find((field) => field.id === 'common.serialNumber')?.value,
+    '000123',
+  );
+  assert.equal(
+    saved.standaloneFields.find((field) => field.id === 'common.serialNumber')?.origin,
+    'USER',
+  );
+  assert.equal(
+    saved.standaloneFields.find((field) => field.id === 'common.serialNumber')?.autoPopulate,
+    false,
+  );
+  const custom = saved.customFields[0];
+  await request('PATCH', `/things/${thing.id}`, {
+    values: [{ fieldSetId: null, fieldId: 'common.serialNumber', value: 'owner-edit' }],
+  });
+  await request('POST', `/conversations/${chat.id}/messages`, input);
+  const retried = (await wait(chat.id)).message;
+  assert.equal(retried.status, 'COMPLETE');
+  const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.equal(
+    after.standaloneFields.find((field) => field.id === 'common.serialNumber')?.value,
+    'owner-edit',
+  );
+  assert.equal(after.customFields.length, 1);
+  assert.equal(after.customFields[0].id, custom.id);
+  assert.equal((await request('GET', `/tasks?thingId=${thing.id}`)).json().items.length, 1);
+  assert.ok(
+    retried.cards.some((card) => card.type === 'FIELD' && card.customFieldId === custom.id),
+  );
+  ai.creation = undefined;
+  ai.probe = async (_context, execute) => {
+    await execute('search_fields', { labels: [{ label: 'Serial number', context: '' }] });
+    const edited = await execute('update_thing_fields', {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [{ fieldSetId: null, fieldId: 'common.serialNumber', value: null, source: null }],
+      customFields: [
+        {
+          customFieldId: custom.id,
+          label: 'Filter size',
+          value: 'Large',
+          sensitive: false,
+          scope: 'CLASS',
+          source: null,
+        },
+      ],
+    });
+    assert.ok(!('error' in (edited.output as object)));
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Clear the serial and update the filter size',
+    requestId: randomUUID(),
+  });
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  const edited = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.equal(
+    edited.standaloneFields.find((field) => field.id === 'common.serialNumber')?.value,
+    null,
+  );
+  assert.equal(
+    edited.standaloneFields.find((field) => field.id === 'common.serialNumber')?.autoPopulate,
+    false,
+  );
+  assert.equal(edited.customFields[0].value, 'Large');
+});
+
+test('chat field validation rejects unread Things, unknown fields, invalid values and import conflicts', async () => {
+  const { thing, chat } = await setup();
+  const unread = await setup();
+  const foreign = await setup('bob');
+  ai.probe = async (_input, execute) => {
+    const patch: ChatFieldInput = {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [{ fieldSetId: null, fieldId: 'common.model', value: 'Example', source: null }],
+      customFields: [],
+    };
+    for (const thingId of [unread.thing.id, foreign.thing.id])
+      assert.deepEqual((await execute('update_thing_fields', { ...patch, thingId })).output, {
+        error: 'Read the Thing first',
+      });
+    assert.deepEqual((await execute('update_thing_fields', patch)).output, {
+      error: 'Search for the registry field first',
+    });
+    await execute('search_fields', {
+      labels: [
+        { label: 'common.model', context: '' },
+        { label: 'common.width', context: '' },
+      ],
+    });
+    for (const values of [
+      [{ ...patch.values[0], fieldId: 'missing.field' }],
+      [{ ...patch.values[0], value: false }],
+      [
+        {
+          fieldSetId: 'appliances.dimensions',
+          fieldId: 'common.width',
+          value: '60 cm',
+          source: null,
+        },
+      ],
+      [patch.values[0], { ...patch.values[0], fieldId: 'missing.field' }],
+    ]) {
+      assert.ok(
+        'error' in ((await execute('update_thing_fields', { ...patch, values })).output as object),
+      );
+    }
+    const owner = (await pool.query('select owner_id from bt.things where id=$1', [thing.id]))
+      .rows[0].owner_id;
+    const id = randomUUID();
+    await pool.query(
+      "insert into bt.imports(id,owner_id,target_thing_id,status) values($1,$2,$3,'MAPPING')",
+      [id, owner, thing.id],
+    );
+    try {
+      assert.deepEqual((await execute('update_thing_fields', patch)).output, {
+        error: 'Thing is processing an import; try again after it finishes',
+      });
+    } finally {
+      await pool.query('delete from bt.imports where id=$1', [id]);
+    }
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Try invalid changes',
+    requestId: randomUUID(),
+  });
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.equal(after.revision, thing.revision);
+  assert.equal(after.standaloneFields.length, 0);
+});
+
+test('chat field values keep retrieved attachment pages and research URLs while masking secrets', async (t) => {
+  const { thing, chat } = await setup();
+  const boundary = 'field-source';
+  const pdf = await PDFDocument.create();
+  pdf.addPage().drawText('Example manual.');
+  pdf.addPage().drawText('Model: Sample 10.');
+  const upload = await app.inject({
+    method: 'POST',
+    url: '/api/attachments',
+    headers: {
+      authorization: 'Bearer alice',
+      'content-type': 'multipart/form-data; boundary=' + boundary,
+    },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="manual.pdf"\r\nContent-Type: application/pdf\r\n\r\n`,
+      ),
+      Buffer.from(await pdf.save()),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(upload.statusCode, 201, upload.body);
+  const file = upload.json<Schema['Attachment']>();
+  await pool.query('update bt.attachments set page_count=$2 where id=$1', [
+    file.id,
+    pdf.getPageCount(),
+  ]);
+  // Link the source without queuing an Import, which would block the requested field edit.
+  await pool.query(
+    'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) select id,$2,owner_id from bt.things where id=$1',
+    [thing.id, file.id],
+  );
+  const sourceUrl = 'https://manufacturer.example/specification';
+  t.mock.method(ai, 'research', async () => ({
+    text: 'Public colour: blue.',
+    sources: [sourceUrl],
+  }));
+  ai.probe = async (_input, execute) => {
+    await execute('search_fields', { labels: [{ label: 'common.model', context: '' }] });
+    const patch: ChatFieldInput = {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [
+        {
+          fieldSetId: 'appliances.appliance',
+          fieldId: 'common.model',
+          value: 'Sample 10',
+          source: { attachmentId: file.id, page: 2, url: null },
+        },
+      ],
+      customFields: [],
+    };
+    assert.deepEqual((await execute('update_thing_fields', patch)).output, {
+      error: 'Read the attachment first',
+    });
+    await execute('read_attachment', { attachmentId: file.id, includeImages: null });
+    assert.deepEqual(
+      (
+        await execute('update_thing_fields', {
+          ...patch,
+          values: [{ ...patch.values[0], source: { attachmentId: file.id, page: 3, url: null } }],
+        })
+      ).output,
+      { error: 'Invalid attachment page' },
+    );
+    assert.deepEqual(
+      (
+        await execute('update_thing_fields', {
+          ...patch,
+          values: [
+            { ...patch.values[0], source: { attachmentId: null, page: null, url: sourceUrl } },
+          ],
+        })
+      ).output,
+      { error: 'Use a source returned by research' },
+    );
+    await execute('research', { thingId: thing.id, question: 'What colour is this model?' });
+    const saved = await execute('update_thing_fields', {
+      ...patch,
+      customFields: [
+        {
+          customFieldId: null,
+          label: 'Colour',
+          value: 'Blue',
+          sensitive: false,
+          scope: 'CLASS',
+          source: { attachmentId: null, page: null, url: sourceUrl },
+        },
+        {
+          customFieldId: null,
+          label: 'Access code',
+          value: 'private-0042',
+          sensitive: true,
+          scope: 'INSTANCE',
+          source: null,
+        },
+      ],
+    });
+    assert.ok(!JSON.stringify(saved.output).includes('private-0042'));
+    assert.ok(!('error' in (saved.output as object)), JSON.stringify(saved.output));
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Save the model and colour, and my access code',
+    requestId: randomUUID(),
+  });
+  const result = (await wait(chat.id)).message;
+  assert.equal(result.status, 'COMPLETE');
+  assert.ok(!JSON.stringify(result).includes('private-0042'));
+  const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  const model = after.fieldSets
+    .find((set) => set.id === 'appliances.appliance')!
+    .fields.find((field) => field.id === 'common.model')!;
+  assert.equal(model.origin, 'IMPORT');
+  assert.equal(model.autoPopulate, false);
+  assert.deepEqual(model.sourceRefs, [{ attachmentId: file.id, page: 2 }]);
+  const colour = after.customFields.find((field) => field.label === 'Colour')!;
+  const secret = after.customFields.find((field) => field.label === 'Access code')!;
+  assert.equal(colour.origin, 'DISCOVERY');
+  assert.equal(colour.autoPopulate, false);
+  assert.deepEqual(colour.sourceRefs, [{ url: sourceUrl }]);
+  assert.equal(secret.value, null);
+  assert.deepEqual(secret.sourceRefs, []);
+  const stored = (
+    await pool.query(
+      'select value,auto_populate from bt.thing_fields where thing_id=$1 and field_key=$2',
+      [thing.id, `local:${secret.id}`],
+    )
+  ).rows[0];
+  assert.equal(stored.value, 'private-0042');
+  assert.equal(stored.auto_populate, false);
+});
+
+// Selecting changed custom fields by their returned positions could cite an untouched field.
+test('chat field cards identify the edited custom field after database ordering', async () => {
+  const { thing, chat } = await setup();
+  const saved = (
+    await request('PATCH', `/things/${thing.id}`, {
+      customFields: [
+        { label: 'First custom field', value: 'Original', sensitive: false },
+        { label: 'Second custom field', value: 'Original', sensitive: false },
+      ],
+    })
+  ).json<Schema['Thing']>();
+  const [edited, untouched] = [...saved.customFields].sort((a, b) => a.id.localeCompare(b.id));
+  ai.probe = async (_input, execute) => {
+    await execute('update_thing_fields', {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [],
+      customFields: [
+        {
+          customFieldId: edited.id,
+          label: edited.label,
+          value: 'Changed',
+          sensitive: false,
+          scope: 'INSTANCE',
+          source: null,
+        },
+      ],
+    });
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Change the custom field',
+    requestId: randomUUID(),
+  });
+  const result = (await wait(chat.id)).message;
+  assert.equal(result.status, 'COMPLETE');
+  assert.ok(result.cards.some((card) => card.type === 'FIELD' && card.customFieldId === edited.id));
+  assert.ok(
+    !result.cards.some((card) => card.type === 'FIELD' && card.customFieldId === untouched.id),
+  );
+  const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.equal(after.customFields.find((field) => field.id === untouched.id)?.value, 'Original');
+});
+
+test('a field receipt persistence failure rolls back the field write and allows retry', async () => {
+  const { thing, chat } = await setup();
+  const input = { text: 'Save the model', requestId: randomUUID() };
+  ai.probe = async (_input, execute) => {
+    await execute('search_fields', { labels: [{ label: 'common.model', context: '' }] });
+    await execute('update_thing_fields', {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [{ fieldSetId: null, fieldId: 'common.model', value: 'Sample 10', source: null }],
+      customFields: [],
+    });
+  };
+  await pool.query(`create function bt.reject_field_receipt() returns trigger language plpgsql as $$
+    begin
+      if new.tool_results @> '[{"key":"update_thing_fields"}]'::jsonb then
+        raise exception 'Synthetic receipt persistence failure';
+      end if;
+      return new;
+    end $$;
+    create trigger reject_field_receipt before update of tool_results on bt.messages
+    for each row execute function bt.reject_field_receipt()`);
+  try {
+    await request('POST', `/conversations/${chat.id}/messages`, input);
+    assert.equal((await wait(chat.id)).message.status, 'FAILED');
+    const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+    assert.equal(after.revision, thing.revision);
+    assert.equal(after.standaloneFields.length, 0);
+  } finally {
+    await pool.query(
+      'drop trigger reject_field_receipt on bt.messages; drop function bt.reject_field_receipt()',
+    );
+  }
+  await request('POST', `/conversations/${chat.id}/messages`, input);
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.equal(
+    after.standaloneFields.find((field) => field.id === 'common.model')?.value,
+    'Sample 10',
+  );
+});
+
+// PR #154 counted already-displayed fields twice and rejected updates below the distinct-card limit.
+for (const newFieldCount of [0, 4, 5])
+  test(`chat field card limit counts identities with ${newFieldCount} new custom fields`, async () => {
+    const { thing, chat } = await setup();
+    const saved = (
+      await request('PATCH', `/things/${thing.id}`, {
+        values: [{ fieldSetId: null, fieldId: 'common.model', value: 'Before' }],
+        customFields: Array.from({ length: 18 }, (_, index) => ({
+          label: `Example ${index}`,
+          value: 'Before',
+          sensitive: false,
+        })),
+      })
+    ).json<Schema['Thing']>();
+    const cardAddress = { fieldSetId: null, fieldId: null, customFieldId: null, page: null };
+    const selected = [
+      { ...cardAddress, type: 'THING' as const, id: thing.id },
+      { ...cardAddress, type: 'FIELD' as const, id: thing.id, fieldId: 'common.model' },
+      ...saved.customFields.map((field) => ({
+        ...cardAddress,
+        type: 'FIELD' as const,
+        id: thing.id,
+        customFieldId: field.id,
+      })),
+    ];
+    const patch: ChatFieldInput = {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [{ fieldSetId: null, fieldId: 'common.model', value: 'After', source: null }],
+      customFields: [
+        ...saved.customFields.slice(0, 4).map((field) => ({
+          customFieldId: field.id,
+          label: field.label,
+          value: 'After',
+          sensitive: false,
+          scope: field.scope,
+          source: null,
+        })),
+        ...Array.from({ length: newFieldCount }, (_, index) => ({
+          customFieldId: null,
+          label: `New ${index}`,
+          value: 'After',
+          sensitive: false,
+          scope: 'INSTANCE' as const,
+          source: null,
+        })),
+      ],
+    };
+    let output: unknown;
+    ai.probe = async (_input, execute) => {
+      await execute('search_fields', { labels: [{ label: 'common.model', context: '' }] });
+      for (let index = 0; index < selected.length; index += 12)
+        assert.deepEqual(
+          (await execute('show_cards', { cards: selected.slice(index, index + 12) })).output,
+          { shown: Math.min(12, selected.length - index) },
+        );
+      output = (await execute('update_thing_fields', patch)).output;
+    };
+    await request('POST', `/conversations/${chat.id}/messages`, {
+      text: 'Update the displayed fields',
+      requestId: randomUUID(),
+    });
+    const result = (await wait(chat.id)).message;
+    assert.equal(result.status, 'COMPLETE');
+    const after = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+    if (newFieldCount === 5) {
+      assert.deepEqual(output, { error: 'Assistant card limit' });
+      assert.equal(after.revision, saved.revision);
+      assert.equal(after.customFields.length, saved.customFields.length);
+      assert.equal(
+        after.standaloneFields.find((field) => field.id === 'common.model')?.value,
+        'Before',
+      );
+      assert.equal(result.cards.length, 20);
+    } else {
+      assert.ok(
+        output && typeof output === 'object' && !('error' in output),
+        JSON.stringify(output),
+      );
+      assert.equal(after.customFields.length, saved.customFields.length + newFieldCount);
+      assert.equal(
+        after.standaloneFields.find((field) => field.id === 'common.model')?.value,
+        'After',
+      );
+      for (const field of patch.customFields.filter((field) => field.customFieldId))
+        assert.equal(
+          after.customFields.find((stored) => stored.id === field.customFieldId)?.value,
+          'After',
+        );
+      assert.equal(result.cards.length, 20 + newFieldCount);
+    }
+  });

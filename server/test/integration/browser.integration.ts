@@ -1,3 +1,5 @@
+/** Browser integration checks for Thing editing, chat, Imports and JWT verification. */
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
@@ -98,16 +100,21 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await expect(
       page.locator('bt-rich-text').filter({ hasText: 'The saved details are ready.' }),
     ).toHaveCount(1);
-    assert.equal(
+
+    // Chat creates one active Task, including when the response is retried after the write.
+    assert.deepEqual(
       (
-        await pool.query(
-          'select count(*)::int as count from bt.tasks where thing_id=$1 and title=$2',
-          [membershipId, 'Check the filter'],
-        )
-      ).rows[0].count,
-      1,
+        await pool.query('select status from bt.tasks where thing_id=$1 and title=$2', [
+          membershipId,
+          'Check the filter',
+        ])
+      ).rows,
+      [{ status: 'ACTIVE' }],
     );
-    await chatTask.getByRole('button', { name: 'Add to tasks: Check the filter' }).click();
+    await expect(chatTask).toContainText('Active task');
+    await expect(
+      chatTask.getByRole('button', { name: 'Add to tasks: Check the filter' }),
+    ).toHaveCount(0);
     await expect(
       chatTask.getByRole('button', { name: 'Mark complete: Check the filter', exact: true }),
     ).toBeVisible();
