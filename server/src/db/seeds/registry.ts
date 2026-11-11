@@ -8,7 +8,7 @@ import * as database from '../connection.js';
 import type { FieldDefinition, FieldSet, Schema } from '../../../../shared/model.js';
 import type { Database } from '../connection.js';
 import { Registry } from '../../application/registry/registry.js';
-import type { FieldSetRecommendationSuggestions } from '../../application/registry/recommendation-suggestions.js';
+import { recommendationSuggestionsByFieldSet } from './fieldset-recommendations.js';
 
 const names = [
   'Appliances',
@@ -599,34 +599,47 @@ export const fields: FieldDefinition[] = [
   field('appliances.replacementFilter', 'Replacement filter', undefined, {
     scope: 'CLASS',
     description:
-      'Small appliances with the corresponding reservoir, consumable or maintenance requirement. Vacuum cleaners, purifiers and other appliances using replaceable filters.',
+      'The specified filter or part number for the appliance function described by this fieldset.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
-  field('appliances.compatibleConsumable', 'Compatible consumable', undefined, {
+  field('appliances.dishwasherDetergent', 'Dishwasher detergent', undefined, {
+    scope: 'CLASS',
+    description: 'The dishwasher detergent types the manufacturer permits.',
+    icon: 'fieldService',
+  }),
+  field('appliances.washingMachineCleaner', 'Washing machine cleaner', undefined, {
     scope: 'CLASS',
     description:
-      'Small appliances with the corresponding reservoir, consumable or maintenance requirement. Products requiring model-specific bags, cartridges or cleaning supplies.',
-    uiHint: 'TEXT',
+      'The cleaner the manufacturer specifies or permits for cleaning the washing machine.',
+    icon: 'fieldService',
+  }),
+  field('appliances.vacuumBagModel', 'Dust bag model', undefined, {
+    scope: 'CLASS',
+    description: 'The specified dust bag type or part number for a bagged vacuum cleaner.',
+    icon: 'fieldService',
+  }),
+  field('appliances.descaler', 'Descaler', undefined, {
+    scope: 'CLASS',
+    description:
+      'The descaling product or formulation specified for the water reservoir or circuit.',
     icon: 'fieldService',
   }),
   field('appliances.cleaningInstructions', 'Cleaning instructions', undefined, {
     scope: 'CLASS',
-    description: 'Appliances with documented cleaning or descaling requirements.',
+    description: 'Documented cleaning instructions for the appliance function in this fieldset.',
     uiHint: 'TEXT',
     icon: 'fieldService',
   }),
   field('appliances.cleaningInterval', 'Cleaning interval', undefined, {
     scope: 'CLASS',
-    description:
-      'Appliances with documented cleaning or descaling requirements. Products with a documented recurring cleaning task.',
+    description: 'The documented cleaning interval for the appliance function in this fieldset.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
   field('appliances.descalingInterval', 'Descaling interval', undefined, {
     scope: 'CLASS',
-    description:
-      'Appliances with documented cleaning or descaling requirements. Products whose instructions require descaling.',
+    description: 'The documented descaling interval for the appliance function in this fieldset.',
     uiHint: 'TEXT',
     icon: 'fieldTime',
   }),
@@ -2949,6 +2962,8 @@ const set = (
   keywords,
 });
 
+const applianceCleaningFields = ['appliances.cleaningInstructions', 'appliances.cleaningInterval'];
+
 export const sets: FieldSet[] = [
   set(
     'appliances.ownership',
@@ -2987,17 +3002,8 @@ export const sets: FieldSet[] = [
     'A product with a support channel or manufacturer support registration.',
     ['common.supportUrl', 'common.supportPhone', 'common.supportReference'],
     [],
-    ['appliances.maintenance'],
-    ['support', 'customer service', 'help'],
-  ),
-  set(
-    'appliances.maintenance',
-    'Maintenance',
-    'An appliance requiring recurring maintenance.',
-    ['common.serviceInterval'],
     [],
-    ['appliances.support'],
-    ['maintenance', 'service', 'servicing'],
+    ['support', 'customer service', 'help'],
   ),
   set(
     'appliances.appliance',
@@ -3012,13 +3018,13 @@ export const sets: FieldSet[] = [
       'appliances.productCode',
       'appliances.manufacturedOn',
       'appliances.finish',
+      'common.serviceInterval',
     ],
     [],
     [
       'appliances.ownership',
       'appliances.warranty',
       'appliances.support',
-      'appliances.maintenance',
       'appliances.installation',
       'appliances.dimensions',
       'appliances.electrical',
@@ -3104,23 +3110,26 @@ export const sets: FieldSet[] = [
       'appliances.washEnergyClass',
       'appliances.washEnergyUse',
       'appliances.washWaterUse',
+      'appliances.washingMachineCleaner',
+      ...applianceCleaningFields,
+      'appliances.descalingInterval',
     ],
     ['appliances.appliance'],
-    ['appliances.drying', 'appliances.washAndDry', 'appliances.energyLabel', 'appliances.cleaning'],
+    ['appliances.drying', 'appliances.washAndDry', 'appliances.energyLabel'],
     ['washing', 'washing machine', 'washer', 'laundry', 'spin'],
   ),
   set(
     'appliances.drying',
     'Drying',
     'A tumble dryer or the drying component of a washer-dryer.',
-    ['appliances.dryingCapacity', 'appliances.dryingTechnology'],
-    ['appliances.appliance'],
     [
-      'appliances.washing',
-      'appliances.washAndDry',
-      'appliances.energyLabel',
-      'appliances.cleaning',
+      'appliances.dryingCapacity',
+      'appliances.dryingTechnology',
+      'appliances.replacementFilter',
+      ...applianceCleaningFields,
     ],
+    ['appliances.appliance'],
+    ['appliances.washing', 'appliances.washAndDry', 'appliances.energyLabel'],
     ['drying', 'dryer', 'tumble', 'condenser', 'heat pump'],
   ),
   set(
@@ -3140,30 +3149,31 @@ export const sets: FieldSet[] = [
     'appliances.dishwasher',
     'Dishwasher',
     'A dishwasher.',
-    ['appliances.dishwasherWaterUse', 'appliances.dishwasherEnergyUse'],
+    [
+      'appliances.dishwasherWaterUse',
+      'appliances.dishwasherEnergyUse',
+      'appliances.dishwasherDetergent',
+      ...applianceCleaningFields,
+      'appliances.descalingInterval',
+    ],
     ['appliances.appliance'],
-    ['appliances.energyLabel', 'appliances.cleaning'],
+    ['appliances.energyLabel'],
     ['dishwasher', 'dishwashing'],
   ),
   set(
     'appliances.fridge',
     'Fridge',
     'A refrigerator or the chilled compartment of a fridge-freezer.',
-    ['appliances.fridgeCapacity'],
+    ['appliances.fridgeCapacity', 'appliances.waterFilterModel', ...applianceCleaningFields],
     ['appliances.appliance'],
-    [
-      'appliances.freezing',
-      'appliances.cooling',
-      'appliances.consumables',
-      'appliances.energyLabel',
-    ],
+    ['appliances.freezing', 'appliances.cooling', 'appliances.energyLabel'],
     ['fridge', 'refrigerator', 'refrigeration', 'fridge-freezer'],
   ),
   set(
     'appliances.freezing',
     'Freezer',
     'A freezer or the frozen compartment of a fridge-freezer.',
-    ['appliances.freezerCapacity', 'appliances.defrostSystem'],
+    ['appliances.freezerCapacity', 'appliances.defrostSystem', ...applianceCleaningFields],
     ['appliances.appliance'],
     ['appliances.fridge', 'appliances.cooling', 'appliances.energyLabel'],
     ['freezer', 'frost free', 'fridge-freezer'],
@@ -3172,16 +3182,16 @@ export const sets: FieldSet[] = [
     'appliances.oven',
     'Oven',
     'An oven or the oven component of a cooker or combination appliance.',
-    ['appliances.mainOvenCapacity', 'appliances.secondOvenCapacity'],
+    ['appliances.mainOvenCapacity', 'appliances.secondOvenCapacity', ...applianceCleaningFields],
     ['appliances.appliance'],
-    ['appliances.hob', 'appliances.cookingOutput', 'appliances.energyLabel', 'appliances.cleaning'],
+    ['appliances.hob', 'appliances.cookingOutput', 'appliances.energyLabel'],
     ['oven', 'range', 'cooker'],
   ),
   set(
     'appliances.hob',
     'Hob',
     'A hob or the hob component of a range cooker.',
-    ['appliances.hobType', 'appliances.numberOfCookingZones'],
+    ['appliances.hobType', 'appliances.numberOfCookingZones', ...applianceCleaningFields],
     ['appliances.appliance'],
     ['appliances.oven', 'appliances.electrical', 'appliances.fuel'],
     ['hob', 'cooktop', 'induction'],
@@ -3208,7 +3218,7 @@ export const sets: FieldSet[] = [
     'appliances.spaceCooling',
     'Space cooling',
     'An air conditioner or heat pump providing space cooling.',
-    ['appliances.coolingOutput'],
+    ['appliances.coolingOutput', 'appliances.replacementFilter', ...applianceCleaningFields],
     ['appliances.appliance'],
     ['appliances.heating', 'appliances.cooling'],
     ['air conditioner', 'air conditioning', 'space cooling', 'reversible heat pump'],
@@ -3252,45 +3262,29 @@ export const sets: FieldSet[] = [
     'appliances.waterTank',
     'Water reservoir',
     'An appliance with a refillable water reservoir.',
-    ['appliances.waterTankCapacity'],
+    [
+      'appliances.waterTankCapacity',
+      'appliances.descaler',
+      ...applianceCleaningFields,
+      'appliances.descalingInterval',
+    ],
     [],
-    ['appliances.cleaning'],
+    [],
     ['water', 'reservoir', 'coffee machine', 'steam'],
   ),
   set(
     'appliances.vacuum',
     'Vacuum cleaner',
     'A vacuum cleaner or cleaning robot.',
-    ['appliances.dustContainerCapacity'],
-    ['appliances.appliance'],
-    ['appliances.consumables', 'appliances.cleaning'],
-    ['vacuum', 'cleaner', 'robot cleaner'],
-  ),
-  set(
-    'appliances.consumables',
-    'Consumables',
-    'An appliance using replaceable filters, bags, cartridges or cleaning supplies.',
     [
+      'appliances.dustContainerCapacity',
       'appliances.replacementFilter',
-      'appliances.compatibleConsumable',
-      'appliances.waterFilterModel',
+      'appliances.vacuumBagModel',
+      ...applianceCleaningFields,
     ],
+    ['appliances.appliance'],
     [],
-    ['appliances.cleaning'],
-    ['consumables', 'filter', 'bag', 'cartridge', 'refill'],
-  ),
-  set(
-    'appliances.cleaning',
-    'Cleaning',
-    'An appliance requiring cleaning or descaling.',
-    [
-      'appliances.cleaningInstructions',
-      'appliances.cleaningInterval',
-      'appliances.descalingInterval',
-    ],
-    [],
-    ['appliances.consumables'],
-    ['cleaning', 'clean', 'care', 'descaling', 'scale', 'limescale'],
+    ['vacuum', 'cleaner', 'robot cleaner'],
   ),
   set(
     'devices.ownership',
@@ -4848,41 +4842,6 @@ for (const entry of sets) {
     (id) => !emptySets.has(id) && sets.find((set) => set.id === id)?.eligibility !== null,
   );
 }
-
-const recommendationSuggestionsByFieldSet = new Map<string, FieldSetRecommendationSuggestions>([
-  [
-    'appliances.dishwasher',
-    {
-      tasks: [
-        {
-          title: 'Run the machine care programme',
-          eligibility: 'The manual documents a dedicated machine care programme for this model.',
-        },
-        {
-          title: 'Refill salt and rinse aid',
-          eligibility: 'The model uses both reservoirs and the manual describes refilling them.',
-        },
-      ],
-      purchasables: [
-        {
-          name: 'Rinse aid',
-          kind: 'CONSUMABLE',
-          eligibility: 'The manufacturer recommends or permits separate rinse aid.',
-        },
-        {
-          name: 'Dishwasher salt',
-          kind: 'CONSUMABLE',
-          eligibility: 'The model has a refillable water softener and calls for dishwasher salt.',
-        },
-        {
-          name: 'Detergent tablets',
-          kind: 'CONSUMABLE',
-          eligibility: 'The manufacturer permits tablet detergent for the model and programme.',
-        },
-      ],
-    },
-  ],
-]);
 
 export async function seedRegistry(db: Database) {
   // Validate definitions and inclusion dependencies before writing registry metadata.

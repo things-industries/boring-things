@@ -11,7 +11,11 @@ import {
 import { createObjectSchema } from '../schemas.js';
 import type { Schema } from '../../../../../shared/model.js';
 import type { RecommendationInput } from './recommendation.js';
-import type { FieldSetTaskSuggestion } from '../../../application/registry/recommendation-suggestions.js';
+import {
+  taskImportanceLevels,
+  taskRecurrenceUnits,
+  type FieldSetTaskSuggestion,
+} from '../../../application/registry/recommendation-suggestions.js';
 
 export interface TaskResearch extends RecommendationInput {
   existingTasks: Pick<Schema['Task'], 'title' | 'status'>[];
@@ -20,7 +24,7 @@ export interface TaskResearch extends RecommendationInput {
 
 const taskRecommendationInstructions = `Select work worth remembering or tracking to completion. Prioritise activities specific to the Thing that help maintain it and are easy to forget, such as running a maintenance programme, replacing a consumable or booking a service. Include recurring work and relevant one-off administration, such as submitting an insurance claim. Exclude extremely obvious actions and work likely to be done very frequently during normal use, such as wiping up spills or removing loose food residues. Boring Things manages records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising documents. Passive waiting and rare incident-recovery advice do not belong in general suggestions.
 Common remedies that nearly every owner is likely to need can also qualify, such as resetting a router. Explain when to use the remedy and its consequences without claiming a fault exists. A common remedy need not depend on a recorded fault.
-Use supplied age, mileage, condition and service history to select applicable work. For example, select the documented car service appropriate to its age and mileage. When these facts are unknown, describe the documented conditions without assuming they apply or that work is due. Use evidence recommending the action for this Thing and its relevant component when available. A warning or identifying label alone does not establish a maintenance requirement. Use only documented procedures, triggers and intervals.
+Use supplied age, mileage, condition and service history to select applicable work. For example, select the documented car service appropriate to its age and mileage. When these facts are unknown, describe the documented conditions without assuming they apply or that work is due. Use evidence recommending the action for this Thing and its relevant component when available. A warning or identifying label alone does not establish a maintenance requirement. Use documented procedures and triggers.
 Select the overall procedure or outcome as one task. Put preparation, precautions and completion steps in its description. Name each task with a verb and its object, including words needed to identify the procedure. Put timing, frequency and conditions in the description. Keep the action's meaning when shortening its title.
 Examples:
 - "Run the maintenance programme" and "Use the pyrolytic cleaning function" are useful when documented for the Thing.
@@ -28,7 +32,7 @@ Examples:
 - "Remove food residues before using the oven" is obvious routine care; omit it as a task.
 - "Reset the router" can qualify as a documented common remedy; its description explains the symptoms and procedure.
 - "Submit a claim" names the work; evidence requirements belong in the description.
-Include importance and a documented recurrence interval justified by evidence. Suggest task ideas; dates are chosen separately when the owner accepts a suggestion. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
+Use importance and recurrence in fieldSetSuggestions as estimates once the action is justified for this Thing. Choose importance based on the consequences for this Thing. Prefer a documented calendar interval over the estimate. When evidence gives no interval, use the hint only if a calendar reminder fits the task, and describe the interval as an estimate. Return null recurrence for one-off tasks and work triggered only by usage or condition. Dates are chosen separately when the owner accepts a suggestion. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
 
 export const outputSchema = createObjectSchema(
   {
@@ -56,7 +60,7 @@ export const outputSchema = createObjectSchema(
           importance: {
             type: 'string',
             description: 'Prominence and ordering within a day, independent of scheduling.',
-            enum: ['CRITICAL', 'IMPORTANT', 'RECOMMENDED', 'NICE_TO_HAVE'],
+            enum: taskImportanceLevels,
           },
           recurrence: {
             anyOf: [
@@ -66,10 +70,10 @@ export const outputSchema = createObjectSchema(
                   unit: {
                     type: 'string',
                     description: 'Calendar unit for task recurrence.',
-                    enum: ['DAY', 'WEEK', 'MONTH', 'YEAR'],
+                    enum: taskRecurrenceUnits,
                   },
                 },
-                'Documented recurrence interval for the task idea.',
+                'Documented or estimated calendar recurrence for the task idea.',
               ),
               { type: 'null' },
             ],
@@ -91,7 +95,8 @@ function suggestTasksPrompt(research: TaskResearch, searchCalls: number) {
     devices: 'Documented care, maintenance and upkeep.',
     vehicles:
       'Manufacturer-recommended servicing, inspections and part-replacement requirements, retaining time and distance conditions.',
-    memberships: 'Documented renewal and required member actions, review of value.',
+    memberships:
+      'Documented renewal and required member actions, review of value, redemption/claiming/usage of entitlements and benefits.',
     subscriptions: 'Documented renewal, cancellation deadlines and required account actions.',
     insurance: 'Documented renewal review and policy-required actions.',
     utilities:

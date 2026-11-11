@@ -420,6 +420,8 @@ test('SDK task suggestions research mapped public fields in one bounded structur
         fieldSetId: 'appliances.dishwasher',
         title: 'Run machine care',
         eligibility: 'The model has a machine care programme.',
+        recurrence: { interval: 1, unit: 'MONTH' as const },
+        importance: 'RECOMMENDED' as const,
       },
     ],
   };
@@ -441,6 +443,11 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     assert.ok(body.input.includes('existingTasks'));
     assert.match(body.instructions, /only when the evidence supports its applicability/);
     assert.match(body.instructions, /and any stated eligibility conditions/);
+    assert.match(
+      body.instructions,
+      /Use importance and recurrence in fieldSetSuggestions as estimates/,
+    );
+    assert.match(body.instructions, /Prefer a documented calendar interval over the estimate/);
     assert.match(body.instructions, /return each underlying action or product once/);
     assert.ok(body.input.includes(JSON.stringify(research.fieldSetSuggestions)));
     if (requests.length === 1) assert.ok(body.input.includes('Private owner title'));
@@ -554,6 +561,8 @@ test('SDK purchasable research discovers products and purchase links within one 
       /Describe why the item is useful and when the owner should buy it/,
     );
     assert.match(body.input, /consumables/);
+    assert.match(body.instructions, /Open a candidate's purchaseUrl to verify the listing/);
+    assert.ok(body.input.includes(`"purchaseUrl":"${url}"`));
     assert.ok(body.input.includes('existingPurchasables'));
     if (requests.length === 1) assert.ok(body.input.includes('Private owner product'));
     assert.equal(body.text.format.schema.properties.items.type, 'array');
@@ -581,10 +590,11 @@ test('SDK purchasable research discovers products and purchase links within one 
     existingPurchasables: [{ kind: 'CONSUMABLE' as const, name: 'Private owner product' }],
     fieldSetSuggestions: [
       {
-        fieldSetId: 'appliances.consumables',
+        fieldSetId: 'appliances.fridge',
         name: 'High-capacity water filter',
         kind: 'UPGRADE' as const,
         eligibility: 'The maker lists an optional higher-capacity cartridge for this model.',
+        purchaseUrl: url,
       },
     ],
   };
