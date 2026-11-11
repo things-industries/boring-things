@@ -83,6 +83,7 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 - Explain Boring Things terminology that carries domain meaning in prompts. Include `src/providers/ai/prompt-content/thing-definition.md` when the task needs the definition of a Thing.
 
 - Implement specialist integrations when the owner selects a provider and grants access; examples in requirements describe potential integrations. Icecat uses GTIN or manufacturer plus product code/model for appliances and devices, with free-account coverage determined by the API.
+- Research documents and product photos together within the existing web-search and page-read limits.
 - Discovered product photographs are display assets: skip their OCR and field/recommendation evidence. Continue to transcribe uploaded label and document photos.
 - Put Google Vision OCR in `providers/google-vision` and invoke it from attachment processing before OpenAI-related modules. Extract embedded PDF text per page, and render pages without text for the same image OCR path. Missing `GOOGLE_VISION_API_KEY` fails OCR. `summarize-attachment` accepts extracted text and, for uploaded images with fewer than 500 trimmed OCR characters, the original image. Keep visual observations in the summary and OCR text in the transcription. See [Attachment preparation](../docs/setup/imports.md#workflow).
 - Imports save identity and mandatory identifier fields before Research, then select fieldsets and populate from applicable linked evidence. Await writes and save completion checkpoints with application changes.
