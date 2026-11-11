@@ -8,6 +8,7 @@ import * as database from '../connection.js';
 import type { FieldDefinition, FieldSet, Schema } from '../../../../shared/model.js';
 import type { Database } from '../connection.js';
 import { Registry } from '../../application/registry/registry.js';
+import type { FieldSetRecommendationSuggestions } from '../../application/registry/recommendation-suggestions.js';
 
 const names = [
   'Appliances',
@@ -4848,9 +4849,44 @@ for (const entry of sets) {
   );
 }
 
+const recommendationSuggestionsByFieldSet = new Map<string, FieldSetRecommendationSuggestions>([
+  [
+    'appliances.dishwasher',
+    {
+      tasks: [
+        {
+          title: 'Run the machine care programme',
+          eligibility: 'The manual documents a dedicated machine care programme for this model.',
+        },
+        {
+          title: 'Refill salt and rinse aid',
+          eligibility: 'The model uses both reservoirs and the manual describes refilling them.',
+        },
+      ],
+      purchasables: [
+        {
+          name: 'Rinse aid',
+          kind: 'CONSUMABLE',
+          eligibility: 'The manufacturer recommends or permits separate rinse aid.',
+        },
+        {
+          name: 'Dishwasher salt',
+          kind: 'CONSUMABLE',
+          eligibility: 'The model has a refillable water softener and calls for dishwasher salt.',
+        },
+        {
+          name: 'Detergent tablets',
+          kind: 'CONSUMABLE',
+          eligibility: 'The manufacturer permits tablet detergent for the model and programme.',
+        },
+      ],
+    },
+  ],
+]);
+
 export async function seedRegistry(db: Database) {
   // Validate definitions and inclusion dependencies before writing registry metadata.
-  new Registry(fields, sets);
+  new Registry(fields, sets, recommendationSuggestionsByFieldSet);
 
   for (const c of categories)
     await database.execute(
@@ -4880,7 +4916,11 @@ export async function seedRegistry(db: Database) {
   for (const s of sets)
     await database.execute(
       db,
-      'insert into bt.field_sets(id,category_id,name,eligibility,keywords,includes,consider_alongside,field_ids) values($1,$2,$3,$4,$5,$6,$7,$8) on conflict(id) do update set category_id=excluded.category_id,name=excluded.name,eligibility=excluded.eligibility,keywords=excluded.keywords,includes=excluded.includes,consider_alongside=excluded.consider_alongside,field_ids=excluded.field_ids',
+      `insert into bt.field_sets(id,category_id,name,eligibility,keywords,includes,consider_alongside,field_ids,recommendation_suggestions)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       on conflict(id) do update set category_id=excluded.category_id,name=excluded.name,eligibility=excluded.eligibility,
+       keywords=excluded.keywords,includes=excluded.includes,consider_alongside=excluded.consider_alongside,
+       field_ids=excluded.field_ids,recommendation_suggestions=excluded.recommendation_suggestions`,
       [
         s.id,
         s.categoryId,
@@ -4890,6 +4930,9 @@ export async function seedRegistry(db: Database) {
         s.includes,
         s.considerAlongside,
         s.fields.map((f) => f.id),
+        JSON.stringify(
+          recommendationSuggestionsByFieldSet.get(s.id) ?? { tasks: [], purchasables: [] },
+        ),
       ],
     );
   await database.execute(db, 'delete from bt.field_sets where not(id=any($1::text[]))', [

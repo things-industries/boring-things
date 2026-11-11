@@ -11,9 +11,11 @@ import {
 import { createObjectSchema } from '../schemas.js';
 import type { Schema } from '../../../../../shared/model.js';
 import type { RecommendationInput } from './recommendation.js';
+import type { FieldSetTaskSuggestion } from '../../../application/registry/recommendation-suggestions.js';
 
 export interface TaskResearch extends RecommendationInput {
   existingTasks: Pick<Schema['Task'], 'title' | 'status'>[];
+  fieldSetSuggestions: (FieldSetTaskSuggestion & { fieldSetId: string })[];
 }
 
 const taskRecommendationInstructions = `Select work worth remembering or tracking to completion. Prioritise activities specific to the Thing that help maintain it and are easy to forget, such as running a maintenance programme, replacing a consumable or booking a service. Include recurring work and relevant one-off administration, such as submitting an insurance claim. Exclude extremely obvious actions and work likely to be done very frequently during normal use, such as wiping up spills or removing loose food residues. Boring Things manages records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising documents. Passive waiting and rare incident-recovery advice do not belong in general suggestions.

@@ -7,6 +7,10 @@ import { Ajv, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import type { FieldDefinition, FieldSet, Value } from '../../../../shared/model.js';
 import { ensure } from '../errors.js';
+import {
+  fieldSetRecommendationSuggestionsSchema,
+  type FieldSetRecommendationSuggestions,
+} from './recommendation-suggestions.js';
 
 export interface FieldSearchLabel {
   label: string;
@@ -16,9 +20,17 @@ export interface FieldSearchLabel {
 export class Registry {
   fields: Map<string, FieldDefinition>;
   sets: Map<string, FieldSet>;
+  readonly recommendationSuggestionsByFieldSet: ReadonlyMap<
+    string,
+    FieldSetRecommendationSuggestions
+  >;
   private validators = new Map<string, ValidateFunction>();
 
-  constructor(fields: FieldDefinition[], sets: FieldSet[]) {
+  constructor(
+    fields: FieldDefinition[],
+    sets: FieldSet[],
+    recommendations: ReadonlyMap<string, unknown> = new Map(),
+  ) {
     this.fields = new Map(fields.map((f) => [f.id, f]));
     this.sets = new Map(sets.map((s) => [s.id, s]));
     ensure(
@@ -27,6 +39,17 @@ export class Registry {
     );
     const ajv = new Ajv({ strict: true, coerceTypes: false });
     addFormats.default(ajv);
+
+    const validateSuggestions = ajv.compile<FieldSetRecommendationSuggestions>(
+      fieldSetRecommendationSuggestionsSchema,
+    );
+    const suggestionsBySet = new Map<string, FieldSetRecommendationSuggestions>();
+    for (const [id, suggestions] of recommendations) {
+      ensure(this.sets.has(id), `Unknown field set for recommendation suggestions: ${id}`);
+      ensure(validateSuggestions(suggestions), `Invalid recommendation suggestions for ${id}`);
+      suggestionsBySet.set(id, suggestions);
+    }
+    this.recommendationSuggestionsByFieldSet = suggestionsBySet;
 
     for (const f of fields) {
       ensure(f.uiHint !== 'PASSWORD' || f.sensitive, 'Password fields must be sensitive');
