@@ -1006,6 +1006,10 @@ export class ImportWorkflow {
   private async recommend() {
     await this.stage('RECOMMENDING', 'RECOMMENDING');
     const thing = await this.thing();
+    const fieldSetsWithSuggestions = thing.data.setIds.flatMap((fieldSetId) => {
+      const suggestions = this.registry.recommendationSuggestionsByFieldSet.get(fieldSetId);
+      return suggestions ? [{ fieldSetId, ...suggestions }] : [];
+    });
     const research = {
       name: thing.name,
       categoryId: thing.categoryId,
@@ -1051,7 +1055,13 @@ export class ImportWorkflow {
             .existingTasks(this.pool, this.job.ownerId, thing.id)
             .then((existingTasks) =>
               this.ai.suggestTasks(
-                { ...research, existingTasks },
+                {
+                  ...research,
+                  existingTasks,
+                  fieldSetSuggestions: fieldSetsWithSuggestions.flatMap(({ fieldSetId, tasks }) =>
+                    tasks.map((task) => ({ fieldSetId, ...task })),
+                  ),
+                },
                 this.createTaskContext(thing.categoryId),
               ),
             )
@@ -1070,7 +1080,14 @@ export class ImportWorkflow {
             .existingPurchasables(this.pool, this.job.ownerId, thing.id)
             .then((existingPurchasables) =>
               this.ai.findPurchasables(
-                { ...research, existingPurchasables },
+                {
+                  ...research,
+                  existingPurchasables,
+                  fieldSetSuggestions: fieldSetsWithSuggestions.flatMap(
+                    ({ fieldSetId, purchasables }) =>
+                      purchasables.map((product) => ({ fieldSetId, ...product })),
+                  ),
+                },
                 this.createTaskContext(thing.categoryId),
               ),
             )

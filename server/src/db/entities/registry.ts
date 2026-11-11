@@ -29,10 +29,9 @@ export async function getRegistryRecords(db: Database) {
     db,
     'select * from bt.field_definitions order by id',
   );
-  const sets = await database.rows<Omit<FieldSet, 'fields'> & { fieldIds: string[] }>(
-    db,
-    'select * from bt.field_sets order by id',
-  );
+  const sets = await database.rows<
+    Omit<FieldSet, 'fields'> & { fieldIds: string[]; recommendationSuggestions: unknown }
+  >(db, 'select * from bt.field_sets order by id');
   return { fields, sets };
 }
 export async function categoryExists(db: Database, id: string): Promise<boolean> {

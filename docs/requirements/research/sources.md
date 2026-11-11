@@ -134,3 +134,15 @@ The sources below establish representative distinctions and applicability across
 
 - [Icecat Product JSON manual](https://iceclog.com/manual-for-icecat-json-product-requests/) (checked 27 October 2026): token authentication, GTIN and brand/product-code lookup, stable feature IDs, and Open Icecat coverage and error codes.
 - API checks on 27 October 2026 using free access: Philips `50PFL5008T/12` returned Icecat ID `18253015` and GTIN `8712581669904`; that GTIN returned the same product. Philips `HD9650/99` returned ID `43102279`, GTIN `8710103850304`, dimensions, finish, voltage and power. Shortened `50PFL5008T` and an invented product returned code 8 (absent); Apple `MQD32LL/A` returned code 14 (publication/access restriction). These checks establish account access for the tested products, not coverage of every product from those brands.
+
+## Fieldset recommendations
+
+- [Bosch UK dishwasher care](https://www.bosch-home.co.uk/en/c/spotlight/bltdb88363c39b11bb1) — example of a dedicated machine care programme and model care instructions.
+- [Health and Safety Executive domestic gas safety](https://www.hse.gov.uk/gas/domestic/faqs.htm) — checking engineer registration and competence for domestic gas work.
+- [GOV.UK MOT booking](https://www.gov.uk/getting-an-mot/booking-an-mot) — booking in Great Britain and the separate process for Northern Ireland.
+- [GOV.UK vehicle tax](https://www.gov.uk/vehicle-tax) — taxing a vehicle and registering it as off the road.
+- [GOV.UK vehicle recalls](https://www.gov.uk/check-vehicle-recall) — outstanding vehicle safety recalls and manufacturer remedies.
+- [Ofgem smart meter guidance](https://www.ofgem.gov.uk/your-energy-supply/how-manage-your-energy-supply/get-help-your-smart-meter) — automatic readings and meters that stop sending them.
+- [Ofwat water metering guidance](https://www.ofwat.gov.uk/households/your-water-bill/metering/) — estimated bills, manual readings and options for England and Wales.
+- [Ofcom end-of-contract notices](https://www.ofcom.org.uk/phones-and-broadband/saving-money/in-or-out) — contract end dates, prices and bundle information.
+- [MoneyHelper travel insurance guidance](https://www.moneyhelper.org.uk/en/everyday-money/insurance/a-good-travel-insurance-policy) — limits and exclusions to check for a planned trip.
