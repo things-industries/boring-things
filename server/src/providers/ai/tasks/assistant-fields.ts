@@ -35,7 +35,6 @@ export const updateFieldsSchema = createObjectSchema(
     addFieldSetIds: {
       type: 'array',
       maxItems: 12,
-      uniqueItems: true,
       items: {
         type: 'string',
         maxLength: 200,

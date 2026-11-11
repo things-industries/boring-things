@@ -617,3 +617,30 @@ test('assistant validates field edits and exposes registry search tools', async 
     assert.equal(requests, 2);
   }
 });
+
+// PR #154 added uniqueItems, which OpenAI rejects before an assistant turn can run.
+test('assistant tool arrays use the OpenAI strict schema subset', () => {
+  const allowed = new Set(['type', 'description', 'items', 'minItems', 'maxItems']);
+
+  // Checks array schemas throughout tool properties, item schemas and nullable unions.
+  function checkArrays(schema: unknown, path: string) {
+    if (!schema || typeof schema !== 'object') return;
+    if (
+      'type' in schema &&
+      (schema.type === 'array' || (Array.isArray(schema.type) && schema.type.includes('array')))
+    )
+      assert.deepEqual(
+        Object.keys(schema).filter((key) => !allowed.has(key)),
+        [],
+        path,
+      );
+    if ('properties' in schema && schema.properties && typeof schema.properties === 'object')
+      for (const [key, value] of Object.entries(schema.properties))
+        checkArrays(value, `${path}.${key}`);
+    if ('items' in schema) checkArrays(schema.items, `${path}.items`);
+    if ('anyOf' in schema && Array.isArray(schema.anyOf))
+      schema.anyOf.forEach((value, index) => checkArrays(value, `${path}.anyOf[${index}]`));
+  }
+
+  for (const tool of chatFunctions) checkArrays(tool.parameters, tool.name);
+});
