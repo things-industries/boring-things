@@ -25,10 +25,19 @@ test('registration migration converts full dates to months and keeps field metad
       .filter((file) => file.endsWith('.sql') && file < migration)
       .sort())
       await pool.query(await readFile(new URL(file, directory), 'utf8'));
-    await database.transaction(pool, registrySeedDb.seedRegistry);
-    await pool.query(
-      `update bt.field_definitions set schema='{"type":"string","format":"date"}',ui_hint='DATE' where id='vehicles.firstRegistered'`,
-    );
+
+    // Insert the registry rows required by this historical schema.
+    await pool.query(`
+      insert into bt.categories(id,name,description,icon,sort_order)
+      values('vehicles','Vehicles','','',0) on conflict(id) do nothing;
+      insert into bt.field_definitions(id,name,description,schema,ui_hint)
+      values('vehicles.firstRegistered','First registered','','{"type":"string","format":"date"}','DATE')
+      on conflict(id) do update set schema=excluded.schema,ui_hint=excluded.ui_hint;
+      insert into bt.field_sets(id,category_id,name,field_ids)
+      values('vehicles.vehicle','vehicles','Vehicle','{}'),
+        ('vehicles.registration','vehicles','Registration',array['vehicles.firstRegistered'])
+      on conflict(id) do nothing;
+    `);
     const owner = randomUUID();
     await pool.query('insert into bt.users(id,auth_subject) values($1,$2)', [
       owner,
