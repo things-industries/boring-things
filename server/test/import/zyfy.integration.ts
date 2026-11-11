@@ -8,7 +8,8 @@ import { startTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
 
-test('Zyfy fields are committed before public research and completed lookups survive retries', async () => {
+// Requiring registration country skipped UK plate imports before specialist research.
+test('Zyfy looks up a UK plate without country before public research and reuses it on retry', async () => {
   let lookups = 0;
   const provider = new ZyfyProvider('fixture-key', async () => {
     lookups++;
@@ -53,7 +54,6 @@ test('Zyfy fields are committed before public research and completed lookups sur
       name: 'Test vehicle',
       categoryId: 'vehicles',
       values: [
-        { fieldSetId: 'vehicles.vehicle', fieldId: 'vehicles.registrationCountry', value: 'UK' },
         { fieldSetId: 'vehicles.vehicle', fieldId: 'vehicles.registration', value: 'XY12ZZZ' },
         { fieldSetId: 'vehicles.vehicle', fieldId: 'common.model', value: 'OWNER MODEL' },
       ],

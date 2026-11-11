@@ -74,13 +74,14 @@ function createVehicle() {
   };
 }
 
-test('Zyfy requires a vehicle, UK country and registration before making requests', async () => {
+test('Zyfy accepts UK plate patterns without a country and skips conflicting countries', async () => {
   let calls = 0;
   const provider = new ZyfyProvider('fixture-key', async () => {
     calls++;
     return Response.json(createVehicle());
   });
   for (const country of [
+    '',
     'UK',
     'GB',
     'GBR',
@@ -91,12 +92,24 @@ test('Zyfy requires a vehicle, UK country and registration before making request
     'Northern Ireland',
   ])
     assert.equal(provider.applicable(createThing(country)), true);
+  for (const registration of [
+    'xy12 zzz',
+    'A1 ABC',
+    'ABC 12A',
+    'AB 1234',
+    '1234 AB',
+    'ABC 1234',
+    '1 A',
+  ])
+    assert.equal(provider.applicable(createThing('', registration)), true, registration);
   const otherCategory = { ...createThing(), categoryId: 'devices' };
   for (const thing of [
-    createThing(''),
     createThing('France'),
     createThing('UK', ''),
     createThing('UK', 'TESTVIN00000000001'),
+    ...['12345', 'LETTERS', 'AB-123', 'A1B2C3D', 'AB12345', '12345AB'].map((registration) =>
+      createThing('', registration),
+    ),
     otherCategory,
   ]) {
     assert.equal(provider.applicable(thing), false);

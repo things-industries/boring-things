@@ -19,6 +19,11 @@ const ukCountries = new Set([
   'wales',
   'northern ireland',
 ]);
+
+// Matches current, prefix, suffix and dateless plate shapes without checking issuance rules.
+const ukRegistrationPattern =
+  /^(?:[A-Z]{2}[0-9]{2}[A-Z]{3}|[A-Z][0-9]{1,3}[A-Z]{3}|[A-Z]{3}[0-9]{1,3}[A-Z]|[A-Z]{1,3}[0-9]{1,4}|[0-9]{1,4}[A-Z]{1,3})$/;
+
 const fuelNames: Record<string, string> = {
   petrol: 'Petrol',
   diesel: 'Diesel',
@@ -53,7 +58,7 @@ function getNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-// Requires a saved UK jurisdiction and a registration with letters and digits.
+// Accepts UK plate shapes when the recorded country is UK or absent.
 function getRegistration(thing: ThingRow) {
   const fields = [thing.data.standalone, ...Object.values(thing.data.values)];
   const country = fields
@@ -65,9 +70,9 @@ function getRegistration(thing: ThingRow) {
     ?.replaceAll(/\s/g, '')
     .toUpperCase();
   return thing.categoryId === 'vehicles' &&
-    ukCountries.has(country?.toLowerCase() ?? '') &&
+    (!country || ukCountries.has(country.toLowerCase())) &&
     registration &&
-    /^(?=.{1,7}$)(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]+$/.test(registration)
+    ukRegistrationPattern.test(registration)
     ? registration
     : null;
 }
@@ -82,7 +87,7 @@ export class ZyfyProvider extends SpecialistProvider {
     super(request);
   }
 
-  // Checks registration and jurisdiction before making any request.
+  // Checks plate shape and any recorded country before making a request.
   applicable(thing: ThingRow) {
     return getRegistration(thing) !== null;
   }

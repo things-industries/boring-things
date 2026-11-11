@@ -124,7 +124,7 @@ Specialist integrations extend the `SpecialistProvider` base class in `server/sr
 
 ### Vehicle lookup
 
-[Zyfy](https://zyfy.uk/docs/vehicle) runs before public resource research when `ZYFY_API_KEY` is configured and the saved Thing has a registration and a UK registration country. Accepted country values include UK, GB, GBR, United Kingdom, Great Britain and the constituent countries. The provider checks that the returned registration matches the normalised lookup input.
+[Zyfy](https://zyfy.uk/docs/vehicle) runs before public resource research when `ZYFY_API_KEY` is configured and the saved Thing has a registration matching a UK plate pattern. The check accepts current, prefix, suffix and dateless shapes, including personalised plates, without checking issuance rules. An unset registration country allows lookup; a recorded country must be UK, GB, GBR, United Kingdom, Great Britain or one of the constituent countries. The provider checks that the returned registration matches the normalised lookup input.
 
 Vehicle fields include manufacturer, model, body type, colour and year of manufacture. Manufacture year is separate from model year. `vehicles.firstRegistered` stores the first-registration month as `YYYY-MM`; a migration converts existing full-date values and keeps provenance and owner permissions. The field uses a text editor with month validation.
 
