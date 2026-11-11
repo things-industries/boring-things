@@ -3,12 +3,13 @@
  * to application response shapes.
  */
 
+import { getEnv } from '../config.js';
 import pg from 'pg';
 import * as errorsDb from './errors.js';
 
 export type Database = Pick<pg.Pool, 'query'>;
 
-export function createPool(connectionString: string) {
+export function createPool(connectionString = getEnv('DATABASE_URL')) {
   const { hostname } = new URL(connectionString);
   const supabase = hostname.endsWith('.supabase.co') || hostname.endsWith('.pooler.supabase.com');
   const pool = new pg.Pool({

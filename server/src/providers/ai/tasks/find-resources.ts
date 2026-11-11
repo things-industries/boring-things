@@ -2,11 +2,11 @@
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { Discovery, ResearchThing } from '../../../application/import/types.js';
-import type { ResponseInput } from 'openai/resources/responses/responses';
+import type { Response } from 'openai/resources/responses/responses';
 import type { AiContext } from '../types.js';
-import { AiTask, type TaskOptions } from './task.js';
+import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
-import { createWebSearchOptions, readWebResult } from '../tools/web.js';
+import { readWebResult } from '../tools/web.js';
 import { readResourcePage } from '../../web/resources.js';
 import { createResourcePageTool } from '../tools/resources.js';
 import { createObjectSchema, attachmentMetadataSchema } from '../schemas.js';
@@ -135,8 +135,7 @@ export type Output = FromSchema<typeof outputSchema>;
 export class FindResourcesTask extends AiTask<Output, Discovery> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'medium';
-  private readonly searchCalls = 3;
-  private webCalls = 0;
+  protected override readonly searchCalls = 3;
   private readonly sources = new Set<string>();
   protected task = 'find_resources';
   protected instructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')} ${getPrompt('web-research-instructions')}`;
@@ -159,30 +158,10 @@ export class FindResourcesTask extends AiTask<Output, Discovery> {
     return { ...this.parseOutput(response), sources: [...this.sources] };
   }
 
-  // Accounts for hosted searches across page reads and collects their observed URLs.
-  protected override async requestResponse(
-    input: ResponseInput | string,
-    options: TaskOptions = {},
-    delta?: (text: string) => void,
-    task = this.task,
-  ) {
-    const remaining = this.searchCalls - this.webCalls;
-    const web = createWebSearchOptions(options.tool_choice === 'none' ? 0 : remaining);
-    const response = await super.requestResponse(
-      input,
-      {
-        ...options,
-        ...web,
-        tools: [...(options.tools ?? []), ...(web.tools ?? [])],
-        include: [...(options.include ?? []), ...(web.include ?? [])],
-      },
-      delta,
-      task,
-    );
-    const { sources } = await readWebResult(response, this.context, remaining);
+  // Adds observed public URLs to the catalogue used by page reads and output validation.
+  protected override async onResponse(response: Response) {
+    const { sources } = await readWebResult(response, this.context, this.searchCalls);
     for (const source of sources) this.sources.add(source);
-    this.webCalls += response.output.filter((item) => item.type === 'web_search_call').length;
     this.reportMetrics({ sourceCount: this.sources.size });
-    return response;
   }
 }

@@ -1,6 +1,8 @@
 /** Checks vehicle lookup persistence, owner permissions and saved-field handoff to public research. */
 
+import { setEnvValue } from '../../src/config.js';
 import assert from 'node:assert/strict';
+
 import { test } from 'node:test';
 import { setTimeout } from 'node:timers/promises';
 import { ZyfyProvider } from '../../src/providers/zyfy/index.js';
@@ -11,7 +13,7 @@ import type { ResearchThing } from '../../src/application/import/types.js';
 // Requiring registration country skipped UK plate imports before specialist research.
 test('Zyfy looks up a UK plate without country before public research and reuses it on retry', async () => {
   let lookups = 0;
-  const provider = new ZyfyProvider('fixture-key', async () => {
+  const provider = new ZyfyProvider(async () => {
     lookups++;
     return Response.json({
       registration: 'XY12ZZZ',
@@ -28,6 +30,7 @@ test('Zyfy looks up a UK plate without country before public research and reuses
     });
   });
   const env = await startTestApp({ importWorkflow: { specialists: [provider] } });
+  setEnvValue('ZYFY_API_KEY', 'fixture-key');
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });

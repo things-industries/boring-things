@@ -1,3 +1,4 @@
+import { getEnv } from './server/src/config.js';
 import { defineConfig } from '@playwright/test';
 import { e2eBaseUrl, storageStatePath, viewports } from './e2e/state.js';
 import { chromiumExecutable } from './server/test/support/chromium.js';
@@ -6,7 +7,7 @@ export default defineConfig({
   testDir: 'e2e',
   outputDir: 'test-results/e2e/results',
   fullyParallel: true,
-  forbidOnly: !!process.env['CI'],
+  forbidOnly: getEnv('CI'),
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: e2eBaseUrl,
@@ -24,7 +25,7 @@ export default defineConfig({
   webServer: {
     command: 'node --import tsx scripts/e2e-serve.ts',
     url: e2eBaseUrl + '/health',
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: !getEnv('CI'),
     timeout: 120000,
     stdout: 'pipe',
   },

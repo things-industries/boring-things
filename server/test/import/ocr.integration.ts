@@ -56,10 +56,10 @@ test('image analysis receives OCR text and the original image while OCR failures
     ocrCalls = 0,
     aiCalls = 0;
   const env = await startTestApp({
-    readImageText: async (bytes, key, signal) => {
+    readImageText: async (bytes, signal) => {
       ocrCalls++;
       assert.deepEqual(bytes, content);
-      if (outcome === 'missing-key') return googleVision.readImageText(bytes, '', signal);
+      if (outcome === 'missing-key') return googleVision.readImageText(bytes, signal);
       if (outcome === 'error') throw new Error('Fixture OCR failure');
       return outcome === 'empty' ? '' : text;
     },

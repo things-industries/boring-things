@@ -1,5 +1,6 @@
 /** Executes AI requests, streamed deltas and bounded tool conversations with validation and usage reporting. */
 
+import { getEnv } from '../../../config.js';
 import OpenAI from 'openai';
 import type { ReasoningEffort } from 'openai/resources/shared';
 import { Ajv } from 'ajv';
@@ -10,14 +11,9 @@ import type {
   ResponseCreateParamsNonStreaming,
 } from 'openai/resources/responses/responses';
 import type { AiTurnCompleted, AiContext } from '../types.js';
-import { getEnv } from '../../../env.js';
 import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
 import * as metrics from '../../../metrics.js';
-
-export type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reasoning'> & {
-  effort?: ReasoningEffort;
-};
 
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
@@ -55,7 +51,7 @@ function inputCharacters(input: ResponseInput | string): number {
 }
 
 export abstract class AiTask<Output = never, Result = Output> {
-  private client: OpenAI;
+  private client?: OpenAI;
   private turnCompleted?: AiTurnCompleted;
   private pendingTurn?: Parameters<AiTurnCompleted>[0];
   protected abstract readonly model: string;
@@ -68,12 +64,13 @@ export abstract class AiTask<Output = never, Result = Output> {
   protected resultKey?: keyof Output & string;
   protected tools: TaskTool[] = [];
   protected toolRounds = 31;
-  protected parallelToolCalls = false;
+  protected readonly parallelToolCalls: boolean = false;
+  protected readonly searchCalls: number = 0;
+  protected readonly sourceMode: 'retrieved' | 'cited' = 'retrieved';
+  private webCalls = 0;
 
-  // Reads credentials when constructing the task so environment setup can finish first.
-  constructor(protected readonly context: AiContext) {
-    this.client = new OpenAI({ apiKey: getEnv('OPENAI_API_KEY'), maxRetries: 0 });
-  }
+  // Binds job resources without requiring provider credentials.
+  constructor(protected readonly context: AiContext) {}
 
   // Runs the task and logs its last response after output validation and conversion.
   async run(): Promise<Result> {
@@ -111,7 +108,6 @@ export abstract class AiTask<Output = never, Result = Output> {
   // Runs model turns and awaits tool results before continuing the conversation.
   protected async execute(
     input: ResponseInput | string,
-    options: TaskOptions = {},
     delta?: (text: string) => void,
   ): Promise<Response> {
     let conversation = typeof input === 'string' ? input : [...input];
@@ -119,28 +115,8 @@ export abstract class AiTask<Output = never, Result = Output> {
     for (let round = 0; round <= this.toolRounds; round++) {
       const response = await this.requestResponse(
         conversation,
-        {
-          ...(this.outputSchema
-            ? {
-                text: {
-                  format: {
-                    type: 'json_schema',
-                    name: 'result',
-                    strict: true,
-                    schema: this.outputSchema,
-                  },
-                },
-              }
-            : {}),
-          ...(this.tools.length ? { tools: this.tools.map((tool) => tool.definition) } : {}),
-          parallel_tool_calls: this.parallelToolCalls,
-          include: ['reasoning.encrypted_content'],
-          ...options,
-          ...(this.tools.length && (finish || round === this.toolRounds)
-            ? { tool_choice: 'none' }
-            : {}),
-        },
         delta,
+        !finish && round < this.toolRounds,
       );
       const calls = response.output.filter((item) => item.type === 'function_call');
       if (!calls.length) return response;
@@ -239,35 +215,65 @@ export abstract class AiTask<Output = never, Result = Output> {
     return output;
   }
 
+  // Processes task-specific sources and measurements after a completed model turn.
+  protected onResponse(_response: Response): void | Promise<void> {}
+
   // Sends streamed or buffered requests through one cancellation, error and usage boundary.
-  protected async requestResponse(
+  private async requestResponse(
     input: ResponseInput | string,
-    options: TaskOptions = {},
     delta?: (text: string) => void,
-    task = this.task,
+    allowTools = true,
   ): Promise<Response> {
-    const { context } = this;
+    const { context, task } = this;
     this.logTurn();
     context.signal.throwIfAborted();
     const characters = inputCharacters(input);
     ensure(characters + this.instructions.length <= this.maxTextCharacters, 'text_limit');
+    const client = (this.client ??= new OpenAI({
+      apiKey: getEnv('OPENAI_API_KEY'),
+      maxRetries: 0,
+    }));
     context.beforeRequest?.();
     const started = Date.now();
-    const { effort = this.effort, ...requestOptions } = options;
+    const remaining = allowTools ? Math.max(0, this.searchCalls - this.webCalls) : 0;
+    const tools = [
+      ...this.tools.map((tool) => tool.definition),
+      ...(remaining ? [{ type: 'web_search' as const }] : []),
+    ];
     const parameters = {
       model: this.model,
       store: false,
       instructions: this.instructions,
       input,
       max_output_tokens: this.maxOutputTokens,
-      ...requestOptions,
-      reasoning: { mode: 'standard', effort },
-    };
+      reasoning: { mode: 'standard', effort: this.effort },
+      parallel_tool_calls: this.parallelToolCalls,
+      include: [
+        'reasoning.encrypted_content',
+        ...(this.searchCalls && this.sourceMode === 'retrieved'
+          ? ['web_search_call.action.sources' as const]
+          : []),
+      ],
+      ...(tools.length ? { tools, ...(!allowTools ? { tool_choice: 'none' as const } : {}) } : {}),
+      ...(remaining ? { max_tool_calls: remaining } : {}),
+      ...(this.outputSchema
+        ? {
+            text: {
+              format: {
+                type: 'json_schema',
+                name: 'result',
+                strict: true,
+                schema: this.outputSchema,
+              },
+            },
+          }
+        : {}),
+    } satisfies ResponseCreateParamsNonStreaming;
     let result: Response | undefined;
     let tokenUsage: metrics.ProviderCall['usage'];
     try {
       if (delta) {
-        const stream = await this.client.responses.create(
+        const stream = await client.responses.create(
           { ...parameters, stream: true },
           { signal: context.signal },
         );
@@ -290,7 +296,7 @@ export abstract class AiTask<Output = never, Result = Output> {
           stream.controller.abort();
         }
       } else
-        result = await this.client.responses.create(
+        result = await client.responses.create(
           { ...parameters, stream: false },
           { signal: context.signal },
         );
@@ -358,6 +364,18 @@ export abstract class AiTask<Output = never, Result = Output> {
       };
     await context.record({ ...usage, entries: [entry] });
     ensure(result.status === 'completed' && Array.isArray(result.output), 'AI response incomplete');
+    ensure(
+      !result.output.some(
+        (item) => item.type === 'message' && item.content.some((part) => part.type === 'refusal'),
+      ),
+      'ai_refused',
+    );
+    if (this.searchCalls) {
+      const calls = result.output.filter((item) => item.type === 'web_search_call').length;
+      ensure(calls <= remaining, 'Research tool limit exceeded');
+      this.webCalls += calls;
+    }
+    await this.onResponse(result);
     return result;
   }
 }

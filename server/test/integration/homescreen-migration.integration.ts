@@ -1,13 +1,12 @@
 import { test } from 'node:test';
+import { getEnv } from '../../src/config.js';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import * as database from '../../src/db/connection.js';
 
 test('homescreen migration preserves existing records and enforces schedule and usage constraints', async () => {
-  const url = new URL(
-    process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-  );
+  const url = new URL(getEnv('TEST_DATABASE_URL'));
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
   const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
   const admin = database.createPool(url.toString());

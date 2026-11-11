@@ -1,17 +1,16 @@
 /** Server startup and shutdown, configures application services and telemetry. */
 
+import { getEnv } from './config.js';
 import { buildApp } from './app.js';
-import { readConfig } from './config.js';
 import * as metrics from './metrics.js';
 
-const config = readConfig();
 metrics.initializeMetrics();
-const app = await buildApp({ config, logger: true }).catch(async (error: unknown) => {
+const app = await buildApp({ logger: true }).catch(async (error: unknown) => {
   await metrics.shutdownMetrics();
   throw error;
 });
 try {
-  await app.listen({ port: config.port, host: config.host });
+  await app.listen({ port: getEnv('PORT'), host: getEnv('HOST') });
 } catch (error) {
   await app.close().catch(() => {});
   throw error;

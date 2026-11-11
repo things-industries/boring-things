@@ -11,6 +11,14 @@ import { pdfPageCount } from '../lib/pdf.js';
 import * as thingsDb from '../db/entities/things.js';
 import * as importsDb from '../db/entities/imports.js';
 
+export const supportedMediaTypes = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'text/plain',
+];
+
 export interface UploadedFile {
   filename: string;
   type: string;

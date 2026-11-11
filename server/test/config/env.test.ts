@@ -1,8 +1,8 @@
 /** Checks environment modes and AI task credentials and limits through mocked requests. */
 
+import { getEnv, setEnvMode } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getEnv, setEnvMode } from '../../src/env.js';
 import { AiTask, responseText } from '../../src/providers/ai/tasks/task.js';
 import type { AiContext } from '../../src/providers/ai/types.js';
 
@@ -35,17 +35,20 @@ test('environment values are read when requested and test credentials replace ru
   setEnvMode('runtime');
   assert.equal(getEnv('OPENAI_API_KEY'), 'first-key');
   process.env.OPENAI_API_KEY = 'second-key';
+  assert.equal(getEnv('OPENAI_API_KEY'), 'first-key');
+  setEnvMode('runtime');
   assert.equal(getEnv('OPENAI_API_KEY'), 'second-key');
   setEnvMode('test');
   assert.equal(getEnv('OPENAI_API_KEY'), 'test-key');
   setEnvMode('runtime');
   process.env.OPENAI_API_KEY = ' ';
   assert.throws(() => getEnv('OPENAI_API_KEY'), /Missing OPENAI_API_KEY/);
+  setEnvMode('runtime');
   delete process.env.OPENAI_API_KEY;
   assert.throws(() => getEnv('OPENAI_API_KEY'), /Missing OPENAI_API_KEY/);
 });
 
-test('tasks read credentials at construction and enforce shared request limits', async (t) => {
+test('tasks read credentials at first execution and enforce shared request limits', async (t) => {
   const env = process.env;
   process.env = { ...env, OPENAI_API_KEY: '' };
   t.after(() => {
@@ -57,7 +60,8 @@ test('tasks read credentials at construction and enforce shared request limits',
     signal: new AbortController().signal,
     record: async () => {},
   };
-  assert.throws(() => new TextTask('Read this.', context), /Missing OPENAI_API_KEY/);
+  const unconfigured = new TextTask('Read this.', context);
+  await assert.rejects(unconfigured.run(), /Missing OPENAI_API_KEY/);
   setEnvMode('test');
   const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     assert.equal(new Headers(options.headers).get('authorization'), 'Bearer test-key');
@@ -69,7 +73,7 @@ test('tasks read credentials at construction and enforce shared request limits',
   });
   await assert.rejects(new TextTask('x'.repeat(120000), context).run(), /text_limit/);
   assert.equal(fetch.mock.callCount(), 0);
-  assert.equal(await new TextTask('Read this.', context).run(), 'Done.');
+  assert.equal(await unconfigured.run(), 'Done.');
   assert.equal(fetch.mock.callCount(), 1);
 });
 
@@ -136,3 +140,60 @@ test('job cancellation reaches a task constructed before the job was aborted', a
   await assert.rejects(task.run(), reason);
   assert.equal(fetch.mock.callCount(), 0);
 });
+
+test('task instructions count towards the request text limit', async (t) => {
+  setEnvMode('test');
+  t.after(() => setEnvMode('runtime'));
+  const fetch = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('Unexpected request');
+  });
+  class InstructionTask extends TextTask {
+    protected override instructions = 'x'.repeat(120000);
+  }
+  await assert.rejects(
+    new InstructionTask('Read this.', {
+      signal: new AbortController().signal,
+      record: async () => {},
+    }).run(),
+    /text_limit/,
+  );
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
+for (const streamed of [false, true]) {
+  test(`refused ${streamed ? 'streamed' : 'buffered'} responses report usage and a sanitised reason`, async (t) => {
+    setEnvMode('test');
+    t.after(() => setEnvMode('runtime'));
+    const response = {
+      status: 'completed',
+      output: [
+        { type: 'message', content: [{ type: 'refusal', refusal: 'Private refusal details' }] },
+      ],
+      usage: { input_tokens: 10, output_tokens: 2, input_tokens_details: { cached_tokens: 0 } },
+    };
+    t.mock.method(globalThis, 'fetch', async () =>
+      streamed
+        ? new Response(`data: ${JSON.stringify({ type: 'response.completed', response })}\n\n`, {
+            headers: { 'Content-Type': 'text/event-stream' },
+          })
+        : Response.json(response),
+    );
+    let recorded = false;
+    class RefusalTask extends TextTask {
+      protected override async runTask() {
+        return responseText(await this.execute('Read text.', streamed ? () => {} : undefined));
+      }
+    }
+    await assert.rejects(
+      new RefusalTask('', {
+        signal: new AbortController().signal,
+        record: async (usage) => {
+          assert.equal(usage.inputTokens, 10);
+          recorded = true;
+        },
+      }).run(),
+      { message: 'ai_refused' },
+    );
+    assert.equal(recorded, true);
+  });
+}

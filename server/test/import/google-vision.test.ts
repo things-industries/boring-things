@@ -1,10 +1,15 @@
 /** Checks Google Vision requests, response validation and image copies using mocked HTTP. */
 
-import { test } from 'node:test';
+import { getEnv, setEnvMode, setEnvValue } from '../../src/config.js';
+import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { readImageText } from '../../src/providers/google-vision/index.js';
-import { readConfig } from '../../src/config.js';
+
+beforeEach(() => {
+  setEnvMode('test');
+  setEnvValue('GOOGLE_VISION_API_KEY', 'fixture-key');
+});
 
 const signal = () => new AbortController().signal;
 
@@ -22,11 +27,8 @@ test('Google Vision returns literal text and sends its key only in the request h
     assert.equal(Buffer.from(body.requests[0].image.content, 'base64').toString(), 'fixture image');
     return Response.json({ responses: [{ fullTextAnnotation: { text } }] });
   });
-  assert.equal(
-    readConfig({ GOOGLE_VISION_API_KEY: ' fixture-key ' }).googleVisionApiKey,
-    'fixture-key',
-  );
-  assert.equal(await readImageText(Buffer.from('fixture image'), 'fixture-key', signal()), text);
+  assert.equal(getEnv('GOOGLE_VISION_API_KEY'), 'fixture-key');
+  assert.equal(await readImageText(Buffer.from('fixture image'), signal()), text);
   assert.equal(requests, 1);
 });
 
@@ -34,11 +36,10 @@ test('missing keys and cancellation stop OCR before making a request', async (t)
   const request = t.mock.method(globalThis, 'fetch', async () => {
     throw new Error('Unexpected request');
   });
-  await assert.rejects(
-    readImageText(Buffer.alloc(0), '', signal()),
-    /Missing GOOGLE_VISION_API_KEY/,
-  );
-  await assert.rejects(readImageText(Buffer.alloc(0), 'fixture-key', AbortSignal.abort()), {
+  setEnvValue('GOOGLE_VISION_API_KEY', '');
+  await assert.rejects(readImageText(Buffer.alloc(0), signal()), /Missing GOOGLE_VISION_API_KEY/);
+  setEnvValue('GOOGLE_VISION_API_KEY', 'fixture-key');
+  await assert.rejects(readImageText(Buffer.alloc(0), AbortSignal.abort()), {
     name: 'AbortError',
   });
   assert.equal(request.mock.callCount(), 0);
@@ -67,10 +68,7 @@ test('Google HTTP, image and malformed-response errors fail OCR without using an
     const request = t.mock.method(globalThis, 'fetch', async () =>
       Response.json(fixture.body, { status: fixture.status }),
     );
-    await assert.rejects(
-      readImageText(Buffer.from('fixture image'), 'fixture-key', signal()),
-      fixture.reason,
-    );
+    await assert.rejects(readImageText(Buffer.from('fixture image'), signal()), fixture.reason);
     assert.equal(request.mock.callCount(), 1);
     request.mock.restore();
   }
@@ -78,7 +76,7 @@ test('Google HTTP, image and malformed-response errors fail OCR without using an
 
 test('images without recognised text return an empty result', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => Response.json({ responses: [{}] }));
-  assert.equal(await readImageText(Buffer.from('fixture image'), 'fixture-key', signal()), '');
+  assert.equal(await readImageText(Buffer.from('fixture image'), signal()), '');
 });
 
 test('large image request copies become JPEG at their original dimensions', async (t) => {
@@ -95,7 +93,7 @@ test('large image request copies become JPEG at their original dimensions', asyn
     assert.equal(image.height, 300);
     return Response.json({ responses: [{}] });
   });
-  await readImageText(content, 'fixture-key', signal());
+  await readImageText(content, signal());
   assert.equal(content.length, png.length + 7_000_001);
   assert.deepEqual(content.subarray(0, png.length), png);
 });

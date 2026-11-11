@@ -1,5 +1,6 @@
 /** Google Vision image OCR, compresses request copies and returns extracted text without storing images. */
 
+import { getEnv } from '../../config.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { ensure } from '../../application/errors.js';
 import { maxDocumentTextLength } from '../../lib/document-limits.js';
@@ -12,12 +13,8 @@ const maxImageBytes = 7_000_000;
 const imageCostUsd = 0.0015;
 
 // Reads image text using Google Vision; failures never fall back to another provider.
-export async function readImageText(
-  content: Buffer,
-  apiKey: string,
-  signal: AbortSignal,
-): Promise<string> {
-  ensure(apiKey.trim(), 'Missing GOOGLE_VISION_API_KEY', 'UNAVAILABLE');
+export async function readImageText(content: Buffer, signal: AbortSignal): Promise<string> {
+  const apiKey = getEnv('GOOGLE_VISION_API_KEY');
   signal = AbortSignal.any([signal, AbortSignal.timeout(30000)]);
   signal.throwIfAborted();
   let imageBytes = content;

@@ -1,5 +1,6 @@
 /** Existing Task conversion and database enforcement of deadline-free recurrence. */
 
+import { getEnv } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
@@ -9,9 +10,7 @@ import * as database from '../../src/db/connection.js';
 const migration = '20261110151123_task_deadlines_exclude_recurrence.sql';
 
 test('recurrence migration keeps deadlines in all states and renames scheduled recurrence', async () => {
-  const url = new URL(
-    process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-  );
+  const url = new URL(getEnv('TEST_DATABASE_URL'));
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
   const name = 'bt_test_' + randomUUID().replaceAll('-', '');
   const admin = database.createPool(url.toString());

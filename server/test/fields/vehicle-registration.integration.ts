@@ -1,5 +1,6 @@
 /** Checks registration-month migration keeps provenance, field addresses and owner decisions. */
 
+import { getEnv } from '../../src/config.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -11,9 +12,7 @@ import { Registry } from '../../src/application/registry/registry.js';
 const migration = '20261110133000_vehicle_registration_month.sql';
 
 test('registration migration converts full dates to months and keeps field metadata', async () => {
-  const url = new URL(
-    process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-  );
+  const url = new URL(getEnv('TEST_DATABASE_URL'));
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
   const name = 'bt_test_' + randomUUID().replaceAll('-', '');
   const admin = database.createPool(url.toString());

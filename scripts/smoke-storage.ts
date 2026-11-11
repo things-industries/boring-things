@@ -1,12 +1,10 @@
 /** Verifies hosted attachment bytes and private access, then removes the synthetic object. */
+import { getEnv } from '../server/src/config.js';
 import assert from 'node:assert/strict';
-import { readConfig } from '../server/src/config.js';
 import { S3Blobs } from '../server/src/providers/blobs/s3.js';
 
 async function verify() {
-  const config = readConfig();
-  if (!config.s3) throw new Error('S3 configuration required');
-  const blobs = new S3Blobs(config.s3);
+  const blobs = new S3Blobs();
   let key: string | undefined;
   try {
     const content = Buffer.from('Synthetic Boring Things storage check.');
@@ -14,8 +12,8 @@ async function verify() {
     const chunks: Buffer[] = [];
     for await (const chunk of await blobs.read(key)) chunks.push(Buffer.from(chunk));
     assert.deepEqual(Buffer.concat(chunks), content);
-    const endpoint = new URL(config.s3.endpoint);
-    endpoint.pathname = `/storage/v1/object/public/${encodeURIComponent(config.s3.bucket)}/${key}`;
+    const endpoint = new URL(getEnv('S3_ENDPOINT'));
+    endpoint.pathname = `/storage/v1/object/public/${encodeURIComponent(getEnv('S3_BUCKET'))}/${key}`;
     const anonymous = await fetch(endpoint, {
       signal: AbortSignal.timeout(10000),
       redirect: 'error',

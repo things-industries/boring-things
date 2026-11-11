@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { getEnv } from '../../src/config.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
@@ -7,9 +8,7 @@ import * as jobLeaseDb from '../../src/db/job-lease.js';
 import { JobRunner } from '../../src/application/jobs/runner.js';
 
 test('overlapping runners recover only after leadership transfers', async () => {
-  const url = new URL(
-    process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-  );
+  const url = new URL(getEnv('TEST_DATABASE_URL'));
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
   const admin = database.createPool(url.toString());
   const name = 'bt_lease_' + randomUUID().replaceAll('-', '');

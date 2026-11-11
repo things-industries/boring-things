@@ -1,5 +1,6 @@
 /** Maps UK registration lookups to vehicle fields with Zyfy source provenance. */
 
+import { getEnv } from '../../config.js';
 import timers from 'node:timers/promises';
 import type { Value } from '../../../../shared/model.js';
 import type { ThingRow } from '../../db/entities/things.js';
@@ -80,10 +81,7 @@ function getRegistration(thing: ThingRow) {
 export class ZyfyProvider extends SpecialistProvider {
   readonly id = 'ZYFY';
 
-  constructor(
-    private apiKey: string,
-    request: typeof fetch = fetch,
-  ) {
+  constructor(request: typeof fetch = fetch) {
     super(request);
   }
 
@@ -107,7 +105,7 @@ export class ZyfyProvider extends SpecialistProvider {
         { task: 'zyfy_lookup', provider: 'zyfy' },
         async () => {
           const response = await this.request(url, {
-            headers: { 'X-Api-Key': this.apiKey },
+            headers: { 'X-Api-Key': getEnv('ZYFY_API_KEY') },
             redirect: 'error',
             signal: requestSignal,
           });

@@ -1,7 +1,8 @@
 /** Checks UK lookup applicability, source mapping, retries and owner field permissions. */
 
+import { setEnvMode, setEnvValue } from '../../src/config.js';
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { beforeEach, test } from 'node:test';
 import { ZyfyProvider } from '../../src/providers/zyfy/index.js';
 import { Registry } from '../../src/application/registry/registry.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
@@ -9,6 +10,11 @@ import { addFieldSets, populateFields } from '../../src/application/thing-fields
 import { patchData } from '../../src/application/thing-data.js';
 import { emptyData } from '../../../shared/model.js';
 import type { ThingRow } from '../../src/db/entities/things.js';
+
+beforeEach(() => {
+  setEnvMode('test');
+  setEnvValue('ZYFY_API_KEY', 'fixture-key');
+});
 
 const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 const signal = new AbortController().signal;
@@ -76,7 +82,7 @@ function createVehicle() {
 
 test('Zyfy accepts UK plate patterns without a country and skips conflicting countries', async () => {
   let calls = 0;
-  const provider = new ZyfyProvider('fixture-key', async () => {
+  const provider = new ZyfyProvider(async () => {
     calls++;
     return Response.json(createVehicle());
   });
@@ -133,7 +139,7 @@ test('Zyfy maps source values with units, currency and provenance before applyin
     registry,
   );
   thing.data.userEdited = ['set:vehicles.roadTax'];
-  const provider = new ZyfyProvider('fixture-key', async (url, init) => {
+  const provider = new ZyfyProvider(async (url, init) => {
     assert.equal(String(url), 'https://zyfy.uk/v1/vehicle/XY12ZZZ');
     assert.equal(new Headers(init?.headers).get('X-Api-Key'), 'fixture-key');
     assert.equal(init?.redirect, 'error');
@@ -171,7 +177,7 @@ test('Zyfy maps source values with units, currency and provenance before applyin
 
 test('Zyfy keeps valid proposals when individual dates are invalid and preserves false and zero', async () => {
   const body = createVehicle();
-  const provider = new ZyfyProvider('fixture-key', async () =>
+  const provider = new ZyfyProvider(async () =>
     Response.json({
       ...body,
       signals: {
@@ -191,20 +197,20 @@ test('Zyfy keeps valid proposals when individual dates are invalid and preserves
 });
 
 test('Zyfy rejects a mismatched registration and provider errors, and accepts a missing vehicle', async () => {
-  const mismatch = new ZyfyProvider('fixture-key', async () =>
+  const mismatch = new ZyfyProvider(async () =>
     Response.json({ ...createVehicle(), registration: 'XY12AAA' }),
   );
   await assert.rejects(mismatch.lookup(createThing(), registry, signal), /identity mismatch/);
   for (const status of [401, 429, 500]) {
     let calls = 0;
-    const provider = new ZyfyProvider('fixture-key', async () => {
+    const provider = new ZyfyProvider(async () => {
       calls++;
       return Response.json({ error: 'Provider error' }, { status });
     });
     await assert.rejects(provider.lookup(createThing(), registry, signal), /unavailable/);
     assert.equal(calls, 1);
   }
-  const missing = new ZyfyProvider('fixture-key', async () =>
+  const missing = new ZyfyProvider(async () =>
     Response.json({ error: 'Not found' }, { status: 404 }),
   );
   assert.deepEqual(await missing.lookup(createThing(), registry, signal), {
@@ -217,7 +223,7 @@ test('Zyfy retries pending enrichment and stops after three requests', async (t)
   t.mock.timers.enable({ apis: ['setTimeout'] });
   for (const ready of [true, false]) {
     let calls = 0;
-    const provider = new ZyfyProvider('fixture-key', async () => {
+    const provider = new ZyfyProvider(async () => {
       calls++;
       return ready && calls === 2
         ? Response.json(createVehicle())
@@ -249,7 +255,7 @@ test('Zyfy pending wait stops when its import is cancelled', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const controller = new AbortController();
   let calls = 0;
-  const provider = new ZyfyProvider('fixture-key', async () => {
+  const provider = new ZyfyProvider(async () => {
     calls++;
     return Response.json(
       { registration: 'XY12ZZZ', enrichmentPending: true },

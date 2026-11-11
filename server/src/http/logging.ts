@@ -1,7 +1,7 @@
 // Configures log formatting and places routine HTTP request and stream messages at trace severity.
 
+import { getEnv } from '../config.js';
 import { LogController, type FastifyReply, type FastifyRequest } from 'fastify';
-import type { EnvConfig } from '../config.js';
 
 // Keep request diagnostics available without adding noise at the default info level.
 export class RequestLogController extends LogController {
@@ -35,11 +35,11 @@ export class RequestLogController extends LogController {
 }
 
 // Use readable local output and structured production logs, preserving credential redaction.
-export function loggerOptions(config: EnvConfig) {
+export function loggerOptions() {
   return {
-    level: config.logLevel,
+    level: getEnv('LOG_LEVEL'),
     redact: ['req.headers.authorization', 'req.headers.cookie'],
-    ...(config.logFormat === 'pretty'
+    ...(getEnv('LOG_FORMAT') === 'pretty'
       ? {
           transport: {
             target: 'pino-pretty',

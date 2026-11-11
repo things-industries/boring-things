@@ -22,6 +22,7 @@ export function getImportFailureReason(error: unknown): string {
     'Invalid AI output',
     'AI response incomplete',
     'ai_provider_failed',
+    'ai_refused',
     'Wrong additional source',
     'Invalid source evidence',
     'Invalid recommendation',

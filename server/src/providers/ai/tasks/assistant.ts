@@ -1,5 +1,6 @@
 /** Answers assistant requests with streamed text and task-owned tool definitions and argument adapters. */
 
+import { getEnv } from '../../../config.js';
 import { search_field_sets, search_fields } from '../tools/registry.js';
 import type { FunctionTool, ResponseInput } from 'openai/resources/responses/responses';
 import type { FromSchema } from 'json-schema-to-ts';
@@ -431,17 +432,16 @@ export class AssistantTask extends AiTask<never, string> {
   protected readonly maxTextCharacters = Infinity;
   protected task = 'assistant_response';
   protected instructions = chatInstructions;
-  protected parallelToolCalls = true;
+  protected override readonly parallelToolCalls = true;
   private delta: ChatContext['delta'];
 
   constructor(
     private input: ChatInput,
     private capabilities: ChatTools,
     context: ChatContext,
-    rounds: number,
   ) {
     super(context);
-    this.toolRounds = rounds;
+    this.toolRounds = getEnv('CHAT_TOOL_CALLS');
     this.delta = context.delta;
     this.tools = this.createTools(context);
   }
@@ -454,7 +454,7 @@ export class AssistantTask extends AiTask<never, string> {
     }));
     conversation.push({ role: 'developer', content: chatContextPrompt(this.input) });
     let answer = '';
-    await this.execute(conversation, {}, (text) => {
+    await this.execute(conversation, (text) => {
       answer += text;
       this.delta(text);
     });

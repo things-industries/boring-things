@@ -3,12 +3,12 @@
  * writes and streamed progress.
  */
 
+import { getEnv } from '../../config.js';
 import { createChatActivity } from './messages.js';
 import { updateChatFields, type ChatFieldEvidence } from './fields.js';
 import { searchFields, searchFieldSets } from '../registry/index.js';
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
-import type { EnvConfig } from '../../config.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
 import type {
@@ -45,7 +45,6 @@ export class Assistant {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ChatAi | undefined,
-    private config: EnvConfig,
     private events: ApplicationEvents,
     private reportFailure: (failure: ChatFailure) => void,
   ) {}
@@ -80,7 +79,7 @@ export class Assistant {
     const key = job.ownerId + ':' + job.conversationId;
     const live = { messageId: job.id, text: '' };
     this.live.set(key, live);
-    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(this.config.chatTimeoutMs)]);
+    const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('CHAT_TIMEOUT_MS'))]);
     const usage = job.usage ?? blankUsage();
     const started = Date.now();
     const elapsed = usage.elapsedMs;
@@ -137,7 +136,7 @@ export class Assistant {
 
     const execute = async ({ name, args }: ChatToolCall): Promise<ChatToolResult> => {
       signal.throwIfAborted();
-      ensure(++calls <= this.config.chatToolCalls, 'tool_limit', 'UNAVAILABLE');
+      ensure(++calls <= getEnv('CHAT_TOOL_CALLS'), 'tool_limit', 'UNAVAILABLE');
       let output: unknown;
 
       if (name === 'search_things') {
@@ -180,7 +179,7 @@ export class Assistant {
           job.ownerId,
           args.attachmentId,
         );
-        ensure(file && file.byteSize <= this.config.maxUploadBytes, 'Attachment unavailable');
+        ensure(file && file.byteSize <= getEnv('MAX_UPLOAD_BYTES'), 'Attachment unavailable');
         files++;
         const chunks: Buffer[] = [];
         let bytes = 0;
@@ -188,7 +187,7 @@ export class Assistant {
         for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
           signal.throwIfAborted();
           bytes += chunk.length;
-          ensure(bytes <= this.config.maxUploadBytes, 'Attachment too large');
+          ensure(bytes <= getEnv('MAX_UPLOAD_BYTES'), 'Attachment too large');
           chunks.push(Buffer.from(chunk));
         }
 
@@ -223,7 +222,7 @@ export class Assistant {
           ResearchAnswer | undefined;
         const researchSignal = AbortSignal.any([
           signal,
-          AbortSignal.timeout(this.config.discoveryTimeoutMs),
+          AbortSignal.timeout(getEnv('DISCOVERY_TIMEOUT_MS')),
         ]);
         if (!found) {
           try {
