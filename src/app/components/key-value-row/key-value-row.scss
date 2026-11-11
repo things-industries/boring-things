@@ -32,6 +32,30 @@
   text-align: right;
   overflow-wrap: anywhere;
 }
+:host(.is-editing) {
+  .key-value-label {
+    flex: 0 1 40%;
+  }
+  .key-value-value {
+    flex: 1 1 60%;
+  }
+}
+// The value takes its own row under the label; trailing content stays beside the label.
+:host(.is-stacked) {
+  flex-wrap: wrap;
+  row-gap: 0;
+  .key-value-label {
+    flex: 1 1 auto;
+  }
+  .key-value-end {
+    order: 1;
+  }
+  .key-value-value {
+    order: 2;
+    flex: 1 1 100%;
+    text-align: left;
+  }
+}
 .key-value-skeleton {
   @include mixins.skeleton-line;
   width: 30%;
@@ -55,7 +79,15 @@
 .key-value-value,
 .key-value-copied {
   position: relative;
-  pointer-events: none;
+}
+// Clicks pass through the content to the copy button behind it.
+:host(.is-copyable) {
+  .key-value-icon,
+  .key-value-label,
+  .key-value-value,
+  .key-value-copied {
+    pointer-events: none;
+  }
 }
 .key-value-copied {
   color: tokens.color(accent);
