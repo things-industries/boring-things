@@ -15,6 +15,7 @@
         }
       </select>
       <input
+        #amountInput
         class="field-control-input"
         type="number"
         inputmode="decimal"
@@ -22,7 +23,7 @@
         min="0"
         placeholder="0.00"
         autocomplete="off"
-        [value]="money().amount"
+        [value]="amountText()"
         [disabled]="disabled()"
         [attr.aria-label]="label()"
         [attr.aria-invalid]="!!error()"
@@ -80,6 +81,7 @@
     }
     @default {
       <input
+        #valueInput
         class="field-control-input"
         autocomplete="off"
         [type]="type()"
@@ -93,7 +95,7 @@
               : null
         "
         [attr.step]="field().kind === 'number' ? (field().integer ? 1 : 'any') : null"
-        [value]="text()"
+        [value]="inputText()"
         [placeholder]="placeholder()"
         [disabled]="disabled()"
         [attr.aria-label]="label()"

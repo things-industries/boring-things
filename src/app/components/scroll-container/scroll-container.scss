@@ -7,6 +7,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  // Keeps the gutter when content is short, matching `bt-top-bar`.
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   padding-block: tokens.space(2) tokens.space(8);
   @include mixins.page-gutter;

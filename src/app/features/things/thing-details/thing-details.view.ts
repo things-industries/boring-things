@@ -42,6 +42,15 @@ function dateFormat(field: Schema['Field']) {
   return format === 'date' || format === 'date-time' ? format : null;
 }
 
+/** Custom dates show formatted when they hold a calendar date, and as typed otherwise. */
+function customDateFormat(field: Schema['CustomField']) {
+  return field.valueType === 'DATE' &&
+    typeof field.value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(field.value)
+    ? 'date'
+    : null;
+}
+
 function fieldRow(detail: ThingDetail, field: Schema['Field'], setId: string | null): DetailRow {
   const pin: Pin = { fieldSetId: setId, fieldId: field.id };
 
@@ -67,7 +76,7 @@ function customRow(detail: ThingDetail, field: Schema['CustomField']): DetailRow
     label: field.label,
     value: field.value,
     masked: field.masked,
-    format: null,
+    format: customDateFormat(field),
     input: customFieldInput(field),
     target: { kind: 'custom', id: field.id, label: field.label, sensitive: field.sensitive },
     pin,

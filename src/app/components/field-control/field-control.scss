@@ -19,12 +19,15 @@
 .field-control-currency {
   min-width: 0;
   margin: 0;
-  padding: tokens.space(1) 0;
+  padding: tokens.space(2);
+  padding-left: 0;
   border: 0;
   border-bottom: 1px solid transparent;
   border-radius: 0;
   background: transparent;
   color: tokens.color(primary);
+  text-box-trim: trim-both;
+  text-box-edge: auto;
   font: inherit;
   @include mixins.touch-field-text;
   &:focus {
@@ -57,9 +60,10 @@ select.field-control-input,
   width: auto;
   color: tokens.color(primary-muted);
 }
-// Keeps the amount beside its currency rather than across the row.
+// Keeps the amount beside its currency rather than across the row, with room for 12 digits
+// beside its padding and icon.
 .field-control-currency + .field-control-input {
-  flex: 0 1 10ch;
+  flex: 0 1 calc(12ch + #{tokens.icon-size(sm)} + #{tokens.space(5)});
 }
 // Empty date controls show their format, which reads as a value unless muted.
 :host(.is-empty) .field-control-input {
@@ -99,7 +103,6 @@ input.field-control-input {
 .field-control-affordance {
   position: absolute;
   top: 50%;
-  right: 0;
   transform: translateY(-50%);
   color: tokens.color(primary-muted);
   pointer-events: none;
@@ -107,10 +110,10 @@ input.field-control-input {
 }
 // In multi-line text the icon stays beside the first line.
 textarea.field-control-input ~ .field-control-affordance {
-  top: calc(#{tokens.space(1)} + 0.5lh);
+  top: calc(#{tokens.space(2)} + 0.5lh);
 }
 :host(.has-affordance) .field-control-input {
-  padding-right: calc(#{tokens.icon-size(sm)} + #{tokens.space(2)});
+  padding-right: calc(#{tokens.icon-size(sm)} + #{tokens.space(3)});
 }
 .field-control-error {
   margin: tokens.space(1) 0 0;

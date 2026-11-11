@@ -73,6 +73,26 @@ test('registry fields choose the control for their type', () => {
   assert.equal(customFieldInput(custom({ label: 'Support email' })).kind, 'email');
 });
 
+test('custom dates format like registry dates only when they hold a calendar date', () => {
+  const detail = {
+    fieldSets: [],
+    standaloneFields: [],
+    customFields: [
+      custom({ id: 'renewal', valueType: 'DATE', value: '2027-05-16' }),
+      custom({ id: 'loose', valueType: 'DATE', value: 'next spring' }),
+      custom({ id: 'text', value: '2027-05-16' }),
+    ],
+    pinnedFields: [],
+  } as unknown as ThingDetail;
+
+  assert.deepEqual(
+    detailGroups(detail)
+      .flatMap((group) => group.rows)
+      .map((row) => row.format),
+    ['date', null, null],
+  );
+});
+
 test('drafts round-trip values and empty drafts clear them', () => {
   const money: FieldInput = { kind: 'money', sensitive: false };
   const draft = valueDraft(money, { amountMinor: 74900, currency: 'EUR' });

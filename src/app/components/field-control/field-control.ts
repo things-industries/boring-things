@@ -3,6 +3,7 @@ import {
   DestroyRef,
   type ElementRef,
   type OnInit,
+  type WritableSignal,
   computed,
   effect,
   inject,
@@ -13,7 +14,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { type ControlValueAccessor, NgControl } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { editDetails, expandSection, rescheduleTask } from '../../core/app-icons';
+import { editDetails, expandSection, moneyField, rescheduleTask } from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
 import { ERROR_TERMS } from '../../core/app-terms';
 import type { UiErrorCode } from '../../interfaces/error.interface';
@@ -54,7 +55,7 @@ function textWidth(element: HTMLElement, text: string) {
 
 /**
  * Inline value editor for a form control, with the native control suited to `field.kind`, a
- * pencil, calendar or chevron inside text, date and choice controls, and the control's first error
+ * pencil, card, calendar or chevron inside text, money, date and choice controls, and the control's first error
  * once touched.
  * The value is a `FieldDraft`: text, or an amount and currency for money. `concealed` hides typed
  * text for sensitive values.
@@ -65,7 +66,7 @@ function textWidth(element: HTMLElement, text: string) {
 @Component({
   selector: 'bt-field-control',
   imports: [NgIcon],
-  viewProviders: [provideIcons({ editDetails, expandSection, rescheduleTask })],
+  viewProviders: [provideIcons({ editDetails, expandSection, moneyField, rescheduleTask })],
   templateUrl: './field-control.html',
   styleUrl: './field-control.scss',
   host: {
@@ -93,7 +94,16 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   /** Whether the text needs a row of its own. */
   readonly long = signal(false);
 
+  /**
+   * The text and amount shown when the inputs render. Typing never writes them back, since
+   * rewriting a number input mid-entry ("12.") resets its text and caret.
+   */
+  readonly inputText = signal('');
+  readonly amountText = signal('');
+
   private textArea = viewChild<ElementRef<HTMLTextAreaElement>>('textArea');
+  private valueInput = viewChild<ElementRef<HTMLInputElement>>('valueInput');
+  private amountInput = viewChild<ElementRef<HTMLInputElement>>('amountInput');
 
   /** The text width that fits beside the label, measured when the text first wrapped there. */
   private inlineWidth = 0;
@@ -139,13 +149,18 @@ export class FieldControl implements ControlValueAccessor, OnInit {
     return (kind === 'text' || kind === 'textarea') && !this.concealed() ? 'multiline' : 'input';
   });
 
-  /** A trailing hint inside the control: a pencil for text, a calendar or chevron for pickers. */
+  /**
+   * A trailing hint inside the control: a pencil for text, a card for money, a calendar or chevron
+   * for pickers.
+   */
   readonly affordance = computed(() => {
     switch (this.field().kind) {
       case 'text':
       case 'textarea':
       case 'email':
         return 'editDetails';
+      case 'money':
+        return 'moneyField';
       case 'date':
       case 'date-time':
         return 'rescheduleTask';
@@ -196,6 +211,8 @@ export class FieldControl implements ControlValueAccessor, OnInit {
 
   writeValue(value: FieldDraft | null) {
     this.draft.set(value ?? '');
+    if (value !== null && typeof value === 'object') this.showAmount(value.amount);
+    else this.show(this.inputText, this.valueInput(), value ?? '');
   }
 
   registerOnChange(fn: (value: FieldDraft) => void) {
@@ -218,7 +235,11 @@ export class FieldControl implements ControlValueAccessor, OnInit {
       element.value = element.value.replace(/\s*[\r\n]+\s*/g, ' ');
 
     this.update(element.value);
-    if (element instanceof HTMLTextAreaElement) this.fit(element);
+    if (element instanceof HTMLTextAreaElement) {
+      // Concealing swaps the textarea for an input, which then shows what was typed here.
+      this.inputText.set(element.value);
+      this.fit(element);
+    }
   }
 
   /** Enter in single-line text does not add a line break. */
@@ -241,7 +262,10 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   leaveAmount() {
     const money = formatMoneyDraft(this.money());
 
-    if (money.amount !== this.money().amount) this.update(money);
+    if (money.amount !== this.money().amount) {
+      this.update(money);
+      this.showAmount(money.amount);
+    }
     this.onTouched();
   }
 
@@ -284,6 +308,20 @@ export class FieldControl implements ControlValueAccessor, OnInit {
       this.inlineWidth = element.clientWidth - paddingX;
       this.long.set(true);
     }
+  }
+
+  private showAmount(amount: string) {
+    this.show(this.amountText, this.amountInput(), amount);
+  }
+
+  /** Shows `text` in an input, writing the element directly when it is already rendered. */
+  private show(
+    shown: WritableSignal<string>,
+    input: ElementRef<HTMLInputElement> | undefined,
+    text: string,
+  ) {
+    shown.set(text);
+    if (input && input.nativeElement.value !== text) input.nativeElement.value = text;
   }
 
   private update(value: FieldDraft) {

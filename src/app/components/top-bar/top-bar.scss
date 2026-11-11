@@ -13,6 +13,10 @@
   min-height: tokens.size(top-bar);
   padding-block: tokens.space(2);
   @include mixins.page-gutter;
+  // Reserves the same scrollbar gutter as `bt-scroll-container`, so both gutters line up when the
+  // platform shows classic scrollbars. Menus open in the top layer, so nothing is clipped.
+  overflow: hidden;
+  scrollbar-gutter: stable;
   background: var(--top-bar-background, #{tokens.color(secondary-subtle)});
   transition: background-color 0.2s ease-out;
   @media (prefers-reduced-motion: reduce) {
