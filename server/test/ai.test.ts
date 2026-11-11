@@ -439,7 +439,9 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     assert.match(body.instructions, /Name each task with a verb and its object/);
     assert.match(body.input, /Model A/);
     assert.ok(body.input.includes('existingTasks'));
-    assert.match(body.instructions, /evidence establishes that the statement applies/);
+    assert.match(body.instructions, /only when the evidence supports its applicability/);
+    assert.match(body.instructions, /and any stated eligibility conditions/);
+    assert.match(body.instructions, /return each underlying action or product once/);
     assert.ok(body.input.includes(JSON.stringify(research.fieldSetSuggestions)));
     if (requests.length === 1) assert.ok(body.input.includes('Private owner title'));
     assert.ok(!body.input.includes('Imported facts'));

@@ -33,7 +33,7 @@ export interface RecommendationInput extends Pick<
 
 export const recommendationInstructions = `${getPrompt('thing-definition')} ${getPrompt('import-instructions')} ${getPrompt('web-research-instructions')}
 Read applicable linked Attachments with search_transcription before searching the web. Use web search when evidence or purchase links are missing. Prefer official manufacturer or provider recommendations. Include Attachment IDs, original pages and quotations, or public URLs and excerpts when available. Sources are optional; return an empty sourceRefs array when none are available. Keep secrets and private identifiers out of web queries and recommendation text. Use public model, provider and product details for research. Exclude equivalent existing suggestions, including completed or dismissed tasks. Return useful recommendations based on the available information; distinguish conditional advice from known facts.
-Consider fieldSetSuggestions early as ideas for research. Use a candidate with an eligibility statement only when evidence establishes that the statement applies to this Thing. Verify applicability even when no eligibility statement is supplied. Look for other useful recommendations and return each underlying action or item once.`;
+Use fieldSetSuggestions to guide research. Recommend a candidate only when the evidence supports its applicability and any stated eligibility conditions. Look for other useful recommendations and return each underlying action or product once.`;
 
 export const recommendationSourcesSchema = {
   description: 'Optional Attachment passages or public sources explaining the recommendation.',
