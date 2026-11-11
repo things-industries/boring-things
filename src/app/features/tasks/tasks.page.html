@@ -1,0 +1,21 @@
+<header class="tasks-header">
+  <h1>{{ 'tasks' | term }}</h1>
+  <a
+    btIconButton
+    variant="plain"
+    icon="openProfile"
+    routerLink="/profile"
+    [label]="'profile' | term"
+  ></a>
+</header>
+@if (error()) {
+  <div class="tasks-error">
+    <bt-error-message [code]="error()" />
+    <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+  </div>
+}
+@if (!loaded()) {
+  <bt-agenda-skeleton />
+} @else {
+  <bt-agenda [agenda]="agenda()" [now]="now()" />
+}

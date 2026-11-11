@@ -22,7 +22,7 @@ import * as thingsDb from '../../db/entities/things.js';
 import * as attachmentsDb from '../../db/entities/attachments.js';
 import * as thingFieldsDb from '../../db/entities/thing-fields.js';
 import * as registryDb from '../../db/entities/registry.js';
-import * as activityDb from '../../db/entities/activity.js';
+import * as tasksDb from '../../db/entities/tasks.js';
 import * as purchasablesDb from '../../db/entities/purchasables.js';
 import { addFieldSets, fieldTargets, populateFields, identifierValues } from '../thing-fields.js';
 import { publicFields } from '../public-fields.js';
@@ -1044,7 +1044,7 @@ export class ImportWorkflow {
     const [tasks, purchasables] = await Promise.allSettled([
       this.job.workflow.done.includes('tasks')
         ? undefined
-        : activityDb
+        : tasksDb
             .existingTasks(this.pool, this.job.ownerId, thing.id)
             .then((existingTasks) =>
               this.ai.suggestTasks(
@@ -1101,7 +1101,7 @@ export class ImportWorkflow {
           for (const ref of task.sourceRefs)
             if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
               continue tasks;
-          await activityDb.saveSuggestedTask(db, current.ownerId, current.id, task);
+          await tasksDb.saveSuggestedTask(db, current.ownerId, current.id, task);
         }
       });
     }

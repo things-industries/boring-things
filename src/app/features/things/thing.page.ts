@@ -25,7 +25,6 @@ import {
   attachmentSpecification,
   changeCategory,
   compatibleProduct,
-  complete,
   deleteItem,
   downloadAttachment,
   allDetails,
@@ -41,20 +40,11 @@ import {
   moreActions,
   resolveIssue,
   setAsImage,
-  taskCleaning,
-  taskInspection,
-  taskOther,
-  taskRepair,
-  taskReplacement,
-  taskService,
   unlinkAttachment,
-  upcomingEvent,
   uploadFile,
-  scheduleTask,
 } from '../../core/app-icons';
 import { APP_CONFIG } from '../../core/app.config';
 import { AttachmentsService } from '../../core/data/attachments.service';
-import { mockEventRecurrence } from '../../core/mocks/event-recurrence.mock';
 import { mockIssueKinds } from '../../core/mocks/issue-kind.mock';
 import { CONFIG } from '../../core/runtime-config';
 import { errorCode } from '../../utils/error.util';
@@ -62,15 +52,16 @@ import { Toasts } from '../../core/services/toasts.service';
 import { AttachmentsStore } from '../../core/state/attachments.store';
 import { CategoriesStore } from '../../core/state/categories.store';
 import { ConversationsStore } from '../../core/state/conversations.store';
-import { EventsStore } from '../../core/state/events.store';
+import { TasksStore } from '../../core/state/tasks.store';
 import { IssuesStore } from '../../core/state/issues.store';
 import { PurchasablesStore } from '../../core/state/purchasables.store';
 import { TagsStore } from '../../core/state/tags.store';
 import { ThingsStore } from '../../core/state/things.store';
+import { createClock } from '../../core/state/clock';
+import { agendaView, loadAgenda } from '../../core/state/views/agenda.view';
 import { AttachmentThumbnail } from '../../components/attachment-thumbnail/attachment-thumbnail';
 import { Dialog } from '../../components/dialog/dialog';
 import { ErrorMessage } from '../../components/error-message/error-message';
-import { EventCard } from '../../components/event-card/event-card';
 import { Hero } from '../../components/hero/hero';
 import { IconButton } from '../../components/icon-button/icon-button';
 import { KeyValueRow } from '../../components/key-value-row/key-value-row';
@@ -81,11 +72,14 @@ import { Notice } from '../../components/notice/notice';
 import { SectionHeader } from '../../components/section-header/section-header';
 import { ScrollContainer } from '../../components/scroll-container/scroll-container';
 import { Sheet } from '../../components/sheet/sheet';
+import { SuggestedTask } from '../../components/suggested-task/suggested-task';
+import { TaskDialogs } from '../../components/task-dialogs/task-dialogs';
+import { TaskActions } from '../../components/task-list/task-actions';
+import { TaskList } from '../../components/task-list/task-list';
 import { TopBar } from '../../components/top-bar/top-bar';
-import { RelativeTimePipe } from '../../pipes/relative-time.pipe';
-import { daysUntil, eventStart, localDateTimeToUtc } from '../../utils/date.util';
+import { byImportance, nextItems } from '../../utils/agenda.util';
+import { daysUntil } from '../../utils/date.util';
 import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
-import { taskBadges } from '../../utils/event.util';
 import { formatFieldValue } from '../../utils/field.util';
 import { issueBadges } from '../../utils/issue.util';
 import { ImportProgress } from './import-progress/import-progress';
@@ -96,7 +90,7 @@ import { RowSkeleton } from './row-skeleton/row-skeleton';
 import { ThingSkeleton } from './thing-skeleton/thing-skeleton';
 import { activeImport, discovering, fieldValueById, keyDetails } from './thing.view';
 
-type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'link' | 'deleteFile';
+type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'link' | 'deleteFile';
 
 /** A Thing's image, status, key details, tasks, products and attachments. */
 @Component({
@@ -108,7 +102,6 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
     RouterLink,
     Dialog,
     ErrorMessage,
-    EventCard,
     Hero,
     IconButton,
     ImportProgress,
@@ -120,11 +113,13 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
     Menu,
     MenuItem,
     Notice,
-    RelativeTimePipe,
     RowSkeleton,
     ScrollContainer,
     SectionHeader,
     Sheet,
+    SuggestedTask,
+    TaskDialogs,
+    TaskList,
     ThingSkeleton,
     TopBar,
   ],
@@ -141,7 +136,6 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
       attachmentSpecification,
       changeCategory,
       compatibleProduct,
-      complete,
       deleteItem,
       downloadAttachment,
       allDetails,
@@ -157,18 +151,11 @@ type ThingDialog = 'sources' | 'category' | 'tags' | 'delete' | 'schedule' | 'li
       moreActions,
       resolveIssue,
       setAsImage,
-      taskCleaning,
-      taskInspection,
-      taskOther,
-      taskRepair,
-      taskReplacement,
-      taskService,
       unlinkAttachment,
-      upcomingEvent,
       uploadFile,
-      scheduleTask,
     }),
   ],
+  providers: [TaskActions],
   templateUrl: './thing.page.html',
   styleUrl: './thing.page.scss',
 })
@@ -177,7 +164,7 @@ export class ThingPage {
   private categories = inject(CategoriesStore);
   private tagsStore = inject(TagsStore);
   private issues = inject(IssuesStore);
-  private events = inject(EventsStore);
+  private tasks = inject(TasksStore);
   private attachments = inject(AttachmentsStore);
   private purchasablesStore = inject(PurchasablesStore);
   private conversations = inject(ConversationsStore);
@@ -199,7 +186,6 @@ export class ThingPage {
   readonly daysUntil = daysUntil;
   readonly attachmentBadge = attachmentBadge;
   readonly attachmentFormat = attachmentFormat;
-  readonly taskBadges = taskBadges;
   readonly formatValue = formatFieldValue;
 
   readonly issueBadges = issueBadges;
@@ -249,18 +235,14 @@ export class ThingPage {
     ),
   );
 
-  private readonly thingEvents = computed(() => this.events.eventsByThing()[this.id()] ?? []);
-
-  readonly scheduled = computed(() =>
-    this.thingEvents()
-      .filter((event) => event.status === 'SCHEDULED')
-      .sort((a, b) => (eventStart(a) ?? 0) - (eventStart(b) ?? 0)),
-  );
+  readonly now = createClock();
+  private readonly agenda = agendaView(this.now, this.id);
+  readonly upcoming = computed(() => nextItems(this.agenda(), APP_CONFIG.thingTaskLimit));
 
   readonly suggested = computed(() =>
-    this.thingEvents()
-      .filter((event) => event.status === 'SUGGESTED')
-      .map(mockEventRecurrence),
+    byImportance(
+      (this.tasks.tasksByThing()[this.id()] ?? []).filter((task) => task.status === 'SUGGESTED'),
+    ).slice(0, APP_CONFIG.thingTaskLimit),
   );
 
   readonly purchasables = computed(
@@ -277,15 +259,14 @@ export class ThingPage {
   readonly target = signal<string | null>(null);
   readonly categoryDraft = signal('');
   readonly newTag = signal('');
-  readonly scheduleDate = signal('');
-  readonly scheduleTime = signal('');
   readonly copied = signal(false);
   private viewed = new Set<string>();
 
   constructor() {
+    loadAgenda();
     void this.categories.ensureLoaded();
     void this.issues.ensureLoaded();
-    void this.events.ensureLoaded();
+    void this.tasks.ensureLoaded();
     void this.attachments.ensureLoaded();
 
     effect(() => {
@@ -329,10 +310,6 @@ export class ThingPage {
   open(dialog: ThingDialog, target: string | null = null) {
     this.target.set(target);
     if (dialog === 'category') this.categoryDraft.set(this.thing()?.categoryId ?? '');
-    if (dialog === 'schedule') {
-      this.scheduleDate.set('');
-      this.scheduleTime.set('');
-    }
     this.dialog.set(dialog);
   }
 
@@ -362,27 +339,6 @@ export class ThingPage {
 
   resolve(id: string) {
     void this.issues.resolve(id);
-  }
-
-  complete(id: string) {
-    void this.events.complete(id);
-  }
-
-  schedule() {
-    const id = this.target();
-    const date = this.scheduleDate();
-
-    if (!id || !date) return;
-
-    const startsAt = this.scheduleTime()
-      ? localDateTimeToUtc(`${date}T${this.scheduleTime()}`)
-      : null;
-
-    void this.events.schedule(
-      id,
-      startsAt ? { startsAt, startsOn: null } : { startsOn: date, startsAt: null },
-    );
-    this.closeDialog();
   }
 
   saveCategory() {

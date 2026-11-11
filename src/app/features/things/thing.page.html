@@ -254,88 +254,31 @@
           </div>
           <div class="thing-column">
             <section class="thing-section">
-              <bt-section-header title="Upcoming tasks">
-                <button type="button" class="button-link" disabled>
-                  See all<span class="visually-hidden"> tasks (coming soon)</span>
-                </button>
+              <bt-section-header title="Tasks">
+                <a class="button-link" [routerLink]="['/things', id(), 'tasks']"
+                  >See all<span class="visually-hidden"> tasks</span></a
+                >
               </bt-section-header>
-              <div class="thing-events">
-                @for (event of scheduled(); track event.id) {
-                  @let start = event.startsOn ?? event.startsAt ?? '';
-                  <bt-event-card [title]="event.title" icon="upcomingEvent">
-                    <span rowSubtitle
-                      >Due {{ start | date: 'd MMM y' }} · {{ start | relativeTime }}
-                      @if (event.isSample) {
-                        · Sample
-                      }
-                    </span>
-                    <button
-                      rowTrailing
-                      type="button"
-                      btIconButton
-                      variant="plain"
-                      icon="complete"
-                      [label]="'Mark complete: ' + event.title"
-                      (click)="complete(event.id)"
-                    ></button>
-                  </bt-event-card>
-                } @empty {
+              <div class="thing-tasks">
+                @if (upcoming().length) {
+                  <bt-task-list
+                    [items]="upcoming()"
+                    [now]="now()"
+                    [showDay]="true"
+                    [inThing]="true"
+                  />
+                } @else if (!suggested().length && !processing()) {
                   <p class="thing-empty">Nothing scheduled.</p>
+                }
+                @for (task of suggested(); track task.id) {
+                  <bt-suggested-task [task]="task" />
+                } @empty {
+                  @if (processing()) {
+                    <bt-row-skeleton [rows]="2" />
+                  }
                 }
               </div>
             </section>
-
-            @if (suggested().length || processing()) {
-              <section class="thing-section">
-                <bt-section-header title="Suggested tasks">
-                  @if (suggested().length) {
-                    <button type="button" class="button-link" disabled>
-                      See all<span class="visually-hidden"> suggested tasks (coming soon)</span>
-                    </button>
-                  }
-                </bt-section-header>
-                <div>
-                  @for (task of suggested(); track task.id) {
-                    <bt-list-row
-                      [title]="task.title"
-                      [icon]="taskBadges[task.kind].icon"
-                      [tone]="taskBadges[task.kind].tone"
-                    >
-                      <span rowSubtitle>
-                        @if (task.recurrence; as recurrence) {
-                          @let unit = recurrence.unit.toLowerCase();
-                          @if (recurrence.interval === 1) {
-                            Once a {{ unit }}
-                          } @else {
-                            Once every {{ recurrence.interval }} {{ unit }}s
-                          }
-                        }
-                        @if (task.isSample) {
-                          @if (task.recurrence) {
-                            ·
-                          }
-                          Sample
-                        }
-                        @if (task.sourceRefs[0]?.url; as url) {
-                          · <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
-                        }
-                      </span>
-                      <button
-                        rowTrailing
-                        type="button"
-                        btIconButton
-                        variant="accent"
-                        icon="scheduleTask"
-                        [label]="'Schedule: ' + task.title"
-                        (click)="open('schedule', task.id)"
-                      ></button>
-                    </bt-list-row>
-                  } @empty {
-                    <bt-row-skeleton [rows]="2" />
-                  }
-                </div>
-              </section>
-            }
 
             @if (purchasables().length || processing()) {
               <section class="thing-section">
@@ -478,6 +421,7 @@
     }
   }
 </bt-scroll-container>
+<bt-task-dialogs />
 @if (loaded() && thing(); as t) {
   <bt-dialog
     title="Add details from a source"
@@ -557,43 +501,6 @@
     </div>
   </bt-dialog>
 
-  <bt-dialog title="Schedule task" [open]="dialog() === 'schedule'" (closed)="closeDialog()">
-    <form id="schedule-task" class="thing-schedule" (ngSubmit)="schedule()">
-      <label class="thing-field"
-        >Date
-        <input
-          name="date"
-          type="date"
-          required
-          [ngModel]="scheduleDate()"
-          (ngModelChange)="scheduleDate.set($event)"
-        />
-      </label>
-      <label class="thing-field"
-        >Time (optional)
-        <input
-          name="time"
-          type="time"
-          [ngModel]="scheduleTime()"
-          (ngModelChange)="scheduleTime.set($event)"
-        />
-      </label>
-    </form>
-    <div dialogActions>
-      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
-        Cancel
-      </button>
-      <button
-        type="submit"
-        form="schedule-task"
-        class="button-primary button-sm"
-        [disabled]="!scheduleDate()"
-      >
-        Schedule
-      </button>
-    </div>
-  </bt-dialog>
-
   @if (dialog() === 'link') {
     <bt-dialog title="Add a file" [open]="true" (closed)="closeDialog()">
       <label class="button-secondary thing-upload"
@@ -629,6 +536,7 @@
                   (click)="open('deleteFile', file.id)"
                 ></button>
               }
+
               <button
                 rowTrailing
                 type="button"

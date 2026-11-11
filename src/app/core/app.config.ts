@@ -5,6 +5,14 @@ export const APP_CONFIG = {
   apiPageSize: 100,
   activityLimit: 3,
   recentThingLimit: 3,
+  /** Upcoming days the Tasks page reveals at a time. */
+  upcomingDayPage: 10,
+  /** Items a Thing page previews from its tasks and from its suggestions. */
+  thingTaskLimit: 2,
+  /** Suggestions a Thing's Tasks page shows until Show all. */
+  thingSuggestionLimit: 3,
+  /** Today's items the Home summary names. */
+  todaySummaryLimit: 3,
   newThingDays: 7,
   downloadUrlLifetimeMs: 1000,
   toastMs: 6000,

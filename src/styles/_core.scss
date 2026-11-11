@@ -9,6 +9,9 @@
   font-synthesis: none;
   // iOS bounces the whole document past its ends, taking the fixed bottom nav with it.
   overscroll-behavior-y: none;
+  // iOS enlarges text it thinks is too small to read, such as labels beside a wide field.
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   @include typography.role(body);
 }
 * {

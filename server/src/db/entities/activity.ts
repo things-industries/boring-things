@@ -1,6 +1,5 @@
-// Persists owner-scoped Issues and Events, including suggested tasks.
+/** Owner-scoped Issue and Event persistence. */
 
-import { createHash } from 'node:crypto';
 import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
 import * as database from '../connection.js';
@@ -23,7 +22,7 @@ const columns = {
   issues:
     'id,thing_id,title,description,status,status_text,due_date::text,resolved_at,is_sample,created_at,updated_at',
   events:
-    'id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,completed_at,source_refs,is_sample,created_at,updated_at',
+    'id,thing_id,issue_id,title,description,status,starts_at,starts_on::text,ends_at,closed_at,completed_followup,source_refs,is_sample,created_at,updated_at',
 } as const;
 export async function listActivity<K extends ActivityKind>(
   db: Database,
@@ -67,7 +66,7 @@ export async function listActivity<K extends ActivityKind>(
         params.push(value);
         const bound = `$${params.length}::timestamptz`;
         filters.push(
-          `(starts_at ${op} ${bound} or starts_on ${op} (${bound} at time zone ${zone})::date)`,
+          `((starts_at ${op} ${bound} or starts_on ${op} (${bound} at time zone ${zone})::date)${key === 'from' ? ` or (status='SCHEDULED' and (coalesce(ends_at,starts_at)<=now() or starts_on<(now() at time zone ${zone})::date))` : ''})`,
         );
       }
     }
@@ -109,7 +108,9 @@ export type EventWrite = Pick<
   | 'status'
   | 'startsAt'
   | 'startsOn'
-  | 'completedAt'
+  | 'endsAt'
+  | 'closedAt'
+  | 'completedFollowup'
   | 'issueId'
 >;
 export async function saveIssue(
@@ -148,55 +149,34 @@ export async function saveEvent(
     value.description,
     value.status,
     value.startsAt,
-    value.completedAt,
+    value.endsAt,
     value.issueId,
     value.startsOn,
     id ?? value.thingId,
     owner,
+    value.closedAt,
+    value.completedFollowup ? JSON.stringify(value.completedFollowup) : null,
   ];
   const [item] = await database.rows<Schema['Event']>(
     db,
     id
-      ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,completed_at=$5,issue_id=$6,starts_on=$7 where id=$8 and owner_id=$9 returning ${columns.events}`
-      : `insert into bt.events(title,description,status,starts_at,completed_at,issue_id,starts_on,thing_id,owner_id,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,coalesce($10::uuid,gen_random_uuid())) returning ${columns.events}`,
+      ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,ends_at=$5,issue_id=$6,starts_on=$7,closed_at=$10,completed_followup=$11 where id=$8 and owner_id=$9 returning ${columns.events}`
+      : `insert into bt.events(title,description,status,starts_at,ends_at,issue_id,starts_on,thing_id,owner_id,closed_at,completed_followup,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::uuid,gen_random_uuid())) returning ${columns.events}`,
     id ? params : [...params, value.id],
   );
   return item;
 }
 
-const activityKey = (thingId: string, kind: string, identity: string) =>
-  createHash('sha256')
-    .update(`${thingId}:${kind}:${identity.trim().toLowerCase().replace(/\s+/g, ' ')}`)
-    .digest('hex');
-
-export async function existingTasks(db: Database, owner: string, thingId: string) {
-  return database.rows<Pick<Schema['Event'], 'title' | 'status'>>(
-    db,
-    'select title,status from bt.events where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 200',
-    [thingId, owner],
-  );
-}
-
-// Inserts an imported Event once, preserving existing edits, completion and dismissal.
-export async function saveSuggestedTask(
-  db: Database,
-  owner: string,
-  thingId: string,
-  task: Pick<Schema['Event'], 'title' | 'description' | 'sourceRefs'>,
-) {
+/** Closes linked Events and returns all closed Events for an Issue. */
+export async function closeEventsForIssue(db: Database, owner: string, issueId: string) {
   await database.execute(
     db,
-    `insert into bt.events(owner_id,thing_id,title,description,status,source_refs,import_key)
-     select $1,$2,$3,$4,'SUGGESTED',$5,$6
-     where not exists(select 1 from bt.events where owner_id=$1 and thing_id=$2 and lower(trim(title))=lower(trim($3)))
-     on conflict(import_key) do nothing`,
-    [
-      owner,
-      thingId,
-      task.title,
-      task.description,
-      JSON.stringify(task.sourceRefs),
-      activityKey(thingId, 'task', task.title),
-    ],
+    "update bt.events set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
+    [owner, issueId],
+  );
+  return database.rows<Schema['Event']>(
+    db,
+    `select ${columns.events} from bt.events where owner_id=$1 and issue_id=$2 and status='CLOSED'`,
+    [owner, issueId],
   );
 }

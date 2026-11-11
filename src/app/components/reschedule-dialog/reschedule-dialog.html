@@ -1,0 +1,103 @@
+<bt-dialog title="Edit schedule" [open]="!!task()" (closed)="close()">
+  <form [id]="formId" class="reschedule-form" (ngSubmit)="save()">
+    <h3 class="reschedule-task">{{ task()?.title }}</h3>
+    <label class="reschedule-field"
+      >Scheduled on
+      <input name="date" type="date" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+    </label>
+    <label class="reschedule-field"
+      >Deadline on
+      <input
+        name="deadline"
+        type="date"
+        [ngModel]="deadline()"
+        (ngModelChange)="deadline.set($event)"
+      />
+    </label>
+    <label class="check-label reschedule-toggle">
+      <input
+        type="checkbox"
+        name="repeats"
+        [ngModel]="repeats()"
+        (ngModelChange)="repeats.set($event)"
+      />
+      Repeat
+    </label>
+    @if (repeats() && deadline()) {
+      <p class="reschedule-note" role="alert">
+        Tasks with a deadline cannot repeat. Remove the deadline or uncheck Repeat.
+      </p>
+    }
+    @if (repeats()) {
+      <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-every'">
+        <span class="reschedule-legend" [id]="formId + '-every'">Repeat every</span>
+        <div class="reschedule-interval">
+          <input
+            name="interval"
+            type="number"
+            min="1"
+            max="1000"
+            step="1"
+            inputmode="numeric"
+            aria-label="Number"
+            [ngModel]="interval()"
+            (ngModelChange)="interval.set($event)"
+            (focus)="selectAll($event)"
+            (click)="selectAll($event)"
+          />
+          <select
+            name="unit"
+            aria-label="Unit"
+            [ngModel]="unit()"
+            (ngModelChange)="unit.set($event)"
+          >
+            @for (option of units; track option) {
+              <option [ngValue]="option">{{ unitOption(option) }}</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="reschedule-group" role="group" [attr.aria-labelledby]="formId + '-from'">
+        <span class="reschedule-legend" [id]="formId + '-from'">Repeat from</span>
+        <label class="check-label">
+          <input
+            type="radio"
+            name="from"
+            value="COMPLETION"
+            [ngModel]="from()"
+            (ngModelChange)="from.set($event)"
+          />
+          When I complete this task
+        </label>
+        <label class="check-label">
+          <input
+            type="radio"
+            name="from"
+            value="SCHEDULED"
+            [ngModel]="from()"
+            (ngModelChange)="from.set($event)"
+          />
+          The task's scheduled date
+        </label>
+      </div>
+      <p class="reschedule-note">
+        @if (from() === 'COMPLETION') {
+          The next task's scheduled date counts from completion.
+        } @else {
+          The scheduled date repeats from the original task, skipping missed occurrences.
+        }
+      </p>
+    }
+  </form>
+  <div dialogActions>
+    <button type="button" class="button-secondary button-sm" (click)="close()">Cancel</button>
+    <button
+      type="submit"
+      [attr.form]="formId"
+      class="button-primary button-sm"
+      [disabled]="!valid()"
+    >
+      Save changes
+    </button>
+  </div>
+</bt-dialog>

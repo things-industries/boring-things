@@ -1,0 +1,45 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+
+:host {
+  display: block;
+}
+
+// The tag leads; the items after it are separated by dots.
+.suggested-task-meta {
+  @include typography.role(caption);
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: tokens.space(1);
+  color: tokens.color(primary-muted);
+
+  > :nth-child(n + 3)::before {
+    content: '· ';
+  }
+}
+
+.suggested-task-spinner {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: tokens.size(control-sm);
+  height: tokens.size(control-sm);
+  color: tokens.color(primary-muted);
+  @include mixins.icon-size(sm);
+
+  ng-icon {
+    animation: suggested-task-spin 1s linear infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+}
+
+@keyframes suggested-task-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

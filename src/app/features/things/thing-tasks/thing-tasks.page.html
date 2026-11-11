@@ -1,0 +1,41 @@
+<bt-top-bar title="Tasks" [back]="['/things', id()]" backLabel="Back to thing" />
+<bt-scroll-container>
+  <div class="thing-tasks-content">
+    @if (error()) {
+      <div class="thing-tasks-error">
+        <bt-error-message [code]="error()" />
+        <button type="button" class="button-secondary button-sm" (click)="retry()">Retry</button>
+      </div>
+    } @else if (missing()) {
+      <p class="thing-tasks-empty">
+        This thing is unavailable. <a class="button-link" routerLink="/">Go home</a>
+      </p>
+    } @else if (!loaded()) {
+      <bt-agenda-skeleton />
+    } @else {
+      @if (suggested().length) {
+        <section class="thing-tasks-suggested">
+          <bt-section-header title="Suggested">
+            @if (hasMoreSuggestions()) {
+              <button
+                type="button"
+                class="button-link"
+                [attr.aria-expanded]="showAllSuggestions()"
+                (click)="showAllSuggestions.set(!showAllSuggestions())"
+              >
+                {{ showAllSuggestions() ? 'Show less' : 'Show all'
+                }}<span class="visually-hidden"> suggested tasks</span>
+              </button>
+            }
+          </bt-section-header>
+          <ul class="thing-tasks-suggestions">
+            @for (task of visibleSuggestions(); track task.id) {
+              <li><bt-suggested-task [task]="task" /></li>
+            }
+          </ul>
+        </section>
+      }
+      <bt-agenda [agenda]="agenda()" [now]="now()" [inThing]="true" [collapsible]="false" />
+    }
+  </div>
+</bt-scroll-container>

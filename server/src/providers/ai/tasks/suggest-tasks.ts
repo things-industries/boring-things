@@ -1,5 +1,6 @@
 /** Researches and converts cited suggestTasks results. */
 
+import { taskProperties } from './task-fields.js';
 import type { FromSchema } from 'json-schema-to-ts';
 import type { TaskSuggestions, ImportTaskContext } from '../../../application/import/types.js';
 import type { Response } from 'openai/resources/responses/responses';
@@ -13,7 +14,7 @@ import type { Schema } from '../../../../../shared/model.js';
 import type { RecommendationInput } from './recommendation.js';
 
 export interface TaskResearch extends RecommendationInput {
-  existingTasks: Pick<Schema['Event'], 'title' | 'status'>[];
+  existingTasks: Pick<Schema['Task'], 'title' | 'status'>[];
 }
 
 const taskRecommendationInstructions = `Select work worth remembering or tracking to completion. Prioritise activities specific to the Thing that help maintain it and are easy to forget, such as running a maintenance programme, replacing a consumable or booking a service. Include recurring work and relevant one-off administration, such as submitting an insurance claim. Exclude extremely obvious actions and work likely to be done very frequently during normal use, such as wiping up spills or removing loose food residues. Boring Things manages records: do not suggest recording model numbers, serial numbers or policy details, copying information into the app, or uploading and organising documents. Passive waiting and rare incident-recovery advice do not belong in general suggestions.
@@ -26,7 +27,7 @@ Examples:
 - "Remove food residues before using the oven" is obvious routine care; omit it as a task.
 - "Reset the router" can qualify as a documented common remedy; its description explains the symptoms and procedure.
 - "Submit a claim" names the work; evidence requirements belong in the description.
-Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or dismissed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
+Include importance and a documented recurrence interval justified by evidence. Suggest task ideas; dates are chosen separately when the owner accepts a suggestion. Return each underlying action once. Exclude equivalent existing tasks even when their titles differ, including completed or closed tasks. Return fewer tasks or none when no worthwhile tasks can be identified.`;
 
 export const outputSchema = createObjectSchema(
   {
@@ -51,13 +52,26 @@ export const outputSchema = createObjectSchema(
             minLength: 1,
             maxLength: 4000,
           },
+          importance: taskProperties.importance,
+          recurrence: {
+            anyOf: [
+              createObjectSchema(
+                {
+                  interval: taskProperties.recurrence.anyOf[0].properties.interval,
+                  unit: taskProperties.recurrence.anyOf[0].properties.unit,
+                },
+                'Documented recurrence interval for the task idea.',
+              ),
+              { type: 'null' },
+            ],
+          },
           sourceRefs: recommendationSourcesSchema,
         },
         'One maintenance procedure, administration action or common remedy justified by evidence applicable to the Thing.',
       ),
     },
   },
-  'Supported management tasks for one Thing, ready to become unscheduled suggested Events.',
+  'Supported management tasks for one Thing, ready to become unscheduled suggested Tasks.',
 );
 
 // Builds task instructions from the supplied application context.
@@ -109,6 +123,8 @@ export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions
       items: result.items
         .map((item) => ({
           title: item.title,
+          importance: item.importance,
+          recurrence: item.recurrence ? { ...item.recurrence, from: 'COMPLETION' as const } : null,
           description: item.description,
           sourceRefs: this.getSourceRefs(item.sourceRefs),
         }))

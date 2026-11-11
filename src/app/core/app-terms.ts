@@ -6,7 +6,7 @@ export const APP_TERMS = {
   addThing: 'Add a Thing',
   login: 'Sign in',
   assistant: 'Assistant',
-  timeline: 'Timeline',
+  tasks: 'Tasks',
   profile: 'Profile',
 } as const;
 /** Toast leads naming the action that failed. */
@@ -22,6 +22,11 @@ export const ACTION_TERMS = {
   addEvent: "Couldn't add the event",
   completeEvent: "Couldn't complete the event",
   scheduleEvent: "Couldn't schedule the event",
+  addTask: "Couldn't add the task",
+  completeTask: "Couldn't complete the task",
+  reopenTask: "Couldn't reopen the task",
+  rescheduleTask: "Couldn't reschedule the task",
+  unscheduleTask: "Couldn't remove the task",
   uploadFile: "Couldn't upload the file",
   deleteFile: "Couldn't delete the file",
   linkFile: "Couldn't link the file",

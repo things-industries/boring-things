@@ -1,0 +1,72 @@
+@use 'tokens';
+@use 'typography';
+
+.reschedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(4);
+}
+
+.reschedule-task {
+  margin: 0;
+  @include typography.role(section);
+  color: tokens.color(primary);
+  overflow-wrap: anywhere;
+}
+
+// Text controls share one height, so the interval row lines up.
+.reschedule-form :is(input:not([type='radio'], [type='checkbox']), select) {
+  height: tokens.size(control-md);
+  margin-top: 0;
+  padding-block: 0;
+}
+
+// iOS puts a date's value at the top of the field; a full-height line centres it.
+.reschedule-form input[type='date'] {
+  line-height: calc(#{tokens.size(control-md)} - 2px);
+}
+
+.reschedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+  margin-bottom: 0;
+}
+
+.reschedule-toggle {
+  margin-bottom: 0;
+}
+
+.reschedule-group {
+  display: flex;
+  flex-direction: column;
+  gap: tokens.space(1);
+}
+
+// Groups are divs, not fieldsets: iOS briefly pads the bottom of a fieldset added while a select
+// is focused. Their names match the field labels.
+.reschedule-legend {
+  font-size: 12px;
+  font-weight: 550;
+  color: tokens.color(text-label);
+}
+
+.reschedule-interval {
+  display: flex;
+  gap: tokens.space(2);
+
+  input {
+    flex: none;
+    width: 4.5em;
+  }
+
+  select {
+    width: auto;
+  }
+}
+
+.reschedule-note {
+  @include typography.role(caption);
+  margin: tokens.space(2) 0 0;
+  color: tokens.color(primary-muted);
+}

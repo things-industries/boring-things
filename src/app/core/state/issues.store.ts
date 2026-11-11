@@ -2,6 +2,8 @@ import { computed, inject } from '@angular/core';
 import { signalStore, withComputed, withFeature, withMethods, withProps } from '@ngrx/signals';
 import type { Schema } from '../../../../shared/model';
 import type { ActionTerm } from '../../interfaces/terms.interface';
+import { TasksStore } from './tasks.store';
+import { EventsStore } from './events.store';
 import { IssuesService } from '../data/issues.service';
 import { groupBy } from '../../utils/collection.util';
 import { updating } from './optimistic';
@@ -10,7 +12,11 @@ import { withEntityCollection } from './with-entity-collection';
 export const IssuesStore = signalStore(
   { providedIn: 'root' },
 
-  withProps(() => ({ _service: inject(IssuesService) })),
+  withProps(() => ({
+    _service: inject(IssuesService),
+    _tasks: inject(TasksStore),
+    _events: inject(EventsStore),
+  })),
 
   withFeature((store) =>
     withEntityCollection<Schema['Issue']>({
@@ -48,7 +54,11 @@ export const IssuesStore = signalStore(
       );
 
       return store.mutate(action, [step], () => store._service.update(id, patch), {
-        confirm: (issue) => issue,
+        confirm: (change) => {
+          store._tasks.receive(change.tasks);
+          store._events.receive(change.events);
+          return change.issue;
+        },
         refetch: () => store.loadOne(id),
       });
     },

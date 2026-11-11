@@ -1,0 +1,51 @@
+@let t = task();
+<bt-task-row>
+  @if (adding()) {
+    <span taskRowLeading class="suggested-task-spinner" role="status">
+      <ng-icon name="loading" aria-hidden="true" />
+      <span class="visually-hidden">Adding {{ t.title }} to tasks</span>
+    </span>
+  } @else {
+    <button
+      taskRowLeading
+      type="button"
+      btIconButton
+      variant="accent"
+      size="sm"
+      icon="scheduleTask"
+      [label]="'Add to tasks: ' + t.title"
+      (click)="add()"
+    ></button>
+  }
+  <ng-container taskRowTitle>{{ t.title }}</ng-container>
+  <div class="suggested-task-meta">
+    <bt-importance-tag [importance]="t.importance" />
+    @if (t.recurrence; as recurrence) {
+      @let unit = recurrence.unit.toLowerCase();
+      <span>
+        @if (recurrence.interval === 1) {
+          Once a {{ unit }}
+        } @else {
+          Once every {{ recurrence.interval }} {{ unit }}s
+        }
+      </span>
+    }
+    @if (t.isSample) {
+      <span>Sample</span>
+    }
+    @if (t.sourceRefs[0]?.url; as url) {
+      <a [href]="url" target="_blank" rel="noopener noreferrer">Source</a>
+    }
+  </div>
+  <button
+    taskRowTrailing
+    type="button"
+    btIconButton
+    variant="plain"
+    size="sm"
+    icon="close"
+    [label]="'Dismiss: ' + t.title"
+    [disabled]="adding()"
+    (click)="dismiss()"
+  ></button>
+</bt-task-row>

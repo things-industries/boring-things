@@ -40,6 +40,7 @@ export function chatThingContext(
       }),
     ),
     events: resources.events,
+    tasks: resources.tasks,
     issues: resources.issues,
     purchasables: resources.purchasables,
     truncated: resources.truncated,

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+
 import { test, expect } from './fixtures.js';
 
 /** A 1×1 PNG served in place of attachment content. */
@@ -31,8 +32,7 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
   for (const name of [
     'Needs attention',
     'Key details',
-    'Upcoming tasks',
-    'Suggested tasks',
+    'Tasks',
     'Compatible products',
     'Attachments',
   ])
@@ -144,6 +144,8 @@ test('a Thing image shows no fallback while it loads and shows at once when reop
   await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();
   await expect(hero.locator('img')).toBeVisible();
   expect(requests).toBe(1);
+  // Reopening the Thing fetches it again through the route while the test ends.
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
@@ -261,54 +263,6 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   await page.goto('/things');
   await expect(page.locator('bt-all-things-skeleton')).toHaveCount(0);
   await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
-});
-
-test('a suggested task is scheduled and completed', async ({ page }) => {
-  const url = await createThing(page, `Task dryer ${Date.now()}`);
-  const thingId = url.split('/').pop()!;
-  const eventId = crypto.randomUUID();
-
-  let event = {
-    id: eventId,
-    thingId,
-    issueId: null,
-    title: 'Clean the lint filter',
-    description: 'Every 2 weeks.',
-    status: 'SUGGESTED',
-    startsAt: null,
-    startsOn: null,
-    completedAt: null as string | null,
-    sourceRefs: [],
-    isSample: false,
-  };
-
-  await page.route(/\/api\/events(\?|$)/, async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-
-    await route.fulfill({ response, json: { ...body, items: [...body.items, event] } });
-  });
-
-  await page.route(`**/api/events/${eventId}`, async (route) => {
-    event = { ...event, ...route.request().postDataJSON() };
-    if (event.status === 'COMPLETED') event.completedAt = new Date().toISOString();
-    await route.fulfill({ json: event });
-  });
-
-  await page.reload();
-  await expect(page.locator('bt-list-row', { hasText: 'Clean the lint filter' })).toContainText(
-    'Once every 2 weeks',
-  );
-  await page.getByRole('button', { name: 'Schedule: Clean the lint filter' }).click();
-  await page.getByLabel('Date').fill('2099-03-04');
-  await page.getByRole('button', { name: 'Schedule', exact: true }).click();
-
-  const card = page.locator('bt-event-card', { hasText: 'Clean the lint filter' });
-
-  await expect(card).toContainText('Due 4 Mar 2099');
-  await card.getByRole('button', { name: 'Mark complete: Clean the lint filter' }).click();
-  await expect(card).toHaveCount(0);
-  await expect(page.getByText('Nothing scheduled.')).toBeVisible();
 });
 
 test('import steps show while discovering, then the sheet slides up once', async ({ page }) => {

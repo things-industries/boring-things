@@ -9,7 +9,7 @@ Status values: `Not started`, `In progress`, `Done`, `Blocked`.
 | Stage                      | Status      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0. Design foundation       | Done        | Palette shade scales and colour sets; type, spacing, radius, shadow, icon-size and size tokens; Inter; styles grouped by scope; utility and button classes; icon catalogue additions; mocks convention. Legacy roles mapped to palette shades.                                                                                                                                                                                        |
-| 1. Shell and navigation    | Done        | Header and footer removed; centred 480px column; bottom nav on Home, Things, Timeline; top bar on Thing and chat pages; `/things`, `/things/:id/details`, `/things/:id/chat`, `/timeline`, `/profile` routes.                                                                                                                                                                                                                         |     |
+| 1. Shell and navigation    | Done        | Header and footer removed; centred 480px column; bottom nav on Home, Things, Tasks; top bar on Thing and chat pages; `/things`, `/things/:id/details`, `/things/:id/chat`, `/tasks`, `/profile` routes.                                                                                                                                                                                                                               |     |
 | 2. Sign in                 | Done        | Wordmark, headline, copy, Continue with email, disabled Continue with Apple (#16), terms footnote as plain text (#17); setup-pending state uses `bt-notice`. Login examples, eyebrow and their icons/colour removed.                                                                                                                                                                                                                  |
 | 3. Home                    | Done        | Home page at `/` with greeting, promo card, Needs attention, Upcoming, Frequent & recent and Categories; skeleton, empty states and sample-data action. Category chips open `/things?categoryId=`.                                                                                                                                                                                                                                    |
 | 3a. App state              | Done        | `@ngrx/signals` stores over domain services in `core/data/`; optimistic mutations with rollback and error toasts (`ngx-toastr`). Home, the Things list and Profile read the stores. Thing detail, the import panel and chat still call `Api`.                                                                                                                                                                                         |
@@ -81,12 +81,11 @@ Record each shared component, mixin or token group when added: name, path, first
 
 Each active mock, its path and the Backend issue that removes it.
 
-| Mock                             | Path                                          | Issue |
-| -------------------------------- | --------------------------------------------- | ----- |
-| Issue kind and due-date ordering | `src/app/core/mocks/issue-kind.mock.ts`       | #9    |
-| Creates wait for server IDs      | `src/app/core/mocks/client-ids.mock.ts`       | #34   |
-| Event kind and recurrence        | `src/app/core/mocks/event-recurrence.mock.ts` | #11   |
-| Saved-document card              | `src/app/core/mocks/saved-document.mock.ts`   | #14   |
+| Mock                             | Path                                        | Issue |
+| -------------------------------- | ------------------------------------------- | ----- |
+| Issue kind and due-date ordering | `src/app/core/mocks/issue-kind.mock.ts`     | #9    |
+| Creates wait for server IDs      | `src/app/core/mocks/client-ids.mock.ts`     | #34   |
+| Saved-document card              | `src/app/core/mocks/saved-document.mock.ts` | #14   |
 
 ## Issues
 
@@ -99,7 +98,7 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 | #8    | Backend  | 3     | Closed |
 | #9    | Backend  | 3     | Open   |
 | #10   | Backend  | 3     | Open   |
-| #11   | Backend  | 5     | Open   |
+| #11   | Backend  | 5     | Closed |
 | #12   | Backend  | 5     | Closed |
 | #13   | Backend  | 5     | Open   |
 | #14   | Backend  | 7     | Open   |
@@ -107,7 +106,7 @@ Open issues raised by this plan. Mark each when closed and its mock removed.
 | #16   | Frontend | 2     | Open   |
 | #17   | Frontend | 2     | Open   |
 | #18   | Frontend | 3     | Open   |
-| #19   | Frontend | 1, 5  | Open   |
+| #19   | Frontend | 1, 5  | Closed |
 | #20   | Frontend | 5     | Open   |
 | #21   | Frontend | 7     | Open   |
 | #22   | Frontend | 7     | Open   |
