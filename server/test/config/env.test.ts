@@ -141,20 +141,20 @@ test('job cancellation reaches a task constructed before the job was aborted', a
   assert.equal(fetch.mock.callCount(), 0);
 });
 
-// Request-option overrides previously bypassed the text check by replacing instructions afterwards.
-test('instruction overrides count towards the request text limit', async (t) => {
+test('task instructions count towards the request text limit', async (t) => {
   setEnvMode('test');
   t.after(() => setEnvMode('runtime'));
   const fetch = t.mock.method(globalThis, 'fetch', async () => {
     throw new Error('Unexpected request');
   });
   class InstructionTask extends TextTask {
-    protected override async runTask() {
-      return responseText(await this.execute('Read this.', { instructions: 'x'.repeat(120000) }));
-    }
+    protected override instructions = 'x'.repeat(120000);
   }
   await assert.rejects(
-    new InstructionTask('', { signal: new AbortController().signal, record: async () => {} }).run(),
+    new InstructionTask('Read this.', {
+      signal: new AbortController().signal,
+      record: async () => {},
+    }).run(),
     /text_limit/,
   );
   assert.equal(fetch.mock.callCount(), 0);
@@ -181,7 +181,7 @@ for (const streamed of [false, true]) {
     let recorded = false;
     class RefusalTask extends TextTask {
       protected override async runTask() {
-        return responseText(await this.execute('Read text.', {}, streamed ? () => {} : undefined));
+        return responseText(await this.execute('Read text.', streamed ? () => {} : undefined));
       }
     }
     await assert.rejects(

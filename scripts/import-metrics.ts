@@ -9,16 +9,14 @@ import { summarizeProviderCalls, type RecordedObservation } from '../server/src/
 
 const [importId, ownerId] = process.argv.slice(2);
 if (!importId || !ownerId) throw new Error('Usage: pnpm metrics:import <import-id> <owner-id>');
-getEnv('LANGFUSE_PUBLIC_KEY');
-getEnv('LANGFUSE_SECRET_KEY');
-const pool = database.createPool(getEnv('DATABASE_URL'));
+const client = new LangfuseClient({
+  publicKey: getEnv('LANGFUSE_PUBLIC_KEY'),
+  secretKey: getEnv('LANGFUSE_SECRET_KEY'),
+  baseUrl: getEnv('LANGFUSE_BASE_URL'),
+});
+const pool = database.createPool();
 try {
   const job = await importsDb.getOwnedImportOrThrow(pool, ownerId, importId);
-  const client = new LangfuseClient({
-    publicKey: getEnv('LANGFUSE_PUBLIC_KEY'),
-    secretKey: getEnv('LANGFUSE_SECRET_KEY'),
-    baseUrl: getEnv('LANGFUSE_BASE_URL'),
-  });
   const traceIds = [getJobTraceId(job.id), ...new Set(job.attachmentIds.map(getJobTraceId))];
   const observations: RecordedObservation[] = [];
   const traces = [];

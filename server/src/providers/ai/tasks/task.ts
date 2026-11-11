@@ -15,17 +15,6 @@ import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
 import * as metrics from '../../../metrics.js';
 
-export interface TaskOptions {
-  model?: string;
-  instructions?: string;
-  tools?: ResponseCreateParamsNonStreaming['tools'];
-  tool_choice?: ResponseCreateParamsNonStreaming['tool_choice'];
-  max_tool_calls?: number;
-  include?: ResponseCreateParamsNonStreaming['include'];
-  parallel_tool_calls?: boolean;
-  effort?: ReasoningEffort;
-}
-
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
 
@@ -75,7 +64,10 @@ export abstract class AiTask<Output = never, Result = Output> {
   protected resultKey?: keyof Output & string;
   protected tools: TaskTool[] = [];
   protected toolRounds = 31;
-  protected parallelToolCalls = false;
+  protected readonly parallelToolCalls: boolean = false;
+  protected readonly searchCalls: number = 0;
+  protected readonly sourceMode: 'retrieved' | 'cited' = 'retrieved';
+  private webCalls = 0;
 
   // Binds job resources without requiring provider credentials.
   constructor(protected readonly context: AiContext) {}
@@ -116,7 +108,6 @@ export abstract class AiTask<Output = never, Result = Output> {
   // Runs model turns and awaits tool results before continuing the conversation.
   protected async execute(
     input: ResponseInput | string,
-    options: TaskOptions = {},
     delta?: (text: string) => void,
   ): Promise<Response> {
     let conversation = typeof input === 'string' ? input : [...input];
@@ -124,28 +115,8 @@ export abstract class AiTask<Output = never, Result = Output> {
     for (let round = 0; round <= this.toolRounds; round++) {
       const response = await this.requestResponse(
         conversation,
-        {
-          ...(this.outputSchema
-            ? {
-                text: {
-                  format: {
-                    type: 'json_schema',
-                    name: 'result',
-                    strict: true,
-                    schema: this.outputSchema,
-                  },
-                },
-              }
-            : {}),
-          ...(this.tools.length ? { tools: this.tools.map((tool) => tool.definition) } : {}),
-          parallel_tool_calls: this.parallelToolCalls,
-          include: ['reasoning.encrypted_content'],
-          ...options,
-          ...(this.tools.length && (finish || round === this.toolRounds)
-            ? { tool_choice: 'none' }
-            : {}),
-        },
         delta,
+        !finish && round < this.toolRounds,
       );
       const calls = response.output.filter((item) => item.type === 'function_call');
       if (!calls.length) return response;
@@ -244,35 +215,60 @@ export abstract class AiTask<Output = never, Result = Output> {
     return output;
   }
 
+  // Processes task-specific sources and measurements after a completed model turn.
+  protected onResponse(_response: Response): void | Promise<void> {}
+
   // Sends streamed or buffered requests through one cancellation, error and usage boundary.
-  protected async requestResponse(
+  private async requestResponse(
     input: ResponseInput | string,
-    options: TaskOptions & Pick<ResponseCreateParamsNonStreaming, 'text'> = {},
     delta?: (text: string) => void,
-    task = this.task,
+    allowTools = true,
   ): Promise<Response> {
-    const { context } = this;
+    const { context, task } = this;
     this.logTurn();
     context.signal.throwIfAborted();
-    const instructions = options.instructions ?? this.instructions;
     const characters = inputCharacters(input);
-    ensure(characters + instructions.length <= this.maxTextCharacters, 'text_limit');
+    ensure(characters + this.instructions.length <= this.maxTextCharacters, 'text_limit');
     const client = (this.client ??= new OpenAI({
       apiKey: getEnv('OPENAI_API_KEY'),
       maxRetries: 0,
     }));
     context.beforeRequest?.();
     const started = Date.now();
-    const { effort = this.effort, ...requestOptions } = options;
+    const remaining = allowTools ? Math.max(0, this.searchCalls - this.webCalls) : 0;
+    const tools = [
+      ...this.tools.map((tool) => tool.definition),
+      ...(remaining ? [{ type: 'web_search' as const }] : []),
+    ];
     const parameters = {
-      ...requestOptions,
-      model: requestOptions.model ?? this.model,
+      model: this.model,
       store: false,
-      instructions,
+      instructions: this.instructions,
       input,
       max_output_tokens: this.maxOutputTokens,
-      reasoning: { mode: 'standard', effort },
-    };
+      reasoning: { mode: 'standard', effort: this.effort },
+      parallel_tool_calls: this.parallelToolCalls,
+      include: [
+        'reasoning.encrypted_content',
+        ...(this.searchCalls && this.sourceMode === 'retrieved'
+          ? ['web_search_call.action.sources' as const]
+          : []),
+      ],
+      ...(tools.length ? { tools, ...(!allowTools ? { tool_choice: 'none' as const } : {}) } : {}),
+      ...(remaining ? { max_tool_calls: remaining } : {}),
+      ...(this.outputSchema
+        ? {
+            text: {
+              format: {
+                type: 'json_schema',
+                name: 'result',
+                strict: true,
+                schema: this.outputSchema,
+              },
+            },
+          }
+        : {}),
+    } satisfies ResponseCreateParamsNonStreaming;
     let result: Response | undefined;
     let tokenUsage: metrics.ProviderCall['usage'];
     try {
@@ -374,6 +370,12 @@ export abstract class AiTask<Output = never, Result = Output> {
       ),
       'ai_refused',
     );
+    if (this.searchCalls) {
+      const calls = result.output.filter((item) => item.type === 'web_search_call').length;
+      ensure(calls <= remaining, 'Research tool limit exceeded');
+      this.webCalls += calls;
+    }
+    await this.onResponse(result);
     return result;
   }
 }

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
 import { AiTask } from '../src/providers/ai/tasks/task.js';
-import { createWebSearchOptions, readWebResult } from '../src/providers/ai/tools/web.js';
+import { readWebResult } from '../src/providers/ai/tools/web.js';
 import { OpenAiChat } from '../src/providers/ai/openai-chat.js';
 import type { ChatContext } from '../src/application/conversations/types.js';
 import { chatFunctions } from '../src/providers/ai/tasks/assistant.js';
@@ -37,10 +37,12 @@ test('assistant research answers the supplied question in one bounded request wi
     assert.deepEqual(body.tools, [{ type: 'web_search' }]);
     assert.deepEqual(
       body.include,
-      fetch.mock.callCount() === 0 ? undefined : ['web_search_call.action.sources'],
+      fetch.mock.callCount() === 0
+        ? ['reasoning.encrypted_content']
+        : ['reasoning.encrypted_content', 'web_search_call.action.sources'],
     );
     assert.equal(body.text, undefined);
-    if (!body.include) {
+    if (fetch.mock.callCount() === 0) {
       assert.match(body.input, /How should the filter be cleaned\?/);
       assert.match(body.input, /Synthetic model/);
     }
@@ -117,14 +119,11 @@ test('assistant research answers the supplied question in one bounded request wi
   class SourceSearchTask extends AiTask<never, Awaited<ReturnType<typeof readWebResult>>> {
     protected readonly model = 'gpt-6.1-sol';
     protected readonly effort = 'low';
+    protected override readonly searchCalls = 3;
     protected task = 'research';
     protected instructions = 'Find public manuals.';
     protected async runTask() {
-      return readWebResult(
-        await this.execute('Find manuals', createWebSearchOptions(3)),
-        this.context,
-        3,
-      );
+      return readWebResult(await this.execute('Find manuals'), this.context, 3);
     }
   }
   const discovery = await new SourceSearchTask(context).run();

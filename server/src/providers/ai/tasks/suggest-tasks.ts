@@ -96,7 +96,6 @@ export type Output = FromSchema<typeof outputSchema>;
 export class SuggestTasksTask extends RecommendationTask<Output, TaskSuggestions> {
   protected readonly model: string = 'gpt-6-luna';
   protected readonly effort = 'low';
-  protected readonly searchCalls = 3;
   protected task = 'task_suggestions';
   protected instructions = `${recommendationInstructions} ${taskRecommendationInstructions}`;
   protected outputSchema = outputSchema;

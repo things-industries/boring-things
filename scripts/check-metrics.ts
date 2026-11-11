@@ -11,6 +11,8 @@ const publicKey = getEnv('LANGFUSE_PUBLIC_KEY');
 const secretKey = getEnv('LANGFUSE_SECRET_KEY');
 const baseUrl = getEnv('LANGFUSE_BASE_URL');
 assert.notEqual(getEnv('LANGFUSE_TRACING_ENABLED'), false, 'Enable tracing for this check');
+
+// Test mode replaces runtime settings; this check exports mocked model work to real telemetry.
 setEnvMode('test');
 setEnvValue('LANGFUSE_PUBLIC_KEY', publicKey);
 setEnvValue('LANGFUSE_SECRET_KEY', secretKey);

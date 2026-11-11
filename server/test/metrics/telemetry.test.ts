@@ -28,7 +28,7 @@ class TextTask extends AiTask<never, string> {
 class StreamTask extends TextTask {
   // Exercises usage returned by an incomplete streamed response.
   protected async runTask() {
-    return responseText(await this.execute('private source content', {}, () => {}));
+    return responseText(await this.execute('private source content', () => {}));
   }
 }
 

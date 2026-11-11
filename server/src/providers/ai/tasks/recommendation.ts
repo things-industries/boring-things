@@ -1,6 +1,6 @@
 /** Recommendation execution, shares attachment retrieval, bounded web search and citation conversion. */
 
-import type { ResponseInput } from 'openai/resources/responses/responses';
+import type { Response } from 'openai/resources/responses/responses';
 import type {
   ImportTaskContext,
   ResearchThing,
@@ -8,9 +8,9 @@ import type {
   SourceEvidence,
 } from '../../../application/import/types.js';
 import type { SourceRef, FieldDefinition, Value } from '../../../../../shared/model.js';
-import { AiTask, type TaskOptions } from './task.js';
+import { AiTask } from './task.js';
 import { createTranscriptionTool } from '../tools/transcription.js';
-import { createWebSearchOptions, readWebResult } from '../tools/web.js';
+import { readWebResult } from '../tools/web.js';
 import { createObjectSchema, sourceEvidenceProperties } from '../schemas.js';
 import { createSourceRef } from '../sources.js';
 import { publicUrl } from '../../web/resources.js';
@@ -60,8 +60,7 @@ export const recommendationSourcesSchema = {
 } as const;
 
 export abstract class RecommendationTask<Output, Result> extends AiTask<Output, Result> {
-  protected abstract readonly searchCalls: number;
-  private webCalls = 0;
+  protected override readonly searchCalls = 3;
   private readonly sources: ImportTaskContext['sources'];
 
   // Registers attachment retrieval using the run's authorised source data.
@@ -71,30 +70,10 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<Output, 
     this.tools = context.sources.length ? [createTranscriptionTool(context)] : [];
   }
 
-  // Adds web search to each turn and accounts for its budget across attachment reads.
-  protected override async requestResponse(
-    input: ResponseInput | string,
-    options: TaskOptions = {},
-    delta?: (text: string) => void,
-    task = this.task,
-  ) {
-    const remaining = this.searchCalls - this.webCalls;
-    const web = createWebSearchOptions(options.tool_choice === 'none' ? 0 : remaining);
-    const response = await super.requestResponse(
-      input,
-      {
-        ...options,
-        ...web,
-        tools: [...(options.tools ?? []), ...(web.tools ?? [])],
-        include: [...(options.include ?? []), ...(web.include ?? [])],
-      },
-      delta,
-      task,
-    );
-    const { sources } = await readWebResult(response, this.context, remaining);
+  // Records the public sources observed in this recommendation turn.
+  protected override async onResponse(response: Response) {
+    const { sources } = await readWebResult(response, this.context, this.searchCalls);
     this.reportMetrics({ sourceCount: sources.length });
-    this.webCalls += response.output.filter((item) => item.type === 'web_search_call').length;
-    return response;
   }
 
   // Converts citations and omits unusable links without rejecting their recommendations.

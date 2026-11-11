@@ -237,7 +237,7 @@ export class AssistantTask extends AiTask<never, string> {
   protected readonly maxTextCharacters = Infinity;
   protected task = 'assistant_response';
   protected instructions = chatInstructions;
-  protected parallelToolCalls = true;
+  protected override readonly parallelToolCalls = true;
   private delta: ChatContext['delta'];
 
   constructor(
@@ -259,7 +259,7 @@ export class AssistantTask extends AiTask<never, string> {
     }));
     conversation.push({ role: 'developer', content: chatContextPrompt(this.input) });
     let answer = '';
-    await this.execute(conversation, {}, (text) => {
+    await this.execute(conversation, (text) => {
       answer += text;
       this.delta(text);
     });

@@ -2,20 +2,9 @@
 
 import type { Response } from 'openai/resources/responses/responses';
 import type { AiContext } from '../types.js';
-import { responseText, type TaskOptions } from '../tasks/task.js';
+import { responseText } from '../tasks/task.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
-
-// Selects hosted search and optional retrieved-source reporting.
-export function createWebSearchOptions(
-  searchCalls: number,
-  sourceMode: 'retrieved' | 'cited' = 'retrieved',
-): TaskOptions {
-  return {
-    ...(searchCalls > 0 ? { tools: [{ type: 'web_search' }], max_tool_calls: searchCalls } : {}),
-    include: sourceMode === 'retrieved' ? ['web_search_call.action.sources'] : undefined,
-  };
-}
 
 // Records hosted tool usage and returns the observed source catalogue.
 export async function readWebResult(

@@ -105,6 +105,8 @@ function buildEnvironment() {
       : {
           ...testDefaults,
           TEST_DATABASE_URL: process.env.TEST_DATABASE_URL ?? defaults.TEST_DATABASE_URL,
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE:
+            process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ?? defaults.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
           ...overrides,
         };
   const values = { ...defaults, ...source };
