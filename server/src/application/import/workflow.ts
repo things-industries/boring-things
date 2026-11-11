@@ -251,7 +251,8 @@ export class ImportWorkflow {
     let candidate: ThingCandidate;
     const usable = this.sources.filter(
       (source) =>
-        source.transcription && ['COMPLETE', 'PARTIAL'].includes(source.transcriptionStatus),
+        (source.transcription || source.transcriptionSummary) &&
+        ['COMPLETE', 'PARTIAL'].includes(source.transcriptionStatus),
     );
     if (!usable.length && this.job.targetThingId) {
       const thing = await this.thing();
@@ -673,7 +674,7 @@ export class ImportWorkflow {
     ).filter(
       (file) =>
         (file.ownerId !== null || !file.mediaType.startsWith('image/')) &&
-        file.transcription &&
+        (file.transcription || file.transcriptionSummary) &&
         ['COMPLETE', 'PARTIAL'].includes(file.transcriptionStatus),
     );
   }

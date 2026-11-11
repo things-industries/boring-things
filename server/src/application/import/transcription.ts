@@ -17,6 +17,8 @@ import { maxDocumentBytes, maxDocumentTextLength } from '../../lib/document-limi
 import * as googleVision from '../../providers/google-vision/index.js';
 import * as metrics from '../../metrics.js';
 
+const imageAnalysisTextThreshold = 500;
+
 export class AttachmentTranscriptionProcessor {
   constructor(
     private pool: pg.Pool,
@@ -114,9 +116,14 @@ export class AttachmentTranscriptionProcessor {
             ]);
         });
         extractedText = text;
-        const result: AttachmentSummary = !text.trim()
-          ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
-          : await ai.summarizeAttachment(text, context);
+        const image =
+          file.mediaType.startsWith('image/') && text.trim().length < imageAnalysisTextThreshold
+            ? { filename: file.filename, mediaType: file.mediaType, content }
+            : undefined;
+        const result: AttachmentSummary =
+          !text.trim() && !image
+            ? { summary: null, terms: [], status: 'EMPTY', identifiers: [], metadata: null }
+            : await ai.summarizeAttachment({ text, image }, context);
         signal.throwIfAborted();
         const metadata = mapValidResults(Object.entries(result.metadata ?? {}), ([key, value]) =>
           validateAttachmentMetadata({ [key]: value }),
@@ -148,7 +155,12 @@ export class AttachmentTranscriptionProcessor {
             text,
             summary: result.summary?.slice(0, 2000) ?? null,
             terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
-            status: !text.trim() ? 'EMPTY' : result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL',
+            status:
+              !text.trim() && !result.summary?.trim()
+                ? 'EMPTY'
+                : result.status === 'COMPLETE'
+                  ? 'COMPLETE'
+                  : 'PARTIAL',
             identifiers,
           });
           if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))

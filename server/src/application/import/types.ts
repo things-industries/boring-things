@@ -10,6 +10,7 @@ import type { ResourceApplicabilityInput } from '../../providers/ai/tasks/resour
 import type { AdditionalInformationInput } from '../../providers/ai/tasks/additional-information.js';
 import type { TaskResearch } from '../../providers/ai/tasks/suggest-tasks.js';
 import type { PurchasableResearch } from '../../providers/ai/tasks/find-purchasables.js';
+import type { AttachmentSummaryInput } from '../../providers/ai/tasks/summarize-attachment.js';
 
 // Describes failures using fixed messages and database codes without source or provider content.
 export function getImportFailureReason(error: unknown): string {
@@ -154,7 +155,10 @@ export interface ImportAi {
     input: AdditionalInformationInput,
     context: ImportTaskContext,
   ): Promise<AdditionalInformationResult>;
-  summarizeAttachment(text: string, context: AiContext): Promise<AttachmentSummary>;
+  summarizeAttachment(
+    input: AttachmentSummaryInput,
+    context: AiContext,
+  ): Promise<AttachmentSummary>;
   selectFieldSets(
     extractedThing: ExtractedThing,
     context: ImportTaskContext,

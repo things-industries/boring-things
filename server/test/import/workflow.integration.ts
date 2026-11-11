@@ -107,7 +107,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
     const baseSummarize = env.importAi.summarizeAttachment.bind(env.importAi);
     env.importAi.summarizeAttachment = async (source) =>
-      source.includes('public-manual X1')
+      source.text.includes('public-manual X1')
         ? {
             summary: 'public-manual X1',
             terms: ['manual'],

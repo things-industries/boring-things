@@ -47,8 +47,8 @@ export class OpenAiImports implements ImportAi {
       .onTurnCompleted(this.onTurnCompleted)
       .run();
 
-  summarizeAttachment: ImportAi['summarizeAttachment'] = (text, context) =>
-    new SummarizeAttachmentTask(text, context).onTurnCompleted(this.onTurnCompleted).run();
+  summarizeAttachment: ImportAi['summarizeAttachment'] = (input, context) =>
+    new SummarizeAttachmentTask(input, context).onTurnCompleted(this.onTurnCompleted).run();
   findResources: ImportAi['findResources'] = (input, context) =>
     new FindResourcesTask(input, context, this.readPage)
       .onTurnCompleted(this.onTurnCompleted)

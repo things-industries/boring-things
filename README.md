@@ -54,7 +54,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 
 ## AI imports
 
-Set `OPENAI_API_KEY` in `.env`. Images and PDF pages without embedded text also require `GOOGLE_VISION_API_KEY`. Attachment processing extracts text before the `summarize-attachment` AI task produces summaries, terms, identifiers and metadata. Apply `pnpm db:migrate`, and restart the API. Each AI task declares its model and reasoning settings; see the [task configuration](docs/setup/imports.md#ai-task-configuration). The API requires an OpenAI key at startup.
+Set `OPENAI_API_KEY` in `.env`. Images and PDF pages without embedded text also require `GOOGLE_VISION_API_KEY`. Attachment processing extracts text before the `summarize-attachment` AI task produces summaries, terms, identifiers and metadata. Uploaded images with fewer than 500 trimmed OCR characters also supply their original image for visual analysis, including images without text. Apply `pnpm db:migrate`, and restart the API. Each AI task declares its model and reasoning settings; see the [task configuration](docs/setup/imports.md#ai-task-configuration). The API requires an OpenAI key at startup.
 
 The **Add a thing** screen offers Camera, Photos, Files and Text tiles. Each source is stored privately and starts transcription after upload. The client submits one Import citing the Attachments and shows persisted source outcomes and progress. The Import selects one candidate, matches or creates a Thing, and saves its category identifiers before Research. Fieldset selection and cited population use all applicable linked evidence. Existing owner-entered values and manually cleared fields remain protected.
 
