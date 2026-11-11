@@ -1,0 +1,120 @@
+@use 'tokens';
+@use 'typography';
+@use 'mixins';
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+.field-control-row {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: tokens.space(2);
+  min-width: 0;
+}
+.field-control-input,
+.field-control-currency {
+  min-width: 0;
+  margin: 0;
+  padding: tokens.space(1) 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: tokens.color(primary);
+  font: inherit;
+  @include mixins.touch-field-text;
+  &:focus {
+    outline: none;
+  }
+  &::placeholder {
+    color: tokens.color(primary-muted);
+  }
+}
+.field-control-input {
+  flex: 1;
+  width: 100%;
+  text-align: right;
+  &:focus {
+    border-bottom-color: tokens.color(primary);
+  }
+}
+:host(.is-invalid) .field-control-input {
+  border-bottom-color: tokens.color(danger);
+}
+select.field-control-input,
+.field-control-currency {
+  appearance: none;
+  cursor: pointer;
+  // Right-aligns the chosen option in browsers that support it.
+  text-align-last: right;
+}
+.field-control-currency {
+  flex: none;
+  width: auto;
+  color: tokens.color(primary-muted);
+}
+// Keeps the amount beside its currency rather than across the row.
+.field-control-currency + .field-control-input {
+  flex: 0 1 10ch;
+}
+// Empty date controls show their format, which reads as a value unless muted.
+:host(.is-empty) .field-control-input {
+  color: tokens.color(primary-muted);
+}
+// Grows with its text; the component sizes it where `field-sizing` is unsupported.
+textarea.field-control-input {
+  display: block;
+  overflow: hidden;
+  resize: none;
+  field-sizing: content;
+}
+:host(.is-long) {
+  .field-control-input,
+  .field-control-error {
+    text-align: left;
+  }
+}
+input.field-control-input {
+  // Date inputs open their picker from the whole control, so the native button is redundant.
+  &::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+  &::-webkit-date-and-time-value {
+    text-align: right;
+  }
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+  &[type='number'] {
+    appearance: textfield;
+  }
+}
+// Sits inside the control's box; clicks pass through to the control beneath.
+.field-control-affordance {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  color: tokens.color(primary-muted);
+  pointer-events: none;
+  @include mixins.icon-size(sm);
+}
+// In multi-line text the icon stays beside the first line.
+textarea.field-control-input ~ .field-control-affordance {
+  top: calc(#{tokens.space(1)} + 0.5lh);
+}
+:host(.has-affordance) .field-control-input {
+  padding-right: calc(#{tokens.icon-size(sm)} + #{tokens.space(2)});
+}
+.field-control-error {
+  margin: tokens.space(1) 0 0;
+  @include typography.role(caption);
+  color: tokens.color(danger);
+  text-align: right;
+}

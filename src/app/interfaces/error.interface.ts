@@ -11,4 +11,11 @@ export type UiErrorCode =
   | 'invalid-money'
   | 'money-too-large'
   | 'number-required'
-  | 'date-required';
+  | 'date-required'
+  | 'invalid-date'
+  | 'invalid-email'
+  | 'invalid-format'
+  | 'number-out-of-range'
+  | 'text-too-long'
+  | 'value-required'
+  | 'whole-number-required';

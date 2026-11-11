@@ -55,4 +55,11 @@ export const ERROR_TERMS: Record<UiErrorCode, string> = {
   'money-too-large': 'Amount is too large.',
   'number-required': 'Enter a number.',
   'date-required': 'Enter a valid date and time.',
+  'invalid-date': 'Enter a valid date.',
+  'invalid-email': 'Enter a valid email address.',
+  'invalid-format': "This value isn't in the expected format.",
+  'number-out-of-range': 'This number is outside the allowed range.',
+  'text-too-long': 'This value is too long.',
+  'value-required': 'Enter a value.',
+  'whole-number-required': 'Enter a whole number.',
 };

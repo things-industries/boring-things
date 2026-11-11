@@ -1,4 +1,7 @@
 export const APP_CONFIG = {
+  /** Currencies a money value can use, matching the API's `CurrencyEnum`. */
+  currencies: ['GBP', 'EUR', 'USD'],
+  defaultCurrency: 'GBP',
   streamRetryMs: 1000,
   streamMaxRetryMs: 15000,
   streamMaxFrameBytes: 2 * 1024 * 1024,
