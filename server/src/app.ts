@@ -3,6 +3,7 @@
  * the built frontend when available.
  */
 
+import { getEnv } from './config.js';
 import * as routes from './routes/index.js';
 import { installErrorHandler } from './routes/errors.js';
 import { ServerSentEvents } from './http/sse.js';
@@ -18,7 +19,6 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as database from './db/connection.js';
 import * as jobLeaseDb from './db/job-lease.js';
-import { readConfig, type EnvConfig } from './config.js';
 import { schemas, createValidatorCompiler } from './contracts/schemas.js';
 import auth from './plugins/auth.js';
 import { logtoVerifier, type VerifyIdentity } from './providers/auth/logto.js';
@@ -38,7 +38,6 @@ import * as googleVision from './providers/google-vision/index.js';
 
 // Allow overriding of dependencies for testing
 export interface BuildAppOptions {
-  config?: EnvConfig;
   dbPool?: pg.Pool;
   blobs?: BlobStorage;
   verifyIdentity?: VerifyIdentity;
@@ -51,11 +50,11 @@ export interface BuildAppOptions {
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
-  const config = options.config ?? readConfig();
+  getEnv('NODE_ENV');
 
-  const dbPool = options.dbPool ?? database.createPool(config.databaseUrl);
+  const dbPool = options.dbPool ?? database.createPool();
   const app = Fastify({
-    logger: options.logger ? loggerOptions(config) : false,
+    logger: options.logger ? loggerOptions() : false,
     logController: new RequestLogController(),
     bodyLimit: 1048576,
   });
@@ -90,29 +89,20 @@ export async function buildApp(options: BuildAppOptions = {}) {
     // Registry definitions are cached at startup; restart the server after changing seeded metadata.
     const registry = await loadRegistry(dbPool);
     const { importAi, chatAi, taskScheduler } = createAi(
-      config,
       options,
       (turn) => app.log.info(turn, 'AI turn completed'),
       { db: dbPool, registry },
     );
     await app.register(routes.configRoutes, {
-      config: {
-        logtoEndpoint: config.logtoEndpoint,
-        logtoAppId: config.logtoAppId,
-        apiResource: config.apiResource,
-        maxUploadBytes: config.maxUploadBytes,
-        supportedMediaTypes: config.supportedMediaTypes,
-        sampleDataEnabled: config.sampleDataEnabled,
-        chatEnabled: !!chatAi,
-        importEnabled: !!importAi,
-      },
+      chatEnabled: !!chatAi,
+      importEnabled: !!importAi,
     });
 
-    const blobs = options.blobs ?? createBlobs(config);
+    const blobs = options.blobs ?? createBlobs();
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const events = new ApplicationEvents();
 
-    const assistant = new Assistant(dbPool, registry, blobs, chatAi, config, events, (failure) =>
+    const assistant = new Assistant(dbPool, registry, blobs, chatAi, events, (failure) =>
       app.log.error(failure, 'Assistant response failed'),
     );
     const runner = new JobRunner(
@@ -122,12 +112,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
           dbPool,
           blobs,
           importAi,
-          config,
           events,
           options.readImageText ??
-            (async (content, key, signal) => {
+            (async (content, signal) => {
               const started = Date.now();
-              const text = await googleVision.readImageText(content, key, signal);
+              const text = await googleVision.readImageText(content, signal);
               app.log.info(
                 {
                   task: 'image_ocr',
@@ -142,15 +131,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
               return text;
             }),
         ),
-        new ImportProcessor(
-          dbPool,
-          registry,
-          blobs,
-          importAi,
-          config,
-          events,
-          options.importWorkflow,
-        ),
+        new ImportProcessor(dbPool, registry, blobs, importAi, events, options.importWorkflow),
       ],
       () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
       jobLeaseDb.jobLease(dbPool, () => {
@@ -168,17 +149,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
     await app.register(async function authenticatedRoutes(authenticatedApi) {
       await authenticatedApi.register(auth, {
         db: dbPool,
-        verify: options.verifyIdentity ?? logtoVerifier(config),
+        verify: options.verifyIdentity ?? logtoVerifier(),
       });
       await authenticatedApi.register(multipart, {
-        limits: { fileSize: config.maxUploadBytes, files: 1, fields: 0 },
+        limits: { fileSize: getEnv('MAX_UPLOAD_BYTES'), files: 1, fields: 0 },
       });
 
       await authenticatedApi.register(routes.profileRoutes, { db: dbPool });
       await authenticatedApi.register(routes.sampleRoutes, {
         pool: dbPool,
         registry,
-        enabled: config.sampleDataEnabled,
         events,
       });
       await authenticatedApi.register(routes.importRoutes, {
@@ -195,7 +175,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
       await authenticatedApi.register(routes.attachmentRoutes, {
         db: dbPool,
         blobs,
-        config,
         events,
         runner,
         importEnabled: !!importAi,

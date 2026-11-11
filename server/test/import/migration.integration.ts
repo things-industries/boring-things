@@ -1,4 +1,6 @@
 /** Checks the demo Import upgrade with unfinished jobs and existing Things and Attachments. */
+
+import { getEnv } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
@@ -7,9 +9,7 @@ import * as database from '../../src/db/connection.js';
 
 // Replacing Import checkpoints left an earlier migration blocking unfinished legacy jobs.
 test('Import migrations replace unfinished demo jobs and retain Things and Attachments', async () => {
-  const url = new URL(
-    process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-  );
+  const url = new URL(getEnv('TEST_DATABASE_URL'));
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
   const databaseName = 'bt_test_' + randomUUID().replaceAll('-', '');
   const admin = database.createPool(url.toString());

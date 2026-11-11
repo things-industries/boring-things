@@ -1,11 +1,8 @@
 /** Configures bounded hosted web search and extracts observed public sources from completed responses. */
 
-import type {
-  Response,
-  ResponseCreateParamsNonStreaming,
-} from 'openai/resources/responses/responses';
+import type { Response } from 'openai/resources/responses/responses';
 import type { AiContext } from '../types.js';
-import { responseText } from '../tasks/task.js';
+import { responseText, type TaskOptions } from '../tasks/task.js';
 import { publicUrl } from '../../web/resources.js';
 import { ensure } from '../../../application/errors.js';
 
@@ -13,7 +10,7 @@ import { ensure } from '../../../application/errors.js';
 export function createWebSearchOptions(
   searchCalls: number,
   sourceMode: 'retrieved' | 'cited' = 'retrieved',
-): Partial<ResponseCreateParamsNonStreaming> {
+): TaskOptions {
   return {
     ...(searchCalls > 0 ? { tools: [{ type: 'web_search' }], max_tool_calls: searchCalls } : {}),
     include: sourceMode === 'retrieved' ? ['web_search_call.action.sources'] : undefined,

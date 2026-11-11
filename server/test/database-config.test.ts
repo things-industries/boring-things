@@ -1,9 +1,9 @@
 // cspell:words sslmode
+import { getEnv, setEnvMode, setEnvValue } from '../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import * as database from '../src/db/connection.js';
-import { readConfig } from '../src/config.js';
 
 test('Supabase connections enable TLS without a CA, preserving explicit verification', async () => {
   for (const [url, expected] of [
@@ -49,10 +49,12 @@ test('production accepts the session pooler URL without SSL parameters and rejec
     S3_ACCESS_KEY_ID: 'synthetic',
     S3_SECRET_ACCESS_KEY: 'synthetic',
   };
-  const { databaseUrl } = readConfig(env);
+  setEnvMode('test');
+  for (const [key, value] of Object.entries(env)) setEnvValue(key as keyof typeof env, value);
+  const databaseUrl = getEnv('DATABASE_URL');
   assert.equal(databaseUrl, env.DATABASE_URL);
-  assert.throws(
-    () => readConfig({ ...env, DATABASE_URL: databaseUrl.replace(':5432/', ':6543/') }),
-    /session connection on port 5432/,
-  );
+  assert.throws(() => {
+    setEnvValue('DATABASE_URL', databaseUrl.replace(':5432/', ':6543/'));
+    getEnv('DATABASE_URL');
+  }, /session connection on port 5432/);
 });

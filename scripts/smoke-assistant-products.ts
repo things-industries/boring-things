@@ -1,19 +1,16 @@
 // Paid synthetic chat research check. Temporary database; no application records are changed.
+import { getEnv } from '../server/src/config.js';
+import { LocalBlobs } from '../server/src/providers/blobs/local.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
-import { readConfig } from '../server/src/config.js';
-import { getEnv } from '../server/src/env.js';
 import * as database from '../server/src/db/connection.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import type { Schema } from '../shared/model.js';
-const config = readConfig();
 getEnv('OPENAI_API_KEY');
-const url = new URL(
-  process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-);
+const url = new URL(getEnv('TEST_DATABASE_URL'));
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
 const name = 'bt_chat_smoke_' + randomUUID().replaceAll('-', '');
 const admin = database.createPool(url.toString());
@@ -29,7 +26,7 @@ try {
   await database.transaction(pool, registrySeedDb.seedRegistry);
   app = await buildApp({
     dbPool: pool,
-    config: { ...config, blobDirectory: directory },
+    blobs: new LocalBlobs(directory),
     verifyIdentity: async () => ({ subject: 'synthetic-products-smoke' }),
   });
   const headers = { authorization: 'Bearer synthetic-local-test' };
@@ -75,7 +72,7 @@ try {
     },
   });
   assert.equal(accepted.statusCode, 202, accepted.body);
-  const deadline = Date.now() + config.chatTimeoutMs + 10000;
+  const deadline = Date.now() + getEnv('CHAT_TIMEOUT_MS') + 10000;
   let message: Schema['Message'] | undefined;
   while (Date.now() < deadline) {
     const current = (

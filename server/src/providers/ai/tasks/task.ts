@@ -1,5 +1,6 @@
 /** Executes AI requests, streamed deltas and bounded tool conversations with validation and usage reporting. */
 
+import { getEnv } from '../../../config.js';
 import OpenAI from 'openai';
 import type { ReasoningEffort } from 'openai/resources/shared';
 import { Ajv } from 'ajv';
@@ -10,14 +11,20 @@ import type {
   ResponseCreateParamsNonStreaming,
 } from 'openai/resources/responses/responses';
 import type { AiTurnCompleted, AiContext } from '../types.js';
-import { getEnv } from '../../../env.js';
 import type { TaskTool, TaskToolResult } from '../tools/tool.js';
 import { ensure } from '../../../application/errors.js';
 import * as metrics from '../../../metrics.js';
 
-export type TaskOptions = Omit<Partial<ResponseCreateParamsNonStreaming>, 'reasoning'> & {
+export interface TaskOptions {
+  model?: string;
+  instructions?: string;
+  tools?: ResponseCreateParamsNonStreaming['tools'];
+  tool_choice?: ResponseCreateParamsNonStreaming['tool_choice'];
+  max_tool_calls?: number;
+  include?: ResponseCreateParamsNonStreaming['include'];
+  parallel_tool_calls?: boolean;
   effort?: ReasoningEffort;
-};
+}
 
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
@@ -55,7 +62,7 @@ function inputCharacters(input: ResponseInput | string): number {
 }
 
 export abstract class AiTask<Output = never, Result = Output> {
-  private client: OpenAI;
+  private client?: OpenAI;
   private turnCompleted?: AiTurnCompleted;
   private pendingTurn?: Parameters<AiTurnCompleted>[0];
   protected abstract readonly model: string;
@@ -70,10 +77,8 @@ export abstract class AiTask<Output = never, Result = Output> {
   protected toolRounds = 31;
   protected parallelToolCalls = false;
 
-  // Reads credentials when constructing the task so environment setup can finish first.
-  constructor(protected readonly context: AiContext) {
-    this.client = new OpenAI({ apiKey: getEnv('OPENAI_API_KEY'), maxRetries: 0 });
-  }
+  // Binds job resources without requiring provider credentials.
+  constructor(protected readonly context: AiContext) {}
 
   // Runs the task and logs its last response after output validation and conversion.
   async run(): Promise<Result> {
@@ -242,32 +247,37 @@ export abstract class AiTask<Output = never, Result = Output> {
   // Sends streamed or buffered requests through one cancellation, error and usage boundary.
   protected async requestResponse(
     input: ResponseInput | string,
-    options: TaskOptions = {},
+    options: TaskOptions & Pick<ResponseCreateParamsNonStreaming, 'text'> = {},
     delta?: (text: string) => void,
     task = this.task,
   ): Promise<Response> {
     const { context } = this;
     this.logTurn();
     context.signal.throwIfAborted();
+    const instructions = options.instructions ?? this.instructions;
     const characters = inputCharacters(input);
-    ensure(characters + this.instructions.length <= this.maxTextCharacters, 'text_limit');
+    ensure(characters + instructions.length <= this.maxTextCharacters, 'text_limit');
+    const client = (this.client ??= new OpenAI({
+      apiKey: getEnv('OPENAI_API_KEY'),
+      maxRetries: 0,
+    }));
     context.beforeRequest?.();
     const started = Date.now();
     const { effort = this.effort, ...requestOptions } = options;
     const parameters = {
-      model: this.model,
+      ...requestOptions,
+      model: requestOptions.model ?? this.model,
       store: false,
-      instructions: this.instructions,
+      instructions,
       input,
       max_output_tokens: this.maxOutputTokens,
-      ...requestOptions,
       reasoning: { mode: 'standard', effort },
     };
     let result: Response | undefined;
     let tokenUsage: metrics.ProviderCall['usage'];
     try {
       if (delta) {
-        const stream = await this.client.responses.create(
+        const stream = await client.responses.create(
           { ...parameters, stream: true },
           { signal: context.signal },
         );
@@ -290,7 +300,7 @@ export abstract class AiTask<Output = never, Result = Output> {
           stream.controller.abort();
         }
       } else
-        result = await this.client.responses.create(
+        result = await client.responses.create(
           { ...parameters, stream: false },
           { signal: context.signal },
         );
@@ -358,6 +368,12 @@ export abstract class AiTask<Output = never, Result = Output> {
       };
     await context.record({ ...usage, entries: [entry] });
     ensure(result.status === 'completed' && Array.isArray(result.output), 'AI response incomplete');
+    ensure(
+      !result.output.some(
+        (item) => item.type === 'message' && item.content.some((part) => part.type === 'refusal'),
+      ),
+      'ai_refused',
+    );
     return result;
   }
 }

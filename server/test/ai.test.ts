@@ -1,14 +1,13 @@
 // Checks AI import adapters with mocked SDK responses and synthetic source documents.
 
+import { setEnvMode } from '../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument } from 'pdf-lib';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
 import { extractedThings, extractionBaseline } from './fixtures/imports.js';
-import { setEnvMode } from '../src/env.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
-
 import { createImportTaskContext } from './support/import-context.js';
 
 setEnvMode('test');

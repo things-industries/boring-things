@@ -12,6 +12,7 @@ test('Import failure reasons expose validation names and database codes without 
     [new Error('Uncited purchase URL'), 'Uncited purchase URL'],
     [new Error('Invalid value for Private field label'), 'Invalid field value'],
     [new Error('ai_http_429'), 'ai_http_429'],
+    [new Error('ai_refused'), 'ai_refused'],
     [Object.assign(new Error('Private database details'), { code: 'P0001' }), 'database_P0001'],
     [new Error('Private provider response'), 'import_failed'],
     ['Private thrown content', 'import_failed'],

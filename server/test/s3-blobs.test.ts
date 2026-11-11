@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { setEnvMode, setEnvValue } from '../src/config.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -29,13 +30,14 @@ test('S3 adapter signs private uploads, streams bytes and deletes objects', asyn
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
-  const blobs = new S3Blobs({
-    endpoint: `http://127.0.0.1:${(server.address() as { port: number }).port}`,
-    bucket: 'attachments',
-    region: 'eu-west-2',
-    accessKeyId: 'synthetic-access',
-    secretAccessKey: 'synthetic-secret',
-  });
+  setEnvMode('test');
+  t.after(() => setEnvMode('runtime'));
+  setEnvValue('S3_ENDPOINT', `http://127.0.0.1:${(server.address() as { port: number }).port}`);
+  setEnvValue('S3_BUCKET', 'attachments');
+  setEnvValue('S3_REGION', 'eu-west-2');
+  setEnvValue('S3_ACCESS_KEY_ID', 'synthetic-access');
+  setEnvValue('S3_SECRET_ACCESS_KEY', 'synthetic-secret');
+  const blobs = new S3Blobs();
   t.after(() => blobs.close());
   const content = Buffer.from([0, 1, 255, 128, 20]);
   const key = await blobs.put(content);

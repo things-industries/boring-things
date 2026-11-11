@@ -1,5 +1,6 @@
 /** Exercises telemetry context, accounting and privacy with an in-memory OpenTelemetry exporter. */
 
+import { setEnvMode } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NodeSDK } from '@opentelemetry/sdk-node';
@@ -8,7 +9,6 @@ import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { LangfuseOtelSpanAttributes as attributes } from '@langfuse/tracing';
 import * as metrics from '../../src/metrics.js';
 import { AiTask, responseText } from '../../src/providers/ai/tasks/task.js';
-import { setEnvMode } from '../../src/env.js';
 import { readImageText } from '../../src/providers/google-vision/index.js';
 import { summarizeProviderCalls, type RecordedObservation } from '../../src/metrics-report.js';
 import type { Usage } from '../../src/application/import/types.js';
@@ -191,7 +191,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
 
   // Wrapping OCR preparation recorded a provider call even when credentials were missing.
   exporter.reset();
-  await assert.rejects(readImageText(Buffer.from('synthetic'), '', new AbortController().signal));
+  await assert.rejects(readImageText(Buffer.from('synthetic'), new AbortController().signal));
   await processor.forceFlush();
   assert.equal(exporter.getFinishedSpans().length, 0);
 });

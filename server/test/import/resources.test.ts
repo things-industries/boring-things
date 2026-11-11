@@ -1,8 +1,8 @@
 /** Checks resource research shares page evidence and tool budgets within one model conversation. */
 
+import { setEnvMode } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { setEnvMode } from '../../src/env.js';
 import { FindResourcesTask } from '../../src/providers/ai/tasks/find-resources.js';
 import { createResourcePageTool } from '../../src/providers/ai/tools/resources.js';
 

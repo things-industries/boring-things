@@ -1,15 +1,13 @@
 // Paid synthetic model check. Tools are simulated; no application records are accessed.
+import { getEnv } from '../server/src/config.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { readConfig } from '../server/src/config.js';
-import { getEnv } from '../server/src/env.js';
 import { OpenAiChat } from '../server/src/providers/ai/openai-chat.js';
 import type { ChatMessage } from '../server/src/application/conversations/types.js';
 
-const config = readConfig();
 getEnv('OPENAI_API_KEY');
-const ai = new OpenAiChat(config);
+const ai = new OpenAiChat();
 const thingId = randomUUID();
 const attachmentId = randomUUID();
 const eventId = randomUUID();
@@ -142,7 +140,7 @@ for (const scenario of cases) {
         },
       },
       {
-        signal: AbortSignal.timeout(config.chatTimeoutMs),
+        signal: AbortSignal.timeout(getEnv('CHAT_TIMEOUT_MS')),
         delta: () => {},
         record: async (usage) => {
           model = usage.model ?? model;

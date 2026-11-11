@@ -1,7 +1,9 @@
 /** Checks specialist fields reach public research and completed Icecat lookups survive retries. */
 
+import { setEnvValue } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+
 import { setTimeout } from 'node:timers/promises';
 import { IcecatProvider } from '../../src/providers/icecat/index.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
@@ -11,7 +13,7 @@ import type { Schema } from '../../../shared/model.js';
 // Resource research discarded its failure reason when recording a retryable warning.
 test('Icecat fields are saved before public research and reused when research is retried', async () => {
   let lookups = 0;
-  const provider = new IcecatProvider('fixture-token', async () => {
+  const provider = new IcecatProvider(async () => {
     lookups++;
     return Response.json({
       msg: 'OK',
@@ -22,6 +24,7 @@ test('Icecat fields are saved before public research and reused when research is
     });
   });
   const env = await startTestApp({ importWorkflow: { specialists: [provider] } });
+  setEnvValue('ICECAT_ACCESS_TOKEN', 'fixture-token');
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });

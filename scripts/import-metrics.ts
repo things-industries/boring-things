@@ -1,9 +1,9 @@
 /** Read-only import report, joins Langfuse calls to owner-scoped import and attachment relationships. */
 
+import { getEnv } from '../server/src/config.js';
 import { LangfuseClient } from '@langfuse/client';
 import * as database from '../server/src/db/connection.js';
 import * as importsDb from '../server/src/db/entities/imports.js';
-import { getEnv } from '../server/src/env.js';
 import { getJobTraceId } from '../server/src/metrics.js';
 import { summarizeProviderCalls, type RecordedObservation } from '../server/src/metrics-report.js';
 
@@ -14,7 +14,11 @@ getEnv('LANGFUSE_SECRET_KEY');
 const pool = database.createPool(getEnv('DATABASE_URL'));
 try {
   const job = await importsDb.getOwnedImportOrThrow(pool, ownerId, importId);
-  const client = new LangfuseClient();
+  const client = new LangfuseClient({
+    publicKey: getEnv('LANGFUSE_PUBLIC_KEY'),
+    secretKey: getEnv('LANGFUSE_SECRET_KEY'),
+    baseUrl: getEnv('LANGFUSE_BASE_URL'),
+  });
   const traceIds = [getJobTraceId(job.id), ...new Set(job.attachmentIds.map(getJobTraceId))];
   const observations: RecordedObservation[] = [];
   const traces = [];
@@ -26,9 +30,7 @@ try {
         traceId,
         cursor,
         limit: 1000,
-        environment: [
-          process.env.LANGFUSE_TRACING_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development',
-        ],
+        environment: [getEnv('LANGFUSE_TRACING_ENVIRONMENT')],
         fields: 'core,basic,usage,metadata',
       });
       for (const row of page.data) {

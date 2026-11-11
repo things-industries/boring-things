@@ -2,10 +2,10 @@
  * Defines private blob storage and selects its configured adapter.
  */
 
+import { getEnv } from '../../config.js';
 import type { Readable } from 'node:stream';
 import { LocalBlobs } from './local.js';
 import { S3Blobs } from './s3.js';
-import type { EnvConfig } from '../../config.js';
 
 export interface BlobStorage {
   put(content: Buffer): Promise<string>;
@@ -14,10 +14,9 @@ export interface BlobStorage {
   close?(): void;
 }
 
-export function createBlobs(config: EnvConfig): BlobStorage {
-  if (config.blobStorage === 's3') {
-    if (!config.s3) throw new Error('Missing S3 configuration');
-    return new S3Blobs(config.s3);
+export function createBlobs(): BlobStorage {
+  if (getEnv('BLOB_STORAGE') === 's3') {
+    return new S3Blobs();
   }
-  return new LocalBlobs(config.blobDirectory);
+  return new LocalBlobs();
 }

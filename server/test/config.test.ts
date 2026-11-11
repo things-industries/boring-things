@@ -1,9 +1,10 @@
-// Checks environment defaults, overrides and startup validation.
+/** Checks typed settings, conditional startup requirements and process-wide test overrides. */
 
-import { test } from 'node:test';
+import { getEnv, setEnvMode, setEnvValue } from '../src/config.js';
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readConfig, type EnvConfig } from '../src/config.js';
 
+const runtimeEnvironment = process.env;
 const storage = {
   BLOB_STORAGE: 's3',
   S3_ENDPOINT: 'https://storage.example',
@@ -20,67 +21,99 @@ const production = {
   LOGTO_APP_ID: 'synthetic',
   LOGTO_API_RESOURCE: 'https://api.example',
 };
-
-test('logging defaults and overrides are validated before startup', () => {
-  assert.equal(readConfig({}).logFormat, 'pretty');
-  assert.equal(readConfig({}).logLevel, 'info');
-  assert.equal(readConfig(production).logFormat, 'json');
-  assert.equal(readConfig({ LOG_FORMAT: 'json', LOG_LEVEL: 'trace' }).logLevel, 'trace');
-  assert.equal(readConfig({ LOG_FORMAT: 'json' }).logFormat, 'json');
-  assert.throws(() => readConfig({ LOG_FORMAT: 'other' }), /Invalid LOG_FORMAT/);
-  assert.throws(() => readConfig({ LOG_LEVEL: 'other' }), /Invalid LOG_LEVEL/);
+afterEach(() => {
+  process.env = runtimeEnvironment;
+  setEnvMode('runtime');
 });
 
-test('configuration defaults and parsed values are isolated from their environment source', () => {
-  const defaults = readConfig({});
-  assert.equal(defaults.blobStorage, 'local');
-  assert.equal(defaults.s3, undefined);
-  assert.equal(defaults.port, 3000);
-  assert.equal(defaults.maxUploadBytes, 100000000);
-  assert.equal(defaults.chatTimeoutMs, 180000);
-  assert.equal(defaults.sampleDataEnabled, false);
-  const env = { PORT: '4000', CHAT_TIMEOUT_MS: '1500', ENABLE_SAMPLE_DATA: 'true' };
-  const first: EnvConfig = readConfig(env);
-  env.PORT = '5000';
-  const second = readConfig(env);
-  assert.equal(first.port, 4000);
-  assert.equal(second.port, 5000);
-  assert.equal(first.chatTimeoutMs, 1500);
-  assert.equal(first.sampleDataEnabled, true);
-  assert.equal(readConfig({ ENABLE_SAMPLE_DATA: '1' }).sampleDataEnabled, false);
+// Selects a synthetic runtime source to exercise parsing before application startup.
+function selectEnvironment(values: NodeJS.ProcessEnv) {
+  process.env = values;
+  setEnvMode('runtime');
+}
+
+test('defaults are typed, cached and independent of later environment changes', () => {
+  selectEnvironment({});
+  assert.equal(getEnv('BLOB_STORAGE'), 'local');
+  assert.equal(getEnv('PORT'), 3000);
+  assert.equal(getEnv('MAX_UPLOAD_BYTES'), 100000000);
+  assert.equal(getEnv('CHAT_TIMEOUT_MS'), 180000);
+  assert.equal(getEnv('ENABLE_SAMPLE_DATA'), false);
+  process.env.PORT = '4000';
+  assert.equal(getEnv('PORT'), 3000);
+  setEnvMode('runtime');
+  assert.equal(getEnv('PORT'), 4000);
 });
 
-test('storage mode and conditional credentials are validated before startup', () => {
-  assert.throws(() => readConfig({ BLOB_STORAGE: 'other' }), /Invalid BLOB_STORAGE/);
-  assert.equal(readConfig(storage).s3?.bucket, 'attachments');
-  for (const name of Object.keys(storage).filter((key) => key.startsWith('S3_'))) {
-    assert.throws(() => readConfig({ ...storage, [name]: '  ' }), new RegExp('Missing ' + name));
+test('logging settings and workflow limits validate their runtime source', () => {
+  selectEnvironment({});
+  assert.equal(getEnv('LOG_FORMAT'), 'pretty');
+  selectEnvironment(production);
+  assert.equal(getEnv('LOG_FORMAT'), 'json');
+  for (const [key, value] of [
+    ['LOG_FORMAT', 'other'],
+    ['LOG_LEVEL', 'other'],
+    ['BLOB_STORAGE', 'other'],
+  ]) {
+    selectEnvironment({ [key!]: value });
+    assert.throws(() => getEnv('PORT'), new RegExp('Invalid ' + key));
   }
-  assert.throws(() => readConfig({ ...storage, S3_ENDPOINT: 'http://storage.example' }), /HTTPS/);
-  assert.equal(readConfig({ BLOB_STORAGE: 'local', S3_ENDPOINT: 'unused' }).s3, undefined);
-});
-
-test('workflow limits reject invalid values and retain numeric defaults', () => {
   for (const name of [
+    'PORT',
     'CHAT_TIMEOUT_MS',
     'CHAT_TOOL_CALLS',
     'IMPORT_TIMEOUT_MS',
+    'IMPORT_MAX_REQUESTS',
+    'IMPORT_MAX_RESOURCES',
     'IMPORT_TOOL_ROUNDS',
     'DISCOVERY_TIMEOUT_MS',
     'MAX_UPLOAD_BYTES',
   ]) {
-    for (const value of ['', 'no', '0', '-1', '1.5', 'Infinity', '9007199254740992'])
-      assert.throws(() => readConfig({ [name]: value }), new RegExp('Invalid ' + name));
-    assert.doesNotThrow(() => readConfig({ [name]: '1' }));
+    for (const value of ['', 'no', '0', '-1', '1.5', 'Infinity', '9007199254740992']) {
+      selectEnvironment({ [name]: value });
+      assert.throws(() => getEnv('PORT'), new RegExp('Invalid ' + name));
+    }
   }
 });
 
-test('production validates authentication, database and storage together', () => {
-  assert.doesNotThrow(() => readConfig(production));
-  for (const name of ['DATABASE_URL', 'LOGTO_ENDPOINT', 'LOGTO_APP_ID', 'LOGTO_API_RESOURCE'])
-    assert.throws(() => readConfig({ ...production, [name]: '' }), new RegExp('Missing ' + name));
-  assert.throws(
-    () => readConfig({ ...production, BLOB_STORAGE: 'local' }),
-    /requires BLOB_STORAGE=s3/,
-  );
+test('storage credentials and production requirements validate together', () => {
+  selectEnvironment(production);
+  assert.equal(getEnv('S3_BUCKET'), 'attachments');
+  for (const name of [
+    'DATABASE_URL',
+    'LOGTO_ENDPOINT',
+    'LOGTO_APP_ID',
+    'LOGTO_API_RESOURCE',
+    ...Object.keys(storage).filter((key) => key.startsWith('S3_')),
+  ]) {
+    selectEnvironment({ ...production, [name]: '  ' });
+    assert.throws(() => getEnv('PORT'), new RegExp('Missing ' + name));
+  }
+  selectEnvironment({ ...storage, S3_ENDPOINT: 'http://storage.example' });
+  assert.throws(() => getEnv('PORT'), /HTTPS/);
+  selectEnvironment({ ...production, BLOB_STORAGE: 'local' });
+  assert.throws(() => getEnv('PORT'), /requires BLOB_STORAGE=s3/);
+  selectEnvironment({ BLOB_STORAGE: 'local', S3_ENDPOINT: 'unused' });
+  assert.equal(getEnv('BLOB_STORAGE'), 'local');
+});
+
+test('test mode isolates runtime credentials and resets overrides and derived defaults', () => {
+  selectEnvironment({
+    OPENAI_API_KEY: 'runtime-secret',
+    S3_SECRET_ACCESS_KEY: 'runtime-secret',
+    TEST_DATABASE_URL: 'postgresql://localhost/test',
+  });
+  assert.throws(() => setEnvValue('PORT', 4000), /test mode/);
+  setEnvMode('test');
+  assert.equal(getEnv('OPENAI_API_KEY'), 'test-key');
+  assert.equal(getEnv('S3_SECRET_ACCESS_KEY', { optional: true }), undefined);
+  assert.equal(getEnv('DATABASE_URL'), 'postgresql://localhost/test');
+  setEnvValue('PORT', 4000);
+  assert.equal(getEnv('PORT'), 4000);
+  setEnvValue('PORT', undefined);
+  assert.equal(getEnv('PORT'), 3000);
+  setEnvValue('OPENAI_API_KEY', '  override  ');
+  assert.equal(getEnv('OPENAI_API_KEY'), 'override');
+  setEnvMode('test');
+  assert.equal(getEnv('OPENAI_API_KEY'), 'test-key');
 });

@@ -1,6 +1,7 @@
 /** Maps identified Icecat catalogue products to registry fields for specialist enrichment. */
 
 // cspell:words generalinfo featuregroups
+import { getEnv } from '../../config.js';
 import type { ThingRow } from '../../db/entities/things.js';
 import type { Registry } from '../../application/registry/registry.js';
 import { SpecialistProvider, type SpecialistResult } from '../specialist-data.js';
@@ -53,10 +54,7 @@ const featureFields = [
 export class IcecatProvider extends SpecialistProvider {
   readonly id = 'ICECAT';
 
-  constructor(
-    private accessToken: string,
-    request: typeof fetch = fetch,
-  ) {
+  constructor(request: typeof fetch = fetch) {
     super(request);
   }
 
@@ -82,7 +80,7 @@ export class IcecatProvider extends SpecialistProvider {
     return metrics.withProviderCall({ task: 'icecat_lookup', provider: 'icecat' }, async () => {
       const response = await this.request(url, {
         redirect: 'error',
-        headers: { 'api-token': this.accessToken },
+        headers: { 'api-token': getEnv('ICECAT_ACCESS_TOKEN') },
         signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
       });
       const body = getObject(await response.json());

@@ -1,18 +1,18 @@
 /** Applies hosted migrations and registry metadata, then provisions private attachment storage. */
+import { getEnv } from '../server/src/config.js';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { CreateBucketCommand } from '@aws-sdk/client-s3';
 import * as database from '../server/src/db/connection.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
-import { readConfig } from '../server/src/config.js';
 import { s3Client } from '../server/src/providers/blobs/s3.js';
 
 const run = promisify(execFile);
 let stage = 'configuration';
 
 async function deploy() {
-  const project = process.env.SUPABASE_PROJECT_REF;
-  const target = process.env.DATABASE_URL;
+  const project = getEnv('SUPABASE_PROJECT_REF');
+  const target = getEnv('DATABASE_URL');
   if (!project || !target) throw new Error('SUPABASE_PROJECT_REF and DATABASE_URL are required');
   const url = new URL(target);
   const pooled =
@@ -23,10 +23,9 @@ async function deploy() {
     throw new Error('Use the project session pooler or direct connection on port 5432');
   if (!url.password) throw new Error('A database password is required');
   const dryRun = process.argv.includes('--dry-run');
-  const config = readConfig();
-  if (config.blobStorage !== 's3' || !config.s3)
+  if (getEnv('BLOB_STORAGE') !== 's3')
     throw new Error('Deployment requires BLOB_STORAGE=s3 and S3 credentials');
-  const endpoint = new URL(config.s3.endpoint);
+  const endpoint = new URL(getEnv('S3_ENDPOINT'));
   if (
     endpoint.hostname !== `${project}.storage.supabase.co` ||
     endpoint.pathname !== '/storage/v1/s3'
@@ -67,13 +66,13 @@ async function deploy() {
     await database.transaction(pool, registrySeedDb.seedRegistry);
     stage = 'private storage bucket';
     const bucket = await pool.query('select public from storage.buckets where id=$1', [
-      config.s3.bucket,
+      getEnv('S3_BUCKET'),
     ]);
     if (bucket.rows[0]?.public) throw new Error('Attachment bucket must be private');
     if (!bucket.rowCount) {
-      const storage = s3Client(config.s3);
+      const storage = s3Client();
       try {
-        await storage.send(new CreateBucketCommand({ Bucket: config.s3.bucket }), {
+        await storage.send(new CreateBucketCommand({ Bucket: getEnv('S3_BUCKET') }), {
           abortSignal: AbortSignal.timeout(60000),
         });
       } finally {
@@ -81,7 +80,7 @@ async function deploy() {
       }
     }
     const verified = await pool.query('select public from storage.buckets where id=$1', [
-      config.s3.bucket,
+      getEnv('S3_BUCKET'),
     ]);
     if (verified.rows[0]?.public !== false)
       throw new Error('Private attachment bucket verification failed');

@@ -1,4 +1,5 @@
 /** Checks structured task execution, awaited source retrieval and request text limits with mocked HTTP. */
+import { setEnvMode } from '../../src/config.js';
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
@@ -9,7 +10,6 @@ import type { Usage } from '../../src/application/import/types.js';
 import type { PopulationInput } from '../../src/providers/ai/tasks/populate-fields.js';
 import { createImportTaskContext } from '../support/import-context.js';
 import { fields } from '../../src/db/seeds/registry.js';
-import { setEnvMode } from '../../src/env.js';
 import type { AiTurnCompleted } from '../../src/providers/ai/types.js';
 import { getPrompt } from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { getEnv } from '../config.js';
 import type pg from 'pg';
 import { basename } from 'node:path';
 import { route } from '../contracts/routes.js';
@@ -6,6 +7,7 @@ import { ensure } from '../application/errors.js';
 import { matchesMedia } from '../lib/media.js';
 import * as attachmentsDb from '../db/entities/attachments.js';
 import {
+  supportedMediaTypes,
   uploadAttachment,
   removeAttachment,
   setAttachmentLink,
@@ -13,7 +15,6 @@ import {
   type UploadedFile,
 } from '../application/attachments.js';
 import type { BlobStorage } from '../providers/blobs/index.js';
-import type { EnvConfig } from '../config.js';
 import type { ApplicationEvents } from '../application/events.js';
 import * as database from '../db/connection.js';
 import type { JobRunner } from '../application/jobs/runner.js';
@@ -21,7 +22,6 @@ import type { JobRunner } from '../application/jobs/runner.js';
 interface Options {
   db: pg.Pool;
   blobs: BlobStorage;
-  config: EnvConfig;
   events: ApplicationEvents;
   runner: JobRunner;
   importEnabled: boolean;
@@ -29,7 +29,7 @@ interface Options {
 
 const attachmentRoutes: FastifyPluginAsync<Options> = async (
   app,
-  { db, blobs, config, events, runner, importEnabled },
+  { db, blobs, events, runner, importEnabled },
 ) => {
   route(app, 'GET', '/api/attachments', (req) =>
     attachmentsDb.listAttachments(db, req.ownerId, req.query),
@@ -37,7 +37,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   route(app, 'POST', '/api/attachments', async (req, reply) => {
     const parts = req.parts({
       limits: {
-        fileSize: config.maxUploadBytes,
+        fileSize: getEnv('MAX_UPLOAD_BYTES'),
         files: 1,
         fields: 0,
         parts: 1,
@@ -51,7 +51,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
         'Upload one file in the file field',
       );
       ensure(
-        config.supportedMediaTypes.includes(part.mimetype),
+        supportedMediaTypes.includes(part.mimetype),
         'Unsupported media type',
         'UNSUPPORTED_MEDIA',
       );

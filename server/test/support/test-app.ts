@@ -4,6 +4,7 @@
  * e2e suite, the screenshot tool and browser integration checks.
  */
 
+import { getEnv, setEnvMode, setEnvValue } from '../../src/config.js';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { existsSync } from 'node:fs';
@@ -16,7 +17,6 @@ import { FixtureTaskScheduler } from '../fixtures/task-scheduling.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
-import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
 import { loadRegistry } from '../../src/application/registry/index.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
@@ -40,9 +40,7 @@ export async function startTestApp(
   const port = options.port ?? 0;
   if (options.storageStatePath && !port)
     throw new Error('storageStatePath needs a fixed port for the browser origin');
-  const url = new URL(
-    process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-  );
+  const url = new URL(getEnv('TEST_DATABASE_URL'));
   if (!['localhost', '127.0.0.1'].includes(url.hostname))
     throw new Error('TEST_DATABASE_URL must point at a local database');
   if (!existsSync('dist/web/browser/index.html'))
@@ -85,13 +83,12 @@ export async function startTestApp(
     await once(jwks, 'listening');
     cleanup.push(() => jwks.close());
     const issuer = 'http://127.0.0.1:' + (jwks.address() as { port: number }).port;
-    const config = {
-      ...readConfig(),
-      logtoEndpoint: issuer,
-      logtoAppId: appId,
-      blobDirectory: directory,
-      sampleDataEnabled: true,
-    };
+    setEnvMode('test');
+    setEnvValue('LOGTO_ENDPOINT', issuer);
+    setEnvValue('LOGTO_APP_ID', appId);
+    setEnvValue('BLOB_DIRECTORY', directory);
+    setEnvValue('ENABLE_SAMPLE_DATA', true);
+    cleanup.unshift(() => setEnvMode('runtime'));
 
     const migrations = new URL('../../../supabase/migrations/', import.meta.url);
     for (const file of (await readdir(migrations)).filter((f) => f.endsWith('.sql')).sort()) {
@@ -103,7 +100,6 @@ export async function startTestApp(
     const taskScheduler = new FixtureTaskScheduler();
     const app = await buildApp({
       dbPool: pool,
-      config,
       importAi,
       chatAi,
       taskScheduler,
@@ -126,7 +122,7 @@ export async function startTestApp(
       new SignJWT({})
         .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
         .setSubject(claims.subject ?? subject)
-        .setAudience(claims.audience ?? config.apiResource)
+        .setAudience(claims.audience ?? getEnv('LOGTO_API_RESOURCE'))
         .setIssuer(claims.issuer ?? issuer + '/oidc')
         .setIssuedAt()
         .setExpirationTime(claims.expiresIn ?? expiresAt)
@@ -156,7 +152,7 @@ export async function startTestApp(
             {
               name: `logto:${appId}:accessToken`,
               value: JSON.stringify({
-                ['@' + config.apiResource]: { token: accessToken, scope: '', expiresAt },
+                ['@' + getEnv('LOGTO_API_RESOURCE')]: { token: accessToken, scope: '', expiresAt },
               }),
             },
           ],
@@ -177,7 +173,6 @@ export async function startTestApp(
       base,
       app,
       pool,
-      config,
       importAi,
       chatAi,
       taskScheduler,

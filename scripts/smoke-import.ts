@@ -1,22 +1,19 @@
 // Explicit, paid live smoke test. Only synthetic source data is sent to OpenAI.
+import { getEnv } from '../server/src/config.js';
+import { LocalBlobs } from '../server/src/providers/blobs/local.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { buildApp } from '../server/src/app.js';
-import { readConfig } from '../server/src/config.js';
-import { getEnv } from '../server/src/env.js';
 import * as database from '../server/src/db/connection.js';
 import { loadRegistry } from '../server/src/application/registry/index.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { OpenAiImports } from '../server/src/providers/ai/openai-imports.js';
 import type { ImportAi } from '../server/src/application/import/types.js';
 import type { Schema } from '../shared/model.js';
-const config = readConfig();
 getEnv('OPENAI_API_KEY');
-const url = new URL(
-  process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-);
+const url = new URL(getEnv('TEST_DATABASE_URL'));
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname), 'Smoke test requires local Postgres');
 const name = 'bt_smoke_' + randomUUID().replaceAll('-', '');
 const admin = database.createPool(url.toString());
@@ -65,7 +62,7 @@ try {
   });
   app = await buildApp({
     dbPool: pool,
-    config: { ...config, blobDirectory: directory },
+    blobs: new LocalBlobs(directory),
     importAi: recorded,
     verifyIdentity: async () => ({ subject: 'synthetic-smoke' }),
   });
@@ -153,7 +150,7 @@ try {
         payload: { text, requestId: randomUUID() },
       });
       assert.equal(accepted.statusCode, 202, accepted.body);
-      const end = Date.now() + config.chatTimeoutMs + 10000;
+      const end = Date.now() + getEnv('CHAT_TIMEOUT_MS') + 10000;
       while (Date.now() < end) {
         const current = (
           await app!.inject({
@@ -200,7 +197,7 @@ try {
     await app.close();
     app = await buildApp({
       dbPool: pool,
-      config: { ...config, blobDirectory: directory },
+      blobs: new LocalBlobs(directory),
       verifyIdentity: async () => ({ subject: 'synthetic-smoke' }),
     });
     const reloaded = (

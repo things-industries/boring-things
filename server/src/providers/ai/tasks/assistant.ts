@@ -1,5 +1,6 @@
 /** Answers assistant requests with streamed text and task-owned tool definitions and argument adapters. */
 
+import { getEnv } from '../../../config.js';
 import { taskProperties, eventProperties } from './task-fields.js';
 import type { FunctionTool, ResponseInput } from 'openai/resources/responses/responses';
 import type { FromSchema } from 'json-schema-to-ts';
@@ -243,10 +244,9 @@ export class AssistantTask extends AiTask<never, string> {
     private input: ChatInput,
     private capabilities: ChatTools,
     context: ChatContext,
-    rounds: number,
   ) {
     super(context);
-    this.toolRounds = rounds;
+    this.toolRounds = getEnv('CHAT_TOOL_CALLS');
     this.delta = context.delta;
     this.tools = this.createTools(context);
   }

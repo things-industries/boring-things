@@ -1,17 +1,21 @@
 /** Exports synthetic imports through the application telemetry boundary with a mocked OpenAI response. */
 
+import { getEnv, setEnvMode, setEnvValue } from '../server/src/config.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mock } from 'node:test';
 import * as metrics from '../server/src/metrics.js';
-import { getEnv, setEnvMode } from '../server/src/env.js';
 import { AiTask, responseText } from '../server/src/providers/ai/tasks/task.js';
 
-getEnv('LANGFUSE_PUBLIC_KEY');
-getEnv('LANGFUSE_SECRET_KEY');
-assert.notEqual(process.env.LANGFUSE_TRACING_ENABLED, 'false', 'Enable tracing for this check');
-process.env.LANGFUSE_TRACING_ENVIRONMENT = 'setup-check';
+const publicKey = getEnv('LANGFUSE_PUBLIC_KEY');
+const secretKey = getEnv('LANGFUSE_SECRET_KEY');
+const baseUrl = getEnv('LANGFUSE_BASE_URL');
+assert.notEqual(getEnv('LANGFUSE_TRACING_ENABLED'), false, 'Enable tracing for this check');
 setEnvMode('test');
+setEnvValue('LANGFUSE_PUBLIC_KEY', publicKey);
+setEnvValue('LANGFUSE_SECRET_KEY', secretKey);
+setEnvValue('LANGFUSE_BASE_URL', baseUrl);
+setEnvValue('LANGFUSE_TRACING_ENVIRONMENT', 'setup-check');
 metrics.initializeMetrics();
 const attachmentId = randomUUID();
 const importIds = [randomUUID(), randomUUID()];

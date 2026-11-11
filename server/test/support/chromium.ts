@@ -4,6 +4,7 @@
  * both.
  */
 
+import { getEnv } from '../../src/config.js';
 import { existsSync } from 'node:fs';
 import { chromium, type Browser } from '@playwright/test';
 
@@ -11,7 +12,7 @@ const preinstalledChromium = '/opt/pw-browsers/chromium';
 
 export function chromiumExecutable() {
   return (
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ??
+    getEnv('PLAYWRIGHT_CHROMIUM_EXECUTABLE', { optional: true }) ??
     (!existsSync(chromium.executablePath()) && existsSync(preinstalledChromium)
       ? preinstalledChromium
       : undefined)

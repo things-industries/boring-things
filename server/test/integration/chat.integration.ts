@@ -1,4 +1,5 @@
 import { test, before, beforeEach, after } from 'node:test';
+import { getEnv, setEnvMode, setEnvValue } from '../../src/config.js';
 import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,14 +10,11 @@ import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { loadRegistry } from '../../src/application/registry/index.js';
 import { buildApp } from '../../src/app.js';
-import { readConfig } from '../../src/config.js';
 import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { ApplicationError } from '../../src/application/errors.js';
 
-const url = new URL(
-  process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-);
+const url = new URL(getEnv('TEST_DATABASE_URL'));
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
 const databaseName = 'bt_chat_' + randomUUID().replaceAll('-', '');
 const admin = database.createPool(url.toString());
@@ -26,15 +24,13 @@ const ai = new FixtureChat();
 let app: FastifyInstance;
 let directory: string;
 let base: string;
-const config = () => ({
-  ...readConfig(),
-  blobDirectory: directory,
-  chatTimeoutMs: 3000,
-});
+
 const boot = async () => {
+  setEnvMode('test');
+  setEnvValue('BLOB_DIRECTORY', directory);
+  setEnvValue('CHAT_TIMEOUT_MS', 3000);
   app = await buildApp({
     dbPool: pool,
-    config: config(),
     chatAi: ai,
     importAi: new FixtureAi({ db: pool, registry: await loadRegistry(pool) }),
     verifyIdentity: async (token) => ({ subject: token }),
@@ -860,7 +856,7 @@ test('research provider validation failures and exhausted tool budgets fail the 
   assert.equal((await wait(chat.id)).message.error, 'assistant_failed');
   assert.equal(research.mock.callCount(), 1);
   ai.probe = async (_input, execute) => {
-    for (let call = 0; call <= readConfig().chatToolCalls; call++)
+    for (let call = 0; call <= getEnv('CHAT_TOOL_CALLS'); call++)
       await execute('show_cards', {
         cards: [
           {

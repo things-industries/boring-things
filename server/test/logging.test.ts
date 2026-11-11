@@ -1,19 +1,22 @@
 // Verifies request log severity and continued visibility of sanitised server errors.
 
+import { setEnvMode, setEnvValue } from '../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { readConfig } from '../src/config.js';
 import { loggerOptions, RequestLogController } from '../src/http/logging.js';
 import { installErrorHandler } from '../src/routes/errors.js';
 
 for (const level of ['info', 'trace']) {
   test(`request diagnostics at ${level} preserve server error logs`, async (t) => {
     const lines: string[] = [];
-    const config = readConfig({ LOG_FORMAT: 'json', LOG_LEVEL: level });
+    setEnvMode('test');
+    setEnvValue('LOG_FORMAT', 'json');
+    setEnvValue('LOG_LEVEL', level);
+    t.after(() => setEnvMode('runtime'));
     const controller = new RequestLogController();
     const app = Fastify({
-      logger: { ...loggerOptions(config), stream: { write: (line) => lines.push(line) } },
+      logger: { ...loggerOptions(), stream: { write: (line) => lines.push(line) } },
       logController: controller,
     });
     t.after(() => app.close());

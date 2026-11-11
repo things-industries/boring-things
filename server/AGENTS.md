@@ -6,13 +6,13 @@ Fastify owns the `/api` boundary, Logto identity verification, owner-scoped data
 
 Paths are relative to `server/`.
 
-- `src/index.ts`: startup and shutdown; `app.ts`: dependency assembly and Fastify scopes; `config.ts`: validated application settings; `env.ts`: required environment lookups and test credential mode.
+- `src/index.ts`: startup and shutdown; `app.ts`: dependency assembly and Fastify scopes; `config.ts`: process-wide typed environment settings, validation and test overrides.
 - `src/routes/`: typed Fastify route plugins and error translation. Temporary developer/debugging routes may be self-contained, others should use DB/provider/application module abstractions where appropriate.
 - `src/http/sse.ts`: bounded SSE transport and connection lifecycle. Routes send readable streams through Fastify. `application/events.ts` supplies the app-owned, typed event bus for data changes and conversation deltas.
 - `src/contracts/`: operation types, runtime schema validation, path/reference adaptation and contract checks. Root `openapi.json` generates root `shared/api.ts` for both client and server.
 - `src/application/`: workflow rules and transport-independent errors. Imports, conversations and registry have feature folders. Public field selection and bounded web search are shared. `jobs/runner.ts` runs serial Import, transcription and chat processors concurrently in one process.
 - `src/db/`: connection, transaction, row-mapping and error infrastructure. `entities/` groups typed persistence by entity: Issues and Events in `activity.ts`, Tasks in `tasks.ts`, purchasables in `purchasables.ts`, attachments in `attachments.ts`. `seeds/registry.ts` owns authored registry metadata.
-- `src/providers/`: modules for capabilities outside the application boundary, grouped by capability. Encapsulate runtime substitutes and fallback behaviour within each provider, selected through configuration/options. Fake modes require explicit configuration, normally environment settings; failure behaviour is provider-specific. Test-only injection remains available for failure and ownership checks. AI tasks share SDK execution through `AiTask`; each task owns its model selection and instructions. The base task reads credentials at construction and owns shared text/output limits. Put fixed task settings, including web search budgets, in task classes; pass only values that vary by operation. See [Import AI tasks](../docs/setup/imports.md#workflow).
+- `src/providers/`: modules for capabilities outside the application boundary, grouped by capability. Encapsulate runtime substitutes and fallback behaviour within each provider, selected through configuration/options. Fake modes require explicit configuration, normally environment settings; failure behaviour is provider-specific. Test-only injection remains available for failure and ownership checks. AI tasks share SDK execution through `AiTask`; each task owns its model selection and instructions. The base task reads credentials on its first request and owns shared text/output limits. Put fixed task settings, including web search budgets, in task classes; pass only values that vary by operation. See [Import AI tasks](../docs/setup/imports.md#workflow).
 - `src/plugins/`: Fastify plugins with typed options, a default `FastifyPluginAsync` export and registration through `fastify.register(plugin, options)`. Choose encapsulation deliberately so hooks and decorators reach their intended routes. Name authenticated child scopes to make their access boundary visible.
 - `src/lib/`: purpose-neutral generic helpers.
 - `src/metrics.ts`: global OpenTelemetry scopes and content-free provider measurements. `src/metrics-report.ts` summarizes calls across import and source traces. Setup and evaluation commands are in [Import observability](../docs/setup/observability.md).
@@ -25,6 +25,8 @@ Use typed functions accepting a database executor, owner ID and named input wher
 Use namespace imports for database modules throughout the repository, including routes, application workflows, other DB modules, scripts and tests; call functions through names such as `thingsDb` and `importsDb`. Named type imports remain suitable. Prefer readable boundaries and development speed at the current traffic volume; retain transaction support for associated queries. The [single-Thing Import plan](../docs/plans/import-improvements.md) describes the workflow and shared-attachment lifecycle.
 
 Activities are work the owner manages: suggested tasks, scheduled Events and Issues. Purchasables are opportunities to buy something that maintains or improves a Thing, with dedicated persistence and routes. Shared research patterns use neutral suggestion or research names.
+
+Read environment settings through `getEnv(name)` from `config.ts` inside their owning modules. Pass resources and replaceable capabilities through interfaces; read credentials and settings without constructor or function parameters. Tests use `setEnvMode('test')` and `setEnvValue`; reset overrides between cases and run settings changes sequentially within a process. Runtime settings are cached on first access after environment loading.
 
 ## Authentication and privacy
 
@@ -58,7 +60,7 @@ Activities are work the owner manages: suggested tasks, scheduled Events and Iss
 - Attachments store source-wide transcription, summary, terms and status. Readable content is private; Imports retain candidates and current retry checkpoints.
 - Attachment metadata patches merge under a row lock and refresh every linked Thing. Preserve USER provenance for requests that clear metadata values; source extraction fills missing, unedited metadata; discovered PDF content can replace automated metadata. Page counts are derived from PDF bytes and are read-only.
 - A Thing image must be a linked image attachment. Private uploads stay behind authenticated API downloads and the blob adapter; never copy them into `public/`.
-- Keep upload size/type limits in configuration. Validate file contents as well as declared media type; sanitise display filenames and use random storage keys.
+- Read upload size limits through `getEnv`; keep accepted media types with the attachment capability. Validate file contents as well as declared media type; sanitise display filenames and use random storage keys.
 - Preserve restricted filesystem permissions and download headers. Do not expose storage keys or filesystem paths as public URLs.
 - Coordinate database and blob changes with failure cleanup. Blob deletion can currently leave an orphan on filesystem failure; do not imply an orphan collector exists.
 

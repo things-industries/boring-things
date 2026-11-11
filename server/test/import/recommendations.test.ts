@@ -1,9 +1,9 @@
 /** Verifies independent recommendation proposals with mocked model responses. */
 
+import { setEnvMode } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAiImports } from '../../src/providers/ai/openai-imports.js';
-import { setEnvMode } from '../../src/env.js';
 import type { ImportTaskContext } from '../../src/application/import/types.js';
 
 // One malformed suggestion rejected every otherwise usable recommendation in the model response.

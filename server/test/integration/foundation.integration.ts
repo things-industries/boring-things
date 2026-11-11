@@ -1,5 +1,6 @@
 /** Exercises authenticated API persistence, ownership and import flows with fixture providers. */
 
+import { getEnv, setEnvMode, setEnvValue } from '../../src/config.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
@@ -11,16 +12,15 @@ import type { FastifyInstance, InjectOptions } from 'fastify';
 import spec from '../../../openapi.json' with { type: 'json' };
 import type { Schema } from '../../../shared/model.js';
 import { buildApp } from '../../src/app.js';
-import { readConfig } from '../../src/config.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { loadRegistry } from '../../src/application/registry/index.js';
 import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 
-const url = new URL(
-  process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:55432/postgres',
-);
+setEnvMode('test');
+
+const url = new URL(getEnv('TEST_DATABASE_URL'));
 assert.ok(
   ['localhost', '127.0.0.1'].includes(url.hostname),
   'Integration tests require a local database',
@@ -68,16 +68,13 @@ before(async () => {
   }
   await database.transaction(pool, registrySeedDb.seedRegistry);
   importAi = new FixtureAi({ db: pool, registry: await loadRegistry(pool) });
+  setEnvValue('BLOB_DIRECTORY', directory);
+  setEnvValue('ENABLE_SAMPLE_DATA', true);
+  setEnvValue('MAX_UPLOAD_BYTES', 64);
   app = await buildApp({
     dbPool: pool,
     importAi,
     chatAi,
-    config: {
-      ...readConfig(),
-      blobDirectory: directory,
-      sampleDataEnabled: true,
-      maxUploadBytes: 64,
-    },
     verifyIdentity,
   });
   await app.ready();
@@ -602,7 +599,6 @@ test('stored data survives application restart', async () => {
     dbPool: pool,
     importAi,
     chatAi,
-    config: { ...readConfig(), blobDirectory: directory },
     verifyIdentity,
   });
   assert.equal((await request('GET', `/things/${thing.id}`)).json().name, 'Persists');

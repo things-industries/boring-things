@@ -1,11 +1,11 @@
 /** Coordinates one Thing's identity, public research, shared field population and cited recommendations. */
 
+import { getEnv } from '../../config.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import type pg from 'pg';
 import type { Registry } from '../registry/registry.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
-import type { EnvConfig } from '../../config.js';
 import type { ApplicationEvents } from '../events.js';
 import { getImportFailureReason, UsagePersistenceError } from './types.js';
 import type { ImportAi, ImportTaskContext, ThingCandidate } from './types.js';
@@ -49,7 +49,6 @@ export class ImportWorkflow {
     private registry: Registry,
     private blobs: BlobStorage,
     private ai: ImportAi,
-    private config: EnvConfig,
     private events: ApplicationEvents,
     private job: ImportRow,
     private context: AiContext,
@@ -194,7 +193,7 @@ export class ImportWorkflow {
       retrievedSetIds: new Set(),
       retrievedFieldIds: new Set(),
       toolCalls: 0,
-      toolCallLimit: this.config.importToolRounds,
+      toolCallLimit: getEnv('IMPORT_TOOL_ROUNDS'),
     };
   }
 
@@ -441,8 +440,8 @@ export class ImportWorkflow {
     if (this.job.workflow.done.includes('specialists')) return;
     await this.stage('RESEARCH', 'DISCOVERING');
     const providers = this.options.specialists ?? [
-      ...(this.config.icecatAccessToken ? [new IcecatProvider(this.config.icecatAccessToken)] : []),
-      ...(this.config.zyfyApiKey ? [new ZyfyProvider(this.config.zyfyApiKey)] : []),
+      ...(getEnv('ICECAT_ACCESS_TOKEN', { optional: true }) ? [new IcecatProvider()] : []),
+      ...(getEnv('ZYFY_API_KEY', { optional: true }) ? [new ZyfyProvider()] : []),
     ];
     for (const provider of providers) {
       const key = 'specialist:' + provider.id;
@@ -512,7 +511,7 @@ export class ImportWorkflow {
     }
     for (const item of this.job.workflow.discovery?.items.slice(
       0,
-      this.config.importMaxResources,
+      getEnv('IMPORT_MAX_RESOURCES'),
     ) ?? []) {
       const key = 'resource:' + resourceKey(item);
       if (this.job.workflow.done.includes(key)) continue;
@@ -525,14 +524,14 @@ export class ImportWorkflow {
           validateResource(item);
           if (item.kind === 'reference') {
             const bytes = await (this.options.download ?? downloadPdf)(item.url, {
-              maxBytes: this.config.maxUploadBytes,
+              maxBytes: getEnv('MAX_UPLOAD_BYTES'),
               signal: this.context.signal,
             });
             ensure(bytes, 'Document unavailable');
             content = { content: bytes, mediaType: 'application/pdf' };
           } else
             content = await (this.options.downloadImage ?? downloadImage)(item.url, {
-              maxBytes: this.config.maxUploadBytes,
+              maxBytes: getEnv('MAX_UPLOAD_BYTES'),
               signal: this.context.signal,
             });
           ensure(content, 'Resource unavailable');
@@ -561,7 +560,7 @@ export class ImportWorkflow {
     }
     const waiting = AbortSignal.any([
       this.context.signal,
-      AbortSignal.timeout(this.config.discoveryTimeoutMs),
+      AbortSignal.timeout(getEnv('DISCOVERY_TIMEOUT_MS')),
     ]);
     try {
       for (;;) {
