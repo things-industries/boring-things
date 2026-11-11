@@ -1,3 +1,5 @@
+/** Supplies assistant tool calls and streamed answers without external model requests. */
+
 import { pauseUntil } from './pause.js';
 import type { ChatAi, ChatContext, ChatTools } from '../../src/application/conversations/types.js';
 import type { ChatInput } from '../../src/providers/ai/tasks/assistant.js';
@@ -28,10 +30,15 @@ export class FixtureChat implements ChatAi {
     const { thing, attachments } = result.output as {
       thing: {
         id: string;
-        fieldSets: { id: string; fields: { id: string }[] }[];
+        fieldSets: { id: string; fields: { id: string; value: unknown; masked: boolean }[] }[];
       };
       attachments: { id: string }[];
     };
+    const field = thing.fieldSets.flatMap((set) =>
+      set.fields
+        .filter((field) => field.value !== null || field.masked)
+        .map((field) => ({ setId: set.id, id: field.id })),
+    )[0];
     await pauseUntil(this.pause, context.signal);
     if (this.creation)
       await execute(this.creation, {
@@ -65,13 +72,13 @@ export class FixtureChat implements ChatAi {
           customFieldId: null,
           page: null,
         },
-        ...(thing.fieldSets.length
+        ...(field
           ? [
               {
                 type: 'FIELD' as const,
                 id: thing.id,
-                fieldSetId: thing.fieldSets[0].id,
-                fieldId: thing.fieldSets[0].fields[0].id,
+                fieldSetId: field.setId,
+                fieldId: field.id,
                 customFieldId: null,
                 page: null,
               },

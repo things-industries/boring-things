@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { emptyData } from '../../shared/model.js';
 import * as registrySeedDb from '../src/db/seeds/registry.js';
 import { Registry } from '../src/application/registry/registry.js';
+import { populateFields } from '../src/application/thing-fields.js';
 import { patchData, projectData, revealValue } from '../src/application/thing-data.js';
 const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 test('mandatory inclusion expands and a required dependency cannot be removed', () => {
@@ -166,4 +167,40 @@ test('masked fields require reveal; category changes preserve sensitivity, prove
   assert.equal(masked.value, null);
   assert.equal(masked.masked, true);
   assert.deepEqual(masked.sourceRefs, []);
+});
+
+test('requested edits keep application provenance and disable later automatic population', () => {
+  const refs = [{ url: 'https://manufacturer.example/specification' }];
+  const data = patchData(
+    emptyData(),
+    {
+      values: [{ fieldSetId: null, fieldId: 'common.model', value: 'Sample 10' }],
+      customFields: [{ label: 'Filter size', value: 'Medium', sensitive: false }],
+    },
+    'appliances',
+    registry,
+    new Map([
+      [':common.model', { origin: 'IMPORT', sourceRefs: refs }],
+      ['local:new:0', { origin: 'DISCOVERY', sourceRefs: refs }],
+    ]),
+  );
+  assert.equal(data.standalone['common.model'].origin, 'IMPORT');
+  assert.equal(data.standalone['common.model'].autoPopulate, false);
+  assert.deepEqual(data.standalone['common.model'].sourceRefs, refs);
+  assert.equal(data.customFields[0].origin, 'DISCOVERY');
+  assert.equal(data.customFields[0].autoPopulate, false);
+  const automatic = populateFields(
+    data,
+    [{ fieldSetId: null, fieldId: 'common.model', value: 'Another model', sourceRefs: [] }],
+    registry,
+  );
+  assert.equal(automatic.standalone['common.model'].value, 'Sample 10');
+  const manual = patchData(
+    data,
+    { values: [{ fieldSetId: null, fieldId: 'common.model', value: 'Owner model' }] },
+    'appliances',
+    registry,
+  );
+  assert.equal(manual.standalone['common.model'].origin, 'USER');
+  assert.deepEqual(manual.standalone['common.model'].sourceRefs, []);
 });

@@ -562,3 +562,58 @@ test('invalid assistant tool arguments consume the budget before finalization', 
   assert.equal(answer, 'Choose a document.');
   assert.equal(requests, 2);
 });
+
+// Field tools must validate model arguments before the application receives a write.
+test('assistant validates field edits and exposes registry search tools', async (t) => {
+  const thingId = '00000000-0000-4000-8000-000000000001';
+  const values = [{ fieldSetId: null, fieldId: 'example.flag', value: false, source: null }];
+  for (const valid of [true, false]) {
+    let requests = 0;
+    let executions = 0;
+    t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      if (++requests === 1) {
+        for (const name of ['search_field_sets', 'search_fields', 'update_thing_fields'])
+          assert.ok(body.tools.some((tool: { name: string }) => tool.name === name));
+        assert.match(body.instructions, /Requested Tasks are active immediately/);
+        assert.match(body.instructions, /Never repeat a sensitive value/);
+        return stream([
+          completed([
+            {
+              type: 'function_call',
+              name: 'update_thing_fields',
+              call_id: 'edit',
+              arguments: JSON.stringify({
+                thingId,
+                addFieldSetIds: [],
+                values: valid ? values : [{ ...values[0], fieldId: null }],
+                customFields: [],
+              }),
+            },
+          ]),
+        ]);
+      }
+      assert.equal(executions, valid ? 1 : 0);
+      if (!valid)
+        assert.ok(JSON.stringify(body.input).includes('Invalid assistant tool arguments'));
+      return stream([
+        { type: 'response.output_text.delta', delta: 'The field result is ready.' },
+        completed(),
+      ]);
+    });
+    const answer = await new OpenAiChat({ ...config, chatToolCalls: 1 }).respond(
+      task,
+      {
+        execute: async (name, args) => {
+          assert.equal(name, 'update_thing_fields');
+          assert.deepEqual(args, { thingId, addFieldSetIds: [], values, customFields: [] });
+          executions++;
+          return { output: { thingId, changedFields: [] } };
+        },
+      },
+      { signal: new AbortController().signal, record: async () => {}, delta: () => {} },
+    );
+    assert.equal(answer, 'The field result is ready.');
+    assert.equal(requests, 2);
+  }
+});

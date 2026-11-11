@@ -67,7 +67,7 @@ export const taskProperties = {
       },
     ],
     description:
-      'Documented recurrence interval for Tasks without a deadline; absolute dates are chosen when accepted.',
+      'Recurrence interval for Tasks without a deadline. Active recurring Tasks require scheduledOn.',
   },
 } as const;
 
