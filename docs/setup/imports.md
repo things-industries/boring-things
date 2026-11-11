@@ -49,6 +49,8 @@ Completed imports show that optional work was omitted when a stage has a retryab
 
 `bt.thing_fields` stores values, occurrence addresses, provenance and `auto_populate`. Thing metadata retains fieldset selection, pins and owner decisions. API responses project field occurrences into fieldsets, standalone fields and custom fields.
 
+Automatic pin suggestions prioritise identifying details and fields the owner is likely to consult frequently. The population task considers existing and newly found values, giving generic descriptions that repeat the Thing's name or category lower priority. Each batch can suggest up to three populated requested fields; the workflow adds pins until three are saved and keeps owner-edited pins.
+
 Field definitions classify attributes by `scope`: `GROUP` for manufacturer/provider attributes, `CLASS` for model/plan attributes, and `INSTANCE` for the owned item, account or agreement. `isIdentifier` marks fields that contribute to Thing identification. Public research uses populated `GROUP` and `CLASS` fields independently of sensitivity. Purchase date, price paid and order reference are `INSTANCE` attributes without an identity role. Custom fields use the same scopes and default to `INSTANCE`; they do not participate in identity matching.
 
 Mandatory fieldsets have null eligibility. Category identifiers have a mandatory occurrence before research. Empty registry fields added manually remain eligible for population. Imported fields are eligible. Manual values and custom fields disable automatic population; manually clearing a registry value retains an empty disabled occurrence. A `ValuePatch` can change `autoPopulate` alone while retaining the value and provenance. Every automatic writer uses the same permission check.

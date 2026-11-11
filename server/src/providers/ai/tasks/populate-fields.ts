@@ -48,7 +48,8 @@ export const outputSchema = createObjectSchema(
       ),
     },
     pinnedFields: {
-      description: 'Up to three useful requested fields to highlight.',
+      description:
+        'Up to three populated requested fields, ranked by identification and frequency of reference.',
       type: 'array',
       maxItems: 3,
       items: createObjectSchema(
@@ -93,7 +94,7 @@ export class PopulateFieldsTask extends AiTask<Output, PopulationResult> {
       await this.execute([
         {
           role: 'user',
-          content: `Find values for only the requested fields using applicable Attachment content. Search saved transcriptions for relevant passages. Respect field schemas, units, context, model and variant. Include original Attachment/page references and quotations when available. Use an empty attachmentId or quote and a null page when unavailable. Public documents justify class data, not private instance identifiers. Use the available information to propose useful values; leave unknown values absent. Suggest up to three useful requested fields to highlight. Input: ${JSON.stringify(this.input)}`,
+          content: `Find values for only the requested fields using applicable Attachment content. Search saved transcriptions for relevant passages. Respect field schemas, units, context, model and variant. Include original Attachment/page references and quotations when available. Use an empty attachmentId or quote and a null page when unavailable. Public documents justify class data, not private instance identifiers. Use the available information to propose useful values; leave unknown values absent. Suggest up to three populated requested fields to highlight, ordered by usefulness for identifying the Thing and likely frequency of reference. Consider existing values as well as values found in this response. Prioritise identifying details such as registration, model and serial numbers, followed by useful dates, amounts and contact details. Give generic descriptors that repeat the Thing's name or category lower priority. Return fewer pins when the remaining fields offer little value. Input: ${JSON.stringify(this.input)}`,
         },
       ]),
     );
