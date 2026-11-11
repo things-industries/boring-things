@@ -1,3 +1,5 @@
+/** Chat resource cards, render referenced records and follow changes to their Things. */
+
 import {
   Component,
   computed,
@@ -124,6 +126,14 @@ export class ResourceCard {
   readonly schedule = output<Schema['Task']>();
   readonly status = signal<CardStatus>('idle');
 
+  private readonly thingId = computed(() => {
+    const card = this.card();
+
+    return card.available !== false && (card.type === 'THING' || card.type === 'FIELD')
+      ? card.thingId
+      : null;
+  });
+
   /** ID of the image attachment whose content failed to load, shown as a download row instead. */
   readonly imageFailed = signal<string | null>(null);
   readonly attachmentBadge = attachmentBadge;
@@ -222,6 +232,12 @@ export class ResourceCard {
 
   constructor() {
     void this.categories.ensureLoaded();
+
+    effect((onCleanup) => {
+      const id = this.thingId();
+
+      if (id) onCleanup(untracked(() => this.things.watch(id)));
+    });
 
     effect(() => {
       const card = this.card();

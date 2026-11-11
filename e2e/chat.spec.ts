@@ -1,3 +1,5 @@
+/** Browser chat journeys, streamed replies and resource-card updates. */
+
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures.js';
 
@@ -313,3 +315,90 @@ test.describe('an assistant message citing an image', () => {
     });
   });
 });
+
+// PR #154 added field writes, but cached chat cards did not subscribe to Thing updates.
+for (const context of ['Thing', 'global'] as const)
+  test(`${context} chat field cards refresh cached values without reloading`, async ({ page }) => {
+    await page.goto('/things');
+    const thingId = await page.evaluate(async () => {
+      const entries = JSON.parse(localStorage.getItem('logto:browser-test:accessToken') ?? '{}');
+      const session = Object.values(entries)[0] as { token: string };
+      const response = await fetch('/api/things', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Chat card vehicle ' + crypto.randomUUID(),
+          categoryId: 'vehicles',
+          addFieldSetIds: ['vehicles.roadMotor'],
+        }),
+      });
+      if (!response.ok) throw new Error('Create Thing: ' + response.status);
+      return (await response.json()).id as string;
+    });
+    await page.goto(`/things/${thingId}`);
+    await expect(page.getByRole('link', { name: 'Ask about this thing' })).toBeVisible();
+    await page.route(/\/api\/conversations\/[^/]+\/stream$/, (route) => {
+      const id = new URL(route.request().url()).pathname.split('/')[3];
+      return route.fulfill({
+        headers: { 'content-type': 'text/event-stream' },
+        body: `event: conversation.snapshot\ndata: ${JSON.stringify({
+          id,
+          thingId: context === 'Thing' ? thingId : null,
+          messages: [
+            {
+              id: crypto.randomUUID(),
+              conversationId: id,
+              requestId: crypto.randomUUID(),
+              role: 'ASSISTANT',
+              text: 'The transmission detail is ready.',
+              cards: [
+                {
+                  type: 'FIELD',
+                  thingId,
+                  fieldSetId: 'vehicles.roadMotor',
+                  fieldId: 'vehicles.transmission',
+                },
+              ],
+              sourceRefs: [],
+              status: 'COMPLETE',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        })}\n\n`,
+      });
+    });
+    let streams = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === `/api/things/${thingId}/stream`) streams++;
+    });
+    if (context === 'Thing') await page.getByRole('link', { name: 'Ask about this thing' }).click();
+    else {
+      await page.getByRole('link', { name: 'Back', exact: true }).click();
+      await page.getByRole('link', { name: 'Ask', exact: true }).click();
+    }
+    const field = page
+      .locator('bt-resource-card bt-key-value-row')
+      .filter({ hasText: 'Transmission' });
+    await expect(field).toContainText('Not recorded');
+    await page.evaluate(async (id) => {
+      const entries = JSON.parse(localStorage.getItem('logto:browser-test:accessToken') ?? '{}');
+      const session = Object.values(entries)[0] as { token: string };
+      const response = await fetch(`/api/things/${id}`, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          values: [
+            {
+              fieldSetId: 'vehicles.roadMotor',
+              fieldId: 'vehicles.transmission',
+              value: 'Automatic',
+            },
+          ],
+        }),
+      });
+      if (!response.ok) throw new Error('Update Thing: ' + response.status);
+    }, thingId);
+    await expect(field).toContainText('Automatic');
+    await expect(field).not.toContainText('Not recorded');
+    expect(streams).toBe(1);
+  });
