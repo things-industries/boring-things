@@ -13,8 +13,8 @@ import { Toasts } from '../../core/services/toasts.service';
 /**
  * Key/value row with an optional icon, a label and a projected value; `loading` shows a skeleton in
  * place of the value. `[keyValueLabel]` content follows the label and `[keyValueEnd]` content
- * follows the value. With `copyable`, choosing the row copies "Label: value" as displayed. The host
- * registers `icon` with `provideIcons`.
+ * follows the value. With `copyable`, choosing the row copies the value as displayed, without the
+ * label. The host registers `icon` with `provideIcons`.
  */
 @Component({
   selector: 'bt-key-value-row',
@@ -36,7 +36,7 @@ export class KeyValueRow {
     const value = this.value()?.nativeElement.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 
     try {
-      await navigator.clipboard.writeText(`${this.label()}: ${value}`);
+      await navigator.clipboard.writeText(value);
     } catch {
       this.toasts.error('copyDetails', 'request-failed');
       return;

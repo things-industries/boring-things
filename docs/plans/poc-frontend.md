@@ -431,7 +431,7 @@ Layout, top to bottom:
   - **Reveal** or **Hide**: sensitive fields with a stored value only. Reveal calls `ThingsStore.reveal`; the revealed value replaces the dots until Hide or the Thing's next revision. Revealed values stay in component memory only.
   - **Delete**: removes the stored value after a confirmation dialog ("Delete {label}?", "Its value is removed from this thing.", `.button-danger` **Delete detail**, **Keep it**). Fields in a set and standalone fields send `values: [{ fieldSetId, fieldId, value: null }]`; custom fields send `removeCustomFieldIds` and drop their pin.
 - While an import runs, Pin, Unpin and Delete are disabled.
-- Choosing a row with a shown value (Thing details rows, recorded fields, revealed sensitive fields) copies "Label: value" as displayed and shows "Copied" in place of the value for `copiedMs`. The Thing page's Key details rows copy the same way. In edit mode (#51) rows do not copy.
+- Choosing a row with a shown value (Thing details rows, recorded fields, revealed sensitive fields) copies the value as displayed, without its label, and shows "Copied" in place of the value for `copiedMs`. The Thing page's Key details rows copy the same way. In edit mode (#51) rows do not copy.
 - On the Thing page, a Key details row whose pinned field has no value has a `warning-subtle` tint and a decorative `editDetails` icon after "Not recorded" (clickable in #53).
 
 The Thing page's overflow item linking here reads **All details**, with the `allDetails` (list) icon.

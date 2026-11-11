@@ -206,14 +206,14 @@ test('Thing details rows offer only a disabled Edit', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Edit (coming soon)' })).toBeDisabled();
 });
 
-test('choosing a detail copies its label and value', async ({ page }) => {
+test('choosing a detail copies its value', async ({ page }) => {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   const name = `Copy kettle ${Date.now()}`;
 
   await createThing(page, name);
   await page.getByRole('link', { name: 'See all details' }).click();
   await page.getByRole('button', { name: 'Copy Name' }).click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`Name: ${name}`);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(name);
   await expect(page.locator('bt-key-value-row', { hasText: 'Name' }).first()).toContainText(
     'Copied',
   );
@@ -226,7 +226,7 @@ test('choosing a detail copies its label and value', async ({ page }) => {
   await page.getByRole('link', { name: 'View Thing 1' }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
   await page.getByRole('button', { name: 'Copy Payload (kg)' }).click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Payload (kg): 1200');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('1200');
 });
 
 test('the overflow menu changes the category and tags, then deletes the Thing', async ({
