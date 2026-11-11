@@ -71,7 +71,7 @@ export class Assistant {
     if (!this.ai) return false;
     const job = await conversationsDb.getNextQueuedMessage(this.pool);
     if (!job) return false;
-    await metrics.withJob('chat', job.id, () => this.run(job, shutdown));
+    await metrics.withChatTurn(job.id, job.conversationId, () => this.run(job, shutdown));
     return true;
   }
 
