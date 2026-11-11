@@ -164,8 +164,13 @@ test('a pinned detail shows in Key details on the Thing', async ({ page }) => {
   await expect(ends).toContainText('Not recorded');
   await ends.getByRole('button', { name: 'Actions for Warranty ends' }).click();
   await expect(page.getByRole('menuitem', { name: 'Delete', exact: true })).toBeEnabled();
-  await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
-  await expect(ends.getByRole('img', { name: 'Pinned' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  const pin = ends.getByRole('button', { name: 'Pin Warranty ends' });
+
+  await expect(pin).toHaveAttribute('aria-pressed', 'false');
+  await pin.click();
+  await expect(pin).toHaveAttribute('aria-pressed', 'true');
 
   await page.getByRole('link', { name: 'Back to thing' }).click();
   await expect(page).toHaveURL(url);
@@ -265,26 +270,91 @@ test('edit mode saves money with a currency and two decimal places', async ({ pa
   );
 });
 
-test('edit mode rejects an invalid email, and cancelling discards changes', async ({ page }) => {
-  await page.goto('/things');
-  await page.getByRole('link', { name: 'Museum membership', exact: true }).click();
+test('edit mode rejects an unreadable amount, and cancelling asks first', async ({ page }) => {
+  await createThing(page, `Unreadable policy ${Date.now()}`, 'insurance', 'insurance.buildings');
   await page.getByRole('link', { name: 'See all details' }).click();
   await page.getByRole('button', { name: 'Edit details' }).click();
 
-  const email = page.getByRole('textbox', { name: 'Account email' });
+  const amount = page.getByRole('spinbutton', { name: 'Sum insured' });
 
-  await email.click();
-  await page.keyboard.type('not-an-email');
+  await amount.click();
+  await page.keyboard.type('12e');
   await page.getByRole('button', { name: 'Save details' }).click();
-  await expect(page.getByText('Enter a valid email address.')).toBeVisible();
-  await expect(email).toBeFocused();
+  await expect(page.getByText('Use an amount with up to two decimal places.')).toBeVisible();
+  await expect(amount).toBeFocused();
   await expect(page.getByRole('heading', { name: 'Edit details', level: 1 })).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel editing' }).click();
+  await expect(page.getByRole('heading', { name: 'Discard changes?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Keep editing' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit details', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel editing' }).click();
+  await page.getByRole('button', { name: 'Discard changes' }).click();
   await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
-  await expect(page.locator('bt-key-value-row', { hasText: 'Account email' })).toContainText(
+  await expect(page.locator('bt-key-value-row', { hasText: 'Sum insured' })).toContainText(
     'Not recorded',
   );
+});
+
+test('edit mode asks before leaving with unsaved changes', async ({ page }) => {
+  await createThing(page, `Leaving kettle ${Date.now()}`);
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await page.getByRole('textbox', { name: 'Warranty provider' }).fill('Example Care');
+  await page.goBack();
+  await page.getByRole('button', { name: 'Keep editing' }).click();
+  await expect(page.getByRole('textbox', { name: 'Warranty provider' })).toHaveValue(
+    'Example Care',
+  );
+  await page.goBack();
+  await page.getByRole('button', { name: 'Discard changes' }).click();
+  await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
+});
+
+test('edit mode masks a revealed value again after cancelling', async ({ page }) => {
+  await page.goto('/things');
+  await page.getByRole('link', { name: 'Museum membership', exact: true }).click();
+  await page.getByRole('link', { name: 'See all details' }).click();
+
+  const row = page.locator('bt-key-value-row', { hasText: 'Access PIN' });
+
+  await expect(row).toContainText('••••••••');
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await row.getByRole('button', { name: 'Reveal Access PIN' }).click();
+  await expect(row.getByRole('textbox', { name: 'Access PIN' })).toHaveValue('0000');
+  await row.getByRole('button', { name: 'Hide Access PIN' }).click();
+  await expect(row.locator('input[type="password"]')).toHaveValue('0000');
+  await page.getByRole('button', { name: 'Cancel editing' }).click();
+  await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
+  await expect(row).toContainText('••••••••');
+  await expect(row).not.toContainText('0000');
+});
+
+test('edit mode saves field values before a category change', async ({ page }) => {
+  await createThing(page, `Recategorised kettle ${Date.now()}`);
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await page.getByRole('textbox', { name: 'Warranty provider' }).fill('Example Care');
+  await page.getByRole('combobox', { name: 'Category' }).selectOption('insurance');
+  await expect(page.locator('bt-notice')).toContainText('kept as custom fields');
+
+  const patches: unknown[] = [];
+
+  page.on('request', (request) => {
+    if (request.method() === 'PATCH') patches.push(request.postDataJSON());
+  });
+  const second = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      'categoryId' in (response.request().postDataJSON() ?? {}),
+  );
+
+  await page.getByRole('button', { name: 'Save details' }).click();
+  await second;
+  expect(patches).toMatchObject([
+    { values: [{ fieldId: 'common.warrantyProvider', value: 'Example Care' }] },
+    { categoryId: 'insurance' },
+  ]);
 });
 
 test('choosing a detail copies its value', async ({ page }) => {
@@ -437,6 +507,9 @@ test.describe('with a failing save', () => {
     await ends.getByRole('button', { name: 'Actions for Warranty ends' }).click();
     await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
     await expect(page.locator('.ngx-toastr')).toContainText("Couldn't save changes");
-    await expect(ends.getByRole('img', { name: 'Pinned' })).toHaveCount(0);
+    await expect(ends.getByRole('button', { name: 'Pin Warranty ends' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 });

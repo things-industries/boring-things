@@ -1,19 +1,22 @@
 <span class="field-control-row">
   @switch (control()) {
     @case ('money') {
-      <select
-        class="field-control-currency"
-        [disabled]="disabled()"
-        [attr.aria-label]="label() + ' currency'"
-        (change)="setCurrency($event)"
-        (blur)="touch()"
-      >
-        @for (currency of currencies; track currency) {
-          <option [value]="currency" [selected]="currency === money().currency">
-            {{ currency }}
-          </option>
-        }
-      </select>
+      <span class="field-control-currency">
+        <select
+          class="field-control-currency-select"
+          [disabled]="disabled()"
+          [attr.aria-label]="label() + ' currency'"
+          (change)="setCurrency($event)"
+          (blur)="touch()"
+        >
+          @for (currency of currencies; track currency) {
+            <option [value]="currency" [selected]="currency === money().currency">
+              {{ currency }}
+            </option>
+          }
+        </select>
+        <ng-icon class="field-control-currency-icon" name="expandSection" aria-hidden="true" />
+      </span>
       <input
         #amountInput
         class="field-control-input"
@@ -28,7 +31,7 @@
         [attr.aria-label]="label()"
         [attr.aria-invalid]="!!error()"
         (input)="setAmount($event)"
-        (blur)="leaveAmount()"
+        (blur)="leaveAmount($event)"
       />
     }
     @case ('boolean') {
@@ -85,15 +88,7 @@
         class="field-control-input"
         autocomplete="off"
         [type]="type()"
-        [attr.inputmode]="
-          field().kind === 'email'
-            ? 'email'
-            : field().kind === 'number'
-              ? field().integer
-                ? 'numeric'
-                : 'decimal'
-              : null
-        "
+        [attr.inputmode]="inputMode()"
         [attr.step]="field().kind === 'number' ? (field().integer ? 1 : 'any') : null"
         [value]="inputText()"
         [placeholder]="placeholder()"
@@ -103,7 +98,7 @@
         [attr.maxlength]="field().maxLength ?? null"
         (input)="setText($event)"
         (click)="openPicker($event)"
-        (blur)="touch()"
+        (blur)="touch($event)"
       />
     }
   }

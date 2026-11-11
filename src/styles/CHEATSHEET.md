@@ -99,8 +99,9 @@ Unknown keys fail Sass compilation. CSS custom properties are emitted through `t
 ## Mixins
 
 - `mixins.icon-size(sm|md|lg)`: sets the `ng-icon` size for descendants. Classes `.icon-sm`, `.icon-md` and `.icon-lg` do the same in templates.
-- `mixins.list-row`: flex row with the list-row minimum height.
-- `mixins.key-value-row`: flex row with the key/value minimum height.
+- `mixins.list-row`: flex row with the list-row minimum height, inside the card gutter.
+- `mixins.key-value-row`: flex row with the key/value minimum height, inside the card gutter.
+- `mixins.card-gutter`: inline padding a `bt-card-group` gives the rows inside it, and none outside one. The card sets `--card-gutter-start` and `--card-gutter-end` (narrower with `hasAction`), and `--card-row-highlight-inset` and `--card-row-highlight-radius` so a row's copy highlight fills the card's width.
 - `mixins.skeleton`: placeholder surface and radius.
 - `mixins.skeleton-line`: a skeleton text line; `mixins.skeleton-circle($size)`: a round skeleton, such as an icon badge.
 - `mixins.viewport-page`: page host that fills the viewport above the bottom nav, with a `bt-top-bar` over a `bt-scroll-container`. Only the container scrolls.

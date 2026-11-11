@@ -101,6 +101,9 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   readonly inputText = signal('');
   readonly amountText = signal('');
 
+  /** Whether the input holds text the browser can't read as a number or date. */
+  private unreadable = false;
+
   private textArea = viewChild<ElementRef<HTMLTextAreaElement>>('textArea');
   private valueInput = viewChild<ElementRef<HTMLInputElement>>('valueInput');
   private amountInput = viewChild<ElementRef<HTMLInputElement>>('amountInput');
@@ -139,6 +142,14 @@ export class FieldControl implements ControlValueAccessor, OnInit {
       default:
         return 'text';
     }
+  });
+
+  readonly inputMode = computed(() => {
+    const field = this.field();
+
+    if (field.kind === 'email') return 'email';
+    if (field.kind === 'number') return field.integer ? 'numeric' : 'decimal';
+    return null;
   });
 
   /** The kind of native control rendered. */
@@ -202,6 +213,7 @@ export class FieldControl implements ControlValueAccessor, OnInit {
     const control = this.ngControl?.control;
 
     if (!control) return;
+    control.addValidators(() => (this.unreadable ? { [this.unreadableError()]: true } : null));
     control.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       const key = control.touched && control.errors ? Object.keys(control.errors)[0] : null;
 
@@ -210,6 +222,7 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   }
 
   writeValue(value: FieldDraft | null) {
+    this.unreadable = false;
     this.draft.set(value ?? '');
     if (value !== null && typeof value === 'object') this.showAmount(value.amount);
     else this.show(this.inputText, this.valueInput(), value ?? '');
@@ -234,6 +247,7 @@ export class FieldControl implements ControlValueAccessor, OnInit {
     if (this.field().kind === 'text' && /[\r\n]/.test(element.value))
       element.value = element.value.replace(/\s*[\r\n]+\s*/g, ' ');
 
+    if (element instanceof HTMLInputElement) this.readable(element);
     this.update(element.value);
     if (element instanceof HTMLTextAreaElement) {
       // Concealing swaps the textarea for an input, which then shows what was typed here.
@@ -248,7 +262,10 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   }
 
   setAmount(event: Event) {
-    this.update({ ...this.money(), amount: (event.target as HTMLInputElement).value });
+    const element = event.target as HTMLInputElement;
+
+    this.readable(element);
+    this.update({ ...this.money(), amount: element.value });
   }
 
   setCurrency(event: Event) {
@@ -259,7 +276,9 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   }
 
   /** Shows two decimal places once the amount is left. */
-  leaveAmount() {
+  leaveAmount(event: Event) {
+    if (!this.readable(event.target as HTMLInputElement)) return this.onTouched();
+
     const money = formatMoneyDraft(this.money());
 
     if (money.amount !== this.money().amount) {
@@ -269,7 +288,8 @@ export class FieldControl implements ControlValueAccessor, OnInit {
     this.onTouched();
   }
 
-  touch() {
+  touch(event?: Event) {
+    if (event?.target instanceof HTMLInputElement) this.readable(event.target);
     this.onTouched();
   }
 
@@ -283,6 +303,33 @@ export class FieldControl implements ControlValueAccessor, OnInit {
       input.showPicker();
     } catch {
       // Browsers without showPicker, or a click that isn't a user gesture, keep the native control.
+    }
+  }
+
+  /**
+   * Records whether a number or date input holds text the browser can't read. Such inputs report an
+   * empty value, so the control is revalidated to show an error rather than clear the value.
+   */
+  private readable(element: HTMLInputElement) {
+    const unreadable = element.validity.badInput;
+
+    if (unreadable !== this.unreadable) {
+      this.unreadable = unreadable;
+      this.ngControl?.control?.updateValueAndValidity();
+    }
+    return !unreadable;
+  }
+
+  private unreadableError(): UiErrorCode {
+    switch (this.field().kind) {
+      case 'money':
+        return 'invalid-money';
+      case 'date':
+        return 'invalid-date';
+      case 'date-time':
+        return 'date-required';
+      default:
+        return 'number-required';
     }
   }
 

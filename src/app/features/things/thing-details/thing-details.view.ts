@@ -125,11 +125,14 @@ export const descriptionInput: FieldInput = { kind: 'textarea', sensitive: false
 
 type Basics = Pick<Schema['ThingSummary'], 'name' | 'description' | 'categoryId'>;
 
-/** Edit-mode drafts: the Thing's basics and one draft per row, keyed by row anchor. */
+/**
+ * Edit-mode drafts: the Thing's basics and one draft per row, keyed by row anchor. A missing entry
+ * keeps its current value.
+ */
 export interface DetailsDraft {
-  name: FieldDraft;
-  description: FieldDraft;
-  categoryId: FieldDraft;
+  name?: FieldDraft;
+  description?: FieldDraft;
+  categoryId?: FieldDraft;
   fields: Partial<Record<string, FieldDraft>>;
 }
 
@@ -138,7 +141,7 @@ export function detailsDraft(
   thing: Basics,
   rows: DetailRow[],
   revealed: ReadonlyMap<string, Value | null>,
-): DetailsDraft {
+): Required<DetailsDraft> {
   const fields: Record<string, FieldDraft> = {};
 
   for (const row of rows) {
@@ -165,8 +168,9 @@ export function detailsPatches(
   revealed: ReadonlyMap<string, Value | null>,
 ): ThingPatch[] {
   const patch: ThingPatch = {};
-  const name = String(draft.name).trim();
-  const description = String(draft.description).trim();
+  const name = draft.name === undefined ? thing.name : String(draft.name).trim();
+  const description =
+    draft.description === undefined ? thing.description : String(draft.description).trim();
   const removedCustom: string[] = [];
 
   if (name !== thing.name) patch.name = name;
@@ -211,7 +215,7 @@ export function detailsPatches(
   }
 
   const patches = Object.keys(patch).length ? [patch] : [];
-  const categoryId = String(draft.categoryId);
+  const categoryId = String(draft.categoryId ?? '');
 
   if (categoryId && categoryId !== thing.categoryId) patches.push({ categoryId });
   return patches;

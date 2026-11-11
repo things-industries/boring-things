@@ -81,7 +81,7 @@ Three states of one page, driven by the Thing stream.
 ### View all details
 
 - Top bar: back, "All details", edit button (edit mode, #51).
-- **Thing details** card (name, category) followed by one grouped card per field section (existing section grouping), key/value rows with a pin icon on pinned fields and a row overflow menu: Pin/Unpin, Delete. Thing details rows have no menu.
+- **Thing details** card (name, category) followed by one grouped card per field section (existing section grouping), key/value rows with a pin toggle before the label (`primary` when pinned, `primary-muted` otherwise) and a row overflow menu: Pin/Unpin, Delete. Thing details rows have no menu.
 - Sensitive fields keep Reveal/Hide in the row menu.
 
 ### Chat (Thing and global)
@@ -418,7 +418,7 @@ Data: `routeThing()` as on the Thing page. A failed first load shows `bt-error-m
 
 Layout, top to bottom:
 
-- `bt-top-bar` titled "All details", back link to `/things/:id` ("Back to thing"), and a trailing **Edit details** icon button using the `editDetails` icon, disabled while an import runs. The page background is `secondary-subtle`.
+- `bt-top-bar` titled "All details", back link to `/things/:id` ("Back to thing"), and a trailing **Edit details** icon button using the `editDetails` icon, disabled while an import runs, when a notice says details are still arriving. The page background is `secondary-subtle`.
 - One section per group, each a `bt-section-header` over a `bt-card-group` of `bt-key-value-row`s:
   - **Thing details**: Name, Category, and Description when it has text. Values in `caption`, semibold, `primary-muted`. These rows have no menu: the values always show on the Thing page and cannot be pinned or deleted.
   - One section per field section from `fieldSections()` (existing grouping), titled with the section name, holding the fields of every set in it. Sections with no fields are skipped.
@@ -432,11 +432,11 @@ Layout, top to bottom:
 - While an import runs, Pin, Unpin and Delete are disabled.
 - Choosing a row with a shown value (Thing details rows, recorded fields, revealed sensitive fields) copies the value as displayed, without its label, and shows "Copied" in place of the value for `copiedMs`. The Thing page's Key details rows copy the same way. In edit mode rows do not copy.
 - Edit mode (#51):
-  - The top bar reads "Edit details". An **X** ("Cancel editing", `close` icon) replaces the back link and discards the edits; a `primary` check ("Save details", `complete` icon) replaces Edit.
+  - The top bar reads "Edit details". An **X** ("Cancel editing", `close` icon) replaces the back link and discards the edits, asking "Discard changes?" first when any value changed. Leaving the page by navigation asks the same, and reloading or closing the tab triggers the browser's own prompt; a `primary` check ("Save details", `complete` icon) replaces Edit.
   - Every row turns its value into an inline `bt-field-control`, right-aligned and underlined on focus, with a pencil (text), calendar (dates) or chevron (choices) inside the control that passes clicks to it, and the control's error below it once touched. Text controls are textareas that grow with their text; Enter adds no line break to single-line fields. When text no longer fits on one line beside the label, the row stacks it full width, left-aligned, under the label, and returns it inline once it would fit again. Row menus are hidden. Name is required; Description shows even when empty; Category chooses from `CategoriesStore`.
-  - Controls follow the field: money is a currency select (`APP_CONFIG.currencies`) and an amount shown with two decimal places; dates and timestamps use date and date-time inputs that open their picker from anywhere on the control; numbers use number inputs, whole numbers for `integer` schemas; booleans and `enum` schemas use selects with "Not recorded"; `TEXTAREA` hints keep line breaks. Email fields, recognised by the `fieldEmail` icon or a name or custom label containing "email" (the registry has no email format), must hold a valid address. Registry `maxLength`, `pattern`, `minimum` and `maximum` apply.
-  - Sensitive fields use password inputs with a Reveal/Hide button; Reveal fetches a masked value into the empty control. A masked value left empty is unchanged.
-  - The check validates every control and focuses the first invalid one. Otherwise it leaves edit mode and saves only changed values through `ThingsStore.update`: one patch for name, description, field values and custom fields (a cleared custom field is removed with its pin), then, after it succeeds, `{ categoryId }`. A category change drops sections that don't fit, so their values are written first; the page warns that populated fields from those sections are kept as custom fields.
+  - Controls follow the field: money is a currency select (`APP_CONFIG.currencies`) and an amount shown with two decimal places; dates and timestamps use date and date-time inputs that open their picker from anywhere on the control; numbers use number inputs, whole numbers for `integer` schemas; booleans and `enum` schemas use selects with "Not recorded"; `TEXTAREA` hints keep line breaks. Text a number or date input can't read is an error, not an empty value. The control's `email` kind awaits an email format in the registry (#114). Registry `maxLength`, `pattern`, `minimum` and `maximum` apply.
+  - Sensitive fields use password inputs with a Reveal/Hide button; Reveal fetches a masked value into the empty control. A masked value left empty is unchanged. Leaving edit mode masks every revealed value again.
+  - The check validates every control and focuses the first invalid one. Otherwise it leaves edit mode and saves only the values the owner changed, so values updated elsewhere during the edit are kept, through `ThingsStore.update`: one patch for name, description, field values and custom fields (a cleared custom field is removed with its pin), then, after it succeeds, `{ categoryId }`. A category change drops sections that don't fit, so their values are written first; the page warns that populated fields from those sections are kept as custom fields.
 - On the Thing page, a Key details row whose pinned field has no value has a `warning-subtle` tint and a decorative `editDetails` icon after "Not recorded" (clickable in #53).
 
 The Thing page's overflow item linking here reads **All details**, with the `allDetails` (list) icon.

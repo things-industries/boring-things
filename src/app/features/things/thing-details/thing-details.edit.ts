@@ -16,7 +16,7 @@ function draftControl(input: FieldInput, draft: FieldDraft) {
 }
 
 /** The edit form over `detailsDraft()` drafts, validating each row by its input. */
-export function detailsForm(draft: DetailsDraft, rows: DetailRow[]) {
+export function detailsForm(draft: Required<DetailsDraft>, rows: DetailRow[]) {
   const fields = new FormRecord<FormControl<FieldDraft>>({});
 
   for (const row of rows)
@@ -31,3 +31,19 @@ export function detailsForm(draft: DetailsDraft, rows: DetailRow[]) {
 }
 
 export type DetailsForm = ReturnType<typeof detailsForm>;
+
+/**
+ * The drafts of the controls the owner changed. Untouched values are left out, so saving never
+ * writes back a value that changed elsewhere during the edit.
+ */
+export function changedDraft(form: DetailsForm): DetailsDraft {
+  const { name, description, categoryId, fields } = form.controls;
+  const draft: DetailsDraft = { fields: {} };
+
+  if (name.dirty) draft.name = name.value;
+  if (description.dirty) draft.description = description.value;
+  if (categoryId.dirty) draft.categoryId = categoryId.value;
+  for (const [anchor, control] of Object.entries(fields.controls))
+    if (control.dirty) draft.fields[anchor] = control.value;
+  return draft;
+}

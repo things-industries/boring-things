@@ -11,7 +11,7 @@ import {
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { NgIcon, provideIcons } from '@ng-icons/core';
+import { provideIcons } from '@ng-icons/core';
 import type { Schema, Value } from '../../../../../shared/model';
 import {
   close,
@@ -22,6 +22,7 @@ import {
   issueFault,
   moreDetails,
   pinField,
+  pinnedField,
   revealValue,
   unpinField,
 } from '../../../core/app-icons';
@@ -40,6 +41,7 @@ import { ScrollContainer } from '../../../components/scroll-container/scroll-con
 import { SectionHeader } from '../../../components/section-header/section-header';
 import { TopBar } from '../../../components/top-bar/top-bar';
 import type { FieldInput } from '../../../interfaces/field-input.interface';
+import type { LeaveGuarded } from '../../../interfaces/leave-guarded.interface';
 import { formatFieldValue, valueDraft } from '../../../utils/field.util';
 import { samePin } from '../../../utils/sections.util';
 import { activeImport } from '../thing.view';
@@ -51,7 +53,7 @@ import {
   detailsPatches,
   nameInput,
 } from './thing-details.view';
-import { type DetailsForm, detailsForm } from './thing-details.edit';
+import { type DetailsForm, changedDraft, detailsForm } from './thing-details.edit';
 import { routeThing } from '../thing-loader';
 import { RowSkeleton } from '../row-skeleton/row-skeleton';
 
@@ -65,7 +67,6 @@ import { RowSkeleton } from '../row-skeleton/row-skeleton';
     DatePipe,
     NgTemplateOutlet,
     RouterLink,
-    NgIcon,
     CardGroup,
     Dialog,
     ErrorMessage,
@@ -91,14 +92,16 @@ import { RowSkeleton } from '../row-skeleton/row-skeleton';
       issueFault,
       moreDetails,
       pinField,
+      pinnedField,
       revealValue,
       unpinField,
     }),
   ],
   templateUrl: './thing-details.page.html',
   styleUrl: './thing-details.page.scss',
+  host: { '(window:beforeunload)': 'warnBeforeUnload($event)' },
 })
-export class ThingDetailsPage {
+export class ThingDetailsPage implements LeaveGuarded {
   private things = inject(ThingsStore);
   private categories = inject(CategoriesStore);
   private route = inject(ActivatedRoute);
@@ -161,6 +164,9 @@ export class ThingDetailsPage {
   /** Sensitive rows whose typed value is visible while editing. */
   readonly shown = signal<ReadonlySet<string>>(new Set());
 
+  /** Answers the open "Discard changes?" dialog; `null` while it is closed. */
+  readonly discarding = signal<((discard: boolean) => void) | null>(null);
+
   constructor() {
     void this.categories.ensureLoaded();
 
@@ -193,8 +199,31 @@ export class ThingDetailsPage {
     this.form.set(detailsForm(detailsDraft(thing, this.rows(), this.revealed()), this.rows()));
   }
 
-  cancelEdit() {
-    this.form.set(null);
+  /** Leaves edit mode, first confirming when there are unsaved edits. */
+  async requestCancel() {
+    if (!this.form()?.dirty || (await this.confirmDiscard())) this.endEdit();
+  }
+
+  /** Confirms before navigation discards unsaved edits. */
+  async canLeave() {
+    if (!this.form()?.dirty) return true;
+
+    const discard = await this.confirmDiscard();
+
+    if (discard) this.endEdit();
+    return discard;
+  }
+
+  answerDiscard(discard: boolean) {
+    const answer = this.discarding();
+
+    this.discarding.set(null);
+    answer?.(discard);
+  }
+
+  /** Asks the browser to confirm reloading or closing the tab with unsaved edits. */
+  warnBeforeUnload(event: BeforeUnloadEvent) {
+    if (this.form()?.dirty) event.preventDefault();
   }
 
   /** Saves every changed value and leaves edit mode, or points at the first invalid value. */
@@ -215,9 +244,9 @@ export class ThingDetailsPage {
       return;
     }
 
-    const patches = detailsPatches(thing, detail, this.rows(), form.getRawValue(), this.revealed());
+    const patches = detailsPatches(thing, detail, this.rows(), changedDraft(form), this.revealed());
 
-    this.form.set(null);
+    this.endEdit();
     void this.send(patches);
   }
 
@@ -268,6 +297,17 @@ export class ThingDetailsPage {
     this.hide(row.anchor);
     this.deleting.set(null);
     void this.things.update(this.id(), row.remove);
+  }
+
+  /** Leaves edit mode and masks every value revealed again. */
+  private endEdit() {
+    this.form.set(null);
+    this.shown.set(new Set());
+    this.revealed.set(new Map());
+  }
+
+  private confirmDiscard() {
+    return new Promise<boolean>((resolve) => this.discarding.set(resolve));
   }
 
   private readonly rows = computed(() => this.groups().flatMap((group) => group.rows));

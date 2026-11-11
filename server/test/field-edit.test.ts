@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import type { Schema } from '../../shared/model.js';
 import type { FieldInput } from '../../src/app/interfaces/field-input.interface.js';
 import type { ThingDetail } from '../../src/app/interfaces/thing.interface.js';
@@ -9,6 +10,7 @@ import {
   detailsDraft,
   detailsPatches,
 } from '../../src/app/features/things/thing-details/thing-details.view.js';
+import { APP_CONFIG } from '../../src/app/core/app.config.js';
 import {
   customFieldInput,
   draftValue,
@@ -50,10 +52,8 @@ test('registry fields choose the control for their type', () => {
     field({ uiHint: 'DATE', schema: { type: 'string', format: 'date' } }),
     field({ schema: { type: 'string', format: 'date-time' } }),
     field({ uiHint: 'NUMBER', schema: { type: 'integer' } }),
-    field({ icon: 'fieldEmail' }),
-    field({ name: 'Billing e-mail' }),
     field({ uiHint: 'TEXTAREA' }),
-    field({ name: 'Emailed receipt' }),
+    field({ name: 'Account email', icon: 'fieldEmail' }),
   ].map((f) => fieldInput(f).kind);
 
   assert.deepEqual(kinds, [
@@ -63,14 +63,18 @@ test('registry fields choose the control for their type', () => {
     'date',
     'date-time',
     'number',
-    'email',
-    'email',
     'textarea',
     'text',
   ]);
   assert.equal(fieldInput(field({ schema: { type: 'integer' } })).integer, true);
   assert.equal(customFieldInput(custom({ valueType: 'MONEY' })).kind, 'money');
-  assert.equal(customFieldInput(custom({ label: 'Support email' })).kind, 'email');
+  assert.equal(customFieldInput(custom({ label: 'Support email' })).kind, 'text');
+});
+
+test('the currency choices match the API currencies', () => {
+  const openapi = JSON.parse(readFileSync(new URL('../../openapi.json', import.meta.url), 'utf8'));
+
+  assert.deepEqual(APP_CONFIG.currencies, openapi.components.schemas.CurrencyEnum.enum);
 });
 
 test('custom dates format like registry dates only when they hold a calendar date', () => {
@@ -173,4 +177,24 @@ test('saving sends only changed values, then the category', () => {
     fieldId: 'pin',
     value: '4321',
   });
+});
+
+test('saving leaves out values the draft does not hold', () => {
+  const thing = { name: 'Van', description: '', categoryId: 'vehicles' };
+  const detail = {
+    fieldSets: [],
+    standaloneFields: [
+      field({ id: 'make', name: 'Make', value: 'Newer make' }),
+      field({ id: 'model', name: 'Model', value: 'X1' }),
+    ],
+    customFields: [],
+    pinnedFields: [],
+  } as unknown as ThingDetail;
+  const rows: DetailRow[] = detailGroups(detail).flatMap((group) => group.rows);
+
+  assert.deepEqual(
+    detailsPatches(thing, detail, rows, { fields: { [rows[1].anchor]: 'X2' } }, new Map()),
+    [{ values: [{ fieldSetId: null, fieldId: 'model', value: 'X2' }] }],
+  );
+  assert.deepEqual(detailsPatches(thing, detail, rows, { fields: {} }, new Map()), []);
 });

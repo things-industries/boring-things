@@ -10,7 +10,7 @@
       btIconButton
       icon="close"
       label="Cancel editing"
-      (click)="cancelEdit()"
+      (click)="requestCancel()"
     ></button>
   }
   @if (form()) {
@@ -99,11 +99,9 @@
                   editing
                   [stacked]="fieldControl.long()"
                 >
-                  @if (row.pinned) {
-                    <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
-                      <ng-icon name="pinField" aria-hidden="true" />
-                    </span>
-                  }
+                  <ng-container ngProjectAs="[keyValueStart]">
+                    <ng-container *ngTemplateOutlet="pinToggle; context: { $implicit: row }" />
+                  </ng-container>
                   <bt-field-control
                     #fieldControl
                     [formControlName]="row.anchor"
@@ -135,6 +133,12 @@
       </div>
     } @else {
       <div class="details-content">
+        @if (processing()) {
+          <bt-notice tone="info" [busy]="true" role="status">
+            Details are still arriving from an import.
+            <span noticeDetail>You can edit them once it finishes.</span>
+          </bt-notice>
+        }
         <section class="details-section">
           <bt-section-header title="Thing details" />
           <bt-card-group>
@@ -162,11 +166,9 @@
                   [attr.id]="row.anchor"
                   [copyable]="copyable(row)"
                 >
-                  @if (row.pinned) {
-                    <span keyValueLabel class="details-pin" role="img" aria-label="Pinned">
-                      <ng-icon name="pinField" aria-hidden="true" />
-                    </span>
-                  }
+                  <ng-container ngProjectAs="[keyValueStart]">
+                    <ng-container *ngTemplateOutlet="pinToggle; context: { $implicit: row }" />
+                  </ng-container>
                   @if (revealed().has(row.anchor)) {
                     <ng-container
                       *ngTemplateOutlet="
@@ -241,6 +243,18 @@
         </button>
       </div>
     </bt-dialog>
+
+    <bt-dialog title="Discard changes?" [open]="!!discarding()" (closed)="answerDiscard(false)">
+      <p class="details-dialog-copy">Your edits to these details haven't been saved.</p>
+      <div dialogActions>
+        <button type="button" class="button-secondary button-sm" (click)="answerDiscard(false)">
+          Keep editing
+        </button>
+        <button type="button" class="button-danger button-sm" (click)="answerDiscard(true)">
+          Discard changes
+        </button>
+      </div>
+    </bt-dialog>
   }
 </bt-scroll-container>
 
@@ -256,6 +270,22 @@
       <bt-section-header [title]="group.title" />
     }
   }
+</ng-template>
+
+<ng-template #pinToggle let-row>
+  <button
+    type="button"
+    btIconButton
+    variant="plain"
+    size="sm"
+    class="details-pin"
+    [class.is-pinned]="row.pinned"
+    [icon]="row.pinned ? 'pinnedField' : 'pinField'"
+    [label]="'Pin ' + row.label"
+    [attr.aria-pressed]="row.pinned"
+    [disabled]="processing()"
+    (click)="togglePin(row)"
+  ></button>
 </ng-template>
 
 <ng-template #value let-row let-value="value">

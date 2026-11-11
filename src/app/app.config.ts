@@ -1,5 +1,5 @@
 import { inject, provideAppInitializer, type ApplicationConfig } from '@angular/core';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideRouter, withInMemoryScrolling, withRouterConfig } from '@angular/router';
 import { provideToastr } from 'ngx-toastr';
 import type { Schema } from '../../shared/model';
 import { APP_CONFIG } from './core/app.config';
@@ -22,7 +22,12 @@ export function appConfig(config: Schema['Config']): ApplicationConfig {
         inject(TagsStore);
       }),
 
-      provideRouter(routes, withInMemoryScrolling({ anchorScrolling: 'enabled' })),
+      // A cancelled Back keeps the browser history where it was, so a later Back still works.
+      provideRouter(
+        routes,
+        withInMemoryScrolling({ anchorScrolling: 'enabled' }),
+        withRouterConfig({ canceledNavigationResolution: 'computed' }),
+      ),
       provideToastr({
         positionClass: 'toast-bottom-center',
         timeOut: APP_CONFIG.toastMs,

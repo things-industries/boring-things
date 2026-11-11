@@ -12,11 +12,11 @@ import { APP_CONFIG } from '../../core/app.config';
 import { Toasts } from '../../core/services/toasts.service';
 /**
  * Key/value row with an optional icon, a label and a projected value; `loading` shows a skeleton in
- * place of the value. `[keyValueLabel]` content follows the label and `[keyValueEnd]` content
- * follows the value. With `copyable`, choosing the row copies the value as displayed, without the
- * label. With `editing`, the value takes the room a projected editor needs; with `stacked`, it
- * takes a row of its own under the label. The host registers
- * `icon` with `provideIcons`.
+ * place of the value. `[keyValueStart]` content precedes the label, `[keyValueLabel]` content
+ * follows it and `[keyValueEnd]` content follows the value. With `copyable`, choosing the row
+ * copies the value as displayed, without the label. With `editing`, the value takes the room a
+ * projected editor needs; with `stacked`, it takes a row of its own under the label. The host
+ * registers `icon` with `provideIcons`.
  */
 @Component({
   selector: 'bt-key-value-row',

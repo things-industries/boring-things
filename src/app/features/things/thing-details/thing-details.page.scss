@@ -27,10 +27,13 @@ bt-key-value-row:last-child {
   font-weight: typography.weight(semibold);
   color: tokens.color(primary-muted);
 }
+// Lines the pin icon up with the card's gutter rather than the button's edge.
 .details-pin {
-  display: inline-flex;
-  flex-shrink: 0;
-  @include mixins.icon-size(sm);
+  margin-inline-start: calc(-1 * #{tokens.space(2)});
+  color: tokens.color(primary-muted);
+  &.is-pinned {
+    color: tokens.color(primary);
+  }
 }
 .details-error {
   display: flex;

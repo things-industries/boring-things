@@ -16,7 +16,7 @@
   min-width: 0;
 }
 .field-control-input,
-.field-control-currency {
+.field-control-currency-select {
   min-width: 0;
   margin: 0;
   padding: tokens.space(2);
@@ -32,6 +32,7 @@
   @include mixins.touch-field-text;
   &:focus {
     outline: none;
+    border-bottom-color: tokens.color(primary);
   }
   &::placeholder {
     color: tokens.color(primary-muted);
@@ -41,24 +42,32 @@
   flex: 1;
   width: 100%;
   text-align: right;
-  &:focus {
-    border-bottom-color: tokens.color(primary);
-  }
 }
 :host(.is-invalid) .field-control-input {
   border-bottom-color: tokens.color(danger);
 }
 select.field-control-input,
-.field-control-currency {
+.field-control-currency-select {
   appearance: none;
   cursor: pointer;
   // Right-aligns the chosen option in browsers that support it.
   text-align-last: right;
 }
 .field-control-currency {
+  position: relative;
+  display: flex;
   flex: none;
-  width: auto;
+  align-items: center;
+}
+.field-control-currency-select {
+  padding-right: calc(#{tokens.icon-size(sm)} + #{tokens.space(1)});
+}
+.field-control-currency-icon {
+  position: absolute;
+  right: 0;
   color: tokens.color(primary-muted);
+  pointer-events: none;
+  @include mixins.icon-size(sm);
 }
 // Keeps the amount beside its currency rather than across the row, with room for 12 digits
 // beside its padding and icon.

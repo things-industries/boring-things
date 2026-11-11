@@ -3,18 +3,13 @@ import { APP_CONFIG } from '../core/app.config';
 import type { FieldDraft, FieldInput, MoneyDraft } from '../interfaces/field-input.interface';
 import { dateTimeInput, localDateTimeToUtc } from './date.util';
 
-const emailName = /\be-?mail\b/i;
-
 export function amountMinor(draft: string) {
   const [whole, fraction = ''] = draft.split('.');
 
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
 }
 
-/**
- * The control for a registry field. The registry has no email format, so email fields are
- * recognised by their icon or name.
- */
+/** The control for a registry field. */
 export function fieldInput(field: Schema['Field']): FieldInput {
   const { schema } = field;
   const base = { sensitive: field.sensitive };
@@ -42,18 +37,13 @@ export function fieldInput(field: Schema['Field']): FieldInput {
 
   return {
     ...base,
-    kind:
-      field.uiHint === 'TEXTAREA'
-        ? 'textarea'
-        : field.icon === 'fieldEmail' || emailName.test(field.name)
-          ? 'email'
-          : 'text',
+    kind: field.uiHint === 'TEXTAREA' ? 'textarea' : 'text',
     maxLength: schema.maxLength,
     pattern: schema.pattern,
   };
 }
 
-/** The control for a custom field, from its value type, or its label for email. */
+/** The control for a custom field, from its value type. */
 export function customFieldInput(field: Schema['CustomField']): FieldInput {
   const base = { sensitive: field.sensitive };
 
@@ -67,7 +57,7 @@ export function customFieldInput(field: Schema['CustomField']): FieldInput {
     case 'NUMBER':
       return { ...base, kind: 'number' };
     default:
-      return { ...base, kind: emailName.test(field.label) ? 'email' : 'text' };
+      return { ...base, kind: 'text' };
   }
 }
 
