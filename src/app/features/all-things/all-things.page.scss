@@ -59,9 +59,11 @@ h1 {
 }
 .things-empty {
   margin: 0;
-  padding: tokens.space(4) 0;
+  padding-block: tokens.space(4);
+  @include mixins.card-gutter;
   color: tokens.color(primary-muted);
 }
 .things-start {
   padding-bottom: tokens.space(4);
+  @include mixins.card-gutter;
 }

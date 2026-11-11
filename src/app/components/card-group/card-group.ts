@@ -7,6 +7,6 @@ import { booleanAttribute, Component, input } from '@angular/core';
   host: { '[class.has-action]': 'hasAction()' },
 })
 export class CardGroup {
-  /** Drops right padding so trailing row actions sit flush with the edge. */
+  /** Narrows the rows' end gutter so trailing row actions sit near the edge. */
   hasAction = input(false, { transform: booleanAttribute });
 }

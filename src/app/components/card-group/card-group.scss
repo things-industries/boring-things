@@ -1,10 +1,15 @@
 @use 'tokens';
+// Rows own the gutter (see `mixins.card-gutter`) so a highlighted row fills the card's width.
 :host {
+  --card-gutter-start: #{tokens.space(4)};
+  --card-gutter-end: #{tokens.space(4)};
+  --card-row-highlight-inset: 0;
+  --card-row-highlight-radius: 0;
   display: block;
-  padding: 0 tokens.space(4);
+  overflow: hidden;
   border-radius: tokens.radius(card);
   background: tokens.color('white');
 }
 :host(.has-action) {
-  padding-right: tokens.space(1);
+  --card-gutter-end: #{tokens.space(1)};
 }

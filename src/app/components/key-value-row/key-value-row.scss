@@ -3,7 +3,7 @@
 @use 'mixins';
 :host {
   @include mixins.key-value-row;
-  padding: tokens.space(2) 0;
+  padding-block: tokens.space(2);
   @include typography.role(label);
   font-weight: typography.weight(regular);
 }
@@ -38,10 +38,11 @@
 }
 .key-value-copy {
   position: absolute;
-  inset: 0 calc(-1 * tokens.space(2));
+  // Outside a card the highlight bleeds past the unpadded row; inside one it fills the row.
+  inset: 0 var(--card-row-highlight-inset, calc(-1 * #{tokens.space(2)}));
   padding: 0;
   border: 0;
-  border-radius: tokens.radius(tile);
+  border-radius: var(--card-row-highlight-radius, #{tokens.radius(tile)});
   background: none;
   cursor: pointer;
   &:hover,

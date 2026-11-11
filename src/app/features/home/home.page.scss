@@ -31,7 +31,8 @@
 }
 .home-empty {
   margin: 0;
-  padding: tokens.space(4) 0;
+  padding-block: tokens.space(4);
+  @include mixins.card-gutter;
   color: tokens.color(primary-muted);
 }
 // Today's summary is one link to the Tasks page; nothing in it can be checked off here.
@@ -106,6 +107,7 @@
   flex-wrap: wrap;
   gap: tokens.space(3);
   padding-bottom: tokens.space(4);
+  @include mixins.card-gutter;
 }
 .home-categories {
   display: grid;

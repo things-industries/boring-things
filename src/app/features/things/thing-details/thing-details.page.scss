@@ -15,8 +15,12 @@
   flex-direction: column;
   gap: tokens.space(2);
 }
-bt-card-group {
-  padding-block: tokens.space(1);
+// Edge rows take the card's block padding so a highlighted row reaches the card's edge.
+bt-key-value-row:first-child {
+  padding-top: tokens.space(3);
+}
+bt-key-value-row:last-child {
+  padding-bottom: tokens.space(3);
 }
 .details-fixed-value {
   @include typography.role(caption);
@@ -41,5 +45,6 @@ bt-card-group {
 }
 bt-key-value-row:target {
   outline: 2px solid tokens.color(primary);
+  outline-offset: -2px;
   scroll-margin-top: tokens.space(10);
 }
