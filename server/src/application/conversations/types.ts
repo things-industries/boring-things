@@ -52,13 +52,6 @@ export interface ChatTools {
   ): Promise<ChatToolResult>;
 }
 
-export interface ChatFailure {
-  conversationId: string;
-  messageId: string;
-  kind: string;
-  message: string;
-}
-
 export interface ChatToolResult {
   output: unknown;
   source?: Source & { includeImages?: boolean };

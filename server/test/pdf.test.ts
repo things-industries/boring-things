@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument } from 'pdf-lib';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { pdfPageCount, pdfText } from '../src/lib/pdf.js';
+import { PdfParseError, pdfPageCount, pdfText } from '../src/lib/pdf.js';
 
 test('PDF page counts use parsed page trees, including compressed objects', async () => {
   const pdf = await PDFDocument.create();
@@ -112,9 +112,11 @@ test('PDF OCR propagates failures, cancellation and extracted text limits', asyn
 });
 
 test('unreadable, encrypted, non-PDF and cancelled documents have unknown page counts', async () => {
-  assert.equal(
-    await pdfPageCount(Buffer.from('%PDF-1.7\nmalformed\n%%EOF'), 'application/pdf'),
-    null,
+  const malformed = Buffer.from('%PDF-1.7\nmalformed\n%%EOF');
+  assert.equal(await pdfPageCount(malformed, 'application/pdf'), null);
+  await assert.rejects(
+    pdfText(malformed),
+    (error: unknown) => error instanceof PdfParseError && error.reason === 'pdf_open_failed',
   );
   assert.equal(await pdfPageCount(Buffer.from('text'), 'text/plain'), null);
   const pdf = await PDFDocument.create();

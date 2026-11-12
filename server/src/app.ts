@@ -33,7 +33,8 @@ import type { ImportAi } from './application/import/types.js';
 import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
 import * as metrics from './metrics.js';
-import { flushSentry } from './sentry.js';
+import { captureBackgroundFailure, flushSentry } from './sentry.js';
+import { getFailureReason } from './application/errors.js';
 import { ApplicationEvents } from './application/events.js';
 import * as googleVision from './providers/google-vision/index.js';
 
@@ -104,9 +105,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const events = new ApplicationEvents();
 
-    const assistant = new Assistant(dbPool, registry, blobs, chatAi, events, (failure) =>
-      app.log.error(failure, 'Assistant response failed'),
-    );
+    const assistant = new Assistant(dbPool, registry, blobs, chatAi, events);
     const runner = new JobRunner(
       [
         assistant,
@@ -135,10 +134,20 @@ export async function buildApp(options: BuildAppOptions = {}) {
         ),
         new ImportProcessor(dbPool, registry, blobs, importAi, events, options.importWorkflow),
       ],
-      () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
+      (error, operation, processor) => {
+        const reason = getFailureReason(error);
+        app.log.error(
+          { event: 'job_runner_failed', operation, processor, reason },
+          'Background runner failed',
+        );
+        captureBackgroundFailure(error, operation, reason);
+      },
       jobLeaseDb.jobLease(dbPool, () => {
         // Stop immediately: another instance may recover jobs after this session loses its lock.
-        app.log.fatal({ code: 'job_lock_lost' }, 'Background runner lost its database session');
+        app.log.fatal(
+          { event: 'job_runner_failed', operation: 'lease_lost' },
+          'Background runner lost its database session',
+        );
         process.exit(1);
       }),
     );

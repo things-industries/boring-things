@@ -45,6 +45,15 @@ export function logRequestFailure(route: string | undefined, status: number) {
   });
 }
 
+// Captures a background exception with operational tags and the original stack.
+export function captureBackgroundFailure(error: unknown, operation: string, reason: string) {
+  if (!Sentry.isEnabled()) return;
+  Sentry.captureException(error instanceof Error ? error : new Error('Background work failed'), {
+    tags: { operation, reason },
+    fingerprint: ['{{ default }}', operation, reason],
+  });
+}
+
 // Gives the SDK time to send diagnostics when the server stops.
 export async function flushSentry() {
   if (Sentry.isEnabled()) await Sentry.flush(2000);

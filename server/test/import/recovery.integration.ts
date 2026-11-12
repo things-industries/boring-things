@@ -10,6 +10,8 @@ import type { ImportAi } from '../../src/application/import/types.js';
 
 import { searchFieldSets } from '../../src/providers/ai/tools/registry.js';
 import { loadRegistry } from '../../src/application/registry/index.js';
+import { ProviderHttpError } from '../../src/application/errors.js';
+import { setDiagnosticLogger } from '../../src/metrics.js';
 
 // Waits for a fixture request to finish without external AI calls.
 async function waitForImport(env: TestApp, id: string) {
@@ -25,6 +27,107 @@ async function waitForImport(env: TestApp, id: string) {
   }
   throw new Error('Fixture Import timed out');
 }
+
+// The transcription wait caught database read failures and reported them as timeouts.
+test('discovery reports a failed download separately from a failed transcription poll', async (t) => {
+  const env = await startTestApp({
+    importWorkflow: {
+      specialists: [],
+      download: async () => {
+        throw new ProviderHttpError(403, 'Private download details');
+      },
+    },
+  });
+  const warnings: unknown[] = [];
+  const failures: unknown[] = [];
+  setDiagnosticLogger({
+    info: () => {},
+    warn: (details: unknown) => warnings.push(details),
+    error: (details: unknown) => failures.push(details),
+  });
+  t.after(() => setDiagnosticLogger(undefined));
+  try {
+    const request = (url: string, payload?: object) =>
+      env.app.inject({
+        method: 'POST',
+        url,
+        payload,
+        headers: { authorization: env.authorization },
+      });
+    const thing = (
+      await request('/api/things', {
+        name: 'Fixture oven',
+        categoryId: 'appliances',
+        values: [{ fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'X1' }],
+      })
+    ).json<Schema['Thing']>();
+    let failRead = false;
+    let failPoll = false;
+    const query = env.pool.query;
+    t.mock.method(env.pool, 'query', (statement: unknown, ...args: unknown[]) => {
+      if (
+        failRead &&
+        typeof statement === 'string' &&
+        statement.startsWith('select attachment_id from bt.import_sources')
+      ) {
+        failRead = false;
+        return Promise.reject(
+          Object.assign(new Error('Private database details'), { code: '08006' }),
+        );
+      }
+      return Reflect.apply(query, env.pool, [statement, ...args]);
+    });
+    const url = 'https://manufacturer.example/manual.pdf';
+    env.importAi.findResources = async () => {
+      failRead = failPoll;
+      return {
+        items: failPoll
+          ? []
+          : [
+              {
+                kind: 'reference',
+                url,
+                sourceUrl: url,
+                title: 'Oven manual',
+                description: 'Instructions',
+              },
+            ],
+        sources: [url],
+      };
+    };
+    const submit = async () => {
+      const response = await request('/api/imports', { attachmentIds: [], thingId: thing.id });
+      assert.equal(response.statusCode, 202, response.body);
+      return response.json<Schema['ImportAccepted']>().importId;
+    };
+    const downloaded = await submit();
+    const partial = await waitForImport(env, downloaded);
+    assert.equal(partial.status, 'COMPLETE');
+    assert.equal(partial.warnings?.[0]?.code, 'UNAVAILABLE');
+    assert.partialDeepStrictEqual(warnings[0], {
+      event: 'import_stage_warning',
+      jobId: downloaded,
+      stage: 'resource',
+      reason: 'http_403',
+    });
+
+    failPoll = true;
+    const polled = await submit();
+    const failed = await waitForImport(env, polled);
+    assert.equal(failed.status, 'INCOMPLETE');
+    assert.equal(failed.warnings?.length, 0);
+    assert.partialDeepStrictEqual(failures[0], {
+      event: 'job_finished',
+      jobId: polled,
+      status: 'INCOMPLETE',
+      stage: 'wait_for_transcription',
+      reason: 'database_08006',
+    });
+    assert.doesNotMatch(JSON.stringify([warnings, failures]), /Private|manufacturer\.example/);
+  } finally {
+    await env.close();
+  }
+});
 
 test('additional-information retry resumes the unfinished range of a large transcript', async () => {
   const env = await startTestApp();

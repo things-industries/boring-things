@@ -14,10 +14,13 @@ import {
   updateActiveObservation,
 } from '@langfuse/tracing';
 import { trace, type SpanContext } from '@opentelemetry/api';
+import { ApplicationError, getFailureReason, ProviderHttpError } from './application/errors.js';
+import { captureBackgroundFailure } from './sentry.js';
+import { DocumentSizeError } from './lib/document-limits.js';
 
 let sdk: NodeSDK | undefined;
 
-type DiagnosticLogger = Pick<FastifyBaseLogger, 'info' | 'warn'>;
+type DiagnosticLogger = Pick<FastifyBaseLogger, 'info' | 'warn' | 'error'>;
 let diagnosticLogger: DiagnosticLogger | undefined;
 
 // Registers the process logger for diagnostics independently of trace export.
@@ -33,6 +36,9 @@ export interface DiagnosticEntity {
 interface DiagnosticScope {
   jobId?: string;
   attemptId?: string;
+  jobKind?: 'import' | 'attachment' | 'chat';
+  conversationId?: string;
+  stage?: string;
   entity?: DiagnosticEntity;
 }
 const diagnostics = new AsyncLocalStorage<DiagnosticScope>();
@@ -51,6 +57,7 @@ export interface ProviderFailure {
     | 'connection_timeout'
     | 'connection'
     | 'response'
+    | 'size_limit'
     | 'web_search_unfinished'
     | 'unknown';
   httpStatus?: number;
@@ -98,6 +105,17 @@ export function withEntity<T>(entity: DiagnosticEntity, work: () => T) {
   return diagnostics.run({ ...diagnostics.getStore(), entity }, work);
 }
 
+// Identifies the operation in progress if a job throws before returning an outcome.
+export function setJobStage(stage: string) {
+  const scope = diagnostics.getStore();
+  if (scope?.jobId) scope.stage = stage;
+}
+
+// Reads the job's current stage when handling a failure.
+export function getJobStage() {
+  return diagnostics.getStore()?.stage;
+}
+
 // Records content-free workflow measurements and, where applicable, a display label.
 export function recordImportDiagnostic(
   event: string,
@@ -109,12 +127,55 @@ export function recordImportDiagnostic(
   startObservation(event, { metadata }).end();
 }
 
-// Marks a completed import with omissions as a warning in its trace and server log.
-export function recordImportOutcome(warnings: { stage: string; reason: string }[]) {
-  if (!warnings.length) return;
-  const metadata = { ...getDiagnosticContext(), warnings };
-  updateTrace({ level: 'WARNING', statusMessage: 'optional_work_omitted', metadata });
-  diagnosticLogger?.warn(metadata, 'Import completed with omitted work');
+// Correlates job events by ID without including record names.
+function getJobMetadata() {
+  const { jobId, jobKind, attemptId, conversationId, entity } = diagnostics.getStore() ?? {};
+  return { jobKind, jobId, attemptId, conversationId, entityId: entity?.id };
+}
+
+// Records an import warning with its affected source or provider.
+export function recordImportWarning(details: {
+  stage: string;
+  reason: string;
+  attachmentId?: string;
+  provider?: string;
+}) {
+  const metadata = { ...getJobMetadata(), ...details };
+  diagnosticLogger?.warn({ event: 'import_stage_warning', ...metadata }, 'Import stage warning');
+  startObservation('import_stage_warning', { level: 'WARNING', metadata }).end();
+}
+
+export interface JobOutcome {
+  status: 'COMPLETE' | 'INCOMPLETE' | 'FAILED' | 'PARTIAL' | 'EMPTY' | 'SKIPPED';
+  stage?: string;
+  reason?: string;
+  warningCount?: number;
+  mediaType?: string;
+  byteSize?: number;
+  unexpectedError?: unknown;
+}
+
+// Writes the same outcome to the server log and the job trace.
+function recordJobOutcome(
+  outcome: Omit<JobOutcome, 'status' | 'unexpectedError'> & {
+    status?: JobOutcome['status'];
+  },
+  elapsedMs: number,
+) {
+  const { status, stage, reason, warningCount } = outcome;
+  const failed = !status || status === 'FAILED' || status === 'INCOMPLETE';
+  const degraded = reason || warningCount || status === 'PARTIAL';
+  const level =
+    reason === 'shutdown' ? 'DEFAULT' : failed ? 'ERROR' : degraded ? 'WARNING' : 'DEFAULT';
+  const metadata = { ...getJobMetadata(), elapsedMs, ...outcome };
+  const logLevel = level === 'ERROR' ? 'error' : level === 'WARNING' ? 'warn' : 'info';
+  diagnosticLogger?.[logLevel]({ event: 'job_finished', ...metadata }, 'Background job finished');
+  updateTrace({
+    level,
+    statusMessage: reason ?? (warningCount ? 'optional_work_omitted' : undefined),
+    output: { status, stage, reason, warningCount },
+    metadata,
+  });
 }
 
 // Exposes proposal and provider-validation counts on the active task observation.
@@ -180,14 +241,15 @@ async function withScope<T>(name: string, work: () => Promise<T>, parentSpanCont
         span.otelSpan.setAttribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, true);
       try {
         const value = await work();
-        span.update({ output: { status: 'completed' } });
+        if (!parentSpanContext) span.update({ output: { status: 'completed' } });
         return { ok: true, value } as const;
       } catch (error) {
-        span.update({
-          level: 'ERROR',
-          statusMessage: 'operation_failed',
-          output: { status: 'failed' },
-        });
+        if (!parentSpanContext)
+          span.update({
+            level: 'ERROR',
+            statusMessage: 'operation_failed',
+            output: { status: 'failed' },
+          });
         return { ok: false, error } as const;
       }
     },
@@ -198,43 +260,82 @@ async function withScope<T>(name: string, work: () => Promise<T>, parentSpanCont
 }
 
 // Records one trace per job and groups related traces in a session.
-function withJobTrace<T>(
+function withJobTrace(
   kind: 'import' | 'attachment' | 'chat',
   id: string,
   sessionId: string,
-  work: () => Promise<T>,
+  work: () => Promise<JobOutcome>,
 ) {
+  const started = Date.now();
   const attemptId = randomBytes(8).toString('hex');
-  return diagnostics.run({ jobId: id, attemptId }, () =>
-    propagateAttributes(
-      {
-        sessionId,
-        traceName: `process_${kind}`,
-        metadata: {
-          jobKind: kind,
-          jobId: id,
-          attemptId,
-          ...(kind === 'chat' && { sessionKind: 'conversation' }),
+  return diagnostics.run(
+    {
+      jobId: id,
+      jobKind: kind,
+      attemptId,
+      conversationId: kind === 'chat' ? sessionId : undefined,
+    },
+    () =>
+      propagateAttributes(
+        {
+          sessionId,
+          traceName: `process_${kind}`,
+          metadata: {
+            jobKind: kind,
+            jobId: id,
+            attemptId,
+            ...(kind === 'chat' && { sessionKind: 'conversation' }),
+          },
         },
-      },
-      () =>
-        withScope(`process_${kind}`, work, {
-          traceId: getJobTraceId(id),
-          spanId: attemptId,
-          traceFlags: 1,
-          isRemote: true,
-        }),
-    ),
+        () =>
+          withScope(
+            `process_${kind}`,
+            async () => {
+              let result: JobOutcome;
+              try {
+                result = await work();
+              } catch (error) {
+                const reason = getFailureReason(error);
+                const stage = getJobStage() ?? 'process';
+                recordJobOutcome({ stage, reason }, Date.now() - started);
+                captureBackgroundFailure(error, kind + ':' + stage, reason);
+                throw error;
+              }
+              const { unexpectedError, ...outcome } = result;
+              recordJobOutcome(outcome, Date.now() - started);
+              if (unexpectedError !== undefined)
+                captureBackgroundFailure(
+                  unexpectedError,
+                  kind + ':' + outcome.stage,
+                  outcome.reason ?? 'unexpected_error',
+                );
+            },
+            {
+              traceId: getJobTraceId(id),
+              spanId: attemptId,
+              traceFlags: 1,
+              isRemote: true,
+            },
+          ),
+      ),
   );
 }
 
 // Gives each import and attachment its own trace and session.
-export function withJob<T>(kind: 'import' | 'attachment', id: string, work: () => Promise<T>) {
+export function withJob(
+  kind: 'import' | 'attachment',
+  id: string,
+  work: () => Promise<JobOutcome>,
+) {
   return withJobTrace(kind, id, id, work);
 }
 
 // Groups assistant message traces in their conversation's session.
-export function withChatTurn<T>(messageId: string, conversationId: string, work: () => Promise<T>) {
+export function withChatTurn(
+  messageId: string,
+  conversationId: string,
+  work: () => Promise<JobOutcome>,
+) {
   return withJobTrace('chat', messageId, conversationId, work);
 }
 
@@ -307,16 +408,32 @@ export async function withProviderCall<T>(
 ) {
   const startedAt = Date.now();
   let status: ProviderCall['status'] = 'error';
+  let failure: ProviderFailure | undefined;
   try {
     const result = await work();
     status = 'success';
     return result;
+  } catch (error) {
+    failure = getProviderFailure(error);
+    throw error;
   } finally {
     recordProviderCall({
       ...call,
       startedAt,
       status,
+      failure,
       costUsd: status === 'success' ? call.costUsd : undefined,
     });
   }
+}
+
+// Describes an HTTP provider failure without exposing the request or response.
+export function getProviderFailure(error: unknown): ProviderFailure {
+  if (error instanceof ProviderHttpError) return { kind: 'http', httpStatus: error.status };
+  if (error instanceof DocumentSizeError) return { kind: 'size_limit' };
+  if (error instanceof SyntaxError || error instanceof ApplicationError)
+    return { kind: 'response' };
+  if (error instanceof Error && error.name === 'TimeoutError') return { kind: 'deadline' };
+  if (error instanceof Error && error.name === 'AbortError') return { kind: 'cancelled' };
+  return { kind: 'unknown' };
 }

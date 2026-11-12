@@ -62,9 +62,11 @@ export class ImportProcessor {
         }
       },
     };
-    try {
-      await metrics.withJob('import', job.id, () =>
-        new ImportWorkflow(
+    await metrics.withJob('import', job.id, async () => {
+      let warningCount = 0;
+      let failure: { error: unknown; stage: string | undefined; reason: string } | undefined;
+      try {
+        warningCount = await new ImportWorkflow(
           this.pool,
           this.registry,
           this.blobs,
@@ -73,40 +75,66 @@ export class ImportProcessor {
           job,
           context,
           this.options,
-        ).run(),
-      );
-    } catch (error) {
-      const current = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
-      const code = shutdown.aborted
-        ? 'interrupted'
-        : signal.aborted
-          ? 'timeout'
-          : error instanceof Error &&
-              [
-                'no_thing_identified',
-                'wrong_thing',
-                'tool_limit',
-                'text_limit',
-                'source_removed',
-                'source_changed',
-              ].includes(error.message)
-            ? error.message
-            : 'import_failed';
-      await importsDb.saveWorkflow(this.pool, current, {
-        ...current.workflow,
-        failure: { stage: current.workflow.stage, reason: getImportFailureReason(error) },
-      });
-      await importsDb.setImportStatus(
-        this.pool,
-        job.ownerId,
-        job.id,
-        current.targetThingId ? 'INCOMPLETE' : 'FAILED',
-        code,
-      );
-    } finally {
-      await context.record({});
+        ).run();
+      } catch (error) {
+        failure = {
+          error,
+          stage: metrics.getJobStage(),
+          reason: shutdown.aborted
+            ? 'shutdown'
+            : signal.aborted
+              ? 'deadline'
+              : getImportFailureReason(error),
+        };
+      }
+      metrics.setJobStage('save_usage');
+      try {
+        await context.record({});
+      } catch (error) {
+        const reason = getImportFailureReason(error);
+        if (failure) metrics.recordImportWarning({ stage: 'save_usage', reason });
+        else failure = { error, stage: 'save_usage', reason };
+      }
+      if (failure) {
+        const { error, stage, reason } = failure;
+        const code =
+          reason === 'shutdown'
+            ? 'interrupted'
+            : reason === 'deadline'
+              ? 'timeout'
+              : [
+                    'no_thing_identified',
+                    'wrong_thing',
+                    'tool_limit',
+                    'text_limit',
+                    'source_removed',
+                    'source_changed',
+                  ].includes(reason)
+                ? reason
+                : 'import_failed';
+        metrics.setJobStage('save_outcome');
+        const current = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+        const status = current.targetThingId ? 'INCOMPLETE' : 'FAILED';
+        await importsDb.saveWorkflow(this.pool, current, {
+          ...current.workflow,
+          failure: { stage: current.workflow.stage, reason },
+        });
+        await importsDb.setImportStatus(this.pool, job.ownerId, job.id, status, code);
+        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        return {
+          status,
+          stage,
+          reason,
+          warningCount: current.workflow.warnings.length,
+          unexpectedError:
+            reason.startsWith('database_') || reason === 'import_failed' ? error : undefined,
+        };
+      }
+      metrics.setJobStage('save_outcome');
+      await importsDb.setImportStatus(this.pool, job.ownerId, job.id, 'COMPLETE');
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-    }
+      return { status: 'COMPLETE', warningCount };
+    });
     return true;
   }
 }

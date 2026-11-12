@@ -1,5 +1,7 @@
 /** Sentry defaults and data filtering shared by the browser and server SDKs. */
 
+// cspell:words logentry
+
 const spanAttributes = new Set([
   'http.request.method',
   'http.response.status_code',
@@ -47,11 +49,24 @@ export function getSentryOptions(environment: string, release?: string) {
 
 // Keeps stack traces and removes raw request context and serialized thrown objects.
 function scrubEvent<
-  T extends { request?: unknown; user?: unknown; extra?: unknown; transaction?: string },
+  T extends {
+    request?: unknown;
+    user?: unknown;
+    extra?: unknown;
+    logentry?: unknown;
+    message?: string;
+    transaction?: string;
+    exception?: { values?: { value?: string }[] };
+  },
 >(event: T) {
   delete event.request;
   delete event.user;
   delete event.extra;
+  if (event.message !== undefined || event.logentry !== undefined)
+    event.message = 'Application error';
+  delete event.logentry;
+  for (const exception of event.exception?.values ?? [])
+    exception.value = 'Exception details redacted';
   if (event.transaction) event.transaction = scrubName(event.transaction);
   return event;
 }

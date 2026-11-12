@@ -1,5 +1,7 @@
 /** Checks that Sentry diagnostics exclude request data and private record IDs. */
 
+// cspell:words logentry
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getSentryOptions } from '../../shared/sentry.js';
@@ -12,8 +14,15 @@ test('Sentry diagnostics keep route templates and strip raw request data', () =>
     request: { url: path },
     user: { email: 'user@example.test' },
     extra: { payload: 'private content' },
+    message: 'Private error message',
+    logentry: { message: 'Private log message' },
+    exception: { values: [{ value: 'Private source content', stacktrace: { frames: [] } }] },
   });
-  assert.deepEqual(event, { transaction: 'GET /api/things/:id' });
+  assert.deepEqual(event, {
+    transaction: 'GET /api/things/:id',
+    message: 'Application error',
+    exception: { values: [{ value: 'Exception details redacted', stacktrace: { frames: [] } }] },
+  });
   const span = options.beforeSendSpan({
     name: 'GET ' + path,
     attributes: {

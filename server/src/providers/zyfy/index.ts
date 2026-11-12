@@ -6,7 +6,7 @@ import type { Value } from '../../../../shared/model.js';
 import type { ThingRow } from '../../db/entities/things.js';
 import type { Registry } from '../../application/registry/registry.js';
 import { SpecialistProvider, type SpecialistResult } from '../specialist-data.js';
-import { ApplicationError, ensure } from '../../application/errors.js';
+import { ApplicationError, ensure, ProviderHttpError } from '../../application/errors.js';
 import * as metrics from '../../metrics.js';
 
 const ukCountries = new Set([
@@ -109,7 +109,8 @@ export class ZyfyProvider extends SpecialistProvider {
             redirect: 'error',
             signal: requestSignal,
           });
-          ensure(response.ok || response.status === 404, 'Zyfy lookup unavailable', 'UNAVAILABLE');
+          if (!response.ok && response.status !== 404)
+            throw new ProviderHttpError(response.status, 'Zyfy lookup unavailable');
           return { response, body: getObject(await response.json()) };
         },
       );

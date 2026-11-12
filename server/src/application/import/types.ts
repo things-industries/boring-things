@@ -11,37 +11,49 @@ import type { AdditionalInformationInput } from '../../providers/ai/tasks/additi
 import type { TaskResearch } from '../../providers/ai/tasks/suggest-tasks.js';
 import type { PurchasableResearch } from '../../providers/ai/tasks/find-purchasables.js';
 import type { AttachmentSummaryInput } from '../../providers/ai/tasks/summarize-attachment.js';
+import { getFailureReason } from '../errors.js';
+import { DocumentSizeError } from '../../lib/document-limits.js';
 
 // Describes failures using fixed messages and database codes without source or provider content.
 export function getImportFailureReason(error: unknown): string {
+  if (error instanceof UsagePersistenceError) return getImportFailureReason(error.cause);
+  if (error instanceof DocumentSizeError) return 'too_large';
   if (!(error instanceof Error)) return 'import_failed';
-  if ('code' in error && typeof error.code === 'string' && /^[A-Z0-9]{5}$/.test(error.code))
-    return 'database_' + error.code;
+  if (error.message === 'Invalid PDF document') return 'invalid_pdf';
+  if (error.message === 'Document unavailable' || error.message === 'Resource unavailable')
+    return 'resource_unavailable';
   if (error.message.startsWith('Invalid value for ')) return 'Invalid field value';
-  return [
-    'Invalid AI output',
-    'AI response incomplete',
-    'ai_provider_failed',
-    'ai_refused',
-    'Wrong additional source',
-    'Invalid source evidence',
-    'Invalid recommendation',
-    'Uncited recommendation source',
-    'Uncited purchasable',
-    'Uncited purchase URL',
-    'Invalid source page',
-    'Quote does not match source page',
-    'Invalid additional information',
-    'Invalid additional field',
-    'Invalid field membership',
-    'source_removed',
-    'source_changed',
-    'Research tool limit exceeded',
-    'tool_limit',
-    'text_limit',
-  ].includes(error.message) || /^ai_http_\d{3}$/.test(error.message)
-    ? error.message
-    : 'import_failed';
+  if (
+    [
+      'Invalid AI output',
+      'AI response incomplete',
+      'ai_provider_failed',
+      'ai_refused',
+      'Wrong additional source',
+      'Invalid source evidence',
+      'Invalid recommendation',
+      'Uncited recommendation source',
+      'Uncited purchasable',
+      'Uncited purchase URL',
+      'Invalid source page',
+      'Quote does not match source page',
+      'Invalid additional information',
+      'Invalid additional field',
+      'Invalid field membership',
+      'source_removed',
+      'source_changed',
+      'no_thing_identified',
+      'wrong_thing',
+      'chat_provider_failed',
+      'Research tool limit exceeded',
+      'tool_limit',
+      'text_limit',
+    ].includes(error.message) ||
+    /^ai_http_\d{3}$/.test(error.message)
+  )
+    return error.message;
+  const reason = getFailureReason(error);
+  return reason === 'unexpected_error' ? 'import_failed' : reason;
 }
 
 export interface Fact {

@@ -7,7 +7,7 @@ import { lookup } from 'node:dns/promises';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP } from 'node:net';
-import { ensure } from '../../application/errors.js';
+import { ensure, ProviderHttpError } from '../../application/errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { DocumentSizeError } from '../../lib/document-limits.js';
 import * as metrics from '../../metrics.js';
@@ -123,6 +123,7 @@ export async function downloadResource(
     signal.throwIfAborted();
     const startedAt = Date.now();
     let status: metrics.ProviderCall['status'] = 'error';
+    let failure: metrics.ProviderFailure | undefined;
     let response: IncomingMessage | undefined;
     try {
       response = await request(url, signal);
@@ -134,7 +135,8 @@ export async function downloadResource(
         continue;
       }
 
-      ensure(response.statusCode === 200, 'Document download failed');
+      if (response.statusCode !== 200)
+        throw new ProviderHttpError(response.statusCode ?? 0, 'Document download failed');
       const type = response.headers['content-type']?.split(';')[0].trim().toLowerCase();
 
       if (type && mediaTypes.length && !mediaTypes.includes(type)) {
@@ -165,6 +167,9 @@ export async function downloadResource(
       const content = Buffer.concat(chunks);
       status = 'success';
       return { content, mediaType: type ?? '', url: url.href };
+    } catch (error) {
+      failure = metrics.getProviderFailure(error);
+      throw error;
     } finally {
       response?.destroy();
       metrics.recordProviderCall({
@@ -173,6 +178,7 @@ export async function downloadResource(
         costUsd: 0,
         startedAt,
         status,
+        failure,
       });
     }
   }

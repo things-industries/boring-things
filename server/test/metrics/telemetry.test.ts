@@ -43,7 +43,12 @@ test('concurrent jobs isolate traces and record provider usage without source co
     await sdk.shutdown();
   });
   const warnings: unknown[] = [];
-  metrics.setDiagnosticLogger({ info: () => {}, warn: (data: unknown) => warnings.push(data) });
+  const errors: unknown[] = [];
+  metrics.setDiagnosticLogger({
+    info: () => {},
+    warn: (data: unknown) => warnings.push(data),
+    error: (data: unknown) => errors.push(data),
+  });
   t.after(() => metrics.setDiagnosticLogger(undefined));
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
@@ -78,6 +83,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
               recorded.push(usage);
             },
           }).run();
+        return { status: 'COMPLETE' };
       }),
     ),
   );
@@ -231,7 +237,8 @@ test('concurrent jobs isolate traces and record provider usage without source co
       new TextTask({ signal: new AbortController().signal, record: async () => {} }).run(),
       /ai_http_429/,
     );
-    metrics.recordImportOutcome([{ stage: 'purchasables', reason: 'ai_http_429' }]);
+    metrics.recordImportWarning({ stage: 'purchasables', reason: 'ai_http_429' });
+    return { status: 'COMPLETE', warningCount: 1 };
   });
   await processor.forceFlush();
   const diagnostics = exporter.getFinishedSpans();
@@ -266,7 +273,35 @@ test('concurrent jobs isolate traces and record provider usage without source co
   await processor.forceFlush();
   assert.equal(exporter.getFinishedSpans().length, 0);
 
+  await metrics.withJob('attachment', ids[1], async () => {
+    return {
+      status: 'FAILED',
+      mediaType: 'application/pdf',
+      byteSize: 4096,
+      stage: 'text_extraction',
+      reason: 'pdf_parse_timeout',
+    };
+  });
+  await processor.forceFlush();
+  const attachment = exporter.getFinishedSpans().find((span) => span.name === 'process_attachment');
+  assert(attachment);
+  assert.equal(attachment.spanContext().traceId, metrics.getJobTraceId(ids[1]));
+  assert.equal(attachment.attributes[attributes.OBSERVATION_LEVEL], 'ERROR');
+  assert.equal(attachment.attributes[attributes.OBSERVATION_STATUS_MESSAGE], 'pdf_parse_timeout');
+  assert.deepEqual(JSON.parse(String(attachment.attributes[attributes.OBSERVATION_OUTPUT])), {
+    status: 'FAILED',
+    stage: 'text_extraction',
+    reason: 'pdf_parse_timeout',
+  });
+  assert.partialDeepStrictEqual(errors.at(-1), {
+    event: 'job_finished',
+    jobId: ids[1],
+    status: 'FAILED',
+    reason: 'pdf_parse_timeout',
+  });
+
   // Two messages and a retry share the conversation session but use one trace per message.
+  exporter.reset();
   const conversationId = '20000000-0000-4000-8000-000000000001';
   for (const messageId of [ids[0], ids[1], ids[0]]) {
     await metrics.withChatTurn(messageId, conversationId, async () => {
@@ -276,11 +311,20 @@ test('concurrent jobs isolate traces and record provider usage without source co
         model: 'gpt-6-luna',
         status: 'success',
       });
+      return messageId === ids[1]
+        ? { status: 'FAILED', stage: 'respond', reason: 'deadline' }
+        : { status: 'COMPLETE' };
     });
   }
   await processor.forceFlush();
   const chatSpans = exporter.getFinishedSpans();
   assert.equal(chatSpans.length, 6);
+  const failedChat = chatSpans.find(
+    (span) =>
+      span.name === 'process_chat' && span.spanContext().traceId === metrics.getJobTraceId(ids[1]),
+  );
+  assert.equal(failedChat?.attributes[attributes.OBSERVATION_LEVEL], 'ERROR');
+  assert.equal(failedChat?.attributes[attributes.OBSERVATION_STATUS_MESSAGE], 'deadline');
   assert(
     chatSpans.every((span) => span.attributes[attributes.TRACE_SESSION_ID] === conversationId),
   );
