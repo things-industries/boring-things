@@ -3,7 +3,7 @@
 @use 'mixins';
 :host {
   @include mixins.key-value-row;
-  padding: tokens.space(2) 0;
+  padding-block: tokens.space(2);
   @include typography.role(label);
   font-weight: typography.weight(regular);
 }
@@ -32,16 +32,41 @@
   text-align: right;
   overflow-wrap: anywhere;
 }
+:host(.is-editing) {
+  .key-value-label {
+    flex: 0 1 40%;
+  }
+  .key-value-value {
+    flex: 1 1 60%;
+  }
+}
+// The value takes its own row under the label; trailing content stays beside the label.
+:host(.is-stacked) {
+  flex-wrap: wrap;
+  row-gap: 0;
+  .key-value-label {
+    flex: 1 1 auto;
+  }
+  .key-value-end {
+    order: 1;
+  }
+  .key-value-value {
+    order: 2;
+    flex: 1 1 100%;
+    text-align: left;
+  }
+}
 .key-value-skeleton {
   @include mixins.skeleton-line;
   width: 30%;
 }
 .key-value-copy {
   position: absolute;
-  inset: 0 calc(-1 * tokens.space(2));
+  // Outside a card the highlight bleeds past the unpadded row; inside one it fills the row.
+  inset: 0 var(--card-row-highlight-inset, calc(-1 * #{tokens.space(2)}));
   padding: 0;
   border: 0;
-  border-radius: tokens.radius(tile);
+  border-radius: var(--card-row-highlight-radius, #{tokens.radius(tile)});
   background: none;
   cursor: pointer;
   &:hover,
@@ -54,11 +79,20 @@
 .key-value-value,
 .key-value-copied {
   position: relative;
-  pointer-events: none;
+}
+// Clicks pass through the content to the copy button behind it.
+:host(.is-copyable) {
+  .key-value-icon,
+  .key-value-label,
+  .key-value-value,
+  .key-value-copied {
+    pointer-events: none;
+  }
 }
 .key-value-copied {
   color: tokens.color(accent);
 }
+.key-value-start,
 .key-value-end {
   position: relative;
   z-index: 1;

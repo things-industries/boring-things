@@ -88,17 +88,23 @@
 @mixin icon-size($name) {
   --ng-icon__size: #{tokens.icon-size($name)};
 }
+// Inline padding a `bt-card-group` gives its rows; none outside one.
+@mixin card-gutter {
+  padding-inline: var(--card-gutter-start, 0) var(--card-gutter-end, 0);
+}
 @mixin list-row {
   display: flex;
   align-items: center;
   gap: tokens.space(3);
   min-height: tokens.size(list-row);
+  @include card-gutter;
 }
 @mixin key-value-row {
   display: flex;
   align-items: center;
   gap: tokens.space(3);
   min-height: tokens.size(key-value-row);
+  @include card-gutter;
 }
 @mixin visually-hidden {
   position: absolute;

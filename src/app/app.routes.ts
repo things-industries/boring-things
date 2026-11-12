@@ -2,6 +2,7 @@ import type { Routes } from '@angular/router';
 import { authenticated } from './core/services/auth.guard';
 import { addFirstThing } from './core/services/first-thing.guard';
 import { importsEnabled } from './core/services/imports.guard';
+import { confirmLeave } from './core/services/leave.guard';
 import { APP_TERMS } from './core/app-terms';
 const allThings = () =>
   import('./features/all-things/all-things.page').then((m) => m.AllThingsPage);
@@ -66,6 +67,7 @@ export const routes: Routes = [
   {
     path: 'things/:id/details',
     canActivate: [authenticated],
+    canDeactivate: [confirmLeave],
     loadComponent: () =>
       import('./features/things/thing-details/thing-details.page').then((m) => m.ThingDetailsPage),
   },

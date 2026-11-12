@@ -1,4 +1,9 @@
+import type { Currency } from '../interfaces/field-input.interface';
+
 export const APP_CONFIG = {
+  /** Currencies a money value can use, matching the API's `CurrencyEnum`. */
+  currencies: ['GBP', 'EUR', 'USD'] as const satisfies readonly Currency[],
+  defaultCurrency: 'GBP' as const satisfies Currency,
   streamRetryMs: 1000,
   streamMaxRetryMs: 15000,
   streamMaxFrameBytes: 2 * 1024 * 1024,

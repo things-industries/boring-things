@@ -4,7 +4,7 @@
 :host {
   @include mixins.list-row;
   position: relative;
-  padding: tokens.space(1) 0;
+  padding-block: tokens.space(1);
 }
 :host + :host {
   border-top: 1px solid tokens.color(secondary);

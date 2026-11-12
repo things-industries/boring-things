@@ -5,7 +5,7 @@ import { back } from '../../core/app-icons';
 import { IconButton } from '../icon-button/icon-button';
 /**
  * Page bar with an optional back link, centred title and trailing projected actions, such as a
- * `bt-menu`. It sits above a `bt-scroll-container` in a `viewport-page`. Set
+ * `bt-menu`. Without a back link, `[topBarStart]` content takes its place. It sits above a `bt-scroll-container` in a `viewport-page`. Set
  * `--top-bar-background` to match the page behind it.
  */
 @Component({

@@ -6,6 +6,7 @@ import {
   remixArrowRightUpLine,
   remixArrowRightSLine,
   remixAttachment2,
+  remixBankCard2Line,
   remixBookOpenLine,
   remixBox3Fill,
   remixBox3Line,
@@ -178,6 +179,7 @@ export const compatibleProduct = remixShoppingBagLine;
 export const attachmentDocument = remixFileTextLine;
 export const downloadAttachment = remixDownloadLine;
 export const editDetails = remixPencilLine;
+export const moneyField = remixBankCard2Line;
 export const allDetails = remixListUnordered;
 export const changeCategory = remixExchangeLine;
 export const editTags = remixPriceTag3Line;

@@ -1,0 +1,111 @@
+<span class="field-control-row">
+  @switch (control()) {
+    @case ('money') {
+      <span class="field-control-currency">
+        <select
+          class="field-control-currency-select"
+          [disabled]="disabled()"
+          [attr.aria-label]="label() + ' currency'"
+          (change)="setCurrency($event)"
+          (blur)="touch()"
+        >
+          @for (currency of currencies; track currency) {
+            <option [value]="currency" [selected]="currency === money().currency">
+              {{ currency }}
+            </option>
+          }
+        </select>
+        <ng-icon class="field-control-currency-icon" name="expandSection" aria-hidden="true" />
+      </span>
+      <input
+        #amountInput
+        class="field-control-input"
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        min="0"
+        placeholder="0.00"
+        autocomplete="off"
+        [value]="amountText()"
+        [disabled]="disabled()"
+        [attr.aria-label]="label()"
+        [attr.aria-invalid]="!!error()"
+        (input)="setAmount($event)"
+        (blur)="leaveAmount($event)"
+      />
+    }
+    @case ('boolean') {
+      <select
+        class="field-control-input"
+        [disabled]="disabled()"
+        [attr.aria-label]="label()"
+        (change)="setText($event)"
+        (blur)="touch()"
+      >
+        <option value="" [selected]="text() === ''">Not recorded</option>
+        <option value="true" [selected]="text() === 'true'">Yes</option>
+        <option value="false" [selected]="text() === 'false'">No</option>
+      </select>
+    }
+    @case ('select') {
+      <select
+        class="field-control-input"
+        [disabled]="disabled()"
+        [attr.aria-label]="label()"
+        [attr.aria-invalid]="!!error()"
+        (change)="setText($event)"
+        (blur)="touch()"
+      >
+        @if (!field().required) {
+          <option value="" [selected]="text() === ''">Not recorded</option>
+        }
+        @for (option of field().options; track option.value) {
+          <option [value]="option.value" [selected]="option.value === text()">
+            {{ option.label }}
+          </option>
+        }
+      </select>
+    }
+    @case ('multiline') {
+      <textarea
+        #textArea
+        class="field-control-input"
+        rows="1"
+        [value]="text()"
+        [placeholder]="placeholder()"
+        [disabled]="disabled()"
+        [attr.aria-label]="label()"
+        [attr.aria-invalid]="!!error()"
+        [attr.maxlength]="field().maxLength ?? null"
+        (input)="setText($event)"
+        (keydown.enter)="keepSingleLine($event)"
+        (blur)="touch()"
+      ></textarea>
+    }
+    @default {
+      <input
+        #valueInput
+        class="field-control-input"
+        autocomplete="off"
+        [type]="type()"
+        [attr.inputmode]="inputMode()"
+        [attr.step]="field().kind === 'number' ? (field().integer ? 1 : 'any') : null"
+        [value]="inputText()"
+        [placeholder]="placeholder()"
+        [disabled]="disabled()"
+        [attr.aria-label]="label()"
+        [attr.aria-invalid]="!!error()"
+        [attr.maxlength]="field().maxLength ?? null"
+        (input)="setText($event)"
+        (click)="openPicker($event)"
+        (blur)="touch($event)"
+      />
+    }
+  }
+  @if (affordance(); as icon) {
+    <ng-icon class="field-control-affordance" [name]="icon" aria-hidden="true" />
+  }
+</span>
+@if (error(); as code) {
+  <p class="field-control-error" role="alert">{{ errorTerms[code] }}</p>
+}

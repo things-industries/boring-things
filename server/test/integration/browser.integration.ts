@@ -76,7 +76,9 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await expect(pin).not.toContainText('0000');
     await pinActions.click();
     await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
-    await expect(pin.getByRole('img', { name: 'Pinned', exact: true })).toBeVisible();
+    await expect(
+      pin.getByRole('button', { name: 'Pin Access PIN', exact: true, pressed: true }),
+    ).toBeVisible();
     assert.equal(await accessCount(), 1);
     await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
     const pinnedPin = page.locator('bt-key-value-row').filter({ hasText: 'Access PIN' });
@@ -341,14 +343,22 @@ test('browser manual creation, AI imports and JWT verification', { timeout: 9000
     await page.getByRole('link', { name: 'See all details', exact: true }).click();
     const zNumber = page.locator('bt-key-value-row').filter({ hasText: 'Z-number (Z-Nr)' });
     await expect(zNumber).toContainText('0015');
-    await expect(zNumber.getByRole('img', { name: 'Pinned', exact: true })).toBeVisible();
+    await expect(
+      zNumber.getByRole('button', { name: 'Pin Z-number (Z-Nr)', exact: true, pressed: true }),
+    ).toBeVisible();
     const installer = page.locator('bt-key-value-row').filter({ hasText: 'Installer reference' });
     await expect(installer).toContainText('ABC-12');
     await installer
       .getByRole('button', { name: 'Actions for Installer reference', exact: true })
       .click();
     await page.getByRole('menuitem', { name: 'Pin', exact: true }).click();
-    await expect(installer.getByRole('img', { name: 'Pinned', exact: true })).toBeVisible();
+    await expect(
+      installer.getByRole('button', {
+        name: 'Pin Installer reference',
+        exact: true,
+        pressed: true,
+      }),
+    ).toBeVisible();
     await page.getByRole('link', { name: 'Back to thing', exact: true }).click();
     const pinnedInstaller = page
       .locator('bt-key-value-row')
