@@ -204,8 +204,8 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `ZYFY_API_KEY`          | Optional Zyfy API key for UK vehicle registration lookup                   |
 | `IMPORT_MAX_REQUESTS`   | Model request limit per Import or Attachment across retries; default 60    |
 | `IMPORT_MAX_RESOURCES`  | Discovered resource limit per Import; default 3                            |
-| `IMPORT_TIMEOUT_MS`     | Import attempt deadline; default 180000                                    |
-| `IMPORT_TOOL_ROUNDS`    | Local tool-call budget per task or batch; default 4                        |
+| `IMPORT_TIMEOUT_MS`     | Import attempt deadline; default 300000                                    |
+| `IMPORT_TOOL_ROUNDS`    | Default local tool-call budget for general import tasks                    |
 | `DISCOVERY_TIMEOUT_MS`  | Resource transcription wait deadline; default 90000                        |
 | `CHAT_TIMEOUT_MS`       | Assistant attempt deadline; default 180000                                 |
 | `CHAT_TOOL_CALLS`       | Function-call budget per assistant response; default 12                    |

@@ -35,6 +35,8 @@ import { validateResource, saveResourceAttachment, resourceKey } from './resourc
 import type { SpecialistProvider } from '../../providers/specialist-data.js';
 import { IcecatProvider } from '../../providers/icecat/index.js';
 import { ZyfyProvider } from '../../providers/zyfy/index.js';
+import { getAdditionalInformationBatch } from '../../providers/ai/tasks/additional-information.js';
+import * as metrics from '../../metrics.js';
 
 export interface WorkflowOptions {
   download?: typeof downloadPdf;
@@ -78,6 +80,12 @@ export class ImportWorkflow {
     await this.assessSources();
     await this.recommend();
     await importsDb.setImportStatus(this.pool, this.job.ownerId, this.job.id, 'COMPLETE');
+    metrics.recordImportOutcome(
+      this.job.workflow.warnings.map(({ stage, reason, warning }) => ({
+        stage: stage.split(':', 1)[0],
+        reason: reason ?? warning.code,
+      })),
+    );
     this.publish();
   }
 
@@ -116,9 +124,15 @@ export class ImportWorkflow {
   }
 
   // Reads the selected Thing using the request's ownership boundary.
-  private thing() {
+  private async thing() {
     ensure(this.job.targetThingId, 'no_thing_identified');
-    return thingsDb.getOwnedThingOrThrow(this.pool, this.job.ownerId, this.job.targetThingId);
+    const thing = await thingsDb.getOwnedThingOrThrow(
+      this.pool,
+      this.job.ownerId,
+      this.job.targetThingId,
+    );
+    metrics.setJobEntity({ type: 'thing', id: thing.id, name: thing.name });
+    return thing;
   }
 
   // Saves application changes and their completion record under the same transaction.
@@ -893,11 +907,20 @@ export class ImportWorkflow {
   // Saves only significant owner-source findings and reuses existing field occurrences.
   private async additional() {
     if (!this.ai.additionalInformation) return;
+    this.job.workflow.warnings = this.job.workflow.warnings.filter(
+      ({ stage }) => !stage.startsWith('additional:'),
+    );
     await this.stage('ADDITIONAL_INFORMATION', 'MAPPING');
+    const fingerprint = this.sourceFingerprint();
     for (const source of this.sources.filter((source) => source.ownerId !== null))
-      for (let offset = 0; offset < (source.transcription?.length ?? 0); offset += 20000) {
-        const key = `additional:${source.id}:${this.sourceFingerprint()}:${offset}`;
-        if (this.job.workflow.done.includes(key)) continue;
+      for (let offset = 0; offset < (source.transcription?.length ?? 0);) {
+        const start = offset;
+        const prefix = `additional:${source.id}:${fingerprint}:${start}:`;
+        const completed = this.job.workflow.done.find((key) => key.startsWith(prefix));
+        if (completed) {
+          offset = Number(completed.slice(prefix.length));
+          continue;
+        }
         const thing = await this.thing();
         const known = [
           ...Object.values(thing.data.values).flatMap((values) => Object.keys(values)),
@@ -905,21 +928,36 @@ export class ImportWorkflow {
         ]
           .map((id) => this.registry.fields.get(id)?.name ?? id)
           .concat(thing.data.customFields.map((field) => field.label));
-        let result;
-        try {
-          result = await this.ai.additionalInformation(
-            {
-              thing: {
-                name: thing.name,
-                categoryId: thing.categoryId,
-                identifiers: identifierValues(thing.data, this.registry),
-              },
-              knownFields: known,
-              attachmentId: source.id,
-              text: source.transcription!.slice(offset, offset + 20000),
+        const input = getAdditionalInformationBatch(
+          {
+            thing: {
+              name: thing.name,
+              categoryId: thing.categoryId,
+              identifiers: identifierValues(thing.data, this.registry),
             },
-            this.createTaskContext(thing.categoryId),
-          );
+            knownFields: known,
+            attachmentId: source.id,
+          },
+          source.transcription!.slice(start),
+        );
+        if (!input.text.length) {
+          await this.warning(prefix + start, null, 'RESEARCH_FAILED', 'text_limit');
+          break;
+        }
+        offset += input.text.length;
+        const key = prefix + offset;
+        const batchStarted = Date.now();
+        const context = this.createTaskContext(thing.categoryId);
+        const beforeRequest = context.beforeRequest;
+        let modelCalls = 0;
+        context.beforeRequest = () => {
+          beforeRequest?.();
+          modelCalls++;
+        };
+        let result;
+        let failureReason: string | undefined;
+        try {
+          result = await this.ai.additionalInformation(input, context);
           result.findings = mapValidResults(result.findings, (value) => {
             ensure(value.attachmentId === source.id, 'Wrong additional source');
             this.evidence(value);
@@ -944,10 +982,22 @@ export class ImportWorkflow {
             return value;
           });
         } catch (error) {
+          failureReason = this.context.signal.aborted
+            ? this.context.cancellationReason?.()
+            : getImportFailureReason(error);
           if (error instanceof UsagePersistenceError) throw error;
           this.context.signal.throwIfAborted();
-          await this.warning(key, null, 'RESEARCH_FAILED', getImportFailureReason(error));
+          await this.warning(key, null, 'RESEARCH_FAILED', failureReason);
           continue;
+        } finally {
+          metrics.recordImportDiagnostic('additional_information_batch', {
+            start,
+            end: offset,
+            elapsedMs: Date.now() - batchStarted,
+            modelCalls,
+            toolCalls: context.toolCalls,
+            failureReason,
+          });
         }
         await this.commit(key, async (db, current) => {
           if (!(await this.isSourceCurrent(db, current, source.id))) return;
@@ -1116,25 +1166,45 @@ export class ImportWorkflow {
     }
     if (tasks.status === 'fulfilled' && tasks.value) {
       const result = tasks.value;
+      const saved: metrics.DiagnosticEntity[] = [];
       await this.commit('tasks', async (db, current) => {
         tasks: for (const task of result.items) {
           for (const ref of task.sourceRefs)
             if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
               continue tasks;
-          await tasksDb.saveSuggestedTask(db, current.ownerId, current.id, task);
+          const id = await tasksDb.saveSuggestedTask(db, current.ownerId, current.id, task);
+          if (id) saved.push({ type: 'task', id, name: task.title });
         }
       });
+      metrics.recordImportDiagnostic('task_recommendations_saved', {
+        acceptedCount: result.items.length,
+        savedCount: saved.length,
+      });
+      for (const task of saved) metrics.recordImportDiagnostic('suggested_task_saved', {}, task);
     }
     if (purchasables.status === 'fulfilled' && purchasables.value) {
       const result = purchasables.value;
+      const saved: metrics.DiagnosticEntity[] = [];
       await this.commit('purchasables', async (db, current) => {
         products: for (const product of result.items) {
           for (const ref of product.sourceRefs)
             if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
               continue products;
-          await purchasablesDb.saveSuggestedPurchasable(db, current.ownerId, current.id, product);
+          const id = await purchasablesDb.saveSuggestedPurchasable(
+            db,
+            current.ownerId,
+            current.id,
+            product,
+          );
+          if (id) saved.push({ type: 'purchasable', id, name: product.name });
         }
       });
+      metrics.recordImportDiagnostic('purchasable_recommendations_saved', {
+        acceptedCount: result.items.length,
+        savedCount: saved.length,
+      });
+      for (const product of saved)
+        metrics.recordImportDiagnostic('suggested_purchasable_saved', {}, product);
     }
   }
 }

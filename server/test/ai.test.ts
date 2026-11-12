@@ -242,9 +242,10 @@ test('discovery reads page links and structures a cited identity in one conversa
             ? [
                 {
                   type: 'web_search_call',
+                  status: 'completed',
                   action: { sources: [{ url: source }] },
                 },
-                { type: 'web_search_call', action: { url: pdf } },
+                { type: 'web_search_call', status: 'completed', action: { url: pdf } },
                 {
                   type: 'function_call',
                   name: 'read_resource_page',
@@ -327,7 +328,7 @@ test('public research keeps the source-derived product generation across its req
     return jsonResponse({
       ...response,
       output: [
-        { type: 'web_search_call', action: { sources: [{ url: source }] } },
+        { type: 'web_search_call', status: 'completed', action: { sources: [{ url: source }] } },
         ...response.output,
       ],
     });
@@ -468,7 +469,10 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     });
     return jsonResponse({
       ...response,
-      output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
+      output: [
+        { type: 'web_search_call', status: 'completed', action: { sources: [{ url }] } },
+        ...response.output,
+      ],
       usage: { input_tokens: 25, output_tokens: 10 },
     });
   });
@@ -568,7 +572,10 @@ test('SDK purchasable research discovers products and purchase links within one 
     const response = output({ items: [product] });
     return jsonResponse({
       ...response,
-      output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
+      output: [
+        { type: 'web_search_call', status: 'completed', action: { sources: [{ url }] } },
+        ...response.output,
+      ],
     });
   });
   const ai = new OpenAiImports((turn) => turns.push(turn));

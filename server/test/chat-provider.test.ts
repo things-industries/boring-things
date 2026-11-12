@@ -52,9 +52,10 @@ test('assistant research answers the supplied question in one bounded request wi
       output: [
         {
           type: 'web_search_call',
+          status: 'completed',
           action: { sources: candidates },
         },
-        { type: 'web_search_call', action: { url: opened } },
+        { type: 'web_search_call', status: 'completed', action: { url: opened } },
         {
           type: 'message',
           content: [
@@ -123,7 +124,7 @@ test('assistant research answers the supplied question in one bounded request wi
     protected task = 'research';
     protected instructions = 'Find public manuals.';
     protected async runTask() {
-      return readWebResult(await this.execute('Find manuals'), this.context, 3);
+      return readWebResult(await this.execute('Find manuals'), this.context);
     }
   }
   const discovery = await new SourceSearchTask(context).run();
@@ -138,6 +139,7 @@ test('assistant research answers the supplied question in one bounded request wi
       status: 'completed',
       output: Array.from({ length: 4 }, () => ({
         type: 'web_search_call',
+        status: 'completed',
         action: { sources: [] },
       })),
     }),

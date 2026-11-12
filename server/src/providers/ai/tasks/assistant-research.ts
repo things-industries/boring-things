@@ -34,7 +34,7 @@ export class AssistantResearchTask extends AiTask<never, ResearchAnswer> {
     const response = await this.execute(
       chatResearchPrompt(this.question, this.fields, this.searchCalls),
     );
-    const result = await readWebResult(response, this.context, this.searchCalls, this.sourceMode);
+    const result = await readWebResult(response, this.context, this.sourceMode);
     this.reportMetrics({ sourceCount: result.sources.length });
     return result;
   }
