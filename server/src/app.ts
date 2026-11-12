@@ -33,6 +33,7 @@ import type { ImportAi } from './application/import/types.js';
 import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
 import * as metrics from './metrics.js';
+import { flushSentry } from './sentry.js';
 import { ApplicationEvents } from './application/events.js';
 import * as googleVision from './providers/google-vision/index.js';
 
@@ -60,6 +61,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   // Close hooks run in reverse order: stop jobs and database work before flushing telemetry.
+  app.addHook('onClose', flushSentry);
   app.addHook('onClose', metrics.shutdownMetrics);
 
   // Close the database pool on shutdown only when buildApp created it.

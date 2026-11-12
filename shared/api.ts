@@ -1057,7 +1057,7 @@ export interface components {
             displayName: string;
             samplesAdded: boolean;
         };
-        /** @description Browser sign-in settings, upload limits and feature availability. */
+        /** @description Browser sign-in settings, upload limits, feature availability and monitoring. */
         Config: {
             logtoEndpoint: string;
             logtoAppId: string;
@@ -1067,6 +1067,12 @@ export interface components {
             sampleDataEnabled: boolean;
             importEnabled: boolean;
             chatEnabled: boolean;
+            /** @description Public browser monitoring configuration. */
+            sentry?: {
+                dsn: string;
+                environment: string;
+                release?: string;
+            };
         };
         /** @description User-defined label for organising Things. */
         Tag: {

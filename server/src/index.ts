@@ -3,7 +3,9 @@
 import { getEnv } from './config.js';
 import { buildApp } from './app.js';
 import * as metrics from './metrics.js';
+import { initializeSentry } from './sentry.js';
 
+initializeSentry();
 metrics.initializeMetrics();
 const app = await buildApp({ logger: true }).catch(async (error: unknown) => {
   await metrics.shutdownMetrics();

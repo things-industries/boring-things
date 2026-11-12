@@ -1,5 +1,8 @@
+/** Maps application errors to HTTP responses and reports unexpected request failures. */
+
 import type { FastifyInstance } from 'fastify';
 import { ApplicationError, type ErrorKind } from '../application/errors.js';
+import { logRequestFailure } from '../sentry.js';
 
 interface HttpFailure extends Error {
   code?: string;
@@ -17,6 +20,7 @@ const statuses: Record<ErrorKind, number> = {
   UNSUPPORTED_MEDIA: 415,
 };
 
+// Registers the error handler for API responses and request diagnostics.
 export function installErrorHandler(app: FastifyInstance) {
   app.setErrorHandler((error, request, reply) => {
     const failure = error as HttpFailure;
@@ -40,11 +44,14 @@ export function installErrorHandler(app: FastifyInstance) {
               : status === 404
                 ? 'Not found'
                 : 'Request could not be completed';
-    if (status >= 500)
+    if (status >= 500) {
       request.log.error(
         { code: failure.code ?? failure.name, requestId: request.id },
         'Request failed',
       );
+      if (!(failure instanceof ApplicationError))
+        logRequestFailure(request.routeOptions.url, status);
+    }
     return reply.code(status).send({ message, statusCode: status });
   });
 }

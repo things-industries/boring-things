@@ -61,6 +61,12 @@ A new Blueprint can perform an initial deployment during creation. Prepare all c
 
 For an existing Blueprint, sync `render.yaml` after merging changes. Confirm the service shows **Free** compute and an empty **Pre-Deploy Command**; clear any retained pre-deploy command in the service settings. The build command must end with `corepack pnpm deploy:prepare`.
 
+## Sentry monitoring
+
+Set `SENTRY_DSN` to the `boring-things-server` DSN and `SENTRY_FRONTEND_DSN` to the `boring-things-frontend` DSN in the Render service environment. Each SDK uses `NODE_ENV` for the event environment and `RENDER_GIT_COMMIT` for the release. With `NODE_ENV=production`, each SDK starts at a 10% trace sample rate.
+
+Readable production TypeScript stack traces require source maps from the same build. Generate Angular script maps and server TypeScript maps, upload each set to its Sentry project with a build-only `SENTRY_AUTH_TOKEN`, and remove the browser maps from the public output before deploying. See [Angular source maps](https://docs.sentry.io/platforms/javascript/guides/angular/sourcemaps/uploading/) and [Node source maps](https://docs.sentry.io/platforms/javascript/guides/node/sourcemaps/).
+
 ## Verification and recovery
 
 - Verify `/health`, a frontend deep link and the public auth configuration. Confirm private API calls without a bearer token fail.
