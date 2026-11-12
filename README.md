@@ -49,7 +49,7 @@ Run Angular CLI commands with `CI=true` inside the Codex macOS sandbox, includin
 - Thing summaries/detail expose `accessCount` and `lastViewedAt`. `POST /api/things/{id}:view` records one page open, without changing edit timestamps or content revision; reads, assistant tools and stream refreshes do not count. Each successful request increments once, so clients must not automatically retry. List sorting supports `UPDATED` (default), `RECENTLY_VIEWED` and `MOST_VIEWED`, before pagination. Unviewed Things sort last for recent views; frequency ties use last-view time, then ID.
 - Thing cards use category names and show **New** while creation age is less than seven days. Attention cards use stored Issues; automatic deadline-derived Issue creation remains outside the implemented scope. Completing a recurring Task creates its next occurrence on the server.
 - Home and the Things list read client-side stores that load each collection once per session. The Things list searches names and descriptions and filters by category (`/things?categoryId=`). Resolving an Issue or completing or scheduling an Event shows immediately; a rejected change reverts and shows an error toast.
-- **Tasks** (`/tasks`) combines persisted Tasks, Events and Thing dates. Today starts with unscheduled and overdue Tasks, ordered by importance. Only deadlines cause overdue messaging. Every completed Task and ended Event offers contextual chat or dismissal. The first owner message records the followup conversation and timestamp and closes the item. Opening an empty chat keeps the item pending. Accepting a suggestion invokes the scheduling AI task; completing recurring work creates one successor on the server. Tasks can be deleted in every state. See [Task behaviour](docs/plans/tasks.md).
+- **Tasks** (`/tasks`) combines persisted Tasks, Events and Thing dates. Today starts with unscheduled and overdue Tasks, ordered by importance. Only deadlines cause overdue messaging. Every completed Task and ended Event offers contextual chat or dismissal. The first owner message records the followup conversation and timestamp and closes the item. Opening an empty chat keeps the item pending. Accepting a suggestion invokes the scheduling AI task; completing recurring work creates one successor on the server. Tasks can be deleted in every state. See [Task behaviour](docs/architecture/tasks.md).
 - Optional **Add sample data** action. It creates four sample Things with labelled issues, events and purchasables once per owner. Merchant actions are disabled for sample suggestions.
 
 ## AI imports
@@ -159,6 +159,8 @@ New PDF uploads and discovery downloads derive `pageCount` with PDF.js in a work
 
 ## Storage and architecture
 
+See the [architecture overview](docs/architecture/README.md) for application boundaries and domain decisions.
+
 - `src/app/`: Angular shell, lazy feature pages, shared components and services; see `src/AGENTS.md`.
 - `src/styles/`: Sass tokens, typography, mixins and shared styles; see `src/styles/CHEATSHEET.md`.
 - `server/src/application/`: feature workflows for imports, registry and conversations, plus shared activity rules and the single-process job runner.
@@ -243,7 +245,7 @@ Integration checks create and remove isolated temporary databases; they do not r
 
 `pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 
-`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. GitHub Actions validates PRs and `main`. The Render Free Blueprint builds the application, prepares production Supabase at the end of the build and deploys after CI passes. Free instances sleep when idle; queued work resumes on wake and interrupted work requires retry. See [deployment setup](docs/setup/deployment.md) for private Supabase Storage, credentials, Logto callbacks, release sequencing and recovery.
+`pnpm build && pnpm start` serves the built frontend and API from port 3000. Register that origin's callback in Logto if using this mode for login. GitHub Actions validates PRs and `main`. The Render Free Blueprint builds the application, prepares production Supabase at the end of the build and deploys after CI passes. Free instances sleep when idle. The runner recovers queued and interrupted work from persisted job state. See [deployment setup](docs/setup/deployment.md) for private Supabase Storage, credentials, Logto callbacks, release sequencing and recovery.
 
 ### Import verification
 

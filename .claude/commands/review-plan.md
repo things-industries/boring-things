@@ -11,7 +11,7 @@ Target: $ARGUMENTS
 
 If no target is given, review the plan documents changed in the uncommitted working tree plus any commits on the current branch that are not on `main` (`git diff main...HEAD` and `git status`). If that turns up no plan document, ask which plan to review rather than guessing.
 
-Plans live under [docs/plans/](../../docs/plans/). [docs/plans/poc-scaffolding.md](../../docs/plans/poc-scaffolding.md) is the current master plan for the POC's registry, import and assistant work; other plans apply only to their named area.
+Active plans go in `docs/plans/`. Use the [roadmap](../../docs/requirements/roadmap/MILESTONES.md) for scope and the [architecture overview](../../docs/architecture/README.md) and its linked references for current decisions.
 
 ## What to read first
 
@@ -19,7 +19,7 @@ These are instructions to you, the reviewer. Do all of it before writing a singl
 
 Read the whole plan, not just the changed lines — a plan is only coherent as a whole, and a new section usually contradicts one further down. Then read around it:
 
-- **Sibling plans** in `docs/plans/`, if any cover adjacent or preceding work.
+- **Sibling plans** in `docs/plans/`, if any cover adjacent or preceding work. Read the [Import guide](../../docs/setup/imports.md) for Import work.
 - **The code the plan describes.** Open the files, modules, routes, and components it names. Grep for the helper, endpoint, or component it proposes to build — it is often already there. Cross-check against [server/AGENTS.md](../../server/AGENTS.md) and [src/AGENTS.md](../../src/AGENTS.md) for what already exists and what conventions apply.
 - **Root [AGENTS.md](../../AGENTS.md)** and [docs/requirements/product/PRODUCT.md](../../docs/requirements/product/PRODUCT.md) for current implemented behaviour and product intent — a plan must not present a proposal as already delivered, and must not silently contradict product intent without saying so.
 
@@ -80,7 +80,7 @@ Every bullet below describes a **defect**. If the plan does the thing described,
 - User-visible behaviour changed with no matching update to `README.md` or the relevant `AGENTS.md`, contrary to root `AGENTS.md`'s instruction to keep docs current.
 - A capability described as available that is actually still planned — assistant execution, distributed queues, checkout, repair booking, or hosted deployment, per root `AGENTS.md`'s product boundaries.
 - New domain vocabulary or a settled decision that belongs in a requirements doc, left only in the plan.
-- No concise progress file for the plan, or one that exists but the plan does not reference, or one that is stale against what the plan and the code actually show as done.
+- No way to identify remaining work from the plan, linked issues and implementation.
 
 ### How the plan is written
 
@@ -100,7 +100,7 @@ Each finding takes this shape: a numbered short title, then the location, then t
 
 ```
 ### 3. Stage 4 plans the discovery citation step Stage 2 already ships
-   [poc-scaffolding.md:120](docs/plans/poc-scaffolding.md#L120)
+   `docs/plans/imports.md:120`
    The stage-4 section describes attaching citations to discovered facts, which the stage-2 section already covers and the code already implements in `application/discovery.ts`.
    Fix: cut the section from stage 4 and replace it with one line pointing at stage 2, keeping only whatever stage 4 actually adds beyond it.
 ```

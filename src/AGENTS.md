@@ -1,6 +1,6 @@
 # Frontend agent guide
 
-The Angular client manages Things, fields, documents and activity through relative `/api` URLs. Read root `README.md` for implemented behaviour and `docs/requirements/product/PRODUCT.md` for product intent. Read `docs/plans/poc-scaffolding.md` when implementing registry sections, imports or assistant work; the three scaffold steps are implemented, with manual identity/device checks noted in the plan.
+The Angular client manages Things, fields, documents and activity through relative `/api` URLs. Read root `README.md` for implemented behaviour and `docs/requirements/product/PRODUCT.md` for product intent. See [Frontend design](../docs/architecture/frontend.md) for the Figma reference and manual device checks, and the [Import guide](../docs/setup/imports.md) for import behaviour.
 
 ## Structure
 
@@ -12,7 +12,7 @@ Paths are relative to `src/` unless stated otherwise. List a folder to see what 
   - `app.config.ts` constants, `runtime-config.ts` server-supplied configuration, `app-icons.ts` icon catalogue, `app-terms.ts` repeated copy (`APP_TERMS`, `ACTION_TERMS`, `ERROR_TERMS`).
   - `api/api-client.ts`: typed `openapi-fetch` client and the only HTTP path. Only domain services call it; do not add Angular `HttpClient`.
   - `data/`: stateless domain services, one per API domain.
-  - `state/`: Signal Store stores, one per entity type, their shared features, and cross-entity read models in `views/`. Design: `docs/plans/app-state.md`.
+  - `state/`: Signal Store stores, one per entity type, their shared features, and cross-entity read models in `views/`. See [App state](../docs/architecture/app-state.md).
   - `services/`: authentication, route guards, `Toasts` and `ImageCache`.
   - `mocks/`: labelled stand-ins for missing API capabilities, one file per Backend issue. See its `README.md`.
 - `app/features/<feature>/`: one folder per page area, laid out as below.

@@ -8,7 +8,7 @@ Merge the latest `main` into the current branch.
 
 Input: $ARGUMENTS
 
-Read [docs/agents/agent-behaviour.md](../../../docs/agents/agent-behaviour.md), [src/AGENTS.md](../../../src/AGENTS.md), [docs/plans/poc-frontend.md](../../../docs/plans/poc-frontend.md) and [docs/plans/poc-frontend-progress.md](../../../docs/plans/poc-frontend-progress.md) first. Read [server/AGENTS.md](../../../server/AGENTS.md) if backend files conflict.
+Read [docs/agents/agent-behaviour.md](../../../docs/agents/agent-behaviour.md), [src/AGENTS.md](../../../src/AGENTS.md), [frontend design](../../../docs/architecture/frontend.md) and [frontend mocks](../../../src/app/core/mocks/README.md) first. Read [server/AGENTS.md](../../../server/AGENTS.md) if backend files conflict.
 
 ## 1. Prepare
 
@@ -43,7 +43,7 @@ Resolve each conflict by file type:
 - `pnpm-lock.yaml`: take main's version, then run `pnpm install` to reconcile our `package.json`.
 - `supabase/migrations/`: keep both sides' files. Never edit a migration main has already added. If two migrations share a timestamp or conflict in intent, stop and ask.
 - Other backend files: prefer main's version unless our branch changed the same lines on purpose. Keep both intents where they do not contradict.
-- Docs: keep both sides' content. For `docs/plans/poc-frontend-progress.md`, keep our stage statuses and merge the issue and mock tables.
+- Docs: reconcile both sides' decisions and check which mocks remain in the merged code.
 - Frontend files: see step 4.
 
 If a conflict's intent is unclear on either side, ask before resolving it. Batch the questions.
@@ -53,12 +53,12 @@ If a conflict's intent is unclear on either side, ask before resolving it. Batch
 In a backend-led merge, treat main's frontend edits, conflicting or not, as test harnesses for the new or fixed backend behaviour. They are not designs to keep. For each frontend file main changed:
 
 1. Find the backend feature it exercises: read the matching commits, routes and `openapi.json` changes.
-2. Decide whether the file belongs to a screen our branch has rebuilt. Use the stage table in `poc-frontend-progress.md` and the screen routes in `poc-frontend.md`.
+2. Decide whether the file belongs to a screen our branch has rebuilt. Use the branch diff and the routes in the frontend design reference.
 3. **Rebuilt or in-progress screen**: resolve to our version, then adapt the feature properly:
    - Consume new or changed API fields through the generated types and existing view-model mapping. Do not add `HttpClient` or duplicate contract types.
-   - Place new UI where our design has a slot. If it has none, re-home it following the `Re-homed features` section of `poc-frontend.md`.
+   - Place new UI in the relevant design slot or the control named in the frontend design decisions.
    - Follow `src/AGENTS.md`: copy in templates, icons from `app-icons.ts`, tokens and utility classes from `styles/CHEATSHEET.md`, local signals, standalone components.
-   - If the backend change resolves an issue that has a mock in `src/app/core/mocks/`, replace the mock with the real API, delete the mock and update the mock and issue tables in `poc-frontend-progress.md`.
+   - If the backend change resolves an issue that has a mock in `src/app/core/mocks/`, replace the mock with the real API, delete the mock and update the list in the frontend mocks README.
    - Drop test-only scaffolding such as debug buttons, raw JSON output and hard-coded IDs.
 4. **Screen not yet rebuilt** (legacy code a later stage will replace): do not adapt the feature. Take main's version if it merged cleanly. On conflict, keep whichever side compiles against the merged contract with the smaller change. List these files in the hand-off.
 

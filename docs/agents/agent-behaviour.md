@@ -27,7 +27,7 @@ Default CI runs `pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Provi
 
 - When a decision fundamentally changes the product, flow or domain model, update `docs/requirements/product/PRODUCT.md` in the same piece of work.
 - When setup or architecture changes materially, update `README.md` and the relevant `AGENTS.md`.
-- Docs describe the current state and direction. Remove superseded guidance rather than leaving contradictory versions side by side. Remove references to plans in root `AGENTS.md` once they are complete or no longer relevant.
+- Docs describe the current state and direction. Move lasting rules and reasons into their owning documents when plans complete. Update inbound links. Use Git history for superseded working material and the [archive](../archived/) for original records that still merit a place in the documentation.
 
 ## Keep top-level agent files small
 

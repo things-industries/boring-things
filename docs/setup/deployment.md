@@ -8,7 +8,7 @@ GitHub Actions validates pull requests and pushes to `main`. Render deploys `mai
 2. Render builds the same commit using `render.yaml`.
 3. After compilation succeeds, the final build step `pnpm deploy:prepare` applies pending Supabase migrations, upserts registry metadata and creates or verifies the private attachment bucket. The build fails if preparation fails.
 4. Render starts the compiled application and checks `/health`, which checks database connectivity.
-5. The replacement process waits for the database runner lock. The old process aborts and finishes active work before releasing that lock. Queued jobs can then run on the replacement; interrupted jobs require user retry.
+5. The replacement process waits for the database runner lock. The old process aborts and finishes active work before releasing that lock. The replacement recovers work from persisted job state and starts the queue. See [execution and recovery](imports.md#execution-and-recovery).
 
 Use the Render workspace's **Wait** overlapping deploy policy. Run production migrations through this release path; coordinate any manual deployment preparation so it cannot overlap. Migration or seed failure stops deployment. Already-applied migrations remain applied when a later step fails.
 
@@ -35,7 +35,7 @@ Use a dedicated project with PostgreSQL 17. Inspect its migration history before
 
 The Blueprint uses one Free instance in Frankfurt, the nearest available Render region to the initial London Supabase project. Render provides `PORT`; the Blueprint sets `HOST=0.0.0.0` and disables sample data.
 
-Free services sleep after 15 minutes without inbound traffic and take about a minute to wake. They may also restart at any time. Queued jobs remain in PostgreSQL and resume on wake; interrupted imports and chat require user retry. Attachments remain in Supabase Storage. The workspace shares 750 Free instance hours per month across its Free services, including any Travel Things service in the same workspace. Bandwidth and build-minute limits also apply; monitor these in Render billing. See [Free service limits](https://render.com/docs/free).
+Free services sleep after 15 minutes without inbound traffic and take about a minute to wake. They may also restart at any time. Queued jobs remain in PostgreSQL and resume on wake. Attachments remain in Supabase Storage. The workspace shares 750 Free instance hours per month across its Free services, including any Travel Things service in the same workspace. Bandwidth and build-minute limits also apply; monitor these in Render billing. See [Free service limits](https://render.com/docs/free).
 
 Configure production values in Render. Keep local `.env` and its `DATABASE_URL` pointing at the local database. The Blueprint's build command handles hosted preparation without a local production configuration file. For optional manual hosted preparation, put the production values in ignored `.env.render` with file permissions restricted to the owner. Do not commit or print that file.
 
