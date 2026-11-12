@@ -1,7 +1,9 @@
-/** Server telemetry scopes and provider measurements, exports content-free traces to Langfuse. */
+/** Server telemetry scopes and provider measurements for Langfuse and server logs. */
 
 import { getEnv } from './config.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomBytes } from 'node:crypto';
+import type { FastifyBaseLogger } from 'fastify';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import {
@@ -9,10 +11,54 @@ import {
   propagateAttributes,
   startActiveObservation,
   startObservation,
+  updateActiveObservation,
 } from '@langfuse/tracing';
-import type { SpanContext } from '@opentelemetry/api';
+import { trace, type SpanContext } from '@opentelemetry/api';
 
 let sdk: NodeSDK | undefined;
+
+type DiagnosticLogger = Pick<FastifyBaseLogger, 'info' | 'warn'>;
+let diagnosticLogger: DiagnosticLogger | undefined;
+
+// Registers the process logger for diagnostics independently of trace export.
+export function setDiagnosticLogger(logger: DiagnosticLogger | undefined) {
+  diagnosticLogger = logger;
+}
+
+export interface DiagnosticEntity {
+  type: 'thing' | 'task' | 'purchasable';
+  id: string;
+  name: string;
+}
+interface DiagnosticScope {
+  jobId?: string;
+  attemptId?: string;
+  entity?: DiagnosticEntity;
+}
+const diagnostics = new AsyncLocalStorage<DiagnosticScope>();
+
+// Updates the current observation when tracing is active.
+function updateTrace(update: Parameters<typeof updateActiveObservation>[0]) {
+  if (trace.getActiveSpan()?.isRecording()) updateActiveObservation(update);
+}
+
+export interface ProviderFailure {
+  kind:
+    | 'deadline'
+    | 'shutdown'
+    | 'cancelled'
+    | 'http'
+    | 'connection_timeout'
+    | 'connection'
+    | 'response'
+    | 'web_search_unfinished'
+    | 'unknown';
+  httpStatus?: number;
+  httpRequestId?: string;
+  sdkError?: string;
+  networkCode?: string;
+  toolStatus?: string;
+}
 
 export interface ProviderCall {
   task: string;
@@ -26,6 +72,54 @@ export interface ProviderCall {
   units?: number;
   costUsd?: number;
   status: 'success' | 'error';
+  failure?: ProviderFailure;
+}
+
+// Returns identifiers and the most relevant display label for diagnostics.
+export function getDiagnosticContext(entity = diagnostics.getStore()?.entity) {
+  const scope = diagnostics.getStore();
+  return {
+    ...(scope?.jobId && { jobId: scope.jobId, attemptId: scope.attemptId }),
+    ...(entity && { entityType: entity.type, entityId: entity.id, entityName: entity.name }),
+  };
+}
+
+// Adds the owner-scoped entity once its display label is available.
+export function setJobEntity(entity: DiagnosticEntity) {
+  const scope = diagnostics.getStore();
+  if (!scope?.jobId || (scope.entity?.id === entity.id && scope.entity.name === entity.name))
+    return;
+  scope.entity = entity;
+  updateTrace({ metadata: getDiagnosticContext() });
+}
+
+// Associates standalone work with an entity.
+export function withEntity<T>(entity: DiagnosticEntity, work: () => T) {
+  return diagnostics.run({ ...diagnostics.getStore(), entity }, work);
+}
+
+// Records content-free workflow measurements and, where applicable, a display label.
+export function recordImportDiagnostic(
+  event: string,
+  details: Record<string, unknown>,
+  entity?: DiagnosticEntity,
+) {
+  const metadata = { ...getDiagnosticContext(entity), ...details };
+  diagnosticLogger?.info(metadata, event);
+  startObservation(event, { metadata }).end();
+}
+
+// Marks a completed import with omissions as a warning in its trace and server log.
+export function recordImportOutcome(warnings: { stage: string; reason: string }[]) {
+  if (!warnings.length) return;
+  const metadata = { ...getDiagnosticContext(), warnings };
+  updateTrace({ level: 'WARNING', statusMessage: 'optional_work_omitted', metadata });
+  diagnosticLogger?.warn(metadata, 'Import completed with omitted work');
+}
+
+// Exposes proposal and provider-validation counts on the active task observation.
+export function recordTaskCounts(aiCount: number, validCount: number) {
+  updateTrace({ metadata: { ...getDiagnosticContext(), aiCount, validCount } });
 }
 
 // Starts one exporter when both credentials are configured; application startup stays independent.
@@ -110,23 +204,27 @@ function withJobTrace<T>(
   sessionId: string,
   work: () => Promise<T>,
 ) {
-  return propagateAttributes(
-    {
-      sessionId,
-      traceName: `process_${kind}`,
-      metadata: {
-        jobKind: kind,
-        jobId: id,
-        ...(kind === 'chat' && { sessionKind: 'conversation' }),
+  const attemptId = randomBytes(8).toString('hex');
+  return diagnostics.run({ jobId: id, attemptId }, () =>
+    propagateAttributes(
+      {
+        sessionId,
+        traceName: `process_${kind}`,
+        metadata: {
+          jobKind: kind,
+          jobId: id,
+          attemptId,
+          ...(kind === 'chat' && { sessionKind: 'conversation' }),
+        },
       },
-    },
-    () =>
-      withScope(`process_${kind}`, work, {
-        traceId: getJobTraceId(id),
-        spanId: randomBytes(8).toString('hex'),
-        traceFlags: 1,
-        isRemote: true,
-      }),
+      () =>
+        withScope(`process_${kind}`, work, {
+          traceId: getJobTraceId(id),
+          spanId: attemptId,
+          traceFlags: 1,
+          isRemote: true,
+        }),
+    ),
   );
 }
 
@@ -142,12 +240,32 @@ export function withChatTurn<T>(messageId: string, conversationId: string, work:
 
 // Measures a task invocation, including its model turns, tools, validation and conversion.
 export function withTask<T>(task: string, work: () => Promise<T>) {
-  return withScope(`execute_${task}`, work);
+  return withScope(`execute_${task}`, () => {
+    updateTrace({ metadata: getDiagnosticContext() });
+    return work();
+  });
 }
 
 // Records one provider attempt; absent usage and costs remain unknown after a failed request.
 export function recordProviderCall(call: ProviderCall) {
   try {
+    const details = {
+      ...getDiagnosticContext(),
+      provider: call.provider,
+      operation: call.operation ?? call.task,
+      requestId: call.requestId,
+      ...call.failure,
+    };
+    if (call.status === 'error')
+      diagnosticLogger?.warn(
+        {
+          task: call.task,
+          model: call.model,
+          elapsedMs: call.startedAt === undefined ? undefined : Date.now() - call.startedAt,
+          ...details,
+        },
+        'Provider request failed',
+      );
     const startTime = call.startedAt === undefined ? undefined : new Date(call.startedAt);
     const span = call.model
       ? startObservation(call.task, {}, { asType: 'generation', startTime })
@@ -162,9 +280,7 @@ export function recordProviderCall(call: ProviderCall) {
       },
       costDetails: call.costUsd === undefined ? undefined : { total: call.costUsd },
       metadata: {
-        provider: call.provider,
-        operation: call.operation ?? call.task,
-        requestId: call.requestId,
+        ...details,
         units: call.units,
         durationKnown: call.startedAt !== undefined,
         usageKnown: call.usage !== undefined,
@@ -172,7 +288,8 @@ export function recordProviderCall(call: ProviderCall) {
           call.costUsd !== undefined ? 'standard_rate' : call.usage ? 'model_price' : 'unknown',
       },
       level: call.status === 'error' ? 'ERROR' : 'DEFAULT',
-      statusMessage: call.status === 'error' ? 'provider_failed' : undefined,
+      statusMessage:
+        call.status === 'error' ? (call.failure?.kind ?? 'provider_failed') : undefined,
     });
     span.otelSpan.setAttribute(LangfuseOtelSpanAttributes.TRACE_TAGS, [
       `provider:${call.provider}`,

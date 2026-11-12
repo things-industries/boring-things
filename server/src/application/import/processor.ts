@@ -41,6 +41,7 @@ export class ImportProcessor {
     let usageWrites = Promise.resolve();
     const context: AiContext = {
       signal,
+      cancellationReason: () => (shutdown.aborted ? 'shutdown' : 'deadline'),
       beforeRequest: () => ensure(requests++ < getEnv('IMPORT_MAX_REQUESTS'), 'tool_limit'),
       record: async (delta) => {
         if (!usage.model) usage.model = delta.model ?? usage.model;

@@ -242,9 +242,10 @@ test('discovery reads page links and structures a cited identity in one conversa
             ? [
                 {
                   type: 'web_search_call',
+                  status: 'completed',
                   action: { sources: [{ url: source }] },
                 },
-                { type: 'web_search_call', action: { url: pdf } },
+                { type: 'web_search_call', status: 'completed', action: { url: pdf } },
                 {
                   type: 'function_call',
                   name: 'read_resource_page',
@@ -327,7 +328,7 @@ test('public research keeps the source-derived product generation across its req
     return jsonResponse({
       ...response,
       output: [
-        { type: 'web_search_call', action: { sources: [{ url: source }] } },
+        { type: 'web_search_call', status: 'completed', action: { sources: [{ url: source }] } },
         ...response.output,
       ],
     });
@@ -420,6 +421,8 @@ test('SDK task suggestions research mapped public fields in one bounded structur
         fieldSetId: 'appliances.dishwasher',
         title: 'Run machine care',
         eligibility: 'The model has a machine care programme.',
+        recurrence: 'every month',
+        importance: 'RECOMMENDED' as const,
       },
     ],
   };
@@ -441,6 +444,11 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     assert.ok(body.input.includes('existingTasks'));
     assert.match(body.instructions, /only when the evidence supports its applicability/);
     assert.match(body.instructions, /and any stated eligibility conditions/);
+    assert.match(
+      body.instructions,
+      /Use importance and recurrence in fieldSetSuggestions as estimates/,
+    );
+    assert.match(body.instructions, /Prefer a documented calendar interval over the estimate/);
     assert.match(body.instructions, /return each underlying action or product once/);
     assert.ok(body.input.includes(JSON.stringify(research.fieldSetSuggestions)));
     if (requests.length === 1) assert.ok(body.input.includes('Private owner title'));
@@ -461,7 +469,10 @@ test('SDK task suggestions research mapped public fields in one bounded structur
     });
     return jsonResponse({
       ...response,
-      output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
+      output: [
+        { type: 'web_search_call', status: 'completed', action: { sources: [{ url }] } },
+        ...response.output,
+      ],
       usage: { input_tokens: 25, output_tokens: 10 },
     });
   });
@@ -554,13 +565,17 @@ test('SDK purchasable research discovers products and purchase links within one 
       /Describe why the item is useful and when the owner should buy it/,
     );
     assert.match(body.input, /consumables/);
+    assert.ok(body.input.includes(`"purchaseUrl":"${url}"`));
     assert.ok(body.input.includes('existingPurchasables'));
     if (requests.length === 1) assert.ok(body.input.includes('Private owner product'));
     assert.equal(body.text.format.schema.properties.items.type, 'array');
     const response = output({ items: [product] });
     return jsonResponse({
       ...response,
-      output: [{ type: 'web_search_call', action: { sources: [{ url }] } }, ...response.output],
+      output: [
+        { type: 'web_search_call', status: 'completed', action: { sources: [{ url }] } },
+        ...response.output,
+      ],
     });
   });
   const ai = new OpenAiImports((turn) => turns.push(turn));
@@ -581,10 +596,11 @@ test('SDK purchasable research discovers products and purchase links within one 
     existingPurchasables: [{ kind: 'CONSUMABLE' as const, name: 'Private owner product' }],
     fieldSetSuggestions: [
       {
-        fieldSetId: 'appliances.consumables',
+        fieldSetId: 'appliances.fridge',
         name: 'High-capacity water filter',
         kind: 'UPGRADE' as const,
         eligibility: 'The maker lists an optional higher-capacity cartridge for this model.',
+        purchaseUrl: url,
       },
     ],
   };

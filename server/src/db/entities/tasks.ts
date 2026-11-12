@@ -170,12 +170,12 @@ export async function saveSuggestedTask(
   task: Pick<Schema['Task'], 'title' | 'description' | 'sourceRefs'> &
     Partial<Pick<Schema['Task'], 'importance' | 'recurrence'>>,
 ) {
-  await database.execute(
+  const [saved] = await database.rows<{ id: string }>(
     db,
     `insert into bt.tasks(owner_id,thing_id,title,description,status,source_refs,import_key,importance,recurrence)
      select $1,$2,$3,$4,'SUGGESTED',$5,$6,$7,$8
      where not exists(select 1 from bt.tasks where owner_id=$1 and thing_id=$2 and lower(trim(title))=lower(trim($3)))
-     on conflict(import_key) do nothing`,
+     on conflict(import_key) do nothing returning id`,
     [
       owner,
       thingId,
@@ -187,6 +187,7 @@ export async function saveSuggestedTask(
       task.recurrence ? JSON.stringify(task.recurrence) : null,
     ],
   );
+  return saved?.id;
 }
 
 /** Closes linked Tasks and returns all closed Tasks for an Issue. */

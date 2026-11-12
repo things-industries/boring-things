@@ -26,6 +26,60 @@ async function waitForImport(env: TestApp, id: string) {
   throw new Error('Fixture Import timed out');
 }
 
+test('additional-information retry resumes the unfinished range of a large transcript', async () => {
+  const env = await startTestApp();
+  try {
+    const request = (url: string, payload?: object) =>
+      env.app.inject({
+        method: 'POST',
+        url,
+        payload,
+        headers: { authorization: env.authorization },
+      });
+    const thing = (
+      await request('/api/things', {
+        name: 'Fixture oven',
+        categoryId: 'appliances',
+      })
+    ).json<Schema['Thing']>();
+    const source = randomUUID();
+    const transcript = 'A'.repeat(66_650) + 'B'.repeat(40_000);
+    await env.pool.query(
+      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
+       select $1,owner_id,'large.txt','text/plain',1,'large-fixture',$3,'COMPLETE' from bt.things where id=$2`,
+      [source, thing.id, transcript],
+    );
+    await env.pool.query(
+      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      [source, thing.id],
+    );
+    const batches: string[] = [];
+    env.importAi.additionalInformation = async ({ text }) => {
+      batches.push(text);
+      if (batches.length === 2) throw new Error('ai_provider_failed');
+      return { findings: [] };
+    };
+    const submitted = await request('/api/imports', { attachmentIds: [], thingId: thing.id });
+    assert.equal(submitted.statusCode, 202, submitted.body);
+    const { importId } = submitted.json<Schema['ImportAccepted']>();
+    const first = await waitForImport(env, importId);
+    assert.equal(first.warnings?.length, 1);
+    assert.equal(batches.length, 2);
+    assert.equal(batches[0] + batches[1], transcript);
+    assert.ok(batches[0].length > 66_650);
+
+    const retried = await request('/api/imports/' + importId + ':retry');
+    assert.equal(retried.statusCode, 200, retried.body);
+    const second = await waitForImport(env, importId);
+    assert.equal(second.status, 'COMPLETE');
+    assert.equal(second.warnings?.length, 0);
+    assert.equal(batches.length, 3);
+    assert.equal(batches[2], batches[1]);
+  } finally {
+    await env.close();
+  }
+});
+
 // Additional-information validation aborted the single-Thing workflow before recommendations.
 test('additional-information warnings permit recommendations and retry, while write failures stop the Import', async () => {
   const env = await startTestApp();

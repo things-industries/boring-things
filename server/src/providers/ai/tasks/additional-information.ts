@@ -20,8 +20,40 @@ export interface AdditionalInformationInput {
   knownFields: string[];
   attachmentId: string;
 
-  // A portion of the current attachment transcription, up to 20,000 characters.
+  // A portion of the current attachment transcription.
   text: string;
+}
+
+const instructions = getPrompt('thing-definition') + getPrompt('import-instructions');
+const prompt =
+  'Find only significant information missing from the supplied Thing fields. It must matter to identifying, operating, maintaining or administering this Thing. Use search_fields before proposing a custom field. Ignore incidental text and unexplained markings. Explain why each finding matters, preserve sensitivity and cite verbatim source passages. Input: ';
+const initialCharacterLimit = 100_000;
+
+// Fits source text into the initial request, accounting for JSON escapes and other inputs.
+export function getAdditionalInformationBatch(
+  input: Omit<AdditionalInformationInput, 'text'>,
+  source: string,
+) {
+  const available =
+    initialCharacterLimit -
+    instructions.length -
+    prompt.length -
+    JSON.stringify({ ...input, text: '' }).length;
+  let length = Math.min(source.length, Math.max(0, available));
+  if (JSON.stringify(source.slice(0, length)).length - 2 > available) {
+    let lower = 0;
+    while (lower < length) {
+      const midpoint = Math.ceil((lower + length) / 2);
+      if (JSON.stringify(source.slice(0, midpoint)).length - 2 <= available) lower = midpoint;
+      else length = midpoint - 1;
+    }
+  }
+  if (
+    length < source.length &&
+    /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(source.slice(length - 1, length + 1))
+  )
+    length--;
+  return { ...input, text: source.slice(0, length) };
 }
 
 export const outputSchema = createObjectSchema(
@@ -64,8 +96,10 @@ export type Output = FromSchema<typeof outputSchema>;
 export class AdditionalInformationTask extends AiTask<Output, AdditionalInformationResult> {
   protected readonly model: string = 'gpt-6.1-sol';
   protected readonly effort = 'low';
+  protected override readonly batchResearchReads = true;
+  protected override readonly maxTextCharacters = 160_000;
   protected task = 'additional_information';
-  protected instructions = getPrompt('thing-definition') + getPrompt('import-instructions');
+  protected instructions = instructions;
   protected outputSchema = outputSchema;
   protected resultKey = 'findings' as const;
 
@@ -88,7 +122,7 @@ export class AdditionalInformationTask extends AiTask<Output, AdditionalInformat
       await this.execute([
         {
           role: 'user',
-          content: `Find only significant information missing from the supplied Thing fields. It must matter to identifying, operating, maintaining or administering this Thing. Use search_fields before proposing a custom field. Ignore incidental text and unexplained markings. Explain why each finding matters, preserve sensitivity and cite verbatim source passages. Input: ${JSON.stringify(this.input)}`,
+          content: prompt + JSON.stringify(this.input),
         },
       ]),
     );

@@ -13,7 +13,10 @@ import { fields } from '../../src/db/seeds/registry.js';
 import type { AiTurnCompleted } from '../../src/providers/ai/types.js';
 import { getPrompt } from '../../src/providers/ai/prompts.js';
 import { ResolveThingTask } from '../../src/providers/ai/tasks/resolve-thing.js';
-import { AdditionalInformationTask } from '../../src/providers/ai/tasks/additional-information.js';
+import {
+  AdditionalInformationTask,
+  getAdditionalInformationBatch,
+} from '../../src/providers/ai/tasks/additional-information.js';
 setEnvMode('test');
 const definition = fields.find((field) => field.id === 'common.model')!;
 const input: PopulationInput = {
@@ -275,6 +278,34 @@ test('additional information selects its model and receives Thing instructions',
   assert.deepEqual(await task.run(), { findings: [] });
 });
 
+test('additional information sizes batches by the escaped initial request', async (t) => {
+  t.after(() => mock.restoreAll());
+  const metadata = {
+    thing: input.thing,
+    knownFields: ['Model'],
+    attachmentId: 'source',
+  };
+  const short = 'x'.repeat(66_650);
+  assert.equal(getAdditionalInformationBatch(metadata, short).text, short);
+  const source = ('quoted "value"\n' + String.fromCodePoint(0x1f680)).repeat(8_000);
+  const batch = getAdditionalInformationBatch(metadata, source);
+  assert.ok(batch.text.length > 66_650);
+  assert.ok(batch.text.length < source.length);
+  assert.ok(source.startsWith(batch.text));
+  const fetch = mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    const request = JSON.parse(String(options.body));
+    const size = request.instructions.length + request.input[0].content.length;
+    assert.ok(size > 99_900 && size <= 100_000);
+    return response([
+      { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
+    ]);
+  });
+  assert.deepEqual(await new AdditionalInformationTask(batch, createContext()).run(), {
+    findings: [],
+  });
+  assert.equal(fetch.mock.callCount(), 1);
+});
+
 test('an oversized task stops before contacting the model', async (t) => {
   t.after(() => mock.restoreAll());
   let requests = 0;
@@ -466,8 +497,8 @@ for (const capability of ['tasks', 'purchasables'] as const) {
           );
         }
         assert.deepEqual(
-          body.tools.map((tool: { type: string }) => tool.type),
-          request === 3 && webCalls === 3 ? ['function'] : ['function', 'web_search'],
+          (body.tools ?? []).map((tool: { type: string }) => tool.type),
+          request === 3 ? (webCalls === 3 ? [] : ['web_search']) : ['function', 'web_search'],
         );
         assert.equal(body.max_tool_calls, request === 3 ? (webCalls === 3 ? undefined : 1) : 3);
         if (request === 1 || request === 2) {
@@ -479,6 +510,7 @@ for (const capability of ['tasks', 'purchasables'] as const) {
             ...(request === 2
               ? Array.from({ length: webCalls }, () => ({
                   type: 'web_search_call',
+                  status: 'completed',
                   action: { sources: [{ url: merchantUrl }] },
                 }))
               : []),
@@ -547,6 +579,52 @@ for (const capability of ['tasks', 'purchasables'] as const) {
     );
   });
 }
+
+// An unfinished fourth search caused a completed response to fail the research budget check.
+test('purchasable research keeps valid products when the provider returns an unfinished search', async (t) => {
+  const url = 'https://maker.example/seal-cleaner';
+  const product = {
+    kind: 'CONSUMABLE',
+    name: 'Seal cleaner',
+    description: 'Removes dirt from the seal.',
+    merchantUrl: url,
+    sourceRefs: [{ url, quote: 'Use on the door seal.' }],
+  };
+  const fetch = t.mock.method(globalThis, 'fetch', async () =>
+    response([
+      ...Array.from({ length: 3 }, () => ({
+        type: 'web_search_call',
+        status: 'completed',
+        action: { sources: [{ url }] },
+      })),
+      {
+        type: 'web_search_call',
+        status: 'incomplete',
+        action: { sources: [] },
+      },
+      {
+        type: 'message',
+        content: [{ type: 'output_text', text: JSON.stringify({ items: [product] }) }],
+      },
+    ]),
+  );
+  const entries: Partial<Usage>[] = [];
+  const result = await new OpenAiImports().findPurchasables(
+    {
+      categoryId: 'appliances',
+      knownFields: [],
+      fields: [],
+      sources: input.sources,
+      referenceUrls: [],
+      existingPurchasables: [],
+      fieldSetSuggestions: [],
+    },
+    { ...createContext(), record: async (entry) => void entries.push(entry) },
+  );
+  assert.deepEqual(result.items, [product]);
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(entries.flatMap((entry) => entry.toolCalls ?? []).length, 3);
+});
 
 test('purchasable research skips categories without guidance without making AI requests', async (t) => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => {
@@ -620,38 +698,50 @@ test('purchasables can use purchase links printed in attachment evidence without
   assert.equal(result.items[0].merchantUrl, merchantUrl);
 });
 
-// The application tool budget threw after four reads and discarded the task's gathered evidence.
-test('task recommendations finish from gathered evidence when the tool budget is exhausted', async (t) => {
+// Exhausting attachment reads used to disable the remaining web search budget.
+test('task recommendations run two rounds of local reads before a web-enabled final turn', async (t) => {
   t.after(() => mock.restoreAll());
   let requests = 0,
     reads = 0;
   mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
     requests++;
-    if (requests <= 5)
-      return response([
-        {
+    if (requests <= 2) {
+      assert.equal(body.parallel_tool_calls, true);
+      assert.ok(body.tools.some((tool: { name?: string }) => tool.name === 'search_transcription'));
+      return response(
+        Array.from({ length: 4 }, (_, index) => ({
           type: 'function_call',
-          call_id: 'read-' + requests,
+          call_id: `read-${requests}-${index}`,
           name: 'search_transcription',
           arguments: JSON.stringify({ attachmentId: 'source', query: 'seal', offset: 0 }),
-        },
-      ]);
-    assert.equal(body.tool_choice, 'none');
-    assert.ok(
-      body.input.some(
-        (item: { type?: string; output?: string }) =>
-          item.type === 'function_call_output' &&
-          item.output?.includes('Inspect the seal monthly.'),
-      ),
-    );
-    assert.ok(
-      body.input.some(
-        (item: { type?: string; output?: string }) =>
-          item.type === 'function_call_output' && item.output?.includes('tool_limit'),
+        })),
+      );
+    }
+    assert.deepEqual(body.tools, [{ type: 'web_search' }]);
+    assert.equal(body.max_tool_calls, 3);
+    assert.equal(body.parallel_tool_calls, false);
+    const results = body.input
+      .filter((item: { type: string }) => item.type === 'function_call_output')
+      .map((item: { call_id: string; output: string }) => [item.call_id, JSON.parse(item.output)]);
+    assert.deepEqual(
+      results.map(([id, result]: [string, { error?: string; text?: string }]) => [
+        id,
+        result.error ?? result.text,
+      ]),
+      [1, 2].flatMap((round) =>
+        Array.from({ length: 4 }, (_, index) => [
+          `read-${round}-${index}`,
+          index === 3 ? 'tool_round_limit' : 'Inspect the seal monthly.',
+        ]),
       ),
     );
     return response([
+      {
+        type: 'web_search_call',
+        status: 'completed',
+        action: { type: 'search', sources: [{ url: 'https://maker.example/seal' }] },
+      },
       {
         type: 'message',
         role: 'assistant',
@@ -694,9 +784,46 @@ test('task recommendations finish from gathered evidence when the tool budget is
       },
     }),
   );
-  assert.equal(requests, 6);
-  assert.equal(reads, 4);
+  assert.equal(requests, 3);
+  assert.equal(reads, 6);
   assert.equal(result.items[0].title, 'Check the seal');
+});
+
+test('additional information limits the combined evidence returned by a local lookup round', async (t) => {
+  t.after(() => mock.restoreAll());
+  const source = '"'.repeat(6_000);
+  let requests = 0;
+  mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    const body = JSON.parse(String(options.body));
+    if (++requests === 1) {
+      assert.equal(body.parallel_tool_calls, true);
+      return response(
+        Array.from({ length: 3 }, (_, index) => ({
+          type: 'function_call',
+          call_id: `read-${index}`,
+          name: 'search_transcription',
+          arguments: JSON.stringify({ attachmentId: 'source', query: '', offset: 0 }),
+        })),
+      );
+    }
+    const outputs = body.input
+      .filter((item: { type: string }) => item.type === 'function_call_output')
+      .map((item: { output: string }) => JSON.parse(item.output));
+    assert.equal(outputs[0].text, source);
+    assert.deepEqual(outputs.slice(1), [
+      { error: 'tool_output_limit' },
+      { error: 'tool_output_limit' },
+    ]);
+    return response([
+      { type: 'message', content: [{ type: 'output_text', text: '{"findings":[]}' }] },
+    ]);
+  });
+  const task = new AdditionalInformationTask(
+    { thing: input.thing, knownFields: [], attachmentId: 'source', text: source },
+    createImportTaskContext({ sources: [{ attachmentId: 'source', text: source }] }),
+  );
+  assert.deepEqual(await task.run(), { findings: [] });
+  assert.equal(requests, 2);
 });
 
 test('recommendation tools reject attachment IDs outside the run scope', async (t) => {

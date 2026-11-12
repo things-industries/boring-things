@@ -10,6 +10,7 @@ import type { ChatAi } from '../../application/conversations/types.js';
 import { OpenAiImports } from './openai-imports.js';
 import { OpenAiChat } from './openai-chat.js';
 import type { AiTurnCompleted, RegistryResources } from './types.js';
+import * as metrics from '../../metrics.js';
 
 interface AiProviders {
   taskScheduler?: TaskScheduler;
@@ -26,12 +27,14 @@ export function createAi(
   return {
     taskScheduler: overrides.taskScheduler ?? {
       schedule: (task, thing, history, today) =>
-        new ScheduleTask(
-          { task, thing, history, today },
-          { signal: AbortSignal.timeout(60000), record: async () => {} },
-        )
-          .onTurnCompleted(onTurnCompleted)
-          .run(),
+        metrics.withEntity({ type: 'task', id: task.id, name: task.title }, () =>
+          new ScheduleTask(
+            { task, thing, history, today },
+            { signal: AbortSignal.timeout(60000), record: async () => {} },
+          )
+            .onTurnCompleted(onTurnCompleted)
+            .run(),
+        ),
     },
     importAi:
       overrides.importAi ?? new OpenAiImports(onTurnCompleted, undefined, registryResources),

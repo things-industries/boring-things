@@ -15,6 +15,7 @@ test('resource research fits page evidence into its conversation and spends its 
   setEnvMode('test');
   const pages = [1, 2, 3].map((page) => `https://maker.example/model/page-${page}`);
   const photo = 'https://maker.example/photo.webp';
+  const unconfirmedSource = 'https://maker.example/unconfirmed';
   const expected = {
     identity: { name: 'Example Oven', sourceUrl: pages[0] },
     items: [
@@ -47,7 +48,18 @@ test('resource research fits page evidence into its conversation and spends its 
       status: 'completed',
       output: [
         ...(requests === 1
-          ? pages.map((url) => ({ type: 'web_search_call', action: { sources: [{ url }] } }))
+          ? [
+              ...pages.map((url) => ({
+                type: 'web_search_call',
+                status: 'completed',
+                action: { sources: [{ url }] },
+              })),
+              {
+                type: 'web_search_call',
+                status: 'incomplete',
+                action: { sources: [{ url: unconfirmedSource }] },
+              },
+            ]
           : []),
         ...(requests <= 3
           ? [
@@ -88,6 +100,7 @@ test('resource research fits page evidence into its conversation and spends its 
   assert.deepEqual(reads, pages);
   assert.deepEqual(result.items, expected.items);
   assert.ok(result.sources.includes(photo));
+  assert.ok(!result.sources.includes(unconfirmedSource));
   assert.equal(result.sources.length, 91);
 });
 
@@ -101,13 +114,16 @@ test('resource research returns its findings after exhausting page reads', async
     const body = JSON.parse(String(options.body));
     requests++;
     if (requests === 5) {
-      assert.equal(body.tool_choice, 'none');
+      assert.deepEqual(body.tools, [{ type: 'web_search' }]);
+      assert.equal(body.max_tool_calls, 2);
       assert.ok(body.input.at(-1).output.includes('tool_limit'));
     }
     return Response.json({
       status: 'completed',
       output: [
-        ...(requests === 1 ? [{ type: 'web_search_call', action: { url: source } }] : []),
+        ...(requests === 1
+          ? [{ type: 'web_search_call', status: 'completed', action: { url: source } }]
+          : []),
         ...(requests < 5
           ? [
               {

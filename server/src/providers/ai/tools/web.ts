@@ -4,19 +4,17 @@ import type { Response } from 'openai/resources/responses/responses';
 import type { AiContext } from '../types.js';
 import { responseText } from '../tasks/task.js';
 import { publicUrl } from '../../web/resources.js';
-import { ensure } from '../../../application/errors.js';
 
-// Records hosted tool usage and returns the observed source catalogue.
+// Records completed searches and returns the observed source catalogue.
 export async function readWebResult(
   result: Response,
   context: AiContext,
-  searchCalls: number,
   sourceMode: 'retrieved' | 'cited' = 'retrieved',
 ) {
   const sources = [
     ...new Set(
       result.output.flatMap((o) => {
-        if (o.type === 'web_search_call' && sourceMode === 'retrieved')
+        if (o.type === 'web_search_call' && o.status === 'completed' && sourceMode === 'retrieved')
           return [
             ...('url' in o.action && typeof o.action.url === 'string' ? [o.action.url] : []),
             ...('sources' in o.action ? (o.action.sources ?? []).map((s) => s.url) : []),
@@ -31,7 +29,9 @@ export async function readWebResult(
       }),
     ),
   ].filter(publicUrl);
-  const calls = result.output.filter((o) => o.type === 'web_search_call');
+  const calls = result.output
+    .filter((o) => o.type === 'web_search_call')
+    .filter((o) => o.status === 'completed');
   await context.record({
     toolCalls: calls.map(({ action }) => ({
       name: 'web_search',
@@ -39,7 +39,6 @@ export async function readWebResult(
       truncated: false,
     })),
   });
-  ensure(calls.length <= searchCalls, 'Research tool limit exceeded');
   return {
     text: responseText(result),
     sources: sourceMode === 'cited' ? sources.slice(0, 3) : sources,

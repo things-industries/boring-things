@@ -30,7 +30,7 @@ Angular browser client -> /api -> Fastify -> Supabase PostgreSQL (bt schema)
 - Node versions follow `package.json`; `.node-version` pins the tested local version. pnpm 10.34.5 via Corepack.
 - Development runs Angular and Fastify separately with an `/api` proxy. The Render configuration serves the production build from Fastify; setup and release operations are in `docs/setup/deployment.md`.
 - Server logs use `pino-pretty` locally and JSON in production; routine request messages use `trace`. Logging overrides are in [README.md](README.md#configuration).
-- Use Render Free compute for this POC. Run hosted database preparation at the end of the Render build.
+- Production runs in the Render workspace **Things industries**. Use Render Free compute for this POC. Run hosted database preparation at the end of the Render build.
 - PostgreSQL access uses `pg`. SQL migrations are the schema authority. Logto supplies identity; Fastify enforces application access.
 - Keep application rules, persistence and external providers separated. Extend existing modules before adding abstractions. Add classes when state or lifecycle requires them.
 - Do not introduce frameworks, providers or infrastructure without explicit approval (but suggest them if they would help). Update the relevant guide when a decision changes.

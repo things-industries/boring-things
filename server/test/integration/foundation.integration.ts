@@ -167,6 +167,91 @@ test('reseeding replaces category glyphs and preserves appliance details', async
   assert.equal(invalid.statusCode, 422, invalid.body);
   assert.equal((await request('GET', `/things/${thing.id}`, undefined, 'bob')).statusCode, 404);
 });
+
+test('appliance field migration moves values and keeps ambiguous values and pins', async () => {
+  const service = { fieldSetId: 'appliances.maintenance', fieldId: 'common.serviceInterval' };
+  const cleaning = {
+    fieldSetId: 'appliances.cleaning',
+    fieldId: 'appliances.cleaningInstructions',
+  };
+  const dishwasher = await create({
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.dishwasher'],
+  });
+  const washerDryer = await create({
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.washing', 'appliances.drying'],
+  });
+
+  // Restore the legacy registry and occurrences used by these fixtures.
+  await pool.query(`
+    insert into bt.field_sets(id,category_id,name,field_ids) values
+      ('appliances.maintenance','appliances','Maintenance',array['common.serviceInterval']),
+      ('appliances.cleaning','appliances','Cleaning',array['appliances.cleaningInstructions']),
+      ('appliances.consumables','appliances','Consumables','{}');
+  `);
+  const sourceRefs = [{ url: 'https://example.test/manual', quote: 'Clean the drum.' }];
+  for (const { thing, address, value } of [
+    { thing: dishwasher, address: service, value: 'Every 12 months' },
+    { thing: dishwasher, address: cleaning, value: 'Run the machine care programme' },
+    { thing: washerDryer, address: cleaning, value: 'Clean the drum' },
+  ]) {
+    await pool.query('delete from bt.thing_fields where thing_id=$1 and field_id=$2', [
+      thing.id,
+      address.fieldId,
+    ]);
+    await pool.query(
+      `update bt.things set data=jsonb_set(jsonb_set(data,'{setIds}',(data->'setIds') || $2::jsonb),
+        '{pins}',(data->'pins') || $3::jsonb) where id=$1`,
+      [thing.id, JSON.stringify([address.fieldSetId]), JSON.stringify([address])],
+    );
+    await pool.query(
+      `insert into bt.thing_fields(thing_id,owner_id,field_key,field_id,field_set_id,value,origin,auto_populate,source_refs)
+        select id,owner_id,$2,$3,$4,$5,'USER',false,$6 from bt.things where id=$1`,
+      [
+        thing.id,
+        `${address.fieldSetId}:${address.fieldId}`,
+        address.fieldId,
+        address.fieldSetId,
+        JSON.stringify(value),
+        JSON.stringify(sourceRefs),
+      ],
+    );
+  }
+  await pool.query(
+    await readFile(
+      new URL(
+        '../../../supabase/migrations/20261111175657_appliance_subtype_fields.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await database.transaction(pool, registrySeedDb.seedRegistry);
+  const read = async (id: string) => {
+    const result = await request('GET', '/things/' + id);
+    assert.equal(result.statusCode, 200, result.body);
+    return result.json<Schema['Thing']>();
+  };
+  const migrated = await read(dishwasher.id);
+  assert.deepEqual(migrated.pinnedFields, [
+    { ...service, fieldSetId: 'appliances.appliance' },
+    { ...cleaning, fieldSetId: 'appliances.dishwasher' },
+  ]);
+  const fieldValue = (setId: string, fieldId: string) =>
+    migrated.fieldSets.find(({ id }) => id === setId)?.fields.find(({ id }) => id === fieldId);
+  assert.equal(fieldValue('appliances.appliance', service.fieldId)?.value, 'Every 12 months');
+  assert.deepEqual(fieldValue('appliances.dishwasher', cleaning.fieldId)?.sourceRefs, sourceRefs);
+  const ambiguous = await read(washerDryer.id);
+  assert.equal(ambiguous.customFields[0].value, 'Clean the drum');
+  assert.equal(ambiguous.customFields[0].origin, 'USER');
+  assert.deepEqual(ambiguous.pinnedFields, [{ customFieldId: ambiguous.customFields[0].id }]);
+  const { rows } = await pool.query(
+    'select auto_populate from bt.thing_fields where thing_id = $1 and field_id = $2',
+    [dishwasher.id, service.fieldId],
+  );
+  assert.deepEqual(rows, [{ auto_populate: false }]);
+});
 test('retired appliance labels discover the shared field definitions', async () => {
   for (const [label, id] of [
     ['Retailer', 'common.seller'],

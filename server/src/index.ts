@@ -9,6 +9,7 @@ const app = await buildApp({ logger: true }).catch(async (error: unknown) => {
   await metrics.shutdownMetrics();
   throw error;
 });
+metrics.setDiagnosticLogger(app.log);
 try {
   await app.listen({ port: getEnv('PORT'), host: getEnv('HOST') });
 } catch (error) {

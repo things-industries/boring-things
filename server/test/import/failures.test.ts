@@ -8,6 +8,7 @@ test('Import failure reasons expose validation names and database codes without 
   for (const [error, reason] of [
     [new Error('Invalid source evidence'), 'Invalid source evidence'],
     [new Error('tool_limit'), 'tool_limit'],
+    [new Error('Research tool limit exceeded'), 'Research tool limit exceeded'],
     [new Error('Invalid recommendation'), 'Invalid recommendation'],
     [new Error('Uncited purchase URL'), 'Uncited purchase URL'],
     [new Error('Invalid value for Private field label'), 'Invalid field value'],

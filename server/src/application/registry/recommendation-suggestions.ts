@@ -9,6 +9,13 @@ export const purchasableKinds = [
   'UPGRADE',
 ] as const satisfies readonly Schema['PurchasableKindEnum'][];
 
+export const taskImportanceLevels = [
+  'CRITICAL',
+  'IMPORTANT',
+  'RECOMMENDED',
+  'NICE_TO_HAVE',
+] as const satisfies readonly Schema['TaskImportanceEnum'][];
+
 const suggestionText = {
   type: 'string',
   pattern: '\\S',
@@ -29,6 +36,8 @@ export const fieldSetRecommendationSuggestionsSchema = {
           title: { ...suggestionText, maxLength: 200 },
           eligibility: suggestionText,
           description: suggestionText,
+          importance: { type: 'string', enum: taskImportanceLevels },
+          recurrence: suggestionText,
         },
       },
     },
@@ -43,6 +52,7 @@ export const fieldSetRecommendationSuggestionsSchema = {
           kind: { type: 'string', enum: purchasableKinds },
           eligibility: suggestionText,
           description: suggestionText,
+          purchaseUrl: { type: 'string', pattern: '^https?://[^\\s]+$', maxLength: 2000 },
         },
       },
     },

@@ -42,6 +42,9 @@ test('concurrent jobs isolate traces and record provider usage without source co
     setEnvMode('runtime');
     await sdk.shutdown();
   });
+  const warnings: unknown[] = [];
+  metrics.setDiagnosticLogger({ info: () => {}, warn: (data: unknown) => warnings.push(data) });
+  t.after(() => metrics.setDiagnosticLogger(undefined));
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
       id: 'response-fixture',
@@ -53,6 +56,11 @@ test('concurrent jobs isolate traces and record provider usage without source co
           type: 'web_search_call',
           status: 'completed',
           action: { type: 'search', query: 'private query' },
+        },
+        {
+          type: 'web_search_call',
+          status: 'incomplete',
+          action: { type: 'search', query: 'private unfinished query' },
         },
       ],
       usage: { input_tokens: 10, output_tokens: 3, input_tokens_details: { cached_tokens: 2 } },
@@ -83,7 +91,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   const spans = exporter.getFinishedSpans();
   for (const id of ids) {
     const group = spans.filter((span) => span.spanContext().traceId === metrics.getJobTraceId(id));
-    assert.equal(group.length, 7);
+    assert.equal(group.length, 9);
     assert(group.every((span) => span.attributes[attributes.TRACE_SESSION_ID] === id));
     const generations = group.filter(
       (span) => span.attributes[attributes.OBSERVATION_TYPE] === 'generation',
@@ -98,6 +106,23 @@ test('concurrent jobs isolate traces and record provider usage without source co
         (span) => span.attributes[attributes.OBSERVATION_COST_DETAILS] === '{"total":0.01}',
       ).length,
       2,
+    );
+    const unfinished = group.filter(
+      (span) => span.attributes[attributes.OBSERVATION_STATUS_MESSAGE] === 'web_search_unfinished',
+    );
+    assert.equal(unfinished.length, 2);
+    for (const { attributes: details } of unfinished) {
+      assert.equal(details[`${attributes.OBSERVATION_METADATA}.toolStatus`], '"incomplete"');
+      assert.equal(details[`${attributes.OBSERVATION_METADATA}.requestId`], '"response-fixture"');
+      assert.equal(details[attributes.OBSERVATION_COST_DETAILS], undefined);
+    }
+  }
+  assert.equal(warnings.length, 4);
+  for (const warning of warnings) {
+    assert.ok(warning && typeof warning === 'object');
+    assert.deepEqual(
+      [Reflect.get(warning, 'kind'), Reflect.get(warning, 'toolStatus')],
+      ['web_search_unfinished', 'incomplete'],
     );
   }
   assert(!JSON.stringify(spans.map((span) => span.attributes)).includes('private'));
@@ -188,6 +213,52 @@ test('concurrent jobs isolate traces and record provider usage without source co
     input_cached_tokens: 2,
     output: 3,
   });
+
+  exporter.reset();
+  warnings.length = 0;
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(
+      { error: { message: 'private HTTP error body' } },
+      {
+        status: 429,
+        headers: { 'x-request-id': 'req_fixture' },
+      },
+    ),
+  );
+  await metrics.withJob('import', ids[0], async () => {
+    metrics.setJobEntity({ type: 'thing', id: ids[1], name: 'Fixture dishwasher' });
+    await assert.rejects(
+      new TextTask({ signal: new AbortController().signal, record: async () => {} }).run(),
+      /ai_http_429/,
+    );
+    metrics.recordImportOutcome([{ stage: 'purchasables', reason: 'ai_http_429' }]);
+  });
+  await processor.forceFlush();
+  const diagnostics = exporter.getFinishedSpans();
+  const provider = diagnostics.find((span) => span.name === 'read_text');
+  assert(provider);
+  assert.equal(provider.attributes[attributes.OBSERVATION_LEVEL], 'ERROR');
+  assert.equal(
+    diagnostics.find((span) => span.name === 'process_import')?.attributes[
+      attributes.OBSERVATION_LEVEL
+    ],
+    'WARNING',
+  );
+  const errorLog = warnings[0];
+  assert.ok(errorLog && typeof errorLog === 'object');
+  assert.deepEqual(
+    [
+      Reflect.get(errorLog, 'httpStatus'),
+      Reflect.get(errorLog, 'httpRequestId'),
+      Reflect.get(errorLog, 'entityName'),
+    ],
+    [429, 'req_fixture', 'Fixture dishwasher'],
+  );
+  assert.match(String(Reflect.get(errorLog, 'attemptId')), /^[a-f0-9]{16}$/);
+  const exported = JSON.stringify(diagnostics.map((span) => span.attributes));
+  assert.match(exported, /req_fixture/);
+  assert.match(exported, /Fixture dishwasher/);
+  assert.doesNotMatch(exported + JSON.stringify(warnings), /private/);
 
   // Wrapping OCR preparation recorded a provider call even when credentials were missing.
   exporter.reset();
