@@ -63,7 +63,8 @@ pnpm lint                # ESLint
 pnpm test                # Node unit tests
 CI=true pnpm typecheck   # Server types and Angular development build
 CI=true pnpm check       # Formatting, spelling, contract, lint, types, unit tests and build
-pnpm test:integration    # Requires local Supabase and built frontend
+pnpm test:integration    # Requires local PostgreSQL
+pnpm test:migrations main # Check the CLI upgrade from a baseline Git revision
 pnpm test:e2e            # Playwright e2e suite; see .claude/skills/e2e/SKILL.md
 pnpm e2e:serve           # Signed-in e2e app on port 4300 with sample data
 pnpm screenshot /        # Screenshot pages of the running e2e app

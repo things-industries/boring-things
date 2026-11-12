@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { setTimeout } from 'node:timers/promises';
 import { ZyfyProvider } from '../../src/providers/zyfy/index.js';
-import { startTestApp } from '../support/test-app.js';
+import { createTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
 
@@ -29,7 +29,7 @@ test('Zyfy looks up a UK plate without country before public research and reuses
       },
     });
   });
-  const env = await startTestApp({ importWorkflow: { specialists: [provider] } });
+  const env = await createTestApp({ importWorkflow: { specialists: [provider] } });
   setEnvValue('ZYFY_API_KEY', 'fixture-key');
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>

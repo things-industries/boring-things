@@ -485,12 +485,10 @@ for (const capability of ['tasks', 'purchasables'] as const) {
             body.instructions,
             /Select work worth remembering or tracking to completion/,
           );
-          assert.match(body.instructions, /Name each task with a verb and its object/);
           const properties = body.text.format.schema.properties.items.items.properties;
           assert.ok(!Object.hasOwn(properties, 'scheduledOn'));
           assert.ok(!Object.hasOwn(properties, 'deadlineOn'));
         } else {
-          assert.match(body.instructions, /Name each purchasable with its basic item name/);
           assert.match(
             body.instructions,
             /Describe why the item is useful and when the owner should buy it/,

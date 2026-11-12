@@ -10,8 +10,8 @@ import {
   updating,
   visibleList,
   visibleMap,
-} from '../../src/app/core/state/optimistic.js';
-import type { Ledger } from '../../src/app/interfaces/optimistic.interface.js';
+} from '../app/core/state/optimistic.js';
+import type { Ledger } from '../app/interfaces/optimistic.interface.js';
 
 interface Item {
   id: string;

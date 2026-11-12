@@ -231,7 +231,8 @@ pnpm format                      # apply Prettier formatting
 pnpm format:check                # check formatting without writing
 pnpm spellcheck                  # check spelling across authored text and source
 CI=true pnpm check               # formatting, spelling, contract drift, lint, types, unit tests, build
-pnpm test:integration            # requires local Supabase and a built frontend
+pnpm test:integration            # requires local PostgreSQL
+pnpm test:migrations main        # upgrade from the named Git revision on local PostgreSQL
 pnpm test:e2e                    # Playwright e2e suite; needs PostgreSQL and a built frontend
 ```
 
@@ -239,7 +240,9 @@ Spelling uses [CSpell](https://cspell.org/docs/getting-started) and `cspell.json
 
 Run `pnpm spellcheck` while editing; `CI=true pnpm check` includes it before the code checks. Review unknown words before adding established names or technical terms to the sorted dictionary. Use file-scoped `overrides` for fixture or protocol tokens. Avoid broad exclusions and bulk acceptance of reported words. Editor integrations can use the same configuration. Spelling checks still need proofreading for wrong-word errors and grammar.
 
-Integration checks create and remove isolated temporary databases; they do not reset the app database. Browser checks use signed test tokens and a local JWKS server, exercising the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed. `/opt/pw-browsers/chromium` is used when present and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides both. Screenshots are saved under ignored `test-results/`.
+The Node test runner covers backend code in `server/test/` and frontend helpers in `src/test/`. Integration checks create and remove isolated temporary databases and run files concurrently. API and browser authentication checks use signed test tokens and a local JWKS server to exercise the production verifier. They do not replace the live Logto redirect/login/logout smoke check. Install the matching browser with `pnpm exec playwright install chromium` if needed. `/opt/pw-browsers/chromium` is used when present and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` overrides both. Screenshots are saved under ignored `test-results/`.
+
+The migration upgrade check applies the base revision and then the current migrations to a temporary database using the same Supabase CLI command as deployment. CI uses the pull request base or the commit before the push. To verify an upgrade locally, pass the deployed revision to `pnpm test:migrations`.
 
 `pnpm test:e2e` runs the Playwright specs in `e2e/` at mobile and desktop widths against a temporary database with sample data. The e2e skill in `.claude/skills/e2e/SKILL.md` covers the screenshot tool and cloud sessions.
 

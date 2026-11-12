@@ -1,11 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  daysUntil,
-  eventStart,
-  isNewThing,
-  relativeDistance,
-} from '../../src/app/utils/date.util.js';
+import { daysUntil, eventStart, isNewThing, relativeDistance } from '../app/utils/date.util.js';
 
 test('New badge includes creation and excludes the seven-day boundary and future dates', () => {
   const now = new Date('2026-10-01T12:00:00Z');

@@ -2,23 +2,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { Schema } from '../../shared/model.js';
-import type { FieldInput } from '../../src/app/interfaces/field-input.interface.js';
-import type { ThingDetail } from '../../src/app/interfaces/thing.interface.js';
+import type { FieldInput } from '../app/interfaces/field-input.interface.js';
+import type { ThingDetail } from '../app/interfaces/thing.interface.js';
 import {
   type DetailRow,
   detailGroups,
   detailsDraft,
   detailsPatches,
-} from '../../src/app/features/things/thing-details/thing-details.view.js';
-import { APP_CONFIG } from '../../src/app/core/app.config.js';
+} from '../app/features/things/thing-details/thing-details.view.js';
+import { APP_CONFIG } from '../app/core/app.config.js';
 import {
   customFieldInput,
   draftValue,
   fieldInput,
   formatMoneyDraft,
   valueDraft,
-} from '../../src/app/utils/field.util.js';
-import { fieldValueError } from '../../src/app/validators/field-value.validator.js';
+} from '../app/utils/field.util.js';
+import { fieldValueError } from '../app/validators/field-value.validator.js';
 
 const field = (overrides: Partial<Schema['Field']> = {}): Schema['Field'] =>
   ({

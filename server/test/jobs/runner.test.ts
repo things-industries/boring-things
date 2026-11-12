@@ -155,4 +155,8 @@ test('recovery precedes all work and leadership remains held until all jobs stop
   stopped[1].complete();
   await stopping;
   assert.equal(events.at(-1), 'release');
+  const stoppedEvents = [...events];
+  runner.wake();
+  await setImmediate();
+  assert.deepEqual(events, stoppedEvents);
 });

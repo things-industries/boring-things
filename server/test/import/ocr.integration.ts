@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
 import { createCanvas } from '@napi-rs/canvas';
 import { PDFDocument } from 'pdf-lib';
-import { startTestApp, type TestApp } from '../support/test-app.js';
+import { createTestApp, type TestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 import * as googleVision from '../../src/providers/google-vision/index.js';
@@ -55,7 +55,7 @@ test('image analysis receives OCR text and the original image while OCR failures
   let outcome = 'text',
     ocrCalls = 0,
     aiCalls = 0;
-  const env = await startTestApp({
+  const env = await createTestApp({
     readImageText: async (bytes, signal) => {
       ocrCalls++;
       assert.deepEqual(bytes, content);
@@ -109,7 +109,7 @@ test('image analysis receives OCR text and the original image while OCR failures
 test('only uploaded images with fewer than 500 trimmed OCR characters include original content', async () => {
   const content = await createCanvas(20, 20).encode('png');
   let text = '';
-  const env = await startTestApp({ readImageText: async () => text });
+  const env = await createTestApp({ readImageText: async () => text });
   try {
     const ai: ImportAi = env.importAi;
     const cases = [
@@ -141,7 +141,7 @@ test('only uploaded images with fewer than 500 trimmed OCR characters include or
 });
 
 test('images without OCR text supply visual summaries to Thing resolution and recommendations', async () => {
-  const env = await startTestApp({ readImageText: async () => '' });
+  const env = await createTestApp({ readImageText: async () => '' });
   try {
     const ai: ImportAi = env.importAi;
     const summary = 'A blue kettle with a handle and spout.';
@@ -229,7 +229,7 @@ test('PDF OCR saves mixed-page text before summarization and handles empty or fa
   let outcome = 'text',
     ocrCalls = 0,
     summaryCalls = 0;
-  const env = await startTestApp({
+  const env = await createTestApp({
     readImageText: async (bytes) => {
       ocrCalls++;
       assert.equal(bytes.subarray(1, 4).toString(), 'PNG');
@@ -278,7 +278,7 @@ test('PDF OCR saves mixed-page text before summarization and handles empty or fa
 // Literal quote checks discarded readable attachments when model quotes collapsed PDF whitespace.
 test('attachment quote mismatches omit quotations while keeping text and identifiers', async () => {
   const text = 'Model: AX1\nSerial:   00026\n';
-  const env = await startTestApp({ readImageText: async () => text });
+  const env = await createTestApp({ readImageText: async () => text });
   try {
     const ai: ImportAi = env.importAi;
     ai.summarizeAttachment = async () => ({
@@ -310,7 +310,7 @@ test('attachment quote mismatches omit quotations while keeping text and identif
 // Summary, language and metadata validation discarded text that OCR had already extracted.
 test('attachment analysis failures keep text and valid metadata available', async () => {
   const text = 'Model AX1';
-  const env = await startTestApp({ readImageText: async () => text });
+  const env = await createTestApp({ readImageText: async () => text });
   try {
     const ai: ImportAi = env.importAi;
     for (const outcome of ['error', 'language', 'metadata']) {

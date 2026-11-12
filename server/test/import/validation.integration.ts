@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
-import { startTestApp, type TestApp } from '../support/test-app.js';
+import { createTestApp, type TestApp } from '../support/test-app.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 import type { Schema } from '../../../shared/model.js';
 
@@ -24,7 +24,7 @@ async function waitForImport(env: TestApp, id: string) {
 
 // Import validation aborted field batches and rejected suggestions with unusable citations.
 test('imports save valid proposals and optional citations while enforcing public field scope', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (url: string, payload?: object) =>
       env.app.inject({
@@ -124,7 +124,7 @@ test('imports save valid proposals and optional citations while enforcing public
 
 // Selection and population errors stopped imports before later stages could run.
 test('optional field stage failures allow recommendations and retry unfinished work', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (url: string, payload?: object) =>
       env.app.inject({
@@ -175,7 +175,7 @@ test('optional field stage failures allow recommendations and retry unfinished w
 
 // A changed source aborted the whole recommendation commit, including unrelated suggestions.
 test('source changes skip affected suggestions and save independent recommendations', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (url: string, payload?: object) =>
       env.app.inject({

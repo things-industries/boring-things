@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Schema } from '../../shared/model.js';
-import { fieldSections } from '../../src/app/utils/sections.util.js';
+import { fieldSections } from '../app/utils/sections.util.js';
 const set = (id: string, includes: string[] = []) =>
   ({
     id,
