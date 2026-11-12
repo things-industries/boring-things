@@ -61,6 +61,7 @@ export const recommendationSourcesSchema = {
 } as const;
 
 export abstract class RecommendationTask<Output, Result> extends AiTask<Output, Result> {
+  protected override readonly batchResearchReads = true;
   protected override readonly searchCalls = 3;
   private readonly sources: ImportTaskContext['sources'];
 
@@ -73,7 +74,7 @@ export abstract class RecommendationTask<Output, Result> extends AiTask<Output, 
 
   // Records the public sources observed in this recommendation turn.
   protected override async onResponse(response: Response) {
-    const { sources } = await readWebResult(response, this.context, this.searchCalls);
+    const { sources } = await readWebResult(response, this.context);
     this.reportMetrics({ sourceCount: sources.length });
   }
 

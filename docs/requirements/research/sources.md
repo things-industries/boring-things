@@ -138,8 +138,13 @@ The sources below establish representative distinctions and applicability across
 ## Fieldset recommendations
 
 - [Bosch UK dishwasher care](https://www.bosch-home.co.uk/en/c/spotlight/bltdb88363c39b11bb1) — example of a dedicated machine care programme and model care instructions.
+- [Bosch UK dishwasher maintenance](https://www.bosch-home.co.uk/how-to-maintain-a-clean-and-functional-dishwasher) — example of monthly dishwasher cleaning.
+- [AEG UK washing machine maintenance](https://support.aeg.co.uk/support-articles/article/how-to-clean-and-maintain-your-aeg-washing-machine-and-extend-its-life) — example drum cleaning and drain pump filter intervals.
+- [Whirlpool refrigerator filters](https://www.whirlpool.com/kitchen/refrigeration/water-filters.html) — example of six-month replacement for compatible water filters.
 - [Health and Safety Executive domestic gas safety](https://www.hse.gov.uk/gas/domestic/faqs.htm) — checking engineer registration and competence for domestic gas work.
 - [GOV.UK MOT booking](https://www.gov.uk/getting-an-mot/booking-an-mot) — booking in Great Britain and the separate process for Northern Ireland.
+- [GOV.UK MOT timing](https://www.gov.uk/getting-an-mot/when-to-get-an-mot) — timing of the first test and later renewals in Great Britain.
+- [The Highway Code vehicle maintenance guidance](https://www.gov.uk/guidance/the-highway-code/annex-6-vehicle-maintenance-safety-and-security) — weekly tyre pressure checks.
 - [GOV.UK vehicle tax](https://www.gov.uk/vehicle-tax) — taxing a vehicle and registering it as off the road.
 - [GOV.UK vehicle recalls](https://www.gov.uk/check-vehicle-recall) — outstanding vehicle safety recalls and manufacturer remedies.
 - [Ofgem smart meter guidance](https://www.ofgem.gov.uk/your-energy-supply/how-manage-your-energy-supply/get-help-your-smart-meter) — automatic readings and meters that stop sending them.

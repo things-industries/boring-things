@@ -92,6 +92,10 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       productCandidates[0].map(({ name }) => name),
       ['Rinse aid', 'Dishwasher salt', 'Detergent tablets'],
     );
+    assert.equal(taskCandidates[0][0].recurrence, 'every month');
+    assert.equal(taskCandidates[0][0].importance, 'RECOMMENDED');
+    assert.equal(taskCandidates[0][1].recurrence, undefined);
+    assert.ok(productCandidates[0][2].purchaseUrl);
     assert.ok(
       [...taskCandidates[0], ...productCandidates[0]].every(
         ({ fieldSetId, eligibility }) => fieldSetId === 'appliances.dishwasher' && eligibility,
@@ -119,8 +123,14 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       (await wait(ovenRefresh.json<Schema['ImportAccepted']>().importId)).status,
       'COMPLETE',
     );
-    assert.deepEqual(taskCandidates[2], []);
-    assert.deepEqual(productCandidates[2], []);
+    assert.deepEqual(
+      taskCandidates[2].map(({ title }) => title),
+      ['Run pyrolytic cleaning'],
+    );
+    assert.deepEqual(
+      productCandidates[2].map(({ name }) => name),
+      ['Additional oven shelf', 'Oven light bulb'],
+    );
 
     await app.pool.query('update bt.field_sets set recommendation_suggestions = $1 where id = $2', [
       JSON.stringify({ tasks: [{ title: 'Obsolete candidate' }], purchasables: [] }),
@@ -131,7 +141,10 @@ test('contextual Import and Recommendation preserve owner fields and retry unfin
       'select recommendation_suggestions from bt.field_sets where id = $1',
       ['appliances.oven'],
     );
-    assert.deepEqual(result.rows[0].recommendation_suggestions, { tasks: [], purchasables: [] });
+    assert.deepEqual(result.rows[0].recommendation_suggestions, {
+      tasks: taskCandidates[2].map(({ fieldSetId: _id, ...task }) => task),
+      purchasables: productCandidates[2].map(({ fieldSetId: _id, ...product }) => product),
+    });
   } finally {
     await app.close();
   }

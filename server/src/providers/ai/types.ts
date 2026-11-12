@@ -13,6 +13,13 @@ export interface AiContext {
   // Cancels model requests and other work belonging to the job.
   signal: AbortSignal;
 
+  // Distinguishes job deadlines from shutdown when a request is aborted.
+  cancellationReason?: () => 'deadline' | 'shutdown';
+
+  // When supplied, the local tool count and limit exclude hosted searches.
+  toolCalls?: number;
+  toolCallLimit?: number;
+
   // Consumes the job's shared model-request allowance, including usage from earlier attempts.
   beforeRequest?: () => void;
 

@@ -160,7 +160,7 @@ export class FindResourcesTask extends AiTask<Output, Discovery> {
 
   // Adds observed public URLs to the catalogue used by page reads and output validation.
   protected override async onResponse(response: Response) {
-    const { sources } = await readWebResult(response, this.context, this.searchCalls);
+    const { sources } = await readWebResult(response, this.context);
     for (const source of sources) this.sources.add(source);
     this.reportMetrics({ sourceCount: this.sources.size });
   }

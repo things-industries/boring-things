@@ -1,5 +1,7 @@
 /** Executes AI requests, streamed deltas and bounded tool conversations with validation and usage reporting. */
 
+// cspell:words UND
+
 import { getEnv } from '../../../config.js';
 import OpenAI from 'openai';
 import type { ReasoningEffort } from 'openai/resources/shared';
@@ -20,6 +22,55 @@ addFormats.default(ajv);
 
 // Standard web-search call fee; search-content tokens are priced separately by the model.
 const webSearchCallCostUsd = 0.01;
+
+const researchReadLimits = { rounds: 2, callsPerRound: 3, charactersPerRound: 20_000 };
+
+// Selects diagnostic codes without exporting SDK messages, headers or response bodies.
+function describeProviderFailure(error: unknown, context: AiContext): metrics.ProviderFailure {
+  const sdkError = error instanceof OpenAI.APIError ? error.constructor.name : undefined;
+  if (context.signal.aborted)
+    return {
+      kind:
+        context.cancellationReason?.() ??
+        (context.signal.reason instanceof DOMException &&
+        context.signal.reason.name === 'TimeoutError'
+          ? 'deadline'
+          : 'cancelled'),
+      sdkError,
+    };
+  if (error instanceof OpenAI.APIError && error.status)
+    return {
+      kind: 'http',
+      httpStatus: error.status,
+      httpRequestId:
+        error.requestID && /^[a-zA-Z0-9_-]{1,128}$/.test(error.requestID)
+          ? error.requestID
+          : undefined,
+      sdkError,
+    };
+  if (error instanceof OpenAI.APIConnectionError) {
+    let cause = error.cause;
+    let networkCode: string | undefined;
+    for (let depth = 0; depth < 4 && cause instanceof Error; depth++, cause = cause.cause) {
+      const code = 'code' in cause && cause.code;
+      if (typeof code === 'string' && /^(?:E|UND_ERR_|ERR_)[A-Z0-9_]{2,36}$/.test(code)) {
+        networkCode = code;
+        break;
+      }
+    }
+    return {
+      kind:
+        error instanceof OpenAI.APIConnectionTimeoutError ||
+        networkCode === 'ETIMEDOUT' ||
+        networkCode?.endsWith('_TIMEOUT')
+          ? 'connection_timeout'
+          : 'connection',
+      sdkError,
+      networkCode,
+    };
+  }
+  return { kind: 'unknown' };
+}
 
 // Extracts response text independently of SDK convenience properties.
 export function responseText(result: Response) {
@@ -65,6 +116,7 @@ export abstract class AiTask<Output = never, Result = Output> {
   protected tools: TaskTool[] = [];
   protected toolRounds = 31;
   protected readonly parallelToolCalls: boolean = false;
+  protected readonly batchResearchReads: boolean = false;
   protected readonly searchCalls: number = 0;
   protected readonly sourceMode: 'retrieved' | 'cited' = 'retrieved';
   private webCalls = 0;
@@ -74,22 +126,27 @@ export abstract class AiTask<Output = never, Result = Output> {
 
   // Runs the task and logs its last response after output validation and conversion.
   async run(): Promise<Result> {
-    try {
-      return await metrics.withTask(this.task, () => this.runTask());
-    } catch (error) {
-      if (this.pendingTurn?.metrics.aiCount !== undefined) this.reportMetrics({ validCount: 0 });
-      throw error;
-    } finally {
-      this.logTurn();
-    }
+    return metrics.withTask(this.task, async () => {
+      try {
+        return await this.runTask();
+      } catch (error) {
+        if (this.pendingTurn?.metrics.aiCount !== undefined) this.reportMetrics({ validCount: 0 });
+        throw error;
+      } finally {
+        this.logTurn();
+      }
+    });
   }
 
   // Implements task-specific requests and result conversion.
   protected abstract runTask(): Promise<Result>;
 
   // Adds task measurements to the current response without logging its content.
-  protected reportMetrics(metrics: Record<string, number>) {
-    if (this.pendingTurn) Object.assign(this.pendingTurn.metrics, metrics);
+  protected reportMetrics(measurements: Record<string, number>) {
+    if (!this.pendingTurn) return;
+    const turnMetrics = Object.assign(this.pendingTurn.metrics, measurements);
+    if (typeof turnMetrics.aiCount === 'number' && typeof turnMetrics.validCount === 'number')
+      metrics.recordTaskCounts(turnMetrics.aiCount, turnMetrics.validCount);
   }
 
   // Emits each completed response once, including responses rejected during task processing.
@@ -111,16 +168,21 @@ export abstract class AiTask<Output = never, Result = Output> {
     delta?: (text: string) => void,
   ): Promise<Response> {
     let conversation = typeof input === 'string' ? input : [...input];
-    let finish = false;
-    for (let round = 0; round <= this.toolRounds; round++) {
+    let localToolsExhausted = false;
+    const limits = this.batchResearchReads ? researchReadLimits : undefined;
+    const rounds = limits?.rounds ?? this.toolRounds;
+    if (limits) this.context.toolCallLimit = limits.rounds * limits.callsPerRound;
+    for (let round = 0; round <= rounds; round++) {
+      const allowLocalTools = !localToolsExhausted && round < rounds;
       const response = await this.requestResponse(
         conversation,
         delta,
-        !finish && round < this.toolRounds,
+        round < rounds || !!limits,
+        allowLocalTools,
       );
       const calls = response.output.filter((item) => item.type === 'function_call');
       if (!calls.length) return response;
-      ensure(!finish && round < this.toolRounds, 'tool_limit');
+      ensure(allowLocalTools, 'tool_limit');
 
       // Responses output items can be replayed as input, including encrypted reasoning.
       conversation = [
@@ -129,40 +191,52 @@ export abstract class AiTask<Output = never, Result = Output> {
           : conversation),
         ...(response.output as ResponseInput),
       ];
-      for (const call of calls) {
-        const tool = this.tools.find((tool) => tool.definition.name === call.name);
-        ensure(tool, 'Unknown AI tool');
-        let args: unknown;
-        try {
-          args = JSON.parse(call.arguments);
-        } catch {
-          throw new Error('Invalid AI tool arguments');
-        }
-        const result: TaskToolResult = finish
+      let availableCharacters = limits?.charactersPerRound ?? Infinity;
+      for (const [index, call] of calls.entries()) {
+        const result: TaskToolResult = localToolsExhausted
           ? { output: { error: 'tool_limit' } }
-          : await tool.execute(args).catch((error: unknown) => {
-              if (!(error instanceof Error) || error.message !== 'tool_limit') throw error;
-              finish = true;
-              return {
-                output: {
-                  error: 'tool_limit',
-                  message:
-                    'Finish using the evidence already gathered; no more tool calls are available.',
-                },
-              };
-            });
+          : limits && index >= limits.callsPerRound
+            ? { output: { error: 'tool_round_limit' } }
+            : await this.executeLocalTool(call.name, call.arguments).catch((error: unknown) => {
+                if (!(error instanceof Error) || error.message !== 'tool_limit') throw error;
+                localToolsExhausted = true;
+                return {
+                  output: {
+                    error: 'tool_limit',
+                    message:
+                      'No more local tool calls are available. Use the evidence already gathered and any remaining web searches.',
+                  },
+                };
+              });
+        const output = JSON.stringify(result.output);
+        const characters = limits ? output.length + inputCharacters(result.input ?? []) : 0;
+        const fits = characters <= availableCharacters;
+        if (fits) availableCharacters -= characters;
         conversation = [
           ...conversation,
           {
             type: 'function_call_output',
             call_id: call.call_id,
-            output: JSON.stringify(result.output),
+            output: fits ? output : JSON.stringify({ error: 'tool_output_limit' }),
           },
-          ...(result.input ?? []),
+          ...(fits ? (result.input ?? []) : []),
         ];
       }
     }
     throw new Error('tool_limit');
+  }
+
+  // Looks up the requested local tool and parses its arguments before execution.
+  private executeLocalTool(name: string, argumentsJson: string) {
+    const tool = this.tools.find((entry) => entry.definition.name === name);
+    ensure(tool, 'Unknown AI tool');
+    let args: unknown;
+    try {
+      args = JSON.parse(argumentsJson);
+    } catch {
+      throw new Error('Invalid AI tool arguments');
+    }
+    return tool.execute(args);
   }
 
   // Validates model JSON before task-specific conversion into an application result.
@@ -221,8 +295,9 @@ export abstract class AiTask<Output = never, Result = Output> {
   // Sends streamed or buffered requests through one cancellation, error and usage boundary.
   private async requestResponse(
     input: ResponseInput | string,
-    delta?: (text: string) => void,
-    allowTools = true,
+    delta: ((text: string) => void) | undefined,
+    allowWebSearch: boolean,
+    allowLocalTools: boolean,
   ): Promise<Response> {
     const { context, task } = this;
     this.logTurn();
@@ -235,9 +310,12 @@ export abstract class AiTask<Output = never, Result = Output> {
     }));
     context.beforeRequest?.();
     const started = Date.now();
-    const remaining = allowTools ? Math.max(0, this.searchCalls - this.webCalls) : 0;
+    const remaining = allowWebSearch ? Math.max(0, this.searchCalls - this.webCalls) : 0;
+    const toolsEnabled = allowLocalTools || remaining > 0;
     const tools = [
-      ...this.tools.map((tool) => tool.definition),
+      ...(allowLocalTools || (!this.batchResearchReads && !toolsEnabled)
+        ? this.tools.map((tool) => tool.definition)
+        : []),
       ...(remaining ? [{ type: 'web_search' as const }] : []),
     ];
     const parameters = {
@@ -247,14 +325,18 @@ export abstract class AiTask<Output = never, Result = Output> {
       input,
       max_output_tokens: this.maxOutputTokens,
       reasoning: { mode: 'standard', effort: this.effort },
-      parallel_tool_calls: this.parallelToolCalls,
+      parallel_tool_calls:
+        this.parallelToolCalls ||
+        (this.batchResearchReads && allowLocalTools && this.tools.length > 0),
       include: [
         'reasoning.encrypted_content',
         ...(this.searchCalls && this.sourceMode === 'retrieved'
           ? ['web_search_call.action.sources' as const]
           : []),
       ],
-      ...(tools.length ? { tools, ...(!allowTools ? { tool_choice: 'none' as const } : {}) } : {}),
+      ...(tools.length
+        ? { tools, ...(!toolsEnabled ? { tool_choice: 'none' as const } : {}) }
+        : {}),
       ...(remaining ? { max_tool_calls: remaining } : {}),
       ...(this.outputSchema
         ? {
@@ -271,6 +353,8 @@ export abstract class AiTask<Output = never, Result = Output> {
     } satisfies ResponseCreateParamsNonStreaming;
     let result: Response | undefined;
     let tokenUsage: metrics.ProviderCall['usage'];
+    let failure: metrics.ProviderFailure | undefined;
+    let completedWebCalls = 0;
     try {
       if (delta) {
         const stream = await client.responses.create(
@@ -301,6 +385,7 @@ export abstract class AiTask<Output = never, Result = Output> {
           { signal: context.signal },
         );
     } catch (error) {
+      failure = describeProviderFailure(error, context);
       context.signal.throwIfAborted();
       throw new Error(
         error instanceof OpenAI.APIError && error.status
@@ -324,18 +409,25 @@ export abstract class AiTask<Output = never, Result = Output> {
         requestId: result?.id,
         serviceTier: result?.service_tier,
         startedAt: started,
-        status: result?.status === 'completed' ? 'success' : 'error',
+        status: !failure && result?.status === 'completed' ? 'success' : 'error',
         usage: tokenUsage,
+        failure: failure ?? (result?.status !== 'completed' ? { kind: 'response' } : undefined),
       });
       for (const call of result?.output ?? []) {
         if (call.type !== 'web_search_call') continue;
+        const completed = call.status === 'completed';
+        if (completed) completedWebCalls++;
         metrics.recordProviderCall({
           task,
           provider: 'openai',
           operation: 'web_search',
+          requestId: result?.id,
           units: 1,
-          costUsd: call.status === 'completed' ? webSearchCallCostUsd : undefined,
-          status: call.status === 'completed' ? 'success' : 'error',
+          costUsd: completed ? webSearchCallCostUsd : undefined,
+          status: completed ? 'success' : 'error',
+          failure: completed
+            ? undefined
+            : { kind: 'web_search_unfinished', toolStatus: call.status },
         });
       }
     }
@@ -371,9 +463,8 @@ export abstract class AiTask<Output = never, Result = Output> {
       'ai_refused',
     );
     if (this.searchCalls) {
-      const calls = result.output.filter((item) => item.type === 'web_search_call').length;
-      ensure(calls <= remaining, 'Research tool limit exceeded');
-      this.webCalls += calls;
+      ensure(completedWebCalls <= remaining, 'Research tool limit exceeded');
+      this.webCalls += completedWebCalls;
     }
     await this.onResponse(result);
     return result;

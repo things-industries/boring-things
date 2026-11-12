@@ -61,12 +61,12 @@ export async function saveSuggestedPurchasable(
     'kind' | 'name' | 'description' | 'merchantUrl' | 'sourceRefs'
   >,
 ) {
-  await database.execute(
+  const [saved] = await database.rows<{ id: string }>(
     db,
     `insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,import_key)
      select $1,$2,$3,$4,$5,$6,$7,now(),$8
      where not exists(select 1 from bt.purchasables where owner_id=$1 and thing_id=$2 and kind=$3 and (lower(trim(name))=lower(trim($4)) or merchant_url=$6))
-     on conflict(import_key) do nothing`,
+     on conflict(import_key) do nothing returning id`,
     [
       owner,
       thingId,
@@ -82,4 +82,5 @@ export async function saveSuggestedPurchasable(
         .digest('hex'),
     ],
   );
+  return saved?.id;
 }

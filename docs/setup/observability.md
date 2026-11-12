@@ -1,6 +1,6 @@
 # Import observability and evaluations
 
-Langfuse receives server measurements through OpenTelemetry. The product frontend and HTTP contracts do not depend on it. Provider observations contain task names, identifiers, status, timing, token usage and costs. Prompts, source content, queries, credentials and model output are excluded from application telemetry.
+Langfuse receives server measurements through OpenTelemetry. The product frontend and HTTP contracts do not depend on it. Provider observations contain task names, identifiers, status, timing, token usage and costs. Import diagnostics also include the relevant saved Thing name, Task title or purchasable name when available. Treat display labels as private metadata. Prompts, attachment contents, queries, credentials, raw provider errors and model output are excluded.
 
 ## Configuration
 
@@ -39,11 +39,11 @@ The import request table includes request count, total and average request cost,
 
 Import tables group by session ID, which is the import UUID, and task name. They cover execution and retries in the selected time window, sorted by spend, with up to 1,000 groups. They exclude independently processed attachment preparation; use the report below for combined import and source costs. Provider spend totals include attachment preparation and web-search fees once each. Provider request totals and timing panels include HTTP attempts only.
 
-Thing names are not included in the recorded import context. Langfuse's pivot editor provides no display-label lookup for session IDs and no option to suppress the parent import ID on each sub-row. The dashboard uses the recorded UUIDs and Langfuse's row formatting.
+Import traces and server logs share the import ID and an attempt ID. Provider failures include an HTTP status and request ID when available, or the SDK error class and network cause code. Import deadlines and shutdown have separate failure kinds. Attempts that complete with omitted work have a warning with the affected stages and reasons. Text batch observations give source offsets, timing and call counts. Recommendation observations give proposal, validation and save counts. The dashboard still groups by import UUID.
 
 Cost charts show known charges; unpriced requests are not free. Langfuse can display unpriced attempts as zero in cost averages, which may understate actual costs. Check model-price definitions in Langfuse's model settings when usage has no calculated price.
 
-The dashboard covers import execution and attachment preparation. It excludes chat traces and SDK experiments. Use Langfuse's trace view for individual request and tool timelines. The import or attachment UUID with its hyphens removed is its trace ID. Attempts share a trace and have separate root observations; every model turn has a separate generation. OpenAI web-search charges are separate tool observations under the invoking task. Their internal duration is unknown and remains included in the model request's duration.
+The dashboard covers import execution and attachment preparation. It excludes chat traces and SDK experiments. Use Langfuse's trace view for individual request and tool timelines. The import or attachment UUID with its hyphens removed is its trace ID. Attempts share a trace and have separate root observations; every model turn has a separate generation. OpenAI web-search charges are separate tool observations under the invoking task. Their internal duration is unknown and remains included in the model request's duration. Only completed searches count against the task's search budget. Unfinished attempts record their status and the model response ID with an unknown charge.
 
 The [Chat costs dashboard](https://cloud.langfuse.com/project/cmw9d4c5y01ylad0d7wra3ifz/dashboards/cmwc4afnl01gjad0eimjxp2gv) ranks turns by trace ID and conversations by session ID. A chat trace ID is the assistant message UUID without hyphens. The conversation panel groups observations with `sessionKind=conversation` by conversation UUID. Older chat observations used the assistant message UUID as the session ID. Use the trace to see when the turn ran, which tasks ran, and which models they used.
 

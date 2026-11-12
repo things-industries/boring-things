@@ -90,7 +90,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     const registry = await loadRegistry(dbPool);
     const { importAi, chatAi, taskScheduler } = createAi(
       options,
-      (turn) => app.log.info(turn, 'AI turn completed'),
+      (turn) => app.log.info({ ...turn, ...metrics.getDiagnosticContext() }, 'AI turn completed'),
       { db: dbPool, registry },
     );
     await app.register(routes.configRoutes, {

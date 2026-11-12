@@ -36,6 +36,7 @@ export function getImportFailureReason(error: unknown): string {
     'Invalid field membership',
     'source_removed',
     'source_changed',
+    'Research tool limit exceeded',
     'tool_limit',
     'text_limit',
   ].includes(error.message) || /^ai_http_\d{3}$/.test(error.message)
