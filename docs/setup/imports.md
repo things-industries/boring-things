@@ -124,7 +124,7 @@ Upload size, PDF parsing and image decoding also use the limits in the retrieval
 
 Icecat uses the [Product JSON API](https://iceclog.com/manual-for-icecat-json-product-requests/) with the token in the `api-token` header. Free Open Icecat access covers participating brands such as Philips; absent, restricted and unreleased products return no proposals. Authentication, transport and malformed-response failures create retryable warnings. No brand list is hard-coded. Mapped fields include manufacturer, model, GTIN, unqualified overall dimensions, appliance finish and electrical supply, and device weight, screen diagonal and display resolution when supplied. Feature IDs select meanings and display values keep units; package and stand-specific dimensions are omitted. The shared writer applies owner permissions. Run `pnpm db:seed` and restart the API after updating the registry. No provider credentials reach the browser.
 
-Specialist integrations extend the `SpecialistProvider` base class in `server/src/providers/specialist-data.ts`. Icecat and Zyfy occupy `server/src/providers/icecat/` and `server/src/providers/zyfy/`. The base class holds the request function and defines applicability and lookup methods. The Import workflow saves results through the field writer and manages completion checkpoints and optional warnings.
+Specialist integrations extend the `SpecialistProvider` base class in `server/src/providers/specialist-data.ts`. The base class holds the request function and defines applicability and lookup methods. The Import workflow saves results through the field writer and manages completion checkpoints and optional warnings.
 
 ### Vehicle lookup
 
@@ -139,6 +139,16 @@ Pending enrichment follows `Retry-After`, with at most three requests and a thir
 Field source references record Zyfy, the lookup URL, retrieval time and source `dataAsOf` when supplied. Another explicit Import can refresh fields that allow automatic population. Refresh scheduling is not automatic. Source and derived date values can become stale between lookups; days remaining are calculated from dates when needed. Zyfy provides MOT summaries rather than individual test records or defect descriptions. [Coverage](https://zyfy.uk/docs/coverage) and [signals](https://zyfy.uk/docs/vehicle/signals) describe the source data.
 
 Run `pnpm db:migrate`, `pnpm db:seed` and restart the API after updating. The key stays on the server. Provider tests use synthetic responses and make no Zyfy requests.
+
+### Household EPC lookup
+
+Set `EPC_GOVUK_API_KEY` to a bearer token from the [GOV.UK energy certificate data service](https://get-energy-performance-data.communities.gov.uk/guidance/energy-certificate-data-apis) and restart the API. The service is free and covers domestic EPCs in England and Wales.
+
+For a Household import or refresh, the provider uses an owner-entered EPC reference or searches the postcode from the saved address. It matches the whole premise, including any flat number, before selecting the most recently registered certificate. If matches conflict, the user can enter the reference in the Energy performance fieldset. When both the full address and the reference are present, they must identify the same dwelling.
+
+The provider proposes the EPC scheme, rating, inspection date, validity end date and reference. It also proposes the UPRN, country, dwelling type, house form for houses, floor area, wall description and the main building's construction period when available. The UPRN is saved as text in Household basics. The provider calculates the last valid day from the registration date and decodes construction age using the certificate's schema version. The saved address comes from the user or import. The lookup sends the postcode or reference directly to GOV.UK, and source links on unmasked fields point to the register without including the certificate reference.
+
+A missing or ambiguous result allows research to continue. Request failures create retryable warnings. Values use the same automatic population permissions and checkpoints as the other specialist providers.
 
 ## Validation
 
