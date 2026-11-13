@@ -324,7 +324,7 @@ export class ThingPage {
       .filter((row) => !row.masked && row.value !== null)
       .map(
         (row) =>
-          `${row.label}: ${typeof row.value === 'boolean' ? (row.value ? 'Yes' : 'No') : formatFieldValue(row.value)}`,
+          `${row.label}: ${typeof row.value === 'boolean' ? (row.value ? 'Yes' : 'No') : formatFieldValue(row.value, row.format)}`,
       );
 
     try {

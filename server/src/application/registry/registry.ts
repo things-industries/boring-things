@@ -5,12 +5,15 @@
 
 import { Ajv, type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
+import { countryCodes } from '../../../../shared/country-codes.js';
 import type { FieldDefinition, FieldSet, Value } from '../../../../shared/model.js';
 import { ensure } from '../errors.js';
 import {
   fieldSetRecommendationSuggestionsSchema,
   type FieldSetRecommendationSuggestions,
 } from './recommendation-suggestions.js';
+
+const validCountryCodes = new Set(countryCodes);
 
 export interface FieldSearchLabel {
   label: string;
@@ -39,6 +42,7 @@ export class Registry {
     );
     const ajv = new Ajv({ strict: true, coerceTypes: false });
     addFormats.default(ajv);
+    ajv.addFormat('country-code', (value) => validCountryCodes.has(value));
 
     const validateSuggestions = ajv.compile<FieldSetRecommendationSuggestions>(
       fieldSetRecommendationSuggestionsSchema,

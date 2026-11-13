@@ -952,12 +952,16 @@ export const fields: FieldDefinition[] = [
     uiHint: 'TEXT',
     icon: 'fieldVehicle',
   }),
-  field('vehicles.registrationCountry', 'Registration country', undefined, {
-    description:
-      'Vehicles with the corresponding identity and registration details. Registered vehicles.',
-    uiHint: 'TEXT',
-    icon: 'fieldCount',
-  }),
+  field(
+    'vehicles.registrationCountry',
+    'Registration country',
+    { type: 'string', format: 'country-code' },
+    {
+      description: 'Country where the vehicle is registered, as an ISO 3166-1 alpha-2 code.',
+      uiHint: 'SELECT',
+      icon: 'fieldCount',
+    },
+  ),
   field('vehicles.vin', 'VIN', undefined, {
     description:
       'Vehicles with the corresponding identity and registration details. Vehicles assigned a VIN; synthetic example.',
@@ -2963,9 +2967,15 @@ export const fields: FieldDefinition[] = [
     sensitive: true,
     icon: 'fieldAddress',
   }),
-  field('household.country', 'Country', undefined, {
-    description: 'Country where the home is located, such as the United Kingdom or Portugal.',
-  }),
+  field(
+    'household.country',
+    'Country',
+    { type: 'string', format: 'country-code' },
+    {
+      description: 'Country where the home is located, as an ISO 3166-1 alpha-2 code.',
+      uiHint: 'SELECT',
+    },
+  ),
   field(
     'household.dwellingType',
     'Dwelling type',

@@ -310,6 +310,6 @@
   } @else if (getEmailLink(row.format, value); as href) {
     <a class="email-link" [href]="href">{{ value }}</a>
   } @else {
-    {{ formatValue(value) }}
+    {{ formatValue(value, row.format) }}
   }
 </ng-template>

@@ -1846,10 +1846,10 @@ export interface components {
          */
         SchemaTypeEnum: "string" | "number" | "integer" | "boolean" | "object";
         /**
-         * @description String format accepted by a field validation schema.
+         * @description String format accepted by a field validation schema. Country codes use ISO 3166-1 alpha-2.
          * @enum {string}
          */
-        SchemaFormatEnum: "date" | "date-time" | "email";
+        SchemaFormatEnum: "date" | "date-time" | "email" | "country-code";
         /**
          * @description Suggested input control for displaying and editing a field.
          * @enum {string}

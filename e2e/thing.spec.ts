@@ -56,6 +56,27 @@ test('a Household shows a category icon and lets the owner record energy perform
   await expect(row.locator('bt-thing-thumbnail ng-icon')).toBeVisible();
 });
 
+test('a country dropdown shows names and saves the selected code', async ({ page }) => {
+  await createThing(page, 'Country fixture', 'household', 'household.energyPerformance');
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  const country = page.getByRole('combobox', { name: 'Country', exact: true });
+  await expect(country).toHaveValue('');
+  await expect(country.locator('option').nth(1)).toHaveText('United Kingdom');
+  await country.selectOption({ label: 'Portugal' });
+  const saved = page.waitForResponse((response) => response.request().method() === 'PATCH');
+  await page.getByRole('button', { name: 'Save details' }).click();
+  const response = await saved;
+  expect(response.ok()).toBe(true);
+  expect(response.request().postDataJSON().values).toEqual([
+    { fieldSetId: 'household.household', fieldId: 'household.country', value: 'PT' },
+  ]);
+  await page.reload();
+  await expect(
+    page.locator('bt-key-value-row', { hasText: 'Country' }).locator('.key-value-value'),
+  ).toHaveText('Portugal');
+});
+
 test('Thing detail shows issues, tasks, products and attachments', async ({ page }) => {
   await page.goto('/things');
   await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();

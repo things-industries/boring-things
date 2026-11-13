@@ -1,7 +1,18 @@
+import { countryCodes } from '../../../shared/country-codes';
 import type { Schema, Value } from '../../../shared/model';
 import { APP_CONFIG } from '../core/app.config';
 import type { FieldDraft, FieldInput, MoneyDraft } from '../interfaces/field-input.interface';
 import { dateTimeInput, localDateTimeToUtc } from './date.util';
+
+const countryNames = new Intl.DisplayNames('en-GB', { type: 'region', fallback: 'none' });
+const countryOptions = countryCodes
+  .map((value) => ({ value, label: countryNames.of(value) ?? value }))
+  .sort(
+    (a, b) =>
+      Number(b.value === 'GB') - Number(a.value === 'GB') ||
+      a.label.localeCompare(b.label, 'en-GB'),
+  );
+const countryLabels = new Map(countryOptions.map(({ value, label }) => [value, label]));
 
 /** Checks email drafts and stored values using the registry validator's address syntax. */
 export function isEmailAddress(value: string): boolean {
@@ -38,6 +49,16 @@ export function fieldInput(field: Schema['Field']): FieldInput {
 
   if (field.uiHint === 'MONEY') return { ...base, kind: 'money' };
   if (schema.type === 'boolean' || field.uiHint === 'CHECKBOX') return { ...base, kind: 'boolean' };
+  if (schema.format === 'country-code') {
+    const value = field.value;
+
+    // Show legacy text in the editor until the owner chooses a country.
+    const options =
+      typeof value === 'string' && value && !countryLabels.has(value)
+        ? [...countryOptions, { value, label: value }]
+        : countryOptions;
+    return { ...base, kind: 'select', options };
+  }
   if (schema.enum)
     return {
       ...base,
@@ -134,7 +155,14 @@ export function formatMoneyDraft(draft: MoneyDraft): MoneyDraft {
   return { ...draft, amount: `${match[1] || '0'}.${(match[2] ?? '').padEnd(2, '0')}` };
 }
 
-export function formatFieldValue(value: Value | null): string {
+/** Formats money and country values for display. */
+export function formatFieldValue(
+  value: Value | null,
+  format?: Schema['SchemaFormatEnum'] | null,
+): string {
+  if (format === 'country-code' && typeof value === 'string')
+    return countryLabels.get(value) ?? value;
+
   return value !== null && typeof value === 'object'
     ? new Intl.NumberFormat('en-GB', {
         style: 'currency',
