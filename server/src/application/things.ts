@@ -13,6 +13,8 @@ import * as database from '../db/connection.js';
 import type { Database } from '../db/connection.js';
 import * as importsDb from '../db/entities/imports.js';
 import * as thingsDb from '../db/entities/things.js';
+import * as tasksDb from '../db/entities/tasks.js';
+import * as purchasablesDb from '../db/entities/purchasables.js';
 import { ensure } from './errors.js';
 import { patchData, projectData, type FieldProvenance } from './thing-data.js';
 import type { Registry } from './registry/registry.js';
@@ -29,7 +31,7 @@ export async function detail(
   const { data, ownerId: _ownerId, ...summary } = thing;
   return {
     ...summary,
-    import: await importsDb.findThingImport(db, owner, id),
+    import: await importsDb.findThingImport(db, owner, id, data.categoryVersion ?? 0),
     ...projectData(data, registry, redactSensitive),
     ...(await thingsDb.getThingRelatedIds(db, owner, id)),
   };
@@ -46,6 +48,24 @@ export async function writeThing(
   return database.transaction(pool, (db) => saveThing(db, owner, input, registry, id));
 }
 
+/** Changes category and optionally queues research in the same transaction. */
+export async function changeThingCategory(
+  pool: pg.Pool,
+  owner: string,
+  id: string,
+  input: Schema['ThingCategoryChange'],
+  registry: Registry,
+) {
+  return database.transaction(pool, async (db) => {
+    const thing = await thingsDb.getOwnedThingOrThrow(db, owner, id, { lock: true });
+    if (thing.categoryId === input.categoryId) return detail(db, owner, id, registry);
+    const saved = await saveThing(db, owner, { categoryId: input.categoryId }, registry, id);
+    if (!input.findDetails) return saved;
+    await importsDb.createImportInTransaction(db, owner, [], id);
+    return detail(db, owner, id, registry);
+  });
+}
+
 /** Applies a Thing write within the caller's transaction. */
 export async function saveThing(
   db: Database,
@@ -57,11 +77,20 @@ export async function saveThing(
 ) {
   // Lock the stored Thing before merging a patch so concurrent writes cannot replace each other with stale data.
   let thing = id ? await thingsDb.getOwnedThingOrThrow(db, owner, id, { lock: true }) : undefined;
-  if (thing) await importsDb.assertThingEditable(db, owner, thing.id, { allowQueued: true });
-  const category = input.categoryId ?? thing?.categoryId;
+  const category = ('categoryId' in input ? input.categoryId : undefined) ?? thing?.categoryId;
+  const categoryChanged = !!thing && category !== thing.categoryId;
+  if (thing)
+    await importsDb.assertThingEditable(db, owner, thing.id, { allowQueued: !categoryChanged });
   ensure(category && (await registryDb.categoryExists(db, category)), 'Unknown category');
   ensure((input.name ?? thing?.name)?.trim(), 'Name cannot be blank');
-  const data = patchData(thing?.data ?? emptyData(), input, category, registry, provenance);
+  const data = patchData(
+    thing?.data ?? emptyData(),
+    input,
+    category,
+    registry,
+    provenance,
+    categoryChanged,
+  );
 
   if (!thing)
     thing = await thingsDb.insertThing(db, owner, {
@@ -72,8 +101,21 @@ export async function saveThing(
       data,
     });
 
-  const image =
+  let image =
     input.imageAttachmentId === undefined ? thing.imageAttachmentId : input.imageAttachmentId;
+
+  if (categoryChanged) {
+    await tasksDb.removeUneditedSuggestions(db, owner, thing.id);
+    await purchasablesDb.removeSuggestions(db, owner, thing.id);
+    if (
+      image &&
+      input.imageAttachmentId === undefined &&
+      !data.userEdited?.includes('imageAttachmentId')
+    ) {
+      const attachment = await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, image);
+      if (attachment.ownerId === null) image = null;
+    }
+  }
 
   if (image)
     ensure(

@@ -127,6 +127,23 @@ export const ThingsStore = signalStore(
         );
       },
 
+      /** Applies the server's field conversion and reloads affected collections. */
+      async changeCategory(id: string, input: Schema['ThingCategoryChange']) {
+        const result = await store.mutate(
+          'saveChanges',
+          [],
+          () => store._service.changeCategory(id, input).then(thingRecord),
+          { refetch: () => store.loadOne(id) },
+        );
+        if (result.ok) {
+          store.setConfirmed(id, (previous) => keepNewer(previous, result.value));
+          void store._dates.reload();
+          void store._tasks.reload();
+          void store._purchasables.loadForThing(id);
+        }
+        return result;
+      },
+
       /** Hides the Thing and its children and unlinks its attachments until the server confirms. */
       remove(id: string) {
         const children: PendingChange[] = [

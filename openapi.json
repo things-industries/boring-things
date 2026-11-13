@@ -513,7 +513,7 @@
       "patch": {
         "operationId": "patchThing",
         "summary": "Patch thing",
-        "description": "Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set or changing category preserves displaced values as custom fields. Returns 409 while an import is active.",
+        "description": "Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set keeps displaced values as custom fields. Category changes move matching field occurrences and keep other populated values as custom fields. Category changes return 409 while an import is queued or running.",
         "tags": ["Things"],
         "parameters": [
           {
@@ -579,6 +579,64 @@
         "responses": {
           "204": {
             "description": "Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/InvalidInput"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/things/{id}:change-category": {
+      "post": {
+        "operationId": "changeThingCategory",
+        "summary": "Change Thing category",
+        "description": "Changes the category of an existing Thing and optionally queues a fresh import in the same transaction. Returns 409 while an import is queued or running.",
+        "tags": ["Things"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/resourceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThingCategoryChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Thing, including any newly queued import.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Thing"
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -4064,6 +4122,23 @@
         },
         "additionalProperties": false
       },
+      "ThingCategoryChange": {
+        "type": "object",
+        "description": "New category and optional research request for an existing Thing.",
+        "required": ["categoryId"],
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "findDetails": {
+            "type": "boolean",
+            "description": "Queue an import for the updated Thing using linked sources and public research."
+          }
+        },
+        "additionalProperties": false
+      },
       "Attachment": {
         "type": "object",
         "description": "File metadata, document properties and IDs of linked Things. Transcription starts after upload.",
@@ -4967,6 +5042,10 @@
           },
           "status": {
             "$ref": "#/components/schemas/ImportStatusEnum"
+          },
+          "previousCategory": {
+            "type": "boolean",
+            "description": "Whether the Thing changed category after this request and a fresh import is needed."
           },
           "candidates": {
             "type": "array",

@@ -12,14 +12,12 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
-import type { Schema } from '../../../../../shared/model';
 import {
   close,
   complete,
   deleteItem,
   editDetails,
   hideValue,
-  issueFault,
   moreDetails,
   pinField,
   pinnedField,
@@ -40,7 +38,6 @@ import { MenuItem } from '../../../components/menu/menu-item';
 import { ScrollContainer } from '../../../components/scroll-container/scroll-container';
 import { SectionHeader } from '../../../components/section-header/section-header';
 import { TopBar } from '../../../components/top-bar/top-bar';
-import type { FieldInput } from '../../../interfaces/field-input.interface';
 import type { LeaveGuarded } from '../../../interfaces/leave-guarded.interface';
 import { formatFieldCopy, formatFieldValue, getEmailLink } from '../../../utils/field.util';
 import { samePin } from '../../../utils/sections.util';
@@ -50,7 +47,7 @@ import {
   descriptionInput,
   detailGroups,
   detailsDraft,
-  detailsPatches,
+  detailsPatch,
   nameInput,
 } from './thing-details.view';
 import { type DetailsForm, changedDraft, detailsForm } from './thing-details.edit';
@@ -89,7 +86,6 @@ import { RowSkeleton } from '../row-skeleton/row-skeleton';
       deleteItem,
       editDetails,
       hideValue,
-      issueFault,
       moreDetails,
       pinField,
       pinnedField,
@@ -133,13 +129,6 @@ export class ThingDetailsPage implements LeaveGuarded {
 
   readonly nameInput = nameInput;
   readonly descriptionInput = descriptionInput;
-
-  readonly categoryInput = computed<FieldInput>(() => ({
-    kind: 'select',
-    sensitive: false,
-    required: true,
-    options: this.categories.entities().map((c) => ({ value: c.id, label: c.name })),
-  }));
 
   /** The edit form while editing; `null` while viewing. */
   readonly form = signal<DetailsForm | null>(null);
@@ -233,10 +222,10 @@ export class ThingDetailsPage implements LeaveGuarded {
       return;
     }
 
-    const patches = detailsPatches(thing, this.rows(), changedDraft(form));
+    const patch = detailsPatch(thing, this.rows(), changedDraft(form));
 
     this.endEdit();
-    void this.send(patches);
+    if (patch) void this.things.update(this.id(), patch);
   }
 
   /** Toggles the visibility of a sensitive field. */
@@ -277,13 +266,4 @@ export class ThingDetailsPage implements LeaveGuarded {
   }
 
   private readonly rows = computed(() => this.groups().flatMap((group) => group.rows));
-
-  /** Sends each patch after the previous one succeeds; a failure has already reverted and toasted. */
-  private async send(patches: Schema['ThingPatch'][]) {
-    for (const patch of patches) {
-      const result = await this.things.update(this.id(), patch);
-
-      if (!result.ok) return;
-    }
-  }
 }

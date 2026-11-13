@@ -8,7 +8,7 @@ import {
   type DetailRow,
   detailGroups,
   detailsDraft,
-  detailsPatches,
+  detailsPatch,
 } from '../app/features/things/thing-details/thing-details.view.js';
 import { APP_CONFIG } from '../app/core/app.config.js';
 import {
@@ -153,8 +153,8 @@ test('field errors cover email, money, numbers, dates, length and pattern', () =
   assert.equal(fieldValueError(kind('number'), ''), null);
 });
 
-test('saving sends only changed values, then the category', () => {
-  const thing = { name: 'Van', description: '', categoryId: 'vehicles' };
+test('saving sends only changed values', () => {
+  const thing = { name: 'Van', description: '' };
   const detail = {
     fieldSets: [],
     standaloneFields: [
@@ -173,23 +173,19 @@ test('saving sends only changed values, then the category', () => {
 
   assert.equal(draft.fields[rows[2].anchor], '0042');
   draft.name = ' Camper ';
-  draft.categoryId = 'appliances';
   draft.fields[rows[1].anchor] = 'X1';
   draft.fields[rows[4].anchor] = '';
 
-  assert.deepEqual(detailsPatches(thing, rows, draft), [
-    {
-      name: 'Camper',
-      values: [{ fieldSetId: null, fieldId: 'model', value: 'X1' }],
-      customFields: [
-        { id: 'c2', label: 'Renewal', sensitive: false, valueType: 'DATE', value: null },
-      ],
-    },
-    { categoryId: 'appliances' },
-  ]);
+  assert.deepEqual(detailsPatch(thing, rows, draft), {
+    name: 'Camper',
+    values: [{ fieldSetId: null, fieldId: 'model', value: 'X1' }],
+    customFields: [
+      { id: 'c2', label: 'Renewal', sensitive: false, valueType: 'DATE', value: null },
+    ],
+  });
 
   draft.fields[rows[2].anchor] = '4321';
-  assert.deepEqual(detailsPatches(thing, rows, draft)[0].values?.[1], {
+  assert.deepEqual(detailsPatch(thing, rows, draft)?.values?.[1], {
     fieldSetId: null,
     fieldId: 'pin',
     value: '4321',
@@ -197,7 +193,7 @@ test('saving sends only changed values, then the category', () => {
 });
 
 test('saving leaves out values the draft does not hold', () => {
-  const thing = { name: 'Van', description: '', categoryId: 'vehicles' };
+  const thing = { name: 'Van', description: '' };
   const detail = {
     fieldSets: [],
     standaloneFields: [
@@ -209,8 +205,8 @@ test('saving leaves out values the draft does not hold', () => {
   } as unknown as ThingDetail;
   const rows: DetailRow[] = detailGroups(detail).flatMap((group) => group.rows);
 
-  assert.deepEqual(detailsPatches(thing, rows, { fields: { [rows[1].anchor]: 'X2' } }), [
-    { values: [{ fieldSetId: null, fieldId: 'model', value: 'X2' }] },
-  ]);
-  assert.deepEqual(detailsPatches(thing, rows, { fields: {} }), []);
+  assert.deepEqual(detailsPatch(thing, rows, { fields: { [rows[1].anchor]: 'X2' } }), {
+    values: [{ fieldSetId: null, fieldId: 'model', value: 'X2' }],
+  });
+  assert.equal(detailsPatch(thing, rows, { fields: {} }), undefined);
 });

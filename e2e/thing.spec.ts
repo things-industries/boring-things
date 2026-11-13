@@ -473,43 +473,34 @@ test('edit mode masks a revealed value again after cancelling', async ({ page })
   await expect(row).not.toContainText('0000');
 });
 
-test('edit mode saves values before a category change and can clear a custom date', async ({
-  page,
-}) => {
+test('the category action keeps a displaced custom date that can be cleared', async ({ page }) => {
   await createThing(page, `Recategorised kettle ${Date.now()}`);
+  const thingUrl = page.url();
   await page.getByRole('link', { name: 'See all details' }).click();
   await page.getByRole('button', { name: 'Edit details' }).click();
+  await expect(page.getByRole('combobox', { name: 'Category' })).toHaveCount(0);
+  await expect(page.locator('bt-key-value-row').filter({ hasText: 'Category' })).toContainText(
+    'Appliances',
+  );
   await page.getByRole('textbox', { name: 'Warranty provider' }).fill('Example Care');
   await page.locator('input[aria-label="Warranty ends"]').fill('2090-02-28');
-  await page.getByRole('combobox', { name: 'Category' }).selectOption('insurance');
-  await expect(page.locator('bt-notice')).toContainText('kept as custom fields');
-
-  const patches: unknown[] = [];
-
-  page.on('request', (request) => {
-    if (request.method() === 'PATCH') patches.push(request.postDataJSON());
-  });
-  const second = page.waitForResponse(
+  const saved = page.waitForResponse(
     (response) =>
       response.request().method() === 'PATCH' &&
-      'categoryId' in (response.request().postDataJSON() ?? {}),
+      new URL(response.url()).pathname.startsWith('/api/things/'),
   );
-
   await page.getByRole('button', { name: 'Save details' }).click();
-  await second;
-  expect(patches).toMatchObject([
-    {
-      values: expect.arrayContaining([
-        {
-          fieldSetId: 'appliances.warranty',
-          fieldId: 'common.warrantyProvider',
-          value: 'Example Care',
-        },
-        { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds', value: '2090-02-28' },
-      ]),
-    },
-    { categoryId: 'insurance' },
-  ]);
+  expect((await saved).ok()).toBe(true);
+  await page.getByRole('link', { name: 'Back to thing' }).click();
+  await expect(page).toHaveURL(thingUrl);
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Change category' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Change category' });
+  await dialog.getByRole('combobox', { name: 'Category' }).selectOption('insurance');
+  await expect(dialog).toContainText('Other saved values become custom fields');
+  await dialog.getByRole('button', { name: 'Change category', exact: true }).click();
+  await expect(page.locator('.thing-category')).toHaveText('Insurance');
+  await page.getByRole('link', { name: 'See all details' }).click();
 
   const pin = page.getByRole('button', { name: /^Pin .+: Warranty ends$/ });
   const pinned = page.waitForResponse(
@@ -612,9 +603,14 @@ test('the overflow menu changes the category and tags, then deletes the Thing', 
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Change category' }).click();
   await page.getByRole('combobox', { name: 'Category' }).selectOption('devices');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const changed = page.waitForResponse((response) => response.url().endsWith(':change-category'));
+  await page.getByRole('button', { name: 'Change category and find details' }).click();
+  const response = await changed;
+  expect(response.ok()).toBe(true);
+  expect((await response.json()).import).toMatchObject({ status: 'QUEUED', operation: 'IMPORT' });
   await expect(page.locator('.thing-category')).toHaveText('Devices');
 
+  await expect(page.locator('bt-import-progress')).toHaveCount(0);
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Tags' }).click();
   await page.getByRole('textbox', { name: 'New tag' }).fill(tag);

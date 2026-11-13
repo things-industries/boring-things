@@ -260,6 +260,7 @@ export class ThingPage {
   readonly dialog = signal<ThingDialog | null>(null);
   readonly target = signal<string | null>(null);
   readonly categoryDraft = signal('');
+  readonly changingCategory = signal(false);
   readonly newTag = signal('');
   readonly copied = signal(false);
   private viewed = new Set<string>();
@@ -340,12 +341,15 @@ export class ThingPage {
     void this.issues.resolve(id);
   }
 
-  saveCategory() {
+  async saveCategory(findDetails: boolean) {
     const categoryId = this.categoryDraft();
 
-    if (categoryId && categoryId !== this.thing()?.categoryId)
-      void this.things.update(this.id(), { categoryId });
-    this.closeDialog();
+    if (!categoryId || categoryId === this.thing()?.categoryId || this.changingCategory()) return;
+    const id = this.id();
+    this.changingCategory.set(true);
+    const result = await this.things.changeCategory(id, { categoryId, findDetails });
+    this.changingCategory.set(false);
+    if (result.ok && id === this.id() && this.dialog() === 'category') this.closeDialog();
   }
 
   toggleTag(tagId: string) {

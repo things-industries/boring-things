@@ -147,7 +147,7 @@ Supported schemas: string (length, pattern, enum, date/date-time), number/intege
 
 Sensitive definitions set `sensitive: true`; `uiHint: password` also requires sensitivity. Custom fields have the same flag. Owner-scoped Thing details include sensitive values and omit their source references. Sensitive values start masked in the interface. Reveal and Hide change their visibility locally. Copy includes the saved value while it is masked. Request bodies and validation values are not logged. Sensitive data is stored in the local database without field-level encryption; this scaffold is not a password vault.
 
-Removing a populated section or changing category preserves values, provenance and sensitivity as custom fields, and remaps pins. Buildings and contents share the sum-insured definition but store independent values.
+Removing a populated section keeps its values as custom fields and remaps their pins. **Change category** moves fields with a single matching occurrence in the new category and keeps other populated values as custom fields. Buildings and contents share the sum-insured definition but store independent values. **Change category and find details** starts a new Import for the same Thing.
 
 ## Attachment metadata
 

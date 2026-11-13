@@ -90,7 +90,11 @@
           }
         </ul>
       }
-      @if (
+      @if (current.previousCategory) {
+        <bt-notice>
+          The Thing has changed category. Use Find more details on the Thing to start a new import.
+        </bt-notice>
+      } @else if (
         current.status === 'FAILED' ||
         current.status === 'INCOMPLETE' ||
         (current.status === 'COMPLETE' && current.warnings?.length)

@@ -51,6 +51,15 @@ export async function existingPurchasables(db: Database, owner: string, thingId:
   );
 }
 
+/** Removes generated purchasables so research can reassess compatibility. */
+export async function removeSuggestions(db: Database, owner: string, thingId: string) {
+  await database.execute(
+    db,
+    'delete from bt.purchasables where owner_id=$1 and thing_id=$2 and import_key is not null',
+    [owner, thingId],
+  );
+}
+
 // Inserts a researched purchasable once, preserving existing products and owner edits.
 export async function saveSuggestedPurchasable(
   db: Database,

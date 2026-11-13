@@ -174,7 +174,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
         sse,
       });
       await authenticatedApi.register(routes.registryRoutes, { db: dbPool, registry });
-      await authenticatedApi.register(routes.thingRoutes, { db: dbPool, registry, events });
+      await authenticatedApi.register(routes.thingRoutes, {
+        db: dbPool,
+        registry,
+        events,
+        runner,
+        importEnabled: !!importAi,
+      });
       await authenticatedApi.register(routes.tagRoutes, { db: dbPool, events });
       await authenticatedApi.register(routes.attachmentRoutes, {
         db: dbPool,

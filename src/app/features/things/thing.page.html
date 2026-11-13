@@ -55,7 +55,7 @@
         type="button"
         btMenuItem
         icon="changeCategory"
-        [disabled]="processing()"
+        [disabled]="processing() || changingCategory()"
         (click)="open('category')"
       >
         Change category
@@ -437,7 +437,11 @@
   <bt-dialog title="Change category" [open]="dialog() === 'category'" (closed)="closeDialog()">
     <label class="thing-field"
       >Category
-      <select [ngModel]="categoryDraft()" (ngModelChange)="categoryDraft.set($event)">
+      <select
+        [ngModel]="categoryDraft()"
+        (ngModelChange)="categoryDraft.set($event)"
+        [disabled]="changingCategory()"
+      >
         @for (option of allCategories(); track option.id) {
           <option [value]="option.id">{{ option.name }}</option>
         }
@@ -446,16 +450,38 @@
     @if (categoryDraft() !== t.categoryId) {
       <bt-notice tone="warning" icon="issueFault">
         <span noticeDetail
-          >Populated fields from sections that don't fit the new category are kept as custom
-          fields.</span
+          >Matching fields move to the new category. Other saved values become custom fields.
+          Earlier suggestions may be removed.</span
         >
       </bt-notice>
     }
     <div dialogActions>
-      <button type="button" class="button-secondary button-sm" (click)="closeDialog()">
+      <button
+        type="button"
+        class="button-secondary button-sm"
+        [disabled]="changingCategory()"
+        (click)="closeDialog()"
+      >
         Cancel
       </button>
-      <button type="button" class="button-primary button-sm" (click)="saveCategory()">Save</button>
+      <button
+        type="button"
+        class="button-primary button-sm"
+        [disabled]="changingCategory() || processing() || categoryDraft() === t.categoryId"
+        (click)="saveCategory(false)"
+      >
+        Change category
+      </button>
+      @if (config.importEnabled) {
+        <button
+          type="button"
+          class="button-secondary button-sm"
+          [disabled]="changingCategory() || processing() || categoryDraft() === t.categoryId"
+          (click)="saveCategory(true)"
+        >
+          Change category and find details
+        </button>
+      }
     </div>
   </bt-dialog>
 
