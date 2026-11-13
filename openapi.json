@@ -470,7 +470,7 @@
       "get": {
         "operationId": "getThing",
         "summary": "Get thing",
-        "description": "Returns a Thing with its fields, linked resources and current import status. Sensitive field values are masked.",
+        "description": "Returns a Thing with its fields, linked resources and current import status. Includes saved sensitive values for the owner.",
         "tags": ["Things"],
         "parameters": [
           {
@@ -634,64 +634,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Thing"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "422": {
-            "$ref": "#/components/responses/InvalidInput"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/things/{id}:reveal-field": {
-      "post": {
-        "operationId": "revealField",
-        "summary": "Reveal field",
-        "description": "Returns the stored value of a selected field, including sensitive values masked in Thing responses. The response must not be cached.",
-        "tags": ["Things"],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/resourceId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RevealRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RevealResult"
                 }
               }
             }
@@ -2206,7 +2148,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Full masked Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state.",
+            "description": "Full owner-scoped Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state.",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -3098,7 +3040,7 @@
         ]
       },
       "NullableValue": {
-        "description": "A field value, or null for an empty, removed or masked value.",
+        "description": "A field value, or null when no value is recorded.",
         "anyOf": [
           {
             "$ref": "#/components/schemas/Value"
@@ -3313,7 +3255,8 @@
             "$ref": "#/components/schemas/NullableValue"
           },
           "masked": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether the saved value starts hidden in the interface."
           },
           "origin": {
             "anyOf": [
@@ -3492,7 +3435,8 @@
             "type": "boolean"
           },
           "masked": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether the saved value starts hidden in the interface."
           },
           "origin": {
             "$ref": "#/components/schemas/FieldOriginEnum"
@@ -3741,7 +3685,7 @@
       },
       "Thing": {
         "type": "object",
-        "description": "Thing details with fields, linked resource IDs and import status. Sensitive field values are masked.",
+        "description": "Thing details with fields, linked resource IDs and import status. Includes saved sensitive values for the owner.",
         "required": [
           "id",
           "name",
@@ -4191,21 +4135,6 @@
           "findDetails": {
             "type": "boolean",
             "description": "Queue an import for the updated Thing using linked sources and public research."
-          }
-        },
-        "additionalProperties": false
-      },
-      "RevealRequest": {
-        "description": "Reference to the field whose stored value should be revealed.",
-        "$ref": "#/components/schemas/Pin"
-      },
-      "RevealResult": {
-        "type": "object",
-        "description": "Stored field value returned by an explicit reveal request. The response must not be cached.",
-        "required": ["value"],
-        "properties": {
-          "value": {
-            "$ref": "#/components/schemas/NullableValue"
           }
         },
         "additionalProperties": false

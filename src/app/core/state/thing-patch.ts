@@ -113,7 +113,7 @@ function patchDetail(
       label: input.label,
       sensitive: input.sensitive,
       scope: input.scope ?? existing.scope,
-      value: input.sensitive ? null : input.value,
+      value: input.value,
       masked: input.sensitive && input.value !== null,
       origin: 'USER',
       sourceRefs: [],
@@ -139,7 +139,7 @@ function emptyField(definition: Schema['FieldDefinition']): Schema['Field'] {
 function withValue(field: Schema['Field'], value: Schema['Value']): Schema['Field'] {
   return {
     ...field,
-    value: field.sensitive ? null : value,
+    value,
     masked: field.sensitive,
     origin: 'USER',
     sourceRefs: [],

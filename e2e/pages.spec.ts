@@ -55,7 +55,8 @@ test('Things list filters by search and category', async ({ page }) => {
   await expect(hob).toBeVisible();
 });
 
-test('All details masks sensitive fields until revealed', async ({ page }) => {
+test('All details copies a sensitive field while it is masked', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/things');
   await page.getByRole('link', { name: 'Museum membership', exact: true }).click();
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
@@ -64,6 +65,10 @@ test('All details masks sensitive fields until revealed', async ({ page }) => {
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+\/details$/);
   const pin = page.locator('bt-key-value-row').filter({ hasText: 'Access PIN' });
   await expect(pin).toContainText('••••••••');
+  await pin.getByRole('button', { name: 'Copy Access PIN' }).click();
+  await expect(pin.getByRole('status')).toHaveText('Access PIN copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('0000');
+  await expect(pin).not.toContainText('0000');
   await pin.getByRole('button', { name: 'Actions for Access PIN' }).click();
   await page.getByRole('menuitem', { name: 'Reveal' }).click();
   await expect(pin).toContainText('0000');

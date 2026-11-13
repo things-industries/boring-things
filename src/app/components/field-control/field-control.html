@@ -1,5 +1,8 @@
 <span class="field-control-row">
   @switch (control()) {
+    @case ('concealed-choice') {
+      <span>{{ empty() ? placeholder() : '••••••••' }}</span>
+    }
     @case ('money') {
       <span class="field-control-currency">
         <select
@@ -102,7 +105,7 @@
       />
     }
   }
-  @if (affordance(); as icon) {
+  @if (control() !== 'concealed-choice' && affordance(); as icon) {
     <ng-icon class="field-control-affordance" [name]="icon" aria-hidden="true" />
   }
 </span>

@@ -12,7 +12,6 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { provideIcons } from '@ng-icons/core';
-import type { Value } from '../../../../../shared/model';
 import {
   close,
   complete,
@@ -40,7 +39,7 @@ import { ScrollContainer } from '../../../components/scroll-container/scroll-con
 import { SectionHeader } from '../../../components/section-header/section-header';
 import { TopBar } from '../../../components/top-bar/top-bar';
 import type { LeaveGuarded } from '../../../interfaces/leave-guarded.interface';
-import { formatFieldValue, getEmailLink, valueDraft } from '../../../utils/field.util';
+import { formatFieldCopy, formatFieldValue, getEmailLink } from '../../../utils/field.util';
 import { samePin } from '../../../utils/sections.util';
 import { activeImport } from '../thing.view';
 import {
@@ -113,16 +112,8 @@ export class ThingDetailsPage implements LeaveGuarded {
   readonly error = this.current.error;
   readonly processing = computed(() => activeImport(this.detail()?.import));
   readonly formatValue = formatFieldValue;
+  readonly formatCopy = formatFieldCopy;
   readonly getEmailLink = getEmailLink;
-
-  /** Whether a row shows a value to copy: recorded, and revealed when sensitive. */
-  copyable(row: DetailRow) {
-    const revealed = this.revealed();
-
-    return revealed.has(row.anchor)
-      ? revealed.get(row.anchor) !== null
-      : row.value !== null && !row.masked;
-  }
 
   readonly category = computed<string | null>(
     () => this.categories.entityMap()[this.thing()?.categoryId ?? '']?.name ?? null,
@@ -134,16 +125,6 @@ export class ThingDetailsPage implements LeaveGuarded {
     return detail ? detailGroups(detail) : [];
   });
 
-  // A computed source, so only a new revision clears revealed values, not every snapshot.
-  private revision = computed(() => this.thing()?.revision);
-
-  /** Revealed values by row anchor, cleared whenever the Thing changes. */
-  readonly revealed = linkedSignal<number | undefined, ReadonlyMap<string, Value | null>>({
-    source: this.revision,
-    computation: () => new Map(),
-  });
-
-  readonly revealing = signal<string | null>(null);
   readonly deleting = signal<DetailRow | null>(null);
 
   readonly nameInput = nameInput;
@@ -152,8 +133,15 @@ export class ThingDetailsPage implements LeaveGuarded {
   /** The edit form while editing; `null` while viewing. */
   readonly form = signal<DetailsForm | null>(null);
 
-  /** Sensitive rows whose typed value is visible while editing. */
-  readonly shown = signal<ReadonlySet<string>>(new Set());
+  /** Visible sensitive rows, reset when the Thing or revision changes. */
+  readonly shown = linkedSignal<string | null, ReadonlySet<string>>({
+    source: computed(() => {
+      const thing = this.thing();
+
+      return thing ? `${thing.id}:${thing.revision}` : null;
+    }),
+    computation: () => new Set(),
+  });
 
   /** Answers the open "Discard changes?" dialog; `null` while it is closed. */
   readonly discarding = signal<((discard: boolean) => void) | null>(null);
@@ -186,8 +174,7 @@ export class ThingDetailsPage implements LeaveGuarded {
     const thing = this.thing();
 
     if (!thing || this.processing()) return;
-    this.shown.set(new Set(this.revealed().keys()));
-    this.form.set(detailsForm(detailsDraft(thing, this.rows(), this.revealed()), this.rows()));
+    this.form.set(detailsForm(detailsDraft(thing, this.rows()), this.rows()));
   }
 
   /** Leaves edit mode, first confirming when there are unsaved edits. */
@@ -235,30 +222,20 @@ export class ThingDetailsPage implements LeaveGuarded {
       return;
     }
 
-    const patch = detailsPatch(thing, this.rows(), changedDraft(form), this.revealed());
+    const patch = detailsPatch(thing, this.rows(), changedDraft(form));
 
     this.endEdit();
     if (patch) void this.things.update(this.id(), patch);
   }
 
-  /** Reveals or hides a sensitive value while editing, fetching it when it is masked. */
-  async toggleShown(row: DetailRow) {
-    if (this.shown().has(row.anchor)) {
-      this.shown.update((set) => new Set([...set].filter((anchor) => anchor !== row.anchor)));
-      return;
-    }
+  /** Toggles the visibility of a sensitive field. */
+  toggleShown(anchor: string) {
+    this.shown.update((shown) => {
+      const next = new Set(shown);
 
-    if (row.masked && !this.revealed().has(row.anchor)) {
-      await this.toggleReveal(row);
-      if (!this.revealed().has(row.anchor)) return;
-
-      const control = this.form()?.controls.fields.controls[row.anchor];
-
-      if (control?.pristine)
-        control.setValue(valueDraft(row.input, this.revealed().get(row.anchor) ?? null));
-    }
-
-    this.shown.update((set) => new Set(set).add(row.anchor));
+      if (!next.delete(anchor)) next.add(anchor);
+      return next;
+    });
   }
 
   togglePin(row: DetailRow) {
@@ -269,23 +246,11 @@ export class ThingDetailsPage implements LeaveGuarded {
     });
   }
 
-  async toggleReveal(row: DetailRow) {
-    if (this.revealed().has(row.anchor)) return this.hide(row.anchor);
-    this.revealing.set(row.anchor);
-
-    const revision = this.thing()?.revision;
-    const value = await this.things.reveal(this.id(), row.pin);
-
-    this.revealing.set(null);
-    if (value === undefined || this.thing()?.revision !== revision) return;
-    this.revealed.update((map) => new Map(map).set(row.anchor, value));
-  }
-
   confirmDelete() {
     const row = this.deleting();
 
     if (!row) return;
-    this.hide(row.anchor);
+    if (this.shown().has(row.anchor)) this.toggleShown(row.anchor);
     this.deleting.set(null);
     void this.things.update(this.id(), row.remove);
   }
@@ -294,7 +259,6 @@ export class ThingDetailsPage implements LeaveGuarded {
   private endEdit() {
     this.form.set(null);
     this.shown.set(new Set());
-    this.revealed.set(new Map());
   }
 
   private confirmDiscard() {
@@ -302,13 +266,4 @@ export class ThingDetailsPage implements LeaveGuarded {
   }
 
   private readonly rows = computed(() => this.groups().flatMap((group) => group.rows));
-
-  private hide(anchor: string) {
-    this.revealed.update((map) => {
-      const next = new Map(map);
-
-      next.delete(anchor);
-      return next;
-    });
-  }
 }

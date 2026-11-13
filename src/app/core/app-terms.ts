@@ -37,7 +37,6 @@ export const ACTION_TERMS = {
   sendMessage: "Couldn't send the message",
   importThing: "Couldn't start the import",
   retryImport: "Couldn't retry the import",
-  revealField: "Couldn't reveal the value",
   addSampleData: "Couldn't add sample data",
 } as const;
 /** Copy for shared error codes, used by `bt-error-message` and toasts. */

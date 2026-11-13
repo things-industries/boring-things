@@ -44,7 +44,8 @@
       class="resource-row"
       [icon]="fieldIcon(field.icon)"
       [label]="field.name"
-      [copyable]="field.value !== null && !field.masked"
+      [copyable]="field.value !== null"
+      [copyValue]="field.masked ? formatCopy(field.value, field.schema.format ?? null) : null"
     >
       @if (field.masked) {
         ••••••••

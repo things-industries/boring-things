@@ -1,6 +1,5 @@
 /**
- * Registers Thing listing, creation, editing, deletion and explicit field reveal, keeping stored
- * sensitive data out of list responses.
+ * Registers owner-scoped Thing listing, creation, editing, deletion and view tracking.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -14,7 +13,6 @@ import { changeThingCategory, detail, writeThing } from '../application/things.j
 import { ensure } from '../application/errors.js';
 import * as importsDb from '../db/entities/imports.js';
 import * as thingsDb from '../db/entities/things.js';
-import { revealValue } from '../application/thing-data.js';
 
 interface Options {
   db: pg.Pool;
@@ -68,14 +66,6 @@ const thingRoutes: FastifyPluginAsync<Options> = async (
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     return reply.code(204).send();
   });
-
-  route(app, 'POST', '/api/things/{id}:reveal-field', async (req) => ({
-    value: revealValue(
-      (await thingsDb.getOwnedThingOrThrow(db, req.ownerId, req.params.id)).data,
-      req.body,
-      registry,
-    ),
-  }));
 };
 
 export default thingRoutes;

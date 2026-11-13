@@ -110,7 +110,9 @@ export class Assistant {
     };
 
     const readThing = async (id: string) => {
-      const thing = await detail(this.pool, job.ownerId, id, this.registry);
+      const thing = await detail(this.pool, job.ownerId, id, this.registry, {
+        redactSensitive: true,
+      });
       if (id === job.thingId) metrics.setJobEntity({ type: 'thing', id, name: thing.name });
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);

@@ -171,6 +171,11 @@ export function formatFieldValue(
     : String(value ?? '');
 }
 
+/** Formats clipboard text, including the display labels for booleans. */
+export function formatFieldCopy(value: Value | null, format: Schema['SchemaFormatEnum'] | null) {
+  return typeof value === 'boolean' ? (value ? 'Yes' : 'No') : formatFieldValue(value, format);
+}
+
 /** Whether two values are equal, comparing money by amount and currency. */
 export function sameValue(a: Value | null, b: Value | null): boolean {
   if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object')

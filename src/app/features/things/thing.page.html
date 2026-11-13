@@ -214,7 +214,8 @@
                     [label]="row.label"
                     [loading]="processing() && row.value === null && !row.masked"
                     [class.thing-missing]="!processing() && row.value === null && !row.masked"
-                    [copyable]="row.value !== null && !row.masked"
+                    [copyable]="row.value !== null"
+                    [copyValue]="row.masked ? formatCopy(row.value, row.format) : null"
                   >
                     @if (row.masked) {
                       ••••••••

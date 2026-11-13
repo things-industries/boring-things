@@ -160,7 +160,7 @@ test('saving sends only changed values', () => {
     standaloneFields: [
       field({ id: 'make', name: 'Make', value: 'Acme' }),
       field({ id: 'model', name: 'Model' }),
-      field({ id: 'pin', name: 'PIN', sensitive: true, masked: true, value: null }),
+      field({ id: 'pin', name: 'PIN', sensitive: true, masked: true, value: '0042' }),
     ],
     customFields: [
       custom(),
@@ -169,14 +169,14 @@ test('saving sends only changed values', () => {
     pinnedFields: [{ customFieldId: 'c2' }, { fieldSetId: null, fieldId: 'make' }],
   } as unknown as ThingDetail;
   const rows: DetailRow[] = detailGroups(detail).flatMap((group) => group.rows);
-  const draft = detailsDraft(thing, rows, new Map());
+  const draft = detailsDraft(thing, rows);
 
-  assert.equal(draft.fields[rows[2].anchor], '');
+  assert.equal(draft.fields[rows[2].anchor], '0042');
   draft.name = ' Camper ';
   draft.fields[rows[1].anchor] = 'X1';
   draft.fields[rows[4].anchor] = '';
 
-  assert.deepEqual(detailsPatch(thing, rows, draft, new Map()), {
+  assert.deepEqual(detailsPatch(thing, rows, draft), {
     name: 'Camper',
     values: [{ fieldSetId: null, fieldId: 'model', value: 'X1' }],
     customFields: [
@@ -185,7 +185,7 @@ test('saving sends only changed values', () => {
   });
 
   draft.fields[rows[2].anchor] = '4321';
-  assert.deepEqual(detailsPatch(thing, rows, draft, new Map())?.values?.[1], {
+  assert.deepEqual(detailsPatch(thing, rows, draft)?.values?.[1], {
     fieldSetId: null,
     fieldId: 'pin',
     value: '4321',
@@ -205,8 +205,8 @@ test('saving leaves out values the draft does not hold', () => {
   } as unknown as ThingDetail;
   const rows: DetailRow[] = detailGroups(detail).flatMap((group) => group.rows);
 
-  assert.deepEqual(detailsPatch(thing, rows, { fields: { [rows[1].anchor]: 'X2' } }, new Map()), {
+  assert.deepEqual(detailsPatch(thing, rows, { fields: { [rows[1].anchor]: 'X2' } }), {
     values: [{ fieldSetId: null, fieldId: 'model', value: 'X2' }],
   });
-  assert.equal(detailsPatch(thing, rows, { fields: {} }, new Map()), undefined);
+  assert.equal(detailsPatch(thing, rows, { fields: {} }), undefined);
 });

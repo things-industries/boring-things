@@ -35,9 +35,9 @@ Read environment settings through `getEnv(name)` from `config.ts` inside their o
 - Enforce owner scope on every record read/write, relationship, pagination query and attachment download. Validate both ends of a link. Keep cross-owner database constraints.
 - Logto verifies signature, issuer, audience and expiry. Do not add a runtime authentication bypass. Signed tokens and a local JWKS server are available in integration tests.
 - Preserve `Cache-Control: private, no-store` on authenticated responses.
-- Sensitive values and source quotes are omitted from ordinary responses. Reveal is a separate owner-authorised operation. Apply this to custom fields too; a password UI hint requires sensitivity.
+- Owner-scoped Thing details include sensitive values for visual masking and copying. Omit sensitive source references from responses, and redact sensitive values from chat and task scheduling inputs. Apply these rules to custom fields too. A password UI hint requires sensitivity.
 - Do not log request bodies, field values, source quotes, bearer tokens or raw database/validation errors. Preserve the existing redaction and sanitised error handler.
-- The `bt` schema is not exposed to Supabase browser roles. Masking/reveal does not provide field-level encryption; the POC is not a password vault.
+- The `bt` schema is not exposed to Supabase browser roles. Field values are stored without field-level encryption.
 
 ## Registry and field invariants
 
@@ -112,7 +112,7 @@ Read environment settings through `getEnv(name)` from `config.ts` inside their o
 
 From the root, use `pnpm dev:server`, `pnpm test`, `CI=true pnpm check` and, where relevant, `pnpm test:integration`. Integration checks require local PostgreSQL.
 
-Test changed business invariants and regressions, particularly cross-owner access, sensitive-field omission/reveal, shared attachment lifecycle, independent set values and preservation on category changes. Use the existing Node test harness; add coverage where behaviour warrants it.
+Test changed business invariants and regressions, particularly cross-owner access, sensitive-field masking and provider redaction, shared attachment lifecycle, independent set values and preservation on category changes. Use the existing Node test harness; add coverage where behaviour warrants it.
 
 ## Coding practice and style
 

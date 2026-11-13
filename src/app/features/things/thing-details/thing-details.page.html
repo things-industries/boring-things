@@ -96,9 +96,7 @@
                     [label]="row.label"
                     [field]="row.input"
                     [concealed]="row.input.sensitive && !visible"
-                    [placeholder]="
-                      row.masked && !revealed().has(row.anchor) ? '••••••••' : 'Not recorded'
-                    "
+                    placeholder="Not recorded"
                   />
                   @if (row.input.sensitive) {
                     <button
@@ -109,8 +107,7 @@
                       size="sm"
                       [icon]="visible ? 'hideValue' : 'revealValue'"
                       [label]="(visible ? 'Hide ' : 'Reveal ') + row.label"
-                      [disabled]="revealing() === row.anchor"
-                      (click)="toggleShown(row)"
+                      (click)="toggleShown(row.anchor)"
                     ></button>
                   }
                 </bt-key-value-row>
@@ -152,19 +149,13 @@
                 <bt-key-value-row
                   [label]="row.label"
                   [attr.id]="row.anchor"
-                  [copyable]="copyable(row)"
+                  [copyable]="row.value !== null"
+                  [copyValue]="row.masked ? formatCopy(row.value, row.format) : null"
                 >
                   <ng-container ngProjectAs="[keyValueStart]">
                     <ng-container *ngTemplateOutlet="pinToggle; context: { $implicit: row }" />
                   </ng-container>
-                  @if (revealed().has(row.anchor)) {
-                    <ng-container
-                      *ngTemplateOutlet="
-                        value;
-                        context: { $implicit: row, value: revealed().get(row.anchor) }
-                      "
-                    />
-                  } @else if (row.masked) {
+                  @if (row.masked && !shown().has(row.anchor)) {
                     ••••••••
                   } @else {
                     <ng-container
@@ -191,11 +182,10 @@
                       <button
                         type="button"
                         btMenuItem
-                        [icon]="revealed().has(row.anchor) ? 'hideValue' : 'revealValue'"
-                        [disabled]="revealing() === row.anchor"
-                        (click)="toggleReveal(row)"
+                        [icon]="shown().has(row.anchor) ? 'hideValue' : 'revealValue'"
+                        (click)="toggleShown(row.anchor)"
                       >
-                        {{ revealed().has(row.anchor) ? 'Hide' : 'Reveal' }}
+                        {{ shown().has(row.anchor) ? 'Hide' : 'Reveal' }}
                       </button>
                     }
                     <button
