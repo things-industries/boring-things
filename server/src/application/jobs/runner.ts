@@ -12,6 +12,13 @@ export interface JobLease {
   acquire(): Promise<(() => Promise<void>) | undefined>;
 }
 
+/** Signals that a claimed job already reported its exception. */
+export class ReportedJobError extends Error {
+  constructor(cause: unknown) {
+    super('Claimed job failed', { cause });
+  }
+}
+
 export class JobRunner {
   private stopped = false;
   private pending = new Map<JobProcessor, Promise<void>>();
@@ -44,9 +51,10 @@ export class JobRunner {
         for (const processor of this.processors) {
           if (this.pending.has(processor)) continue;
           const work = this.drain(processor)
-            .catch((error: unknown) =>
-              this.reportFailure(error, 'process', processor.constructor.name),
-            )
+            .catch((error: unknown) => {
+              if (!(error instanceof ReportedJobError))
+                this.reportFailure(error, 'process', processor.constructor.name);
+            })
             .finally(() => this.pending.delete(processor));
           this.pending.set(processor, work);
         }

@@ -57,12 +57,13 @@ export class AttachmentTranscriptionProcessor {
       attachmentsDb.claimPendingTranscription(db),
     );
     if (!claimed) return false;
-    const { file, ownerId } = claimed;
-    await metrics.withJob('attachment', file.id, async () => {
+    const { file, ownerId, queuedAt } = claimed;
+    const { id, mediaType, byteSize } = file;
+    await metrics.withJob('attachment', { id, ownerId, queuedAt }, async () => {
       if (ownerId === null && file.mediaType.startsWith('image/')) {
         metrics.setJobStage('save_outcome');
         await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'SKIPPED');
-        return { status: 'SKIPPED' };
+        return { status: 'SKIPPED', reason: 'display_image', mediaType, byteSize };
       }
       const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('IMPORT_TIMEOUT_MS'))]);
       const usage = file.transcriptionUsage ?? blankUsage(),
@@ -70,15 +71,19 @@ export class AttachmentTranscriptionProcessor {
       const elapsed = usage.elapsedMs;
       let requests = usage.entries?.length ?? 0;
       let extractedText: string | undefined;
+      let ocrPageCount = 0;
+      let pageCount = file.pageCount;
       let stage = 'storage_read';
       let outcome: metrics.JobOutcome;
       try {
-        const chunks: Buffer[] = [];
-        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
-          signal.throwIfAborted();
-          chunks.push(Buffer.from(chunk));
-        }
-        const content = Buffer.concat(chunks);
+        const content = await metrics.withStage('read_attachment', async () => {
+          const chunks: Buffer[] = [];
+          for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
+            signal.throwIfAborted();
+            chunks.push(Buffer.from(chunk));
+          }
+          return Buffer.concat(chunks);
+        });
         stage = 'text_extraction';
         ensure(content.length <= maxDocumentBytes, 'Attachment too large', 'TOO_LARGE');
         const context = {
@@ -101,6 +106,7 @@ export class AttachmentTranscriptionProcessor {
         };
         const readImageText = async (bytes: Buffer) => {
           stage = 'ocr';
+          ocrPageCount++;
           const text = await this.readImageText(bytes, signal);
           stage = 'save_ocr_usage';
           await context.record({
@@ -114,9 +120,10 @@ export class AttachmentTranscriptionProcessor {
 
         // Complete text extraction before asking the model for source analysis.
         let text: string;
-        let pageCount = file.pageCount;
         if (file.mediaType === 'application/pdf')
-          ({ text, pageCount } = await pdfText(content, signal, readImageText));
+          ({ text, pageCount } = await metrics.withStage('extract_pdf_text', () =>
+            pdfText(content, signal, readImageText),
+          ));
         else if (file.mediaType.startsWith('image/')) text = await readImageText(content);
         else {
           ensure(file.mediaType === 'text/plain', 'Unsupported attachment type');
@@ -220,6 +227,8 @@ export class AttachmentTranscriptionProcessor {
             ? { status, stage: 'analysis', reason: result.status.toLowerCase() }
             : { status };
       } catch (error) {
+        if (stage === 'storage_read' && !signal.aborted)
+          metrics.recordDependencyFailure('storage', 'transcription_read', error);
         const status = extractedText?.trim() ? 'PARTIAL' : 'EMPTY';
         const reason = signal.aborted
           ? shutdown.aborted
@@ -255,7 +264,14 @@ export class AttachmentTranscriptionProcessor {
       );
       for (const recipient of await attachmentsDb.affectedOwners(this.pool, file))
         this.events.publish({ type: 'data.changed', ownerId: recipient });
-      return outcome;
+      return {
+        ...outcome,
+        mediaType,
+        byteSize,
+        pageCount,
+        ocrPageCount,
+        textCharacters: extractedText?.length,
+      };
     });
     return true;
   }

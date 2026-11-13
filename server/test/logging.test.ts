@@ -21,7 +21,7 @@ for (const level of ['info', 'trace']) {
     });
     t.after(() => app.close());
     installErrorHandler(app);
-    app.get('/ok', async () => ({ status: 'ok' }));
+    app.get('/api/things/:id', async () => ({ status: 'ok' }));
     app.get('/failure', async () => {
       throw new Error('Private failure details');
     });
@@ -34,36 +34,40 @@ for (const level of ['info', 'trace']) {
       controller.streamError(new Error('Stream failure'), request, reply);
       return { status: 'ok' };
     });
-    assert.equal((await app.inject('/ok')).statusCode, 200);
+    assert.equal(
+      (await app.inject('/api/things/example?filter=private_query_detail')).statusCode,
+      200,
+    );
     assert.equal((await app.inject('/failure')).statusCode, 500);
     assert.equal((await app.inject('/stream-errors')).statusCode, 200);
 
     const records = lines.map((line) => JSON.parse(line));
-    const requests = records.filter((record) => record.msg === 'incoming request');
-    const responses = records.filter((record) => record.msg === 'request completed');
+    const requests = records.filter((record) => record.event === 'request_started');
+    const responses = records.filter((record) => record.event === 'request_completed');
     assert.equal(requests.length, level === 'trace' ? 3 : 0);
     assert.equal(responses.length, level === 'trace' ? 3 : 0);
-    for (const record of [...requests, ...responses]) {
-      assert.equal(record.level, 10);
-      assert.equal(typeof record.reqId, 'string');
-    }
     if (level === 'trace') {
-      assert.equal(requests[0].req.url, '/ok');
-      assert.equal(responses[0].res.statusCode, 200);
-      assert.equal(typeof responses[0].responseTime, 'number');
+      assert.partialDeepStrictEqual(responses[0], {
+        route: '/api/things/:id',
+        statusCode: 200,
+        level: 10,
+      });
+      assert.equal(typeof responses[0].elapsedMs, 'number');
+      assert.equal(typeof responses[0].requestId, 'string');
     }
     const errors = records.filter((record) => record.level === 50);
     assert.equal(errors.length, 1);
-    assert.equal(errors[0].msg, 'Request failed');
-    assert.equal(errors[0].code, 'Error');
-    assert.ok(!lines.join('').includes('Private failure details'));
-    const disconnects = records.filter((record) => record.msg === 'stream closed prematurely');
+    assert.equal(errors[0].event, 'request_failed');
+    assert.equal(errors[0].reason, 'unexpected_error');
+    assert.doesNotMatch(
+      lines.join(''),
+      /Private failure details|private_query_detail|Stream failure/,
+    );
+    const disconnects = records.filter((record) => record.reason === 'client_disconnect');
     assert.equal(disconnects.length, level === 'trace' ? 1 : 0);
-    if (disconnects.length) assert.equal(disconnects[0].level, 10);
     const streamFailures = records.filter(
-      (record) => record.msg === 'response terminated with an error with headers already sent',
+      (record) => record.event === 'response_stream_closed' && record.level === 40,
     );
     assert.equal(streamFailures.length, 1);
-    assert.equal(streamFailures[0].level, 40);
   });
 }

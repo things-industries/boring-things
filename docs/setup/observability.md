@@ -1,6 +1,12 @@
-# Import observability and evaluations
+# Backend observability and evaluations
 
-Langfuse receives server measurements through OpenTelemetry. The product frontend and HTTP contracts do not depend on it. Provider observations contain task names, identifiers, status, timing, token usage and costs. Import diagnostics also include the relevant saved Thing name, Task title or purchasable name when available. Treat display labels as private metadata. Prompts, attachment contents, queries, credentials, raw provider errors and model output are excluded.
+- **Render** captures Fastify JSON logs in production. Use event names and IDs to find queue submissions, job attempts, warnings and dependency failures. Routine HTTP request logs use `trace` and carry the route template.
+- **Sentry** groups unexpected exceptions and receives sampled API spans and service metrics. The request handler and job wrapper attach correlation IDs. API duration, job outcomes, queue depth and age, pool pressure and stream closures can be queried without enabling routine HTTP logs.
+- **Langfuse** receives AI workflow traces through OpenTelemetry. Provider observations carry task, model, usage, cost and timing. Workflow observations add statuses, counts and saved display names where relevant. Prompts, attachment contents, raw queries, credentials and model output stay in the application.
+
+`ownerId` identifies a Boring Things account. Langfuse uses that value as its `userId` on owner-scoped jobs. Shared attachment work is correlated by attachment ID. Join an HTTP submission to a worker attempt by the job ID and use its `attemptId` to distinguish retries.
+
+Queue gauges are sampled once a minute when the server Sentry DSN is configured. Imports waiting for source transcription have their own series. The ready queue clock starts when the job becomes eligible for processing. Queue entries that predate the timestamp migration contribute to depth. Age and wait measurements require a recorded timestamp.
 
 ## Configuration
 

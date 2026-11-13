@@ -125,6 +125,7 @@ export async function downloadResource(
     let status: metrics.ProviderCall['status'] = 'error';
     let failure: metrics.ProviderFailure | undefined;
     let response: IncomingMessage | undefined;
+    let outcome: metrics.ProviderCall['outcome'];
     try {
       response = await request(url, signal);
       if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
@@ -132,6 +133,7 @@ export async function downloadResource(
         // Every redirect is a new untrusted target and must pass URL and connection-time DNS checks again.
         url = documentUrl(new URL(response.headers.location, url).href);
         status = 'success';
+        outcome = 'redirected';
         continue;
       }
 
@@ -141,6 +143,7 @@ export async function downloadResource(
 
       if (type && mediaTypes.length && !mediaTypes.includes(type)) {
         status = 'success';
+        outcome = 'unsupported_media';
         return null;
       }
 
@@ -166,6 +169,7 @@ export async function downloadResource(
 
       const content = Buffer.concat(chunks);
       status = 'success';
+      outcome = 'found';
       return { content, mediaType: type ?? '', url: url.href };
     } catch (error) {
       failure = metrics.getProviderFailure(error);
@@ -178,6 +182,8 @@ export async function downloadResource(
         costUsd: 0,
         startedAt,
         status,
+        outcome,
+        httpStatus: response?.statusCode,
         failure,
       });
     }

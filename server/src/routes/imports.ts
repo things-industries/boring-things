@@ -1,4 +1,5 @@
 import { retryImport } from '../application/import/commands.js';
+import { getRequestContext } from '../http/logging.js';
 import { sseHeaders, type ServerSentEvents } from '../http/sse.js';
 /**
  * Registers Import submission and retry endpoints, plus revisioned Thing snapshot
@@ -42,6 +43,19 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       req.body.attachmentIds,
       req.body.thingId,
     );
+    req.log.info(
+      {
+        event: accepted.status === 'COMPLETE' ? 'import_completed' : 'job_queued',
+        ...getRequestContext(req),
+        jobKind: 'import',
+        jobId: accepted.importId,
+        importId: accepted.importId,
+        thingId: accepted.thingId,
+        status: accepted.status,
+        sourceCount: req.body.attachmentIds.length,
+      },
+      'Import submitted',
+    );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     return reply.code(202).send(accepted);
@@ -55,6 +69,18 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       [],
       req.params.thingId,
       'RECOMMENDATION',
+    );
+    req.log.info(
+      {
+        event: 'job_queued',
+        ...getRequestContext(req),
+        jobKind: 'import',
+        jobId: accepted.importId,
+        importId: accepted.importId,
+        thingId: req.params.thingId,
+        status: accepted.status,
+      },
+      'Recommendation submitted',
     );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
@@ -75,6 +101,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       .send(
         sse.stream(events.subscribe({ ownerId: req.ownerId }), {
           event: 'import.snapshot',
+          diagnostics: { request: req, importId: req.params.id },
           snapshot: async () =>
             importsDb.projectImport(
               await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id),
@@ -87,6 +114,18 @@ const importRoutes: FastifyPluginAsync<Options> = async (
   route(app, 'POST', '/api/imports/{id}:retry', async (req) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
     const result = await retryImport(pool, req.ownerId, req.params.id);
+    req.log.info(
+      {
+        event: 'job_retried',
+        ...getRequestContext(req),
+        jobKind: 'import',
+        jobId: req.params.id,
+        importId: req.params.id,
+        thingId: result.thingId,
+        status: result.status,
+      },
+      'Import queued for retry',
+    );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     return result;
@@ -99,6 +138,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       .send(
         sse.stream(events.subscribe({ ownerId: req.ownerId }), {
           event: 'thing.snapshot',
+          diagnostics: { request: req, thingId: req.params.thingId },
           snapshot: () =>
             database.transaction(
               pool,

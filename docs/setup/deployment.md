@@ -65,6 +65,8 @@ For an existing Blueprint, sync `render.yaml` after merging changes. Confirm the
 
 Set `SENTRY_DSN` to the `boring-things-server` DSN and `SENTRY_FRONTEND_DSN` to the `boring-things-frontend` DSN in the Render service environment. Each SDK uses `NODE_ENV` for the event environment and `RENDER_GIT_COMMIT` for the release. With `NODE_ENV=production`, each SDK starts at a 10% trace sample rate.
 
+After deploying, check that Sentry receives the server's API and queue metrics and that Langfuse observations appear under `production`. Match the release to the deployed commit. Set the Langfuse project keys and environment in Render as described in the [observability guide](observability.md#configuration).
+
 Readable production TypeScript stack traces require source maps from the same build. Generate Angular script maps and server TypeScript maps, upload each set to its Sentry project with a build-only `SENTRY_AUTH_TOKEN`, and remove the browser maps from the public output before deploying. See [Angular source maps](https://docs.sentry.io/platforms/javascript/guides/angular/sourcemaps/uploading/) and [Node source maps](https://docs.sentry.io/platforms/javascript/guides/node/sourcemaps/).
 
 ## Verification and recovery

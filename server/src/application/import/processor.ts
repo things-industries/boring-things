@@ -62,7 +62,12 @@ export class ImportProcessor {
         }
       },
     };
-    await metrics.withJob('import', job.id, async () => {
+    const { id, ownerId, targetThingId: thingId, queuedAt, sourceWaitStartedAt } = job;
+    const sourceWaitMs =
+      queuedAt && sourceWaitStartedAt
+        ? Math.max(0, Date.parse(queuedAt) - Date.parse(sourceWaitStartedAt))
+        : undefined;
+    await metrics.withJob('import', { id, ownerId, thingId, queuedAt, sourceWaitMs }, async () => {
       let warningCount = 0;
       let failure: { error: unknown; stage: string | undefined; reason: string } | undefined;
       try {
@@ -126,6 +131,7 @@ export class ImportProcessor {
           stage,
           reason,
           warningCount: current.workflow.warnings.length,
+          sourceCount: current.sources.length,
           unexpectedError:
             reason.startsWith('database_') || reason === 'import_failed' ? error : undefined,
         };
@@ -133,7 +139,7 @@ export class ImportProcessor {
       metrics.setJobStage('save_outcome');
       await importsDb.setImportStatus(this.pool, job.ownerId, job.id, 'COMPLETE');
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-      return { status: 'COMPLETE', warningCount };
+      return { status: 'COMPLETE', warningCount, sourceCount: job.sources.length };
     });
     return true;
   }

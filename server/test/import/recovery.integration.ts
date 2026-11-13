@@ -171,6 +171,8 @@ test('additional-information retry resumes the unfinished range of a large trans
     assert.equal(batches[0] + batches[1], transcript);
     assert.ok(batches[0].length > 66_650);
 
+    // A retry starts its own queue and source wait clocks.
+    await env.pool.query("update bt.imports set queued_at='2000-01-01' where id=$1", [importId]);
     const retried = await request('/api/imports/' + importId + ':retry');
     assert.equal(retried.statusCode, 200, retried.body);
     const second = await waitForImport(env, importId);
@@ -178,6 +180,11 @@ test('additional-information retry resumes the unfinished range of a large trans
     assert.equal(second.warnings?.length, 0);
     assert.equal(batches.length, 3);
     assert.equal(batches[2], batches[1]);
+    const { rows } = await env.pool.query(
+      "select queued_at > '2000-01-01' as new_queue_entry, queued_at >= source_wait_started_at as source_wait_recorded from bt.imports where id=$1",
+      [importId],
+    );
+    assert.deepEqual(rows[0], { new_queue_entry: true, source_wait_recorded: true });
   } finally {
     await env.close();
   }

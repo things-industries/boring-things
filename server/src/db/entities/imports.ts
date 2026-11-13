@@ -24,6 +24,8 @@ export interface WorkflowCheckpoint {
 export interface ImportRow {
   id: string;
   ownerId: string;
+  queuedAt: string | null;
+  sourceWaitStartedAt: string | null;
   attachmentId: string | null;
   attachmentIds: string[];
   sources: Schema['ImportSourceStatus'][];
@@ -135,7 +137,9 @@ export async function createImportInTransaction(
         : 'QUEUED';
   const [job] = await database.rows<{ id: string }>(
     db,
-    'insert into bt.imports(owner_id,attachment_id,target_thing_id,status,operation) values($1,$2,$3,$4,$5) returning id',
+    `insert into bt.imports(owner_id,attachment_id,target_thing_id,status,operation,queued_at,source_wait_started_at)
+     values($1,$2,$3,$4,$5,case when $4='QUEUED' then now() end,
+       case when $4='WAITING_FOR_TRANSCRIPTION' then now() end) returning id`,
     [owner, attachmentIds[0] ?? null, thingId ?? null, status, operation],
   );
   for (const [position, id] of attachmentIds.entries())
@@ -260,7 +264,7 @@ export async function removeQueuedThingImports(db: Database, owner: string, id: 
 export async function recoverImports(pool: pg.Pool) {
   await database.execute(
     pool,
-    "update bt.imports set status='QUEUED',error=null where status in ('EXTRACTING','MAPPING','DISCOVERING','RECOMMENDING')",
+    "update bt.imports set status='QUEUED',error=null,queued_at=now(),source_wait_started_at=null where status in ('EXTRACTING','MAPPING','DISCOVERING','RECOMMENDING')",
   );
 }
 
@@ -268,7 +272,7 @@ export async function recoverImports(pool: pg.Pool) {
 export async function getNextQueuedImport(db: Database) {
   await database.execute(
     db,
-    `update bt.imports i set status='QUEUED' where status='WAITING_FOR_TRANSCRIPTION'
+    `update bt.imports i set status='QUEUED',queued_at=now() where status='WAITING_FOR_TRANSCRIPTION'
     and not exists(select 1 from bt.import_sources s join bt.attachments a on a.id=s.attachment_id
       where s.import_id=i.id and a.transcription_status in ('PENDING','PROCESSING'))`,
   );
@@ -328,7 +332,7 @@ export async function requeueImport(db: Database, job: ImportRow) {
   for (const file of failed)
     await database.execute(
       db,
-      "update bt.attachments set transcription_status='PENDING' where id=$1",
+      "update bt.attachments set transcription_status='PENDING',transcription_queued_at=now() where id=$1",
       [file.attachmentId],
     );
   const sourceFailures = failed.length > 0;
@@ -343,7 +347,7 @@ export async function requeueImport(db: Database, job: ImportRow) {
   });
   await database.execute(
     db,
-    "update bt.imports set status='WAITING_FOR_TRANSCRIPTION',error=null,finished_at=null where id=$1 and owner_id=$2",
+    "update bt.imports set status='WAITING_FOR_TRANSCRIPTION',error=null,finished_at=null,queued_at=null,source_wait_started_at=now() where id=$1 and owner_id=$2",
     [job.id, job.ownerId],
   );
 }

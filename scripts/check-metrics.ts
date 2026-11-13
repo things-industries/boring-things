@@ -63,7 +63,7 @@ class SyntheticTask extends AiTask<never, string> {
 }
 
 try {
-  await metrics.withJob('attachment', attachmentId, async () => {
+  await metrics.withJob('attachment', { id: attachmentId }, async () => {
     await metrics.withProviderCall(
       {
         task: 'google_vision_ocr',
@@ -77,7 +77,7 @@ try {
   });
   await Promise.all(
     importIds.map((id) =>
-      metrics.withJob('import', id, async () => {
+      metrics.withJob('import', { id: id }, async () => {
         for (let turn = 0; turn < 2; turn++) {
           await new SyntheticTask({
             signal: new AbortController().signal,

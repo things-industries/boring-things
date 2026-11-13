@@ -63,7 +63,7 @@ export class Assistant {
     if (!this.ai) return false;
     const job = await conversationsDb.getNextQueuedMessage(this.pool);
     if (!job) return false;
-    await metrics.withChatTurn(job.id, job.conversationId, () => this.run(job, shutdown));
+    await metrics.withChatTurn(job, () => this.run(job, shutdown));
     return true;
   }
 
@@ -76,6 +76,7 @@ export class Assistant {
     const started = Date.now();
     const elapsed = usage.elapsedMs;
     let cards: Schema['ResourceCard'][] = [];
+    let timeToFirstTokenMs: number | undefined;
     const refs: Schema['SourceRef'][] = [];
     // Retrieval grants this turn access to cards and tools; model-supplied IDs alone do not authorise resources.
     const allowedThings = new Map<string, Schema['Thing']>();
@@ -110,6 +111,7 @@ export class Assistant {
 
     const readThing = async (id: string) => {
       const thing = await detail(this.pool, job.ownerId, id, this.registry);
+      if (id === job.thingId) metrics.setJobEntity({ type: 'thing', id, name: thing.name });
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
       const resources = await conversationsDb.getOwnedChatResources(this.pool, job.ownerId, id);
@@ -417,6 +419,8 @@ export class Assistant {
             signal,
             record,
             delta: (text) => {
+              if (text && timeToFirstTokenMs === undefined)
+                timeToFirstTokenMs = Date.now() - started;
               signal.throwIfAborted();
               ensure(
                 typeof text === 'string' && live.text.length + text.length <= 100000,
@@ -448,7 +452,13 @@ export class Assistant {
         error: null,
         usage,
       });
-      return { status: 'COMPLETE' } as const;
+      return {
+        status: 'COMPLETE',
+        textCharacters: text.length,
+        cardCount: cards.length,
+        sourceCount: refs.length,
+        timeToFirstTokenMs,
+      } as const;
     } catch (error) {
       const stage = metrics.getJobStage();
       const code = shutdown.aborted
@@ -479,6 +489,8 @@ export class Assistant {
         status: 'FAILED',
         stage,
         reason,
+        textCharacters: live.text.length,
+        timeToFirstTokenMs,
         unexpectedError:
           reason.startsWith('database_') || reason === 'assistant_failed' ? error : undefined,
       } as const;

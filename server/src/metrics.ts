@@ -12,15 +12,19 @@ import {
   startActiveObservation,
   startObservation,
   updateActiveObservation,
+  type LangfuseSpan,
+  type LangfuseTool,
 } from '@langfuse/tracing';
 import { trace, type SpanContext } from '@opentelemetry/api';
 import { ApplicationError, getFailureReason, ProviderHttpError } from './application/errors.js';
-import { captureBackgroundFailure } from './sentry.js';
+import { applicationMetrics, captureFailure } from './sentry.js';
+import { ReportedJobError } from './application/jobs/runner.js';
 import { DocumentSizeError } from './lib/document-limits.js';
 
 let sdk: NodeSDK | undefined;
 
-type DiagnosticLogger = Pick<FastifyBaseLogger, 'info' | 'warn' | 'error'>;
+type DiagnosticLogger = Pick<FastifyBaseLogger, 'info' | 'warn' | 'error'> &
+  Partial<Pick<FastifyBaseLogger, 'debug'>>;
 let diagnosticLogger: DiagnosticLogger | undefined;
 
 // Registers the process logger for diagnostics independently of trace export.
@@ -34,12 +38,23 @@ export interface DiagnosticEntity {
   name: string;
 }
 interface DiagnosticScope {
+  ownerId?: string;
+  thingId?: string;
+  traceId?: string;
   jobId?: string;
   attemptId?: string;
   jobKind?: 'import' | 'attachment' | 'chat';
   conversationId?: string;
   stage?: string;
   entity?: DiagnosticEntity;
+}
+interface JobContext {
+  id: string;
+  ownerId?: string | null;
+  thingId?: string | null;
+  conversationId?: string;
+  queuedAt?: string | null;
+  sourceWaitMs?: number;
 }
 const diagnostics = new AsyncLocalStorage<DiagnosticScope>();
 
@@ -74,6 +89,10 @@ export interface ProviderCall {
   startedAt?: number;
   model?: string;
   requestId?: string;
+  httpRequestId?: string;
+  responseId?: string;
+  outcome?: 'found' | 'not_found' | 'pending' | 'redirected' | 'unsupported_media';
+  httpStatus?: number;
   serviceTier?: string | null;
   usage?: { inputTokens: number; outputTokens: number; cachedTokens: number };
   units?: number;
@@ -84,11 +103,41 @@ export interface ProviderCall {
 
 // Returns identifiers and the most relevant display label for diagnostics.
 export function getDiagnosticContext(entity = diagnostics.getStore()?.entity) {
-  const scope = diagnostics.getStore();
   return {
-    ...(scope?.jobId && { jobId: scope.jobId, attemptId: scope.attemptId }),
+    ...getJobMetadata(),
     ...(entity && { entityType: entity.type, entityId: entity.id, entityName: entity.name }),
   };
+}
+
+// Writes dependency diagnostics with a classified reason and no raw exception.
+export function recordDependencyFailure(
+  dependency: 'database' | 'storage' | 'logto',
+  operation: string,
+  error: unknown,
+  context?: { ownerId?: string; attachmentId?: string; thingId?: string },
+) {
+  const reason = getFailureReason(error);
+  const attributes = { dependency, operation, reason };
+  applicationMetrics.count('dependency.failures', 1, { attributes });
+  diagnosticLogger?.warn(
+    { event: 'dependency_failed', ...getJobMetadata(), ...context, ...attributes },
+    'Dependency failed',
+  );
+}
+
+// Times non-provider work within the current Langfuse trace.
+export function withStage<T>(name: string, work: () => Promise<T>) {
+  return withScope(name, work);
+}
+
+// Records tool execution using its registered name without capturing arguments or output.
+export function withTool<T>(name: string, work: () => Promise<T>) {
+  return withScope(name, work, undefined, 'tool');
+}
+
+// Adds retrieval counts without sending the returned data.
+export function recordToolResult(resultCount: number, truncated: boolean) {
+  updateTrace({ metadata: { resultCount, truncated } });
 }
 
 // Adds the owner-scoped entity once its display label is available.
@@ -97,6 +146,7 @@ export function setJobEntity(entity: DiagnosticEntity) {
   if (!scope?.jobId || (scope.entity?.id === entity.id && scope.entity.name === entity.name))
     return;
   scope.entity = entity;
+  if (entity.type === 'thing') scope.thingId = entity.id;
   updateTrace({ metadata: getDiagnosticContext() });
 }
 
@@ -118,19 +168,51 @@ export function getJobStage() {
 
 // Records content-free workflow measurements and, where applicable, a display label.
 export function recordImportDiagnostic(
-  event: string,
-  details: Record<string, unknown>,
+  event:
+    | 'additional_information_batch'
+    | 'task_recommendations_saved'
+    | 'purchasable_recommendations_saved'
+    | 'suggested_task_saved'
+    | 'suggested_purchasable_saved'
+    | 'import_resource_linked',
+  details: {
+    start?: number;
+    end?: number;
+    elapsedMs?: number;
+    modelCalls?: number;
+    toolCalls?: number;
+    failureReason?: string;
+    acceptedCount?: number;
+    savedCount?: number;
+    attachmentId?: string;
+    reused?: boolean;
+  },
   entity?: DiagnosticEntity,
 ) {
   const metadata = { ...getDiagnosticContext(entity), ...details };
-  diagnosticLogger?.info(metadata, event);
-  startObservation(event, { metadata }).end();
+  diagnosticLogger?.debug?.(
+    { event, ...getJobMetadata(), ...details, entityId: entity?.id },
+    event,
+  );
+  startObservation(event, { metadata }, { asType: 'event' }).end();
 }
 
 // Correlates job events by ID without including record names.
 function getJobMetadata() {
-  const { jobId, jobKind, attemptId, conversationId, entity } = diagnostics.getStore() ?? {};
-  return { jobKind, jobId, attemptId, conversationId, entityId: entity?.id };
+  const { jobId, jobKind, attemptId, conversationId, ownerId, thingId, traceId } =
+    diagnostics.getStore() ?? {};
+  return {
+    jobKind,
+    jobId,
+    attemptId,
+    conversationId,
+    ownerId,
+    thingId,
+    traceId,
+    importId: jobKind === 'import' ? jobId : undefined,
+    attachmentId: jobKind === 'attachment' ? jobId : undefined,
+    messageId: jobKind === 'chat' ? jobId : undefined,
+  };
 }
 
 // Records an import warning with its affected source or provider.
@@ -140,9 +222,13 @@ export function recordImportWarning(details: {
   attachmentId?: string;
   provider?: string;
 }) {
-  const metadata = { ...getJobMetadata(), ...details };
+  const metadata = { ...getDiagnosticContext(), ...details };
   diagnosticLogger?.warn({ event: 'import_stage_warning', ...metadata }, 'Import stage warning');
-  startObservation('import_stage_warning', { level: 'WARNING', metadata }).end();
+  startObservation(
+    'import_stage_warning',
+    { level: 'WARNING', metadata },
+    { asType: 'event' },
+  ).end();
 }
 
 export interface JobOutcome {
@@ -152,6 +238,12 @@ export interface JobOutcome {
   warningCount?: number;
   mediaType?: string;
   byteSize?: number;
+  pageCount?: number | null;
+  ocrPageCount?: number;
+  textCharacters?: number;
+  sourceCount?: number;
+  cardCount?: number;
+  timeToFirstTokenMs?: number;
   unexpectedError?: unknown;
 }
 
@@ -164,10 +256,16 @@ function recordJobOutcome(
 ) {
   const { status, stage, reason, warningCount } = outcome;
   const failed = !status || status === 'FAILED' || status === 'INCOMPLETE';
-  const degraded = reason || warningCount || status === 'PARTIAL';
+  const degraded = (reason && status !== 'SKIPPED') || warningCount || status === 'PARTIAL';
   const level =
     reason === 'shutdown' ? 'DEFAULT' : failed ? 'ERROR' : degraded ? 'WARNING' : 'DEFAULT';
-  const metadata = { ...getJobMetadata(), elapsedMs, ...outcome };
+  const metadata = { ...getDiagnosticContext(), elapsedMs, ...outcome };
+  const attributes = { jobKind: metadata.jobKind ?? 'unknown', status: status ?? 'ERROR', level };
+  applicationMetrics.count('jobs.finished', 1, { attributes });
+  applicationMetrics.distribution('jobs.processing.duration', elapsedMs, {
+    unit: 'millisecond',
+    attributes,
+  });
   const logLevel = level === 'ERROR' ? 'error' : level === 'WARNING' ? 'warn' : 'info';
   diagnosticLogger?.[logLevel]({ event: 'job_finished', ...metadata }, 'Background job finished');
   updateTrace({
@@ -233,28 +331,31 @@ export function getJobTraceId(id: string) {
 }
 
 // Records a scope outcome without allowing SDK exception capture to export application error text.
-async function withScope<T>(name: string, work: () => Promise<T>, parentSpanContext?: SpanContext) {
-  const result = await startActiveObservation(
-    name,
-    async (span) => {
-      if (parentSpanContext)
-        span.otelSpan.setAttribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, true);
-      try {
-        const value = await work();
-        if (!parentSpanContext) span.update({ output: { status: 'completed' } });
-        return { ok: true, value } as const;
-      } catch (error) {
-        if (!parentSpanContext)
-          span.update({
-            level: 'ERROR',
-            statusMessage: 'operation_failed',
-            output: { status: 'failed' },
-          });
-        return { ok: false, error } as const;
-      }
-    },
-    { parentSpanContext },
-  );
+async function withScope<T>(
+  name: string,
+  work: () => Promise<T>,
+  parentSpanContext?: SpanContext,
+  asType: 'span' | 'tool' = 'span',
+) {
+  const run = async (span: LangfuseSpan | LangfuseTool) => {
+    if (parentSpanContext) span.otelSpan.setAttribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, true);
+    try {
+      const value = await work();
+      if (!parentSpanContext) span.update({ output: { status: 'completed' } });
+      return { ok: true, value } as const;
+    } catch (error) {
+      if (!parentSpanContext)
+        span.update({
+          level: 'ERROR',
+          statusMessage: 'operation_failed',
+          output: { status: 'failed' },
+        });
+      return { ok: false, error } as const;
+    }
+  };
+  const result = await (asType === 'tool'
+    ? startActiveObservation(name, run, { asType })
+    : startActiveObservation(name, run, { parentSpanContext }));
   if (!result.ok) throw result.error;
   return result.value;
 }
@@ -262,23 +363,29 @@ async function withScope<T>(name: string, work: () => Promise<T>, parentSpanCont
 // Records one trace per job and groups related traces in a session.
 function withJobTrace(
   kind: 'import' | 'attachment' | 'chat',
-  id: string,
-  sessionId: string,
+  job: JobContext,
   work: () => Promise<JobOutcome>,
 ) {
+  const { id, ownerId, thingId, conversationId, queuedAt, sourceWaitMs } = job;
   const started = Date.now();
   const attemptId = randomBytes(8).toString('hex');
+  const traceId = getJobTraceId(id);
+  const queueWaitMs = queuedAt ? Math.max(0, started - Date.parse(queuedAt)) : undefined;
   return diagnostics.run(
     {
       jobId: id,
       jobKind: kind,
       attemptId,
-      conversationId: kind === 'chat' ? sessionId : undefined,
+      conversationId,
+      ownerId: ownerId ?? undefined,
+      thingId: thingId ?? undefined,
+      traceId,
     },
     () =>
       propagateAttributes(
         {
-          sessionId,
+          sessionId: conversationId ?? id,
+          userId: ownerId ?? undefined,
           traceName: `process_${kind}`,
           metadata: {
             jobKind: kind,
@@ -291,6 +398,22 @@ function withJobTrace(
           withScope(
             `process_${kind}`,
             async () => {
+              const context = { ...getJobMetadata(), queueWaitMs, sourceWaitMs };
+              updateTrace({ metadata: context });
+              diagnosticLogger?.info(
+                { event: 'job_started', ...context },
+                'Background job started',
+              );
+              if (queueWaitMs !== undefined)
+                applicationMetrics.distribution('jobs.queue.wait', queueWaitMs, {
+                  unit: 'millisecond',
+                  attributes: { jobKind: kind },
+                });
+              if (sourceWaitMs !== undefined)
+                applicationMetrics.distribution('jobs.source.wait', sourceWaitMs, {
+                  unit: 'millisecond',
+                  attributes: { jobKind: kind },
+                });
               let result: JobOutcome;
               try {
                 result = await work();
@@ -298,20 +421,25 @@ function withJobTrace(
                 const reason = getFailureReason(error);
                 const stage = getJobStage() ?? 'process';
                 recordJobOutcome({ stage, reason }, Date.now() - started);
-                captureBackgroundFailure(error, kind + ':' + stage, reason);
-                throw error;
+                captureFailure(error, kind + ':' + stage, reason, {
+                  jobId: id,
+                  attemptId,
+                  traceId,
+                });
+                throw new ReportedJobError(error);
               }
               const { unexpectedError, ...outcome } = result;
               recordJobOutcome(outcome, Date.now() - started);
               if (unexpectedError !== undefined)
-                captureBackgroundFailure(
+                captureFailure(
                   unexpectedError,
-                  kind + ':' + outcome.stage,
+                  kind + ':' + (outcome.stage ?? 'process'),
                   outcome.reason ?? 'unexpected_error',
+                  { jobId: id, attemptId, traceId },
                 );
             },
             {
-              traceId: getJobTraceId(id),
+              traceId,
               spanId: attemptId,
               traceFlags: 1,
               isRemote: true,
@@ -324,19 +452,18 @@ function withJobTrace(
 // Gives each import and attachment its own trace and session.
 export function withJob(
   kind: 'import' | 'attachment',
-  id: string,
+  job: JobContext,
   work: () => Promise<JobOutcome>,
 ) {
-  return withJobTrace(kind, id, id, work);
+  return withJobTrace(kind, job, work);
 }
 
 // Groups assistant message traces in their conversation's session.
 export function withChatTurn(
-  messageId: string,
-  conversationId: string,
+  job: JobContext & { conversationId: string },
   work: () => Promise<JobOutcome>,
 ) {
-  return withJobTrace('chat', messageId, conversationId, work);
+  return withJobTrace('chat', job, work);
 }
 
 // Measures a task invocation, including its model turns, tools, validation and conversion.
@@ -355,12 +482,17 @@ export function recordProviderCall(call: ProviderCall) {
       provider: call.provider,
       operation: call.operation ?? call.task,
       requestId: call.requestId,
+      httpRequestId: call.httpRequestId,
+      responseId: call.responseId,
+      outcome: call.outcome,
+      httpStatus: call.httpStatus,
       ...call.failure,
     };
     if (call.status === 'error')
       diagnosticLogger?.warn(
         {
           task: call.task,
+          event: 'provider_request_failed',
           model: call.model,
           elapsedMs: call.startedAt === undefined ? undefined : Date.now() - call.startedAt,
           ...details,
@@ -404,13 +536,18 @@ export function recordProviderCall(call: ProviderCall) {
 // Measures external work and records each attempt, including failures and cancellations.
 export async function withProviderCall<T>(
   call: Omit<ProviderCall, 'status' | 'startedAt'>,
-  work: () => Promise<T>,
+  work: (
+    report: (details: Pick<ProviderCall, 'outcome' | 'httpStatus' | 'units'>) => void,
+  ) => Promise<T>,
 ) {
   const startedAt = Date.now();
   let status: ProviderCall['status'] = 'error';
   let failure: ProviderFailure | undefined;
+  let details: Pick<ProviderCall, 'outcome' | 'httpStatus' | 'units'> = {};
   try {
-    const result = await work();
+    const result = await work((value) => {
+      details = value;
+    });
     status = 'success';
     return result;
   } catch (error) {
@@ -419,6 +556,7 @@ export async function withProviderCall<T>(
   } finally {
     recordProviderCall({
       ...call,
+      ...details,
       startedAt,
       status,
       failure,

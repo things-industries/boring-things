@@ -12,6 +12,7 @@ import { AiTask, responseText } from '../../src/providers/ai/tasks/task.js';
 import { readImageText } from '../../src/providers/google-vision/index.js';
 import { summarizeProviderCalls, type RecordedObservation } from '../../src/metrics-report.js';
 import type { Usage } from '../../src/application/import/types.js';
+import { ReportedJobError } from '../../src/application/jobs/runner.js';
 
 class TextTask extends AiTask<never, string> {
   protected readonly model = 'gpt-6-luna';
@@ -75,7 +76,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   const recorded: Partial<Usage>[] = [];
   await Promise.all(
     ids.map((id) =>
-      metrics.withJob('import', id, async () => {
+      metrics.withJob('import', { id: id }, async () => {
         for (let turn = 0; turn < 2; turn++)
           await new TextTask({
             signal: new AbortController().signal,
@@ -119,7 +120,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
     assert.equal(unfinished.length, 2);
     for (const { attributes: details } of unfinished) {
       assert.equal(details[`${attributes.OBSERVATION_METADATA}.toolStatus`], '"incomplete"');
-      assert.equal(details[`${attributes.OBSERVATION_METADATA}.requestId`], '"response-fixture"');
+      assert.equal(details[`${attributes.OBSERVATION_METADATA}.responseId`], '"response-fixture"');
       assert.equal(details[attributes.OBSERVATION_COST_DETAILS], undefined);
     }
   }
@@ -155,7 +156,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   exporter.reset();
   const failure = new Error('private failure details');
   await assert.rejects(
-    metrics.withJob('attachment', ids[0], () =>
+    metrics.withJob('attachment', { id: ids[0] }, () =>
       metrics.withTask('ocr', () =>
         metrics.withProviderCall(
           { task: 'ocr', provider: 'google_vision', costUsd: 0.0015 },
@@ -165,7 +166,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
         ),
       ),
     ),
-    (error) => error === failure,
+    (error) => error instanceof ReportedJobError && error.cause === failure,
   );
   await processor.forceFlush();
   const failed = exporter.getFinishedSpans();
@@ -231,7 +232,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
       },
     ),
   );
-  await metrics.withJob('import', ids[0], async () => {
+  await metrics.withJob('import', { id: ids[0] }, async () => {
     metrics.setJobEntity({ type: 'thing', id: ids[1], name: 'Fixture dishwasher' });
     await assert.rejects(
       new TextTask({ signal: new AbortController().signal, record: async () => {} }).run(),
@@ -273,7 +274,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   await processor.forceFlush();
   assert.equal(exporter.getFinishedSpans().length, 0);
 
-  await metrics.withJob('attachment', ids[1], async () => {
+  await metrics.withJob('attachment', { id: ids[1] }, async () => {
     return {
       status: 'FAILED',
       mediaType: 'application/pdf',
@@ -304,7 +305,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   exporter.reset();
   const conversationId = '20000000-0000-4000-8000-000000000001';
   for (const messageId of [ids[0], ids[1], ids[0]]) {
-    await metrics.withChatTurn(messageId, conversationId, async () => {
+    await metrics.withChatTurn({ id: messageId, conversationId, ownerId: ids[0] }, async () => {
       metrics.recordProviderCall({
         task: 'assistant_response',
         provider: 'openai',
@@ -328,6 +329,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   assert(
     chatSpans.every((span) => span.attributes[attributes.TRACE_SESSION_ID] === conversationId),
   );
+  assert(chatSpans.every((span) => span.attributes[attributes.TRACE_USER_ID] === ids[0]));
   assert(
     chatSpans.every(
       (span) =>

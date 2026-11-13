@@ -3,8 +3,9 @@
  */
 
 import { getEnv } from '../../config.js';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { ApplicationError, ensure } from '../../application/errors.js';
+import { createRemoteJWKSet, customFetch, jwtVerify } from 'jose';
+import { ApplicationError, ensure, ProviderHttpError } from '../../application/errors.js';
+import { recordDependencyFailure } from '../../metrics.js';
 
 export interface Identity {
   subject: string;
@@ -20,7 +21,23 @@ export function logtoVerifier(): VerifyIdentity {
     };
 
   const issuer = getEnv('LOGTO_ENDPOINT').replace(/\/$/, '') + '/oidc';
-  const jwks = createRemoteJWKSet(new URL(issuer + '/jwks'));
+  const jwks = createRemoteJWKSet(new URL(issuer + '/jwks'), {
+    [customFetch]: async (...args) => {
+      try {
+        const response = await fetch(...args);
+        if (response.status !== 200)
+          recordDependencyFailure(
+            'logto',
+            'fetch_signing_keys',
+            new ProviderHttpError(response.status, 'Signing key lookup failed'),
+          );
+        return response;
+      } catch (error) {
+        recordDependencyFailure('logto', 'fetch_signing_keys', error);
+        throw error;
+      }
+    },
+  });
   return async (token) => {
     const { payload } = await jwtVerify(token, jwks, {
       issuer,

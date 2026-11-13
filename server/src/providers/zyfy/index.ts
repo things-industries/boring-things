@@ -102,8 +102,8 @@ export class ZyfyProvider extends SpecialistProvider {
     const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(30000)]);
     for (let attempt = 0; attempt < 3; attempt++) {
       const { response, body } = await metrics.withProviderCall(
-        { task: 'zyfy_lookup', provider: 'zyfy' },
-        async () => {
+        { task: 'zyfy_lookup', provider: 'zyfy', units: 1 },
+        async (report) => {
           const response = await this.request(url, {
             headers: { 'X-Api-Key': getEnv('ZYFY_API_KEY') },
             redirect: 'error',
@@ -111,11 +111,20 @@ export class ZyfyProvider extends SpecialistProvider {
           });
           if (!response.ok && response.status !== 404)
             throw new ProviderHttpError(response.status, 'Zyfy lookup unavailable');
-          return { response, body: getObject(await response.json()) };
+          if (response.status === 404) {
+            report({ outcome: 'not_found', httpStatus: response.status });
+            return { response, body: {} };
+          }
+          const body = getObject(await response.json());
+          ensure(body.registration === registration, 'Zyfy vehicle identity mismatch');
+          report({
+            outcome: body.enrichmentPending === true ? 'pending' : 'found',
+            httpStatus: response.status,
+          });
+          return { response, body };
         },
       );
       if (response.status === 404) return { setIds: [], values: [] };
-      ensure(body.registration === registration, 'Zyfy vehicle identity mismatch');
       if (body.enrichmentPending === true && attempt < 2) {
         const retryAfter = Number(response.headers.get('Retry-After') ?? 4);
         await timers.setTimeout(

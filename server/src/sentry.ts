@@ -1,8 +1,7 @@
-/** Sentry error capture, request tracing, and diagnostic logs for the Fastify process. */
+/** Sentry exception reporting, HTTP tracing and application metrics for the Fastify process. */
 
 import * as Sentry from '@sentry/node';
 import { getSentryOptions } from '../../shared/sentry.js';
-import { ApplicationError } from './application/errors.js';
 import { getEnv } from './config.js';
 
 // Starts Sentry before Fastify creates the application. Langfuse owns OpenTelemetry.
@@ -13,10 +12,11 @@ export function initializeSentry() {
   Sentry.init({
     ...getSentryOptions(getEnv('NODE_ENV'), getEnv('RENDER_GIT_COMMIT', { optional: true })),
     dsn,
+    beforeSendLog: () => null,
     enableOpenTelemetrySetup: false,
     // Use Sentry's native HTTP instrumentation without automatic database and AI tracing.
     defaultIntegrations: Sentry.getDefaultIntegrationsWithoutPerformance().filter(
-      ({ name }) => name !== 'NodeFetch',
+      ({ name }) => name !== 'NodeFetch' && name !== 'ContextLines',
     ),
     integrations: [
       Sentry.httpIntegration({
@@ -24,33 +24,45 @@ export function initializeSentry() {
         ignoreOutgoingRequests: () => true,
         tracePropagation: false,
       }),
-      Sentry.fastifyIntegration({
-        shouldHandleError(error, _request, reply) {
-          const status = 'statusCode' in error ? error.statusCode : reply.statusCode;
-          return (
-            !(error instanceof ApplicationError) &&
-            !(typeof status === 'number' && status >= 400 && status < 500)
-          );
-        },
-      }),
+      Sentry.fastifyIntegration({ shouldHandleError: () => false }),
     ],
   });
 }
 
-// Sends an HTTP failure log with a route template and status.
-export function logRequestFailure(route: string | undefined, status: number) {
-  Sentry.logger.error('Request failed', {
-    'http.route': route ?? 'unmatched',
-    'http.response.status_code': status,
+// Records request count and timing independently of sampled traces.
+export function recordHttpDuration(
+  route: string,
+  method: string,
+  status: number,
+  elapsedMs: number,
+) {
+  Sentry.metrics.distribution('api.request.duration', elapsedMs, {
+    unit: 'millisecond',
+    attributes: { route, method, status },
   });
 }
 
-// Captures a background exception with operational tags and the original stack.
-export function captureBackgroundFailure(error: unknown, operation: string, reason: string) {
+export const applicationMetrics = Sentry.metrics;
+export const isSentryEnabled = Sentry.isEnabled;
+
+// Captures an exception with operational tags, a stack and identifiers for log lookup.
+export function captureFailure(
+  error: unknown,
+  operation: string,
+  reason: string,
+  correlation?: {
+    requestId?: string;
+    route?: string;
+    jobId?: string;
+    attemptId?: string;
+    traceId?: string;
+  },
+) {
   if (!Sentry.isEnabled()) return;
-  Sentry.captureException(error instanceof Error ? error : new Error('Background work failed'), {
+  Sentry.captureException(error instanceof Error ? error : new Error('Operation failed'), {
     tags: { operation, reason },
     fingerprint: ['{{ default }}', operation, reason],
+    ...(correlation && { contexts: { correlation } }),
   });
 }
 
