@@ -235,6 +235,7 @@ export const categoryIcons = {
   categorySubscription: remixLoopRightLine,
   categoryUtility: remixFlashlightLine,
   categoryInsurance: remixShieldLine,
+  categoryHousehold: remixHome5Line,
   categoryOther: remixFileTextLine,
 };
 

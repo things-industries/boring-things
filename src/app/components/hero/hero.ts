@@ -1,4 +1,5 @@
 import { Component, input, linkedSignal } from '@angular/core';
+import type { Schema } from '../../../../shared/model';
 import { ThingThumbnail } from '../thing-thumbnail/thing-thumbnail';
 /**
  * Thing image, or category artwork, under a scrim, fixed at the top of a `viewport-page` behind
@@ -20,7 +21,7 @@ import { ThingThumbnail } from '../thing-thumbnail/thing-thumbnail';
 })
 export class Hero {
   readonly imageId = input<string | null>(null);
-  readonly category = input<string | null>(null);
+  readonly category = input<Schema['Category'] | null>(null);
   readonly discovering = input(false);
   readonly arrive = input(false);
   /** The image has loaded, or the artwork shows. */

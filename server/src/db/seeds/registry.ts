@@ -18,6 +18,7 @@ const names = [
   'Subscriptions',
   'Utilities',
   'Insurance',
+  'Household',
   'Other',
 ];
 
@@ -26,7 +27,10 @@ export const categories = names.map(
     ({
       id: name.toLowerCase(),
       name,
-      description: `${name} you own or use.`,
+      description:
+        name === 'Household'
+          ? 'A home you occupy, with its physical installations and property details.'
+          : `${name} you own or use.`,
       icon: [
         'appliance',
         'device',
@@ -35,9 +39,10 @@ export const categories = names.map(
         'subscription',
         'utility',
         'insurance',
+        'household',
         'other',
       ][i],
-      defaultImage: null,
+      defaultImage: name === 'Household' ? '/assets/household.webp' : null,
       sortOrder: i,
       thingCount: 0,
     }) satisfies Schema['Category'],
@@ -72,6 +77,7 @@ const identifierScopes: Record<string, FieldDefinition['scope']> = {
   'memberships.registrationNumber': 'INSTANCE',
   'memberships.loyaltyNumber': 'INSTANCE',
   'insurance.policyNumber': 'INSTANCE',
+  'household.address': 'INSTANCE',
 };
 
 const field = (
@@ -113,6 +119,8 @@ export const moneySchema: FieldDefinition['schema'] = {
 };
 
 const emailSchema: FieldDefinition['schema'] = { type: 'string', format: 'email', maxLength: 500 };
+const dateSchema: FieldDefinition['schema'] = { type: 'string', format: 'date' };
+const countSchema: FieldDefinition['schema'] = { type: 'integer', minimum: 0 };
 
 export const fields: FieldDefinition[] = [
   field(
@@ -2950,6 +2958,189 @@ export const fields: FieldDefinition[] = [
     uiHint: 'TEXT',
     icon: 'fieldInsurance',
   }),
+  field('household.address', 'Address', undefined, {
+    description: 'Address of the dwelling, including any flat or unit number and postal code.',
+    sensitive: true,
+    icon: 'fieldAddress',
+  }),
+  field('household.country', 'Country', undefined, {
+    description: 'Country or constituent nation of the dwelling, such as Scotland or Portugal.',
+  }),
+  field(
+    'household.dwellingType',
+    'Dwelling type',
+    {
+      type: 'string',
+      enum: ['House', 'Flat', 'Maisonette', 'Mobile home', 'Other'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+  field(
+    'household.occupancyArrangement',
+    'Occupancy arrangement',
+    {
+      type: 'string',
+      enum: ['Owner-occupied', 'Rented', 'Shared ownership', 'Other'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+  field('household.legalTenure', 'Legal tenure', undefined, {
+    description:
+      'Legal tenure of the property as stated in its title or survey, such as freehold or leasehold.',
+  }),
+  field('household.movedInOn', 'Move-in date', dateSchema, { uiHint: 'DATE' }),
+  field('household.occupants', 'Occupants', countSchema, { uiHint: 'NUMBER' }),
+  field('household.bedrooms', 'Bedrooms', countSchema, { uiHint: 'NUMBER' }),
+  field('household.bathrooms', 'Bathrooms', countSchema, { uiHint: 'NUMBER' }),
+
+  field('household.gasMeterLocation', 'Gas meter location'),
+  field('household.gasShutoffLocation', 'Main gas shutoff valve location'),
+  field('household.electricityMeterLocation', 'Electricity meter location'),
+  field('household.consumerUnitLocation', 'Consumer unit or breaker panel location'),
+  field('household.waterMeterLocation', 'Water meter location'),
+  field('household.stopcockLocation', 'Internal stopcock location'),
+  field('household.externalWaterShutoffLocation', 'External water shutoff location'),
+  field('household.installationAccess', 'Access notes', undefined, {
+    description:
+      'Access arrangements for this installation, such as a communal cupboard or who to contact.',
+    sensitive: true,
+    uiHint: 'TEXTAREA',
+  }),
+
+  field(
+    'household.houseForm',
+    'House form',
+    {
+      type: 'string',
+      enum: ['Detached', 'Semi-detached', 'Mid-terrace', 'End-terrace', 'Other'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+  field(
+    'household.buildingScope',
+    'Building details apply to',
+    {
+      type: 'string',
+      enum: ['Dwelling', 'Whole building'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+  field('household.constructionPeriod', 'Year or period built', undefined, {
+    description:
+      'Use the stated year, estimated period or range at the precision the source provides.',
+  }),
+  field(
+    'household.floorArea',
+    'Floor area (m²)',
+    { type: 'number', minimum: 0 },
+    {
+      uiHint: 'NUMBER',
+    },
+  ),
+  field('household.wallConstruction', 'Main external wall construction'),
+  field('household.roofCovering', 'Roof covering'),
+  field(
+    'household.flatRoofPercent',
+    'Flat roof (%)',
+    { type: 'number', minimum: 0, maximum: 100 },
+    {
+      description: 'Estimated percentage of the roof area that is flat, from 0 to 100.',
+      uiHint: 'NUMBER',
+    },
+  ),
+
+  field('household.rebuildCost', 'Rebuild cost', moneySchema, {
+    description:
+      'Assessed cost to rebuild the dwelling or building, independent of policy cover or sale price.',
+    uiHint: 'MONEY',
+  }),
+  field('household.rebuildAssessedOn', 'Rebuild assessment date', dateSchema, { uiHint: 'DATE' }),
+  field(
+    'household.rebuildScope',
+    'Rebuild estimate applies to',
+    {
+      type: 'string',
+      enum: ['Dwelling', 'Whole building'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+
+  field('household.billingCouncil', 'Billing council'),
+  field('household.councilTaxBand', 'Council Tax band', undefined, {
+    description: 'Valuation band as stated for the property in its Council Tax jurisdiction.',
+  }),
+  field('household.listedBuilding', 'Listed building', { type: 'boolean' }, { uiHint: 'CHECKBOX' }),
+  field('household.heritageDesignation', 'Listing grade or designation'),
+  field('household.heritageReference', 'Heritage register reference'),
+  field(
+    'household.inConservationArea',
+    'In a conservation area',
+    { type: 'boolean' },
+    { uiHint: 'CHECKBOX' },
+  ),
+  field('household.conservationArea', 'Conservation area name'),
+  field('household.heritageCheckedOn', 'Designation checked on', dateSchema, { uiHint: 'DATE' }),
+
+  field('household.mortgageLender', 'Mortgage lender'),
+  field('household.mortgageAmountBorrowed', 'Original amount borrowed', moneySchema, {
+    sensitive: true,
+    uiHint: 'MONEY',
+  }),
+  field('household.mortgageBalance', 'Outstanding balance', moneySchema, {
+    sensitive: true,
+    uiHint: 'MONEY',
+  }),
+  field('household.mortgageBalanceOn', 'Balance statement date', dateSchema, { uiHint: 'DATE' }),
+  field('household.mortgageMonthlyPayment', 'Monthly mortgage payment', moneySchema, {
+    sensitive: true,
+    uiHint: 'MONEY',
+  }),
+  field(
+    'household.mortgageRepaymentMethod',
+    'Repayment method',
+    {
+      type: 'string',
+      enum: ['Repayment', 'Interest-only', 'Mixed', 'Other'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+  field(
+    'household.mortgageRateType',
+    'Interest-rate type',
+    {
+      type: 'string',
+      enum: ['Fixed', 'Tracker', 'Other variable', 'Mixed', 'Other'],
+    },
+    { uiHint: 'SELECT' },
+  ),
+  field(
+    'household.mortgageRate',
+    'Current interest rate (%)',
+    { type: 'number', minimum: 0 },
+    {
+      description:
+        'Current annual interest rate as a percentage, distinct from the annual percentage rate of charge.',
+      sensitive: true,
+      uiHint: 'NUMBER',
+    },
+  ),
+  field('household.mortgageDealEnds', 'Mortgage deal ends', dateSchema, { uiHint: 'DATE' }),
+  field('household.mortgageMaturesOn', 'Mortgage maturity date', dateSchema, { uiHint: 'DATE' }),
+
+  field('household.energyCertificateScheme', 'Energy certificate scheme', undefined, {
+    description: 'Name of the energy assessment scheme, such as EPC.',
+  }),
+  field('household.energyRating', 'Energy rating', undefined, {
+    description: 'Current rating as recorded by the certificate scheme, including any suffix.',
+  }),
+  field('household.energyAssessedOn', 'Energy assessment date', dateSchema, { uiHint: 'DATE' }),
+  field('household.energyCertificateExpires', 'Energy certificate expires', dateSchema, {
+    uiHint: 'DATE',
+  }),
+  field('household.energyCertificateReference', 'Energy certificate reference', undefined, {
+    description: 'Certificate number or reference, including leading zeroes and separators.',
+    sensitive: true,
+  }),
 ];
 
 const set = (
@@ -4802,6 +4993,147 @@ export const sets: FieldSet[] = [
     ['insurance.policy'],
     [],
     ['legal', 'expenses', 'legal expenses', 'legal protection'],
+  ),
+  set(
+    'household.basics',
+    'Household basics',
+    null,
+    [
+      'household.address',
+      'household.country',
+      'household.dwellingType',
+      'household.occupancyArrangement',
+      'household.legalTenure',
+      'household.movedInOn',
+      'household.occupants',
+      'household.bedrooms',
+      'household.bathrooms',
+    ],
+    [],
+    [],
+    ['home', 'dwelling', 'address', 'occupancy', 'tenure'],
+  ),
+  set(
+    'household.gasInstallation',
+    'Gas installation',
+    'A dwelling served by a gas supply.',
+    ['household.gasMeterLocation', 'household.gasShutoffLocation', 'household.installationAccess'],
+    [],
+    [],
+    ['gas', 'meter location', 'shutoff', 'isolation valve'],
+  ),
+  set(
+    'household.electricalInstallation',
+    'Electrical installation',
+    'A dwelling served by an electricity supply.',
+    [
+      'household.electricityMeterLocation',
+      'household.consumerUnitLocation',
+      'household.installationAccess',
+    ],
+    [],
+    [],
+    ['electricity', 'meter location', 'consumer unit', 'breaker panel', 'fuse box'],
+  ),
+  set(
+    'household.waterInstallation',
+    'Water installation',
+    'A dwelling with a metered or unmetered water supply.',
+    [
+      'household.waterMeterLocation',
+      'household.stopcockLocation',
+      'household.externalWaterShutoffLocation',
+      'household.installationAccess',
+    ],
+    [],
+    [],
+    ['water', 'meter location', 'stopcock', 'stop tap', 'shutoff'],
+  ),
+  set(
+    'household.building',
+    'Building',
+    'A dwelling with documented construction details for the dwelling or its building.',
+    [
+      'household.houseForm',
+      'household.buildingScope',
+      'household.constructionPeriod',
+      'household.floorArea',
+      'household.wallConstruction',
+      'household.roofCovering',
+      'household.flatRoofPercent',
+    ],
+    [],
+    [],
+    ['construction', 'walls', 'roof', 'floor area', 'survey'],
+  ),
+  set(
+    'household.rebuildAssessment',
+    'Rebuild assessment',
+    'A dwelling or building with a rebuild cost estimate.',
+    ['household.rebuildCost', 'household.rebuildAssessedOn', 'household.rebuildScope'],
+    [],
+    ['household.building'],
+    ['rebuild cost', 'reinstatement', 'assessment', 'survey'],
+  ),
+  set(
+    'household.councilTax',
+    'Council Tax',
+    'A dwelling with a Council Tax assessment.',
+    ['household.billingCouncil', 'household.councilTaxBand'],
+    [],
+    [],
+    ['council tax', 'council', 'valuation band'],
+  ),
+  set(
+    'household.heritagePlanning',
+    'Heritage and planning',
+    'A dwelling or building with a recorded listing or conservation area status.',
+    [
+      'household.listedBuilding',
+      'household.heritageDesignation',
+      'household.heritageReference',
+      'household.inConservationArea',
+      'household.conservationArea',
+      'household.heritageCheckedOn',
+    ],
+    [],
+    ['household.building'],
+    ['heritage', 'listing', 'listed building', 'conservation area', 'planning'],
+  ),
+  set(
+    'household.mortgage',
+    'Mortgage',
+    'A home with a primary mortgage.',
+    [
+      'household.mortgageLender',
+      'household.mortgageAmountBorrowed',
+      'household.mortgageBalance',
+      'household.mortgageBalanceOn',
+      'household.mortgageMonthlyPayment',
+      'household.mortgageRepaymentMethod',
+      'household.mortgageRateType',
+      'household.mortgageRate',
+      'household.mortgageDealEnds',
+      'household.mortgageMaturesOn',
+    ],
+    [],
+    [],
+    ['mortgage', 'lender', 'repayment', 'interest-only', 'remortgage'],
+  ),
+  set(
+    'household.energyPerformance',
+    'Energy performance',
+    'A dwelling with an energy performance certificate or equivalent assessment.',
+    [
+      'household.energyCertificateScheme',
+      'household.energyRating',
+      'household.energyAssessedOn',
+      'household.energyCertificateExpires',
+      'household.energyCertificateReference',
+    ],
+    [],
+    ['household.building'],
+    ['energy performance', 'EPC', 'energy certificate', 'energy rating'],
   ),
 ];
 

@@ -67,6 +67,35 @@ test('a text Import opens the Thing with its populated fields', async ({ page })
   ).toContainText('ABC-12');
 });
 
+for (const { source, name, section, value } of [
+  {
+    source: 'Energy performance certificate\nEnergy rating: C',
+    name: 'Example home',
+    section: 'Energy performance',
+    value: 'C',
+  },
+  {
+    source: 'Electricity bill',
+    name: 'Example electricity',
+    section: 'Electricity supply',
+  },
+]) {
+  test(`imports a source for ${name}`, async ({ page }) => {
+    await page.goto('/things/new/text');
+    await page.getByLabel('Text to import', { exact: true }).fill(source);
+    await page.getByRole('button', { name: 'Import text', exact: true }).click();
+    await expect(page.getByText('Import complete.', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'View Thing 1', exact: true }).click();
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'See all details', exact: true }).click();
+    await expect(page.getByRole('heading', { name: section, exact: true })).toBeVisible();
+    if (value)
+      await expect(
+        page.locator('bt-key-value-row', { hasText: 'Energy rating' }).locator('.key-value-value'),
+      ).toHaveText(value);
+  });
+}
+
 test('a manually created Thing shows in the Things list without a reload', async ({ page }) => {
   const name = `Manual hob ${Date.now()}`;
 

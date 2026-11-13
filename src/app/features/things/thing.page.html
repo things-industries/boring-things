@@ -1,7 +1,7 @@
 @if (!error() && !missing()) {
   <bt-hero
     [imageId]="thing()?.imageAttachmentId ?? null"
-    [category]="category()?.icon ?? null"
+    [category]="category()"
     [discovering]="discovering()"
     [arrive]="sheetArrives()"
   >

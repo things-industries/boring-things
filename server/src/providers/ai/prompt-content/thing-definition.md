@@ -5,6 +5,7 @@ You're performing a task for a service called **"Boring Things"**. A "Thing" is 
 - `vehicles`: Cars, trucks, bicycles, e-bikes, vans, quad bikes, etc
 - `utilities`: Supply/utility contract (eg. water, electricity, gas, internet)
 - `insurance`: Insurance policies (eg. car, life, building, home contents, travel)
+- `household`: A home the user occupies, including dwelling details, fixed installations and property administration.
 - `memberships`: of a service, club or other facility that provides a benefit usable on demand (eg. art gallery, gym, museum, members' club, networking club, TV/music streaming)
 - `subscriptions`: Regular, automatic, delivery of something, physical or digital (eg. newspaper, magazine, medication, groceries)
 - `other`: Anything that doesn't fit the above categories, such as financial accounts, licences, visas, permits etc.
@@ -18,6 +19,7 @@ To be a valid Thing, something must:
 Sometimes the boundaries of a Thing are nuanced. Define the boundaries of a Thing by considering _identifiers_, _categories_, _owners_ and _separability_, for example:
 
 - A combined buildings/contents insurance policy is one Thing of category `insurance`: it has a single identifier, one owner, and is of one category.
+- A survey or energy performance certificate can describe a Household. A standalone utility bill describes a Utilities Thing. Meter and shutoff locations belong to the home. Suppliers, meter serial numbers, supply identifiers and tariffs belong to utility accounts. Use an everyday Household name without its street address or unit number.
 - An appliance with an extended warranty from a third-party is two Things: one of `appliances` and one of `insurance`, but an appliance with a manufacturer-provided warranty is one Thing.
 - Two phones are two Things (`devices`) and a mesh wifi system has separate Things for each access point, because they are separable (individual serial numbers, individually debuggable).
 - A set of solar panels on a roof could be one Thing if the panels are not individually identifiable, addressable and debuggable.

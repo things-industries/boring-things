@@ -105,12 +105,18 @@ Activities are ongoing or scheduled work the owner manages, including Tasks, Eve
 
 ### Thing fields
 
-- Fields capture durable attributes and contractual terms. Populated date fields contribute Thing dates to the timeline. Transient observations, account balances and physical-item locations are outside the field registry.
+- Fields capture durable attributes and contractual terms. Populated date fields contribute Thing dates to the timeline. The Household category also records locations of fixed installations and a dated mortgage balance from a statement.
 - Custom fields store their type. Clearing a value keeps the field, its type and any pin. Deleting the field also removes its pin.
 - Each category has a base field set. Sets for identifiable subtypes carry their distinct fields; shared traits and functions compose across types. Manufacturer groups share proprietary identifier sets where their markings have the same meaning.
 - Documents belong to attachments.
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
 - Store physical dimensions as separate width, height, length and depth measurements, as applicable.
+
+### Household
+
+A Household is a Thing for a home the user occupies. Household basics holds the dwelling's address, country, type, occupancy arrangement, legal tenure, move-in date and counts for occupants, bedrooms and bathrooms. The set is added on creation and its fields can start empty.
+
+Optional sets cover gas, electricity and water installations, construction, rebuild assessment, Council Tax, heritage and planning, the primary mortgage and energy performance. Record meters, panels and shutoff locations on the Household. Suppliers, meter serials, supply identifiers and tariffs belong to Utilities. Equipment specifications belong to their own Things and policy cover belongs to Insurance. Attach surveys, rebuild assessments and energy certificates as documents and use field provenance to cite them.
 
 ### Import and enrichment scope
 
