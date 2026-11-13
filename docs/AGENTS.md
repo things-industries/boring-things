@@ -1,35 +1,9 @@
-# Boring Things research
+# Boring Things documentation
 
-Boring Things is an AI that helps people track and manage life administration across appliances, memberships, subscriptions, utilities, and service providers, by finding manuals, answering questions, scheduling repairs and maintenance, offering upgrades, and more.
+- [Product](requirements/product/PRODUCT.md) defines the user journeys and product rules. [Milestones](requirements/roadmap/MILESTONES.md) tracks planned scope. [Marketing](requirements/marketing/MARKETING.md) and [Commercial](requirements/commercial/COMMERCIAL.md) cover positioning and the business model.
+- [Architecture](architecture/README.md) explains how the application works and why decisions matter. [Setup](setup/) covers local and hosted operations, including the [Import workflow](setup/imports.md). The root [README](../README.md) is the starting point for implemented behaviour and local commands.
+- [Research](requirements/research/) holds [sources](requirements/research/sources.md), [assumptions](requirements/research/assumptions.md), fieldset proposals and dated evaluations. [Meeting notes](meeting-notes/) record what was discussed at the time.
+- Use `plans/` for active implementation plans. When work ships, move lasting decisions into the relevant reference and retire the plan. Use Git history for superseded working material and [archived documents](archived/) for original records worth keeping easy to find.
+- [Agent behaviour](agents/agent-behaviour.md) covers documentation and sourcing. [GitHub issues](agents/github-issues.md) covers issue conventions.
 
-## Structure
-
-Polished planning, research and settled decisions are organized into:
-
-- `requirements/product/PRODUCT.md`: **What is the problem we're solving?**
-  Problem, personas, use cases, feature roadmap, compliance expectations.
-
-- `requirements/marketing/MARKETING.md`: **How do we find and connect with customers?**
-  Goals, brand direction, channels, key messages, campaign ideas.
-
-- `requirements/commercial/COMMERCIAL.md`: **How does it make money?**
-  Competitors, market framing, opportunity, revenue model, operating costs, risks.
-
-- `requirements/technology/TECHNOLOGY.md`: **How does it work?**
-  Stack decisions, architecture, data domain, integrations, delivery plan.
-
-The following are used as working documents and are more freely updated.
-
-- `requirements/research/sources.md`: citable sources and stats used across docs.
-- `requirements/research/assumptions.md`: explicit assumptions and unresolved questions that still need validation.
-- `requirements/roadmap/MILESTONES.md`: staged execution plan.
-- `meeting-notes/`: dated discussion records; preserve their historical context.
-- `plans/`: scoped implementation plans. `plans/poc-scaffolding.md` records confirmed scaffold decisions and subsequent work. `plans/poc-frontend.md` stages the Figma-based frontend rebuild; `plans/poc-frontend-progress.md` tracks it. `plans/app-state.md` designs the front-end stores, domain services and optimistic mutations. `plans/tasks.md` plans the Tasks screen.
-- `setup/`: operational setup instructions, including Logto.
-- `agents/`: agent behaviour and GitHub issue conventions, referenced from root `AGENTS.md`.
-
-Paths above are relative to `docs/`. Root `README.md` describes implemented behaviour and local commands. Requirements express product intent; plans can contain unimplemented work. Do not present a proposal as a delivered capability. For the scaffold, confirmed plan decisions refine earlier requirements, including the use of Angular and Logto.
-
-## Writing conventions
-
-Research-doc-specific conventions (evidence, sourcing, examples): `docs/agents/agent-behaviour.md`. General agent conduct and doc-organisation rules: same file, referenced from root `AGENTS.md`.
+Put each rule and its rationale in the document that owns the topic. Link to it from other guides. Keep proposed work and measured results labelled so readers can tell their status.

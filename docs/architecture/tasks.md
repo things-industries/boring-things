@@ -50,10 +50,10 @@ Today starts with unscheduled and overdue Tasks. Events and Thing dates follow, 
 
 The browser reads persisted Tasks, Events and Thing dates. The server generates recurrence and sample records. Conversation cards distinguish Tasks from Events.
 
-## Delivery and validation
+## Migration history
 
-The schema migration deletes pre-existing Events and creates Tasks; historical records do not need conversion. Run `pnpm db:migrate` before using the changed API. Existing chat cards can identify deleted resources as unavailable. Migration `20261110151123_task_deadlines_exclude_recurrence.sql` keeps deadlines and removes conflicting recurrence in every Task state, and renames remaining `DEADLINE` recurrence bases to `SCHEDULED`.
+The [Task split](../../supabase/migrations/20261109181014_tasks_and_event_followups.sql) replaced pre-existing Events without converting those records. Existing chat cards can show deleted records as unavailable. The [deadline migration](../../supabase/migrations/20261110151123_task_deadlines_exclude_recurrence.sql) changed deadlines to one-off obligations. It kept deadlines, removed conflicting recurrence in every Task state and renamed remaining `DEADLINE` recurrence bases to `SCHEDULED`.
 
-Migration `20261110161827_chat_followups.sql` removes completion-action columns and adds Event followup recording. Historical Task followup timestamps remain, with a conversation link where available; `conversationId` is null for historical followups without a chat. Run `pnpm db:migrate` before restarting the app.
+The [chat followup migration](../../supabase/migrations/20261110161827_chat_followups.sql) replaced completion actions and added Event followups. Historical Task followup timestamps remain, with a conversation link where available. Run `pnpm db:migrate` before restarting an older local checkout on this schema.
 
-Run `CI=true pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Unit and integration tests are under `server/test/`. Scheduling tests and browser tests use fixtures. Metered AI checks require approval for each invocation.
+See the [validation guide](../../README.md#validation) for checks. Scheduling tests and browser tests use fixtures.

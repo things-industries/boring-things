@@ -2,7 +2,7 @@
 
 ## Import provider evaluation — 4 October 2026
 
-References for the [import latency and provider evaluation plan](../../plans/import-provider-evaluations.md). Capabilities establish evaluation options; task-specific quality, latency and savings require measurement.
+References for the [Import evaluation method](import-evaluations.md#evaluation-method). Capabilities establish evaluation options; task-specific quality, latency and savings require measurement.
 
 - [OpenAI SDKs](https://developers.openai.com/api/docs/libraries): official JavaScript/TypeScript client for provider requests.
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs): supported JSON Schema subset and response-shape guarantees; factual correctness still requires evaluation.
@@ -26,7 +26,7 @@ References for the [import latency and provider evaluation plan](../../plans/imp
 
 ## Field review — 30 September 2026
 
-[field-review.csv](field-review.csv) contains proposed fields for the reviewed categories in `server/src/db/seeds/registry.ts`. Each row describes one field and its applicability within a category; the notes column preserves review annotations. Repeated concepts across categories make each category independently reviewable. Labels and scopes are research synthesis for manual review; examples are synthetic and do not describe real accounts, current prices, product specifications or recommended limits.
+[fieldset-field-map.csv](fieldset-field-map.csv) contains the original field review columns and proposed registry mappings. Each row describes a proposed field, where it applies and any review annotations. Repeated concepts across categories make each category independently reviewable. Labels and scopes are research synthesis for manual review. Examples are synthetic.
 
 The review covers [issue #6](https://github.com/things-industries/boring-things/issues/6), the authored registry, `shared/model.ts`, the field editor and `src/app/utils/sections.util.ts`. The implemented catalogue has 413 definitions and 165 fieldsets across Appliances, Devices, Vehicles, Memberships, Subscriptions, Utilities and Insurance. Other uses custom fields.
 
