@@ -1,72 +1,49 @@
 /**
- * Starts the built application against an isolated temporary database with fixture AI providers
- * and a local JWKS issuer, and signs Playwright browsers in with a verified test token. Used by the
- * e2e suite, the screenshot tool and browser integration checks.
+ * Fastify test application with an isolated database, fixture providers and signed test tokens.
  */
 
 import { getEnv, setEnvMode, setEnvValue } from '../../src/config.js';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { existsSync } from 'node:fs';
-import { readdir, readFile, mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { FixtureTaskScheduler } from '../fixtures/task-scheduling.js';
 import { FixtureChat } from '../fixtures/chat.js';
 import { FixtureAi } from '../fixtures/imports.js';
 import { buildApp } from '../../src/app.js';
+import { createTestDatabase } from './test-database.js';
 import * as database from '../../src/db/connection.js';
 import { loadRegistry } from '../../src/application/registry/index.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 
-const appId = 'browser-test';
+export const testAppId = 'browser-test';
 const subject = 'browser-alice';
 
-/**
- * With storageStatePath, the signed-in browser state is written before the app accepts connections,
- * so anything waiting on the port finds the state and sample data ready. It requires a fixed port.
- */
-export async function startTestApp(
+// Starts the test app for injected API requests and leaves its HTTP listener closed.
+export async function createTestApp(
   options: {
     samples?: boolean;
-    port?: number;
-    storageStatePath?: string;
     importWorkflow?: import('../../src/application/import/workflow.js').WorkflowOptions;
     readImageText?: import('../../src/app.js').BuildAppOptions['readImageText'];
   } = {},
 ) {
-  const port = options.port ?? 0;
-  if (options.storageStatePath && !port)
-    throw new Error('storageStatePath needs a fixed port for the browser origin');
-  const url = new URL(getEnv('TEST_DATABASE_URL'));
-  if (!['localhost', '127.0.0.1'].includes(url.hostname))
-    throw new Error('TEST_DATABASE_URL must point at a local database');
-  if (!existsSync('dist/web/browser/index.html'))
-    throw new Error('Build the frontend first: CI=true pnpm build');
-  const dbName = 'bt_browser_' + randomUUID().replaceAll('-', '');
-  const admin = database.createPool(url.toString());
-  const cleanup: (() => Promise<unknown> | unknown)[] = [() => admin.end()];
+  const testDatabase = await createTestDatabase();
+  const { pool } = testDatabase;
+  const cleanup: (() => Promise<unknown> | unknown)[] = [testDatabase.close];
   const close = async () => {
-    for (const step of cleanup.reverse()) await step();
+    const errors = [];
+    for (const step of cleanup.splice(0).reverse()) {
+      try {
+        await step();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length) throw new AggregateError(errors, 'Test app cleanup failed');
   };
   try {
-    try {
-      await admin.query('select 1');
-    } catch (error) {
-      if ((error as { code?: string }).code === 'ECONNREFUSED')
-        throw new Error(
-          `No PostgreSQL at ${url.host}. Run pnpm db:start, or ./scripts/cloud-postgres.sh where Docker is unavailable.`,
-        );
-      throw error;
-    }
-    await admin.query(`create database ${dbName}`);
-    cleanup.push(() => admin.query(`drop database ${dbName} with (force)`));
-    url.pathname = '/' + dbName;
-    const pool = database.createPool(url.toString());
-    cleanup.push(() => pool.end());
-    const directory = await mkdtemp(tmpdir() + '/boring-browser-');
+    const directory = await mkdtemp(tmpdir() + '/boring-test-blobs-');
     cleanup.push(() => rm(directory, { recursive: true, force: true }));
 
     const { publicKey, privateKey } = await generateKeyPair('RS256');
@@ -85,7 +62,7 @@ export async function startTestApp(
     const issuer = 'http://127.0.0.1:' + (jwks.address() as { port: number }).port;
     setEnvMode('test');
     setEnvValue('LOGTO_ENDPOINT', issuer);
-    setEnvValue('LOGTO_APP_ID', appId);
+    setEnvValue('LOGTO_APP_ID', testAppId);
     setEnvValue('BLOB_DIRECTORY', directory);
     setEnvValue('ENABLE_SAMPLE_DATA', true);
     cleanup.unshift(() => setEnvMode('runtime'));
@@ -98,14 +75,16 @@ export async function startTestApp(
     const importAi = new FixtureAi({ db: pool, registry: await loadRegistry(pool) });
     const chatAi = new FixtureChat();
     const taskScheduler = new FixtureTaskScheduler();
-    const app = await buildApp({
-      dbPool: pool,
-      importAi,
-      chatAi,
-      taskScheduler,
-      importWorkflow: { specialists: [], ...options.importWorkflow },
-      readImageText: options.readImageText ?? (async () => 'neff'),
-    });
+    const boot = () =>
+      buildApp({
+        dbPool: pool,
+        importAi,
+        chatAi,
+        taskScheduler,
+        importWorkflow: { specialists: [], ...options.importWorkflow },
+        readImageText: options.readImageText ?? (async () => 'neff'),
+      });
+    let app = await boot();
     cleanup.push(() => app.close());
 
     // Long enough for a reused e2e server; the key only exists for this process.
@@ -140,47 +119,25 @@ export async function startTestApp(
       if (seeded.statusCode !== 200) throw new Error('Sample seeding failed: ' + seeded.body);
     }
 
-    // A Logto session exists only in browsers given this state; the API still validates the signed
-    // access token through JWKS.
-    const storageStateFor = (origin: string) => ({
-      cookies: [],
-      origins: [
-        {
-          origin,
-          localStorage: [
-            { name: `logto:${appId}:idToken`, value: 'test-session' },
-            {
-              name: `logto:${appId}:accessToken`,
-              value: JSON.stringify({
-                ['@' + getEnv('LOGTO_API_RESOURCE')]: { token: accessToken, scope: '', expiresAt },
-              }),
-            },
-          ],
-        },
-      ],
-    });
-    if (options.storageStatePath) {
-      await mkdir(dirname(options.storageStatePath), { recursive: true });
-      await writeFile(
-        options.storageStatePath,
-        JSON.stringify(storageStateFor(`http://127.0.0.1:${port}`), null, 2),
-      );
-    }
-    const base = await app.listen({ host: '127.0.0.1', port });
-    const storageState = storageStateFor(base);
-
     return {
-      base,
-      app,
+      get app() {
+        return app;
+      },
       pool,
       importAi,
       chatAi,
       taskScheduler,
-      issuer,
       signToken,
       accessToken,
+      expiresAt,
       authorization,
-      storageState,
+      // Changes persisted state while the runner is stopped, then starts a replacement app.
+      async restart(prepare: () => Promise<unknown>) {
+        await app.close();
+        await prepare();
+        app = await boot();
+        await app.ready();
+      },
       close,
     };
   } catch (error) {
@@ -189,4 +146,4 @@ export async function startTestApp(
   }
 }
 
-export type TestApp = Awaited<ReturnType<typeof startTestApp>>;
+export type TestApp = Awaited<ReturnType<typeof createTestApp>>;

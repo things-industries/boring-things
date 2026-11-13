@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import { createCanvas } from '@napi-rs/canvas';
-import { startTestApp, type TestApp } from '../support/test-app.js';
+import { createTestApp, type TestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 
@@ -29,7 +29,7 @@ async function waitForImport(env: TestApp, id: string) {
 // Product-photo transcription and applicability added model calls without providing field evidence.
 test('product photos remain display assets while uploaded photos still receive transcription', async () => {
   const content = await createCanvas(300, 300).encode('png');
-  const env = await startTestApp({
+  const env = await createTestApp({
     importWorkflow: {
       downloadImage: async () => ({ content, mediaType: 'image/png' }),
     },
@@ -136,7 +136,7 @@ test('product photos remain display assets while uploaded photos still receive t
 
 // Sequential public research delayed independent suggestions and risked losing concurrent usage writes.
 test('recommendations read attachments, overlap, save successful work and retry only the failed task', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const ai: ImportAi = env.importAi;
     const source = randomUUID();

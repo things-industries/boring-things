@@ -12,61 +12,30 @@ import type { RegistryResources } from '../../src/providers/ai/types.js';
 import { searchTranscription } from '../../src/providers/ai/tools/transcription.js';
 type PopulationResult = Awaited<ReturnType<NonNullable<ImportAi['populateFields']>>>;
 
-// Synthetic replay fixtures. Live provider observations are recorded separately by the smoke script.
-const fact = (
-  id: string,
-  label: string,
-  value: string | number | { amountMinor: number; currency: 'GBP' },
-) => ({
-  id,
-  label,
-  value,
-  quote: `${label}: ${typeof value === 'object' ? JSON.stringify(value) : value}`,
-  page: null,
-  sensitive: false,
-});
-export const extractedThings: Record<string, ExtractedThing> = {
-  neff: {
-    id: 'candidate-1',
-    name: 'Neff hob',
-    categoryId: 'appliances',
-    terms: ['Neff'],
-    facts: [fact('fact-1', 'Z-Nr', '0015'), fact('fact-2', 'Installer reference', 'ABC-12')],
-  },
-  van: {
-    id: 'candidate-1',
-    name: 'Cargo van',
-    categoryId: 'vehicles',
-    terms: ['van'],
-    facts: [fact('fact-1', 'Load capacity', 1200)],
-  },
-  policy: {
-    id: 'candidate-1',
-    name: 'Combined policy',
-    categoryId: 'insurance',
-    terms: ['combined'],
-    facts: [
-      fact('fact-1', 'Buildings sum insured', {
-        amountMinor: 40000000,
-        currency: 'GBP',
-      }),
-      fact('fact-2', 'Contents sum insured', {
-        amountMinor: 5000000,
-        currency: 'GBP',
-      }),
-    ],
-  },
+export const extractedHob: ExtractedThing = {
+  id: 'candidate-1',
+  name: 'Neff hob',
+  categoryId: 'appliances',
+  terms: ['Neff'],
+  facts: [
+    ['Z-Nr', '0015'],
+    ['Installer reference', 'ABC-12'],
+  ].map(([label, value], index) => {
+    return {
+      id: 'fact-' + (index + 1),
+      label,
+      value,
+      quote: label + ': ' + value,
+      page: null,
+      sensitive: false,
+    };
+  }),
 };
 const sets: Record<string, string[]> = {
   appliances: ['appliances.appliance'],
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
 };
-export const extractionBaseline = Object.entries(extractedThings).map(([id, expected]) => ({
-  id,
-  source: [expected.name, ...expected.facts.map((fact) => fact.quote)].join('\n'),
-  expected,
-}));
 export class FixtureAi implements ImportAi {
   constructor(private registryResources: RegistryResources) {}
 

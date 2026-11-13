@@ -520,21 +520,42 @@ test('restart retains activity and marks interrupted messages retryable', async 
   assert.equal((await request('GET', `/tasks?thingId=${thing.id}`)).json().items.length, 1);
 });
 
-test('deadline prevents a late model-selected write', async () => {
+test('deadline prevents a late model-selected write', { timeout: 10000 }, async () => {
   const { thing, chat } = await setup();
-  ai.creation = 'create_task';
   let release!: () => void;
-  ai.pause = new Promise((r) => {
-    release = r;
+  const paused = new Promise<void>((resolve) => {
+    release = resolve;
   });
-  await request('POST', `/conversations/${chat.id}/messages`, {
-    text: 'Create an event',
-    requestId: randomUUID(),
+  let completeAttempt!: (error: unknown) => void;
+  const attempted = new Promise<unknown>((resolve) => {
+    completeAttempt = resolve;
   });
-  assert.equal((await wait(chat.id)).message.error, 'timeout');
-  release();
-  ai.pause = undefined;
-  await new Promise((r) => setTimeout(r, 50));
+  ai.probe = async (_input, execute) => {
+    await paused;
+    await execute('create_task', {
+      thingId: thing.id,
+      title: 'Check the filter',
+      description: 'Synthetic maintenance task',
+      issueId: null,
+      importance: 'RECOMMENDED',
+      recurrence: null,
+      scheduledOn: null,
+      deadlineOn: null,
+    }).then(() => completeAttempt(null), completeAttempt);
+  };
+  try {
+    const response = await request('POST', `/conversations/${chat.id}/messages`, {
+      text: 'Create a maintenance Task',
+      requestId: randomUUID(),
+    });
+    assert.equal(response.statusCode, 202, response.body);
+    assert.equal((await wait(chat.id)).message.error, 'timeout');
+  } finally {
+    release();
+  }
+  const failure = await attempted;
+  assert.ok(failure instanceof Error);
+  assert.equal(failure.name, 'TimeoutError');
   assert.equal((await request('GET', `/tasks?thingId=${thing.id}`)).json().items.length, 0);
 });
 test('text-only questions return messages without intent or new activity', async () => {

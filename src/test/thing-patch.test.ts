@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Schema } from '../../shared/model.js';
-import { applyThingPatch } from '../../src/app/core/state/thing-patch.js';
-import type { ThingRecord } from '../../src/app/interfaces/thing.interface.js';
+import { applyThingPatch } from '../app/core/state/thing-patch.js';
+import type { ThingRecord } from '../app/interfaces/thing.interface.js';
 
 const definition = (id: string, sensitive = false): Schema['FieldDefinition'] => ({
   id,

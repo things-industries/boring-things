@@ -21,7 +21,7 @@ Paid checks must remain opt-in and outside default CI/test commands. The current
 - `scripts/smoke-assistant-products.ts`.
 - `scripts/smoke-chat-actions.ts`.
 
-Default CI runs `pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Provider unit tests mock HTTP requests; exercised integration and browser AI paths use fixture providers. Integration tests load `.env`, so preserve mocks or fixture injection when extending AI coverage.
+Default CI runs `pnpm test:migrations`, `pnpm check`, `pnpm test:integration` and `pnpm test:e2e`. Provider unit tests mock HTTP requests; exercised integration and browser AI paths use fixture providers. Integration tests load `.env`, so preserve mocks or fixture injection when extending AI coverage.
 
 ## Keep docs current
 

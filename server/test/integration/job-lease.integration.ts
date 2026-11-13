@@ -75,7 +75,7 @@ test('overlapping runners recover only after leadership transfers', async () => 
     await stopping;
     await Promise.race([
       transferred,
-      setTimeout(5000).then(() => {
+      setTimeout(5000, undefined, { ref: false }).then(() => {
         throw new Error('Runner did not take over');
       }),
     ]);
@@ -89,7 +89,7 @@ test('overlapping runners recover only after leadership transfers', async () => 
     assert.equal(terminated.rowCount, 1);
     await Promise.race([
       lost,
-      setTimeout(5000).then(() => {
+      setTimeout(5000, undefined, { ref: false }).then(() => {
         throw new Error('Lost session was not reported');
       }),
     ]);

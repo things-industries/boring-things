@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures.js';
@@ -46,6 +47,22 @@ test('Thing detail shows issues, tasks, products and attachments', async ({ page
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Buy Hob cleaner (sample)' })).toBeDisabled();
   await expect(page.getByText('No documents yet.')).toBeVisible();
+});
+
+test('an uploaded attachment can be downloaded from its Thing', async ({ page }) => {
+  await createThing(page, 'Attachment fixture');
+  await page.getByRole('button', { name: 'Add an attachment', exact: true }).click();
+  await page.getByLabel('Upload a file', { exact: false }).setInputFiles({
+    name: 'policy.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('policy'),
+  });
+  const download = page.getByRole('button', { name: 'Download policy.txt', exact: true });
+  const downloadReady = page.waitForEvent('download');
+  await download.click();
+  const downloaded = await downloadReady;
+  expect(downloaded.suggestedFilename()).toBe('policy.txt');
+  expect(await readFile(await downloaded.path(), 'utf8')).toBe('policy');
 });
 
 test('image attachments show thumbnails in the attachments list and library', async ({ page }) => {

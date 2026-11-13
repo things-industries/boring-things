@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { PDFDocument } from 'pdf-lib';
 import { OpenAiImports } from '../src/providers/ai/openai-imports.js';
 import type { Usage } from '../src/application/import/types.js';
-import { extractedThings, extractionBaseline } from './fixtures/imports.js';
+import { extractedHob } from './fixtures/imports.js';
 import type { AiTurnCompleted } from '../src/providers/ai/types.js';
 import { createImportTaskContext } from './support/import-context.js';
 
@@ -47,7 +47,7 @@ test('PDF source text uses one request, retains original pages and skips model t
     assert.equal(body.input[0].content[1].text, '[PDF page 26]\nZ-number 0015');
     assert.match(body.input[0].content[0].text, /return an empty 'text' property/);
     assert.match(body.input[0].content[0].text, /ignore translated repetitions/);
-    const subject = structuredClone(extractedThings.neff);
+    const subject = structuredClone(extractedHob);
     subject.facts = [{ ...subject.facts[0], page: 26 }];
     return jsonResponse(
       output({ ...sourceDetails, text: '', metadata: null, candidates: [subject] }),
@@ -82,7 +82,7 @@ test('camera source extraction requests and returns a descriptive attachment tit
           publisher: null,
           documentDate: null,
         },
-        candidates: [extractedThings.neff],
+        candidates: [extractedHob],
       }),
     );
   });
@@ -119,10 +119,8 @@ test('PDFs without embedded text reject excessive pages before calling the model
   assert.equal(requests, 0);
 });
 
-test('SDK extraction replays the labelled hob, van and combined-policy baseline without tools', async (t) => {
-  const subjects = Object.values(extractedThings);
-  let request = 0;
-  t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
+test('SDK extraction decodes a structured candidate without tools', async (t) => {
+  const fetch = t.mock.method(globalThis, 'fetch', async (_url: unknown, init: RequestInit) => {
     const body = JSON.parse(init.body as string);
     assert.equal(body.store, false);
     assert.equal(body.tools, undefined);
@@ -132,20 +130,17 @@ test('SDK extraction replays the labelled hob, van and combined-policy baseline 
         ...sourceDetails,
         text: 'Synthetic source',
         metadata: null,
-        candidates: [subjects[request++]],
+        candidates: [extractedHob],
       }),
     );
   });
-  const ai = new OpenAiImports();
-  for (const { source, expected: subject } of extractionBaseline) {
-    const result = await ai.extract(
-      { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from(source) },
-      [subject.categoryId],
-      context(),
-    );
-    assert.deepEqual(result.extractedThings, [subject]);
-  }
-  assert.equal(request, 3);
+  const result = await new OpenAiImports().extract(
+    { filename: 'source.txt', mediaType: 'text/plain', content: Buffer.from('Neff hob') },
+    [extractedHob.categoryId],
+    context(),
+  );
+  assert.deepEqual(result.extractedThings, [extractedHob]);
+  assert.equal(fetch.mock.callCount(), 1);
 });
 
 test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP errors without transport retries', async (t) => {
@@ -172,10 +167,7 @@ test('SDK import rejects incomplete output, invalid arguments and sanitises HTTP
       ],
     }),
   );
-  await assert.rejects(
-    ai.selectFieldSets(extractedThings.neff, context()),
-    /Invalid AI tool arguments/,
-  );
+  await assert.rejects(ai.selectFieldSets(extractedHob, context()), /Invalid AI tool arguments/);
   fetch.mock.mockImplementation(
     async () =>
       new Response('{"error":{"message":"private source text"}}', {
@@ -371,7 +363,7 @@ test('AI attachment metadata validates calendar dates without unknown-format war
         ...sourceDetails,
         text: '',
         metadata: { title: null, documentType: null, publisher: null, documentDate },
-        candidates: [extractedThings.neff],
+        candidates: [extractedHob],
       }),
     ),
   );

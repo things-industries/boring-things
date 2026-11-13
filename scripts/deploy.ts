@@ -1,13 +1,11 @@
 /** Applies hosted migrations and registry metadata, then provisions private attachment storage. */
 import { getEnv } from '../server/src/config.js';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { CreateBucketCommand } from '@aws-sdk/client-s3';
 import * as database from '../server/src/db/connection.js';
 import * as registrySeedDb from '../server/src/db/seeds/registry.js';
 import { s3Client } from '../server/src/providers/blobs/s3.js';
+import { pushMigrations } from './push-migrations.js';
 
-const run = promisify(execFile);
 let stage = 'configuration';
 
 async function deploy() {
@@ -40,24 +38,7 @@ async function deploy() {
     // Keep CLI connection diagnostics out of logs because they can contain credentials.
     stage = 'migrations';
     if (!url.searchParams.has('sslmode')) url.searchParams.set('sslmode', 'require');
-    await run(
-      'pnpm',
-      [
-        'exec',
-        'supabase',
-        'db',
-        'push',
-        '--db-url',
-        url.toString(),
-        '--yes',
-        '--skip-vault',
-        ...(dryRun ? ['--dry-run'] : []),
-      ],
-      {
-        encoding: 'utf8',
-        timeout: 600000,
-      },
-    );
+    await pushMigrations(url, { dryRun });
     if (dryRun) {
       console.log('Migration dry run passed. No schema, registry or bucket changes applied.');
       return;

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
-import { startTestApp, type TestApp } from '../support/test-app.js';
+import { createTestApp, type TestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 
@@ -28,9 +28,57 @@ async function waitForImport(env: TestApp, id: string) {
   throw new Error('Fixture Import timed out');
 }
 
+test('startup resumes an interrupted Import with a saved recommendation checkpoint', async (t) => {
+  const env = await createTestApp();
+  t.after(env.close);
+  const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
+    env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
+  const created = await request('POST', '/api/things', {
+    name: 'Fixture oven',
+    categoryId: 'appliances',
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const { id: thingId } = created.json<Schema['Thing']>();
+  let taskCalls = 0;
+  let productCalls = 0;
+  env.importAi.suggestTasks = async () => {
+    taskCalls++;
+    return { items: [{ title: 'Clean the tray', description: 'Wash it.', sourceRefs: [] }] };
+  };
+  env.importAi.findPurchasables = async () => {
+    if (++productCalls === 1) throw new Error('Fixture product research failure');
+    return { items: [] };
+  };
+  const submitted = await request('POST', `/api/things/${thingId}:recommend`);
+  assert.equal(submitted.statusCode, 202, submitted.body);
+  const { importId } = submitted.json<Schema['ImportAccepted']>();
+  const initial = await waitForImport(env, importId);
+  assert.equal(initial.status, 'COMPLETE');
+  assert.equal(initial.warnings?.length, 1);
+  const tasksUrl = `/api/tasks?thingId=${thingId}`;
+  const tasks = (await request('GET', tasksUrl)).json<Schema['TaskList']>().items;
+  assert.deepEqual(
+    tasks.map(({ title }) => title),
+    ['Clean the tray'],
+  );
+
+  // Recreate the persisted state of a process lost after committing the Task checkpoint.
+  await env.restart(() =>
+    env.pool.query("update bt.imports set status='RECOMMENDING', finished_at=null where id=$1", [
+      importId,
+    ]),
+  );
+  const resumed = await waitForImport(env, importId);
+  assert.equal(resumed.status, 'COMPLETE');
+  assert.equal(resumed.warnings?.length, 0);
+  assert.equal(taskCalls, 1);
+  assert.equal(productCalls, 2);
+  assert.deepEqual((await request('GET', tasksUrl)).json<Schema['TaskList']>().items, tasks);
+});
+
 // The transcription wait caught database read failures and reported them as timeouts.
 test('discovery reports a failed download separately from a failed transcription poll', async (t) => {
-  const env = await startTestApp({
+  const env = await createTestApp({
     importWorkflow: {
       specialists: [],
       download: async () => {
@@ -130,7 +178,7 @@ test('discovery reports a failed download separately from a failed transcription
 });
 
 test('additional-information retry resumes the unfinished range of a large transcript', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (url: string, payload?: object) =>
       env.app.inject({
@@ -192,7 +240,7 @@ test('additional-information retry resumes the unfinished range of a large trans
 
 // Additional-information validation aborted the single-Thing workflow before recommendations.
 test('additional-information warnings permit recommendations and retry, while write failures stop the Import', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (method: 'POST', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
@@ -307,7 +355,7 @@ test('additional-information warnings permit recommendations and retry, while wr
 
 // Resource discovery returned an everyday name that the workflow never applied.
 test('research names update new imports, reach field selection and respect owner names', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     let cited = true,
       name = 'Example Oven';

@@ -9,6 +9,7 @@
     "test/**/*.ts",
     "../scripts/**/*.ts",
     "../shared/**/*.ts",
+    "../src/test/**/*.ts",
     "../e2e/**/*.ts",
     "../playwright.config.ts"
   ]

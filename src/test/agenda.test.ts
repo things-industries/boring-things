@@ -2,8 +2,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Appointment, Task, ThingDate } from '../../src/app/interfaces/task.interface.js';
-import { buildAgenda, byImportance, nextItems, timeLine } from '../../src/app/utils/agenda.util.js';
+import type { Appointment, Task, ThingDate } from '../app/interfaces/task.interface.js';
+import { buildAgenda, byImportance, nextItems, timeLine } from '../app/utils/agenda.util.js';
 const now = new Date(2026, 9, 8, 9);
 function task(id: string, overrides: Partial<Task> = {}): Task {
   return {

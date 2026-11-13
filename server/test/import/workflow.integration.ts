@@ -6,13 +6,13 @@ import * as attachmentsDb from '../../src/db/entities/attachments.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import * as database from '../../src/db/connection.js';
 import { setTimeout } from 'node:timers/promises';
-import { startTestApp } from '../support/test-app.js';
+import { createTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi, ResearchThing } from '../../src/application/import/types.js';
 import type { RecommendationInput } from '../../src/providers/ai/tasks/recommendation.js';
 
 test('contextual Import and Recommendation preserve owner fields and retry unfinished work', async () => {
-  const app = await startTestApp({ importWorkflow: { specialists: [] } });
+  const app = await createTestApp({ importWorkflow: { specialists: [] } });
   try {
     const researchNames: (string | undefined)[] = [];
     app.importAi.findResources = async (research?: ResearchThing) => {
@@ -156,7 +156,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
   pdf.addPage().drawText('public-manual X1');
   const content = Buffer.from(await pdf.save());
   let downloads = 0;
-  const env = await startTestApp({
+  const env = await createTestApp({
     importWorkflow: {
       specialists: [],
       download: async () => {
@@ -346,7 +346,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
 
 // The new checkpoint workflow skipped restored evidence when its first transcription had failed.
 test('summary failure keeps extracted text available to the contextual Import', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
@@ -414,7 +414,7 @@ test('summary failure keeps extracted text available to the contextual Import', 
 
 // Source recommendation validation discarded valid suggestions alongside a mismatched citation.
 test('invalid citation pages omit page links while persistence failures abort the refresh', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });
@@ -513,7 +513,7 @@ test('invalid citation pages omit page links while persistence failures abort th
 
 // Literal field-evidence checks aborted imports and discarded valid proposals in the same batch.
 test('field quote mismatches omit citations while keeping proposed values', async () => {
-  const env = await startTestApp();
+  const env = await createTestApp();
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
       env.app.inject({ method, url, payload, headers: { authorization: env.authorization } });

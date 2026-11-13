@@ -2,8 +2,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allPages, apiData, createApiClient } from '../../src/app/core/api/api-client.js';
-import { UiError } from '../../src/app/utils/error.util.js';
+import { allPages, apiData, createApiClient } from '../app/core/api/api-client.js';
+import { UiError } from '../app/utils/error.util.js';
 
 test('authenticated requests obtain the current token and disable caching', async () => {
   let token = 'first';

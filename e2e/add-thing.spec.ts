@@ -49,6 +49,24 @@ test('selected files become one Import after both uploads', async ({ page }) => 
   await expect(page.getByRole('link', { name: 'View Thing 1', exact: true })).toBeVisible();
 });
 
+test('a text Import opens the Thing with its populated fields', async ({ page }) => {
+  await page.goto('/things/new/text');
+  await page.getByLabel('Text to import', { exact: true }).fill('neff');
+  await page.getByRole('button', { name: 'Import text', exact: true }).click();
+  await expect(page).toHaveURL(/\/imports\/[0-9a-f-]+$/);
+  await expect(page.getByText('Import complete.', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'View Thing 1', exact: true }).click();
+  await page.getByRole('link', { name: 'See all details', exact: true }).click();
+  const zNumber = page.locator('bt-key-value-row').filter({ hasText: 'Z-number (Z-Nr)' });
+  await expect(zNumber).toContainText('0015');
+  await expect(
+    zNumber.getByRole('button', { name: 'Pin Z-number (Z-Nr)', exact: true, pressed: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('bt-key-value-row').filter({ hasText: 'Installer reference' }),
+  ).toContainText('ABC-12');
+});
+
 test('a manually created Thing shows in the Things list without a reload', async ({ page }) => {
   const name = `Manual hob ${Date.now()}`;
 

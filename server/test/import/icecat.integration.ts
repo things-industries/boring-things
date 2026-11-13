@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { setTimeout } from 'node:timers/promises';
 import { IcecatProvider } from '../../src/providers/icecat/index.js';
 import type { ResearchThing } from '../../src/application/import/types.js';
-import { startTestApp } from '../support/test-app.js';
+import { createTestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 
 // Resource research discarded its failure reason when recording a retryable warning.
@@ -23,7 +23,7 @@ test('Icecat fields are saved before public research and reused when research is
       },
     });
   });
-  const env = await startTestApp({ importWorkflow: { specialists: [provider] } });
+  const env = await createTestApp({ importWorkflow: { specialists: [provider] } });
   setEnvValue('ICECAT_ACCESS_TOKEN', 'fixture-token');
   try {
     const request = (method: 'GET' | 'POST', url: string, payload?: object) =>
