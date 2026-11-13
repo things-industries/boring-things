@@ -357,8 +357,10 @@ test('category change moves shared fields and queues research for the same Thing
   );
 
   const path = `/things/${thing.id}:change-category`;
-  const population = Promise.withResolvers<void>();
-  importAi.pause = population.promise;
+  let releasePopulation = () => {};
+  importAi.pause = new Promise<void>((resolve) => {
+    releasePopulation = resolve;
+  });
   const response = await (async () => {
     try {
       const changed = await request('POST', path, { categoryId: 'devices', findDetails: true });
@@ -367,7 +369,7 @@ test('category change moves shared fields and queues research for the same Thing
       assert.equal(competing.statusCode, 409, competing.body);
       return changed;
     } finally {
-      population.resolve();
+      releasePopulation();
       importAi.pause = undefined;
     }
   })();
