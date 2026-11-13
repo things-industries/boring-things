@@ -1179,13 +1179,14 @@ export interface components {
             /** @description Explicit permission for future automatic population. A value edit disables population unless supplied. */
             autoPopulate?: boolean;
         };
-        /** @description Update to a custom field, including its label, value, sensitivity and optional scope. Omitted scope keeps the existing scope or defaults to INSTANCE. */
+        /** @description Update to a custom field. Null clears its value. Omitted valueType keeps the existing type or infers it for a new field. Omitted scope keeps the existing scope or defaults to INSTANCE. */
         CustomFieldPatch: {
             /** Format: uuid */
             id?: string;
             label: string;
-            value: components["schemas"]["Value"];
+            value: components["schemas"]["NullableValue"];
             sensitive: boolean;
+            valueType?: components["schemas"]["ValueTypeEnum"];
             scope?: components["schemas"]["FieldScopeEnum"];
         };
         /** @description Properties for creating a Thing, including its category and optional fields, tags and pins. */
@@ -1860,7 +1861,7 @@ export interface components {
          */
         FieldOriginEnum: "USER" | "IMPORT" | "DISCOVERY";
         /**
-         * @description Data type of a custom field value.
+         * @description Data type of a custom field value. DATE is a calendar date in YYYY-MM-DD format.
          * @enum {string}
          */
         ValueTypeEnum: "STRING" | "NUMBER" | "BOOLEAN" | "MONEY" | "DATE";

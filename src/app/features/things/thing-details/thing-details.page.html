@@ -233,7 +233,13 @@
       [open]="!!deleting()"
       (closed)="deleting.set(null)"
     >
-      <p class="details-dialog-copy">Its value is removed from this thing.</p>
+      <p class="details-dialog-copy">
+        @if (deleting()?.target?.kind === 'custom') {
+          The field and its pin are removed from this thing.
+        } @else {
+          Its value is removed from this thing.
+        }
+      </p>
       <div dialogActions>
         <button type="button" class="button-secondary button-sm" (click)="deleting.set(null)">
           Keep it

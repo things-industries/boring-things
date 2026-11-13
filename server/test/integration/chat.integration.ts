@@ -972,8 +972,9 @@ test('chat field batches add sets, update custom fields, clear values and reuse 
     customFields: [
       {
         customFieldId: null,
-        label: 'Filter size',
-        value: 'Medium',
+        label: 'Next filter change',
+        value: '2090-02-28',
+        valueType: 'DATE',
         sensitive: false,
         scope: 'CLASS',
         source: null,
@@ -1061,6 +1062,7 @@ test('chat field batches add sets, update custom fields, clear values and reuse 
     false,
   );
   const custom = saved.customFields[0];
+  assert.equal(custom.valueType, 'DATE');
   await request('PATCH', `/things/${thing.id}`, {
     values: [{ fieldSetId: null, fieldId: 'common.serialNumber', value: 'owner-edit' }],
   });
@@ -1088,8 +1090,8 @@ test('chat field batches add sets, update custom fields, clear values and reuse 
       customFields: [
         {
           customFieldId: custom.id,
-          label: 'Filter size',
-          value: 'Large',
+          label: 'Next filter change',
+          value: null,
           sensitive: false,
           scope: 'CLASS',
           source: null,
@@ -1099,7 +1101,7 @@ test('chat field batches add sets, update custom fields, clear values and reuse 
     assert.ok(!('error' in (edited.output as object)));
   };
   await request('POST', `/conversations/${chat.id}/messages`, {
-    text: 'Clear the serial and update the filter size',
+    text: 'Clear the serial and next filter change',
     requestId: randomUUID(),
   });
   assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
@@ -1112,7 +1114,8 @@ test('chat field batches add sets, update custom fields, clear values and reuse 
     edited.standaloneFields.find((field) => field.id === 'common.serialNumber')?.autoPopulate,
     false,
   );
-  assert.equal(edited.customFields[0].value, 'Large');
+  assert.equal(edited.customFields[0].value, null);
+  assert.equal(edited.customFields[0].valueType, 'DATE');
 });
 
 test('chat field validation rejects unread Things, unknown fields, invalid values and import conflicts', async () => {

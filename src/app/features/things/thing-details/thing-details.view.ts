@@ -13,7 +13,13 @@ import { fieldAnchor, fieldSections, samePin } from '../../../utils/sections.uti
 /** Where an edited value is written: a registry field occurrence or a custom field. */
 export type DetailTarget =
   | { kind: 'field'; fieldSetId: string | null; fieldId: string }
-  | { kind: 'custom'; id: string; label: string; sensitive: boolean };
+  | {
+      kind: 'custom';
+      id: string;
+      label: string;
+      sensitive: boolean;
+      valueType: Schema['ValueTypeEnum'];
+    };
 
 export interface DetailRow {
   anchor: string;
@@ -42,15 +48,6 @@ function dateFormat(field: Schema['Field']) {
   return format === 'date' || format === 'date-time' ? format : null;
 }
 
-/** Custom dates show formatted when they hold a calendar date, and as typed otherwise. */
-function customDateFormat(field: Schema['CustomField']) {
-  return field.valueType === 'DATE' &&
-    typeof field.value === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/.test(field.value)
-    ? 'date'
-    : null;
-}
-
 function fieldRow(detail: ThingDetail, field: Schema['Field'], setId: string | null): DetailRow {
   const pin: Pin = { fieldSetId: setId, fieldId: field.id };
 
@@ -76,9 +73,15 @@ function customRow(detail: ThingDetail, field: Schema['CustomField']): DetailRow
     label: field.label,
     value: field.value,
     masked: field.masked,
-    format: customDateFormat(field),
+    format: field.valueType === 'DATE' ? 'date' : null,
     input: customFieldInput(field),
-    target: { kind: 'custom', id: field.id, label: field.label, sensitive: field.sensitive },
+    target: {
+      kind: 'custom',
+      id: field.id,
+      label: field.label,
+      sensitive: field.sensitive,
+      valueType: field.valueType,
+    },
     pin,
     pinned: detail.pinnedFields.some((p) => samePin(p, pin)),
     remove: {
@@ -162,7 +165,6 @@ export function detailsDraft(
  */
 export function detailsPatches(
   thing: Basics,
-  detail: ThingDetail,
   rows: DetailRow[],
   draft: DetailsDraft,
   revealed: ReadonlyMap<string, Value | null>,
@@ -171,7 +173,6 @@ export function detailsPatches(
   const name = draft.name === undefined ? thing.name : String(draft.name).trim();
   const description =
     draft.description === undefined ? thing.description : String(draft.description).trim();
-  const removedCustom: string[] = [];
 
   if (name !== thing.name) patch.name = name;
   if (description !== thing.description) patch.description = description;
@@ -195,23 +196,15 @@ export function detailsPatches(
         fieldId: row.target.fieldId,
         value: next,
       });
-    } else if (next === null) {
-      removedCustom.push(row.target.id);
     } else {
       (patch.customFields ??= []).push({
         id: row.target.id,
         label: row.target.label,
         sensitive: row.target.sensitive,
+        valueType: row.target.valueType,
         value: next,
       });
     }
-  }
-
-  if (removedCustom.length) {
-    patch.removeCustomFieldIds = removedCustom;
-    patch.pinnedFields = detail.pinnedFields.filter(
-      (pin) => !removedCustom.some((id) => samePin(pin, { customFieldId: id })),
-    );
   }
 
   const patches = Object.keys(patch).length ? [patch] : [];

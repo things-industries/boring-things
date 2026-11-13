@@ -25,6 +25,7 @@ import * as registryDb from '../../db/entities/registry.js';
 import * as tasksDb from '../../db/entities/tasks.js';
 import * as purchasablesDb from '../../db/entities/purchasables.js';
 import { addFieldSets, fieldTargets, populateFields, identifierValues } from '../thing-fields.js';
+import { inferCustomValueType, isCustomValue } from '../custom-fields.js';
 import { publicFields } from '../public-fields.js';
 import { ensure } from '../errors.js';
 import { mapValidResults, normalizeWhitespace } from './evidence.js';
@@ -1045,6 +1046,9 @@ export class ImportWorkflow {
                 (field) => field.label.toLowerCase() === finding.label.toLowerCase(),
               );
               if (existing?.autoPopulate === false || existing?.origin === 'USER') continue;
+              const valueType =
+                existing?.valueType ?? finding.valueType ?? inferCustomValueType(finding.value);
+              if (!isCustomValue(finding.value, valueType)) continue;
               const hex = createHash('sha256')
                 .update(`${current.id}:${source.id}:${finding.label.toLowerCase()}`)
                 .digest('hex');
@@ -1057,6 +1061,7 @@ export class ImportWorkflow {
                 id,
                 label: finding.label,
                 value: finding.value,
+                valueType,
                 sensitive: finding.sensitive,
                 scope: 'INSTANCE',
                 origin: 'IMPORT',

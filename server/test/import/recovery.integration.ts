@@ -252,7 +252,9 @@ test('additional-information warnings permit recommendations and retry, while wr
       source = randomUUID();
     await env.pool.query(
       `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
-       select $1,owner_id,'plate.txt','text/plain',1,'fixture-plate','Finish: black','COMPLETE' from bt.things where id=$2`,
+       select $1,owner_id,'plate.txt','text/plain',1,'fixture-plate',
+         'Finish: black. Inspection: 28 February 2090. Service: 30 February 2090.',
+         'COMPLETE' from bt.things where id=$2`,
       [source, thingId],
     );
     await env.pool.query(
@@ -268,6 +270,10 @@ test('additional-information warnings permit recommendations and retry, while wr
     };
     const ai: ImportAi = env.importAi;
     const registryResources = { db: env.pool, registry: await loadRegistry(env.pool) };
+    const inspectionDates = [
+      { label: 'Inspection', value: '2090-02-28', quote: 'Inspection: 28 February 2090' },
+      { label: 'Service', value: '2090-02-30', quote: 'Service: 30 February 2090' },
+    ];
     ai.additionalInformation = async (_input, context) => {
       await searchFieldSets(context, registryResources, 'appliances', ['appliance']);
       if (failWrite)
@@ -287,6 +293,15 @@ test('additional-information warnings permit recommendations and retry, while wr
             page: null,
             quote: 'Finish: black',
           },
+          ...inspectionDates.map((date) => ({
+            ...date,
+            fieldId: null,
+            valueType: 'DATE' as const,
+            sensitive: false,
+            reason: 'Records a maintenance date',
+            attachmentId: source,
+            page: null,
+          })),
         ],
       };
     };
@@ -313,6 +328,18 @@ test('additional-information warnings permit recommendations and retry, while wr
       [thingId],
     );
     assert.equal(fields.rows[0].value, 'black');
+    const customFields = await env.pool.query(
+      'select value, custom_definition from bt.thing_fields where thing_id=$1 and custom_definition is not null',
+      [thingId],
+    );
+    assert.deepEqual(
+      customFields.rows.map(({ value, custom_definition: definition }) => ({
+        value,
+        label: definition.label,
+        valueType: definition.valueType,
+      })),
+      [{ value: '2090-02-28', label: 'Inspection', valueType: 'DATE' }],
+    );
 
     const findPurchasables = env.importAi.findPurchasables.bind(env.importAi);
     env.importAi.findPurchasables = async () => {

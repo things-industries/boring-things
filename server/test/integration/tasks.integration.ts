@@ -388,12 +388,13 @@ test('chat followups reuse conversations and record the first owner message with
   );
 });
 
-test('Thing dates include future registry and custom dates, separate set addresses and omit secrets', async () => {
+test('Thing dates include future registry and custom dates, and omit text and secrets', async () => {
   const thing = await createThing();
   const response = await request('PATCH', `/things/${thing.id}`, {
     values: [{ fieldSetId: null, fieldId: 'common.warrantyEnds', value: '2090-01-01' }],
     customFields: [
       { label: 'Next inspection', value: '2090-02-01', sensitive: false },
+      { label: 'Date-shaped note', value: '2090-02-02', valueType: 'STRING', sensitive: false },
       { label: 'Private expiry', value: '2090-03-01', sensitive: true },
       { label: 'Past date', value: '2020-01-01', sensitive: false },
     ],
@@ -407,6 +408,29 @@ test('Thing dates include future registry and custom dates, separate set address
     ['2090-01-01', '2090-02-01'],
   );
   assert.ok(items[1].customFieldId);
+
+  const edit = { id: items[1].customFieldId!, label: 'Next inspection', sensitive: false };
+  for (const value of ['2090-02-30', '1 February 2090', 0]) {
+    const rejected = await request('PATCH', `/things/${thing.id}`, {
+      customFields: [{ ...edit, value }],
+    });
+    assert.equal(rejected.statusCode, 422, rejected.body);
+  }
+  const cleared = await request('PATCH', `/things/${thing.id}`, {
+    customFields: [{ ...edit, value: null }],
+    pinnedFields: [{ customFieldId: edit.id }],
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  const saved = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  const field = saved.customFields.find(({ id }) => id === edit.id);
+  assert.equal(field?.valueType, 'DATE');
+  assert.equal(field?.value, null);
+  assert.deepEqual(saved.pinnedFields, [{ customFieldId: edit.id }]);
+  const upcoming = await request('GET', `/thing-dates?thingId=${thing.id}`);
+  assert.deepEqual(
+    upcoming.json<Schema['ThingDateList']>().items.map(({ date }) => date),
+    ['2090-01-01'],
+  );
 });
 
 test('all Task operations and linked context enforce owner scope', async () => {

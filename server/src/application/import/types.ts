@@ -243,6 +243,7 @@ export interface AdditionalInformationResult {
     label: string;
     fieldId: string | null;
     value: Value;
+    valueType?: Schema['ValueTypeEnum'] | null;
     sensitive: boolean;
     reason: string;
   })[];

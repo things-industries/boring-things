@@ -77,13 +77,13 @@ test('the currency choices match the API currencies', () => {
   assert.deepEqual(APP_CONFIG.currencies, openapi.components.schemas.CurrencyEnum.enum);
 });
 
-test('custom dates format like registry dates only when they hold a calendar date', () => {
+test('custom dates use their stored type even when empty', () => {
   const detail = {
     fieldSets: [],
     standaloneFields: [],
     customFields: [
       custom({ id: 'renewal', valueType: 'DATE', value: '2027-05-16' }),
-      custom({ id: 'loose', valueType: 'DATE', value: 'next spring' }),
+      custom({ id: 'empty', valueType: 'DATE', value: null }),
       custom({ id: 'text', value: '2027-05-16' }),
     ],
     pinnedFields: [],
@@ -93,7 +93,7 @@ test('custom dates format like registry dates only when they hold a calendar dat
     detailGroups(detail)
       .flatMap((group) => group.rows)
       .map((row) => row.format),
-    ['date', null, null],
+    ['date', 'date', null],
   );
 });
 
@@ -149,7 +149,10 @@ test('saving sends only changed values, then the category', () => {
       field({ id: 'model', name: 'Model' }),
       field({ id: 'pin', name: 'PIN', sensitive: true, masked: true, value: null }),
     ],
-    customFields: [custom(), custom({ id: 'c2', label: 'Gone' })],
+    customFields: [
+      custom(),
+      custom({ id: 'c2', label: 'Renewal', value: '2027-05-16', valueType: 'DATE' }),
+    ],
     pinnedFields: [{ customFieldId: 'c2' }, { fieldSetId: null, fieldId: 'make' }],
   } as unknown as ThingDetail;
   const rows: DetailRow[] = detailGroups(detail).flatMap((group) => group.rows);
@@ -161,18 +164,19 @@ test('saving sends only changed values, then the category', () => {
   draft.fields[rows[1].anchor] = 'X1';
   draft.fields[rows[4].anchor] = '';
 
-  assert.deepEqual(detailsPatches(thing, detail, rows, draft, new Map()), [
+  assert.deepEqual(detailsPatches(thing, rows, draft, new Map()), [
     {
       name: 'Camper',
       values: [{ fieldSetId: null, fieldId: 'model', value: 'X1' }],
-      removeCustomFieldIds: ['c2'],
-      pinnedFields: [{ fieldSetId: null, fieldId: 'make' }],
+      customFields: [
+        { id: 'c2', label: 'Renewal', sensitive: false, valueType: 'DATE', value: null },
+      ],
     },
     { categoryId: 'appliances' },
   ]);
 
   draft.fields[rows[2].anchor] = '4321';
-  assert.deepEqual(detailsPatches(thing, detail, rows, draft, new Map())[0].values?.[1], {
+  assert.deepEqual(detailsPatches(thing, rows, draft, new Map())[0].values?.[1], {
     fieldSetId: null,
     fieldId: 'pin',
     value: '4321',
@@ -192,9 +196,8 @@ test('saving leaves out values the draft does not hold', () => {
   } as unknown as ThingDetail;
   const rows: DetailRow[] = detailGroups(detail).flatMap((group) => group.rows);
 
-  assert.deepEqual(
-    detailsPatches(thing, detail, rows, { fields: { [rows[1].anchor]: 'X2' } }, new Map()),
-    [{ values: [{ fieldSetId: null, fieldId: 'model', value: 'X2' }] }],
-  );
-  assert.deepEqual(detailsPatches(thing, detail, rows, { fields: {} }, new Map()), []);
+  assert.deepEqual(detailsPatches(thing, rows, { fields: { [rows[1].anchor]: 'X2' } }, new Map()), [
+    { values: [{ fieldSetId: null, fieldId: 'model', value: 'X2' }] },
+  ]);
+  assert.deepEqual(detailsPatches(thing, rows, { fields: {} }, new Map()), []);
 });

@@ -105,22 +105,22 @@ function patchDetail(
   let customFields = detail.customFields.filter((f) => !removedLocal.has(f.id));
 
   for (const input of patch.customFields ?? []) {
-    if (!input.id) continue;
+    const existing = customFields.find((field) => field.id === input.id);
+    if (!existing) continue;
 
     const field: Schema['CustomField'] = {
-      id: input.id,
+      id: existing.id,
       label: input.label,
       sensitive: input.sensitive,
-      scope:
-        input.scope ?? customFields.find((field) => field.id === input.id)?.scope ?? 'INSTANCE',
+      scope: input.scope ?? existing.scope,
       value: input.sensitive ? null : input.value,
-      masked: input.sensitive,
+      masked: input.sensitive && input.value !== null,
       origin: 'USER',
       sourceRefs: [],
-      valueType: valueType(input.value),
+      valueType: input.valueType ?? existing.valueType,
     };
 
-    customFields = [...customFields.filter((f) => f.id !== input.id), field];
+    customFields = customFields.map((f) => (f.id === existing.id ? field : f));
   }
 
   return {
@@ -144,12 +144,4 @@ function withValue(field: Schema['Field'], value: Schema['Value']): Schema['Fiel
     origin: 'USER',
     sourceRefs: [],
   };
-}
-
-function valueType(value: Schema['Value']): Schema['ValueTypeEnum'] {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? 'DATE'
-    : typeof value === 'object'
-      ? 'MONEY'
-      : ((typeof value).toUpperCase() as Schema['ValueTypeEnum']);
 }

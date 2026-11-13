@@ -244,7 +244,7 @@ export class ThingDetailsPage implements LeaveGuarded {
       return;
     }
 
-    const patches = detailsPatches(thing, detail, this.rows(), changedDraft(form), this.revealed());
+    const patches = detailsPatches(thing, this.rows(), changedDraft(form), this.revealed());
 
     this.endEdit();
     void this.send(patches);

@@ -10,7 +10,7 @@ import type {
   ChatToolResult,
   ChatMessage,
 } from '../../../application/conversations/types.js';
-import { createObjectSchema, valueSchema } from '../schemas.js';
+import { createObjectSchema, customValueTypeSchema, valueSchema } from '../schemas.js';
 import { AiTask } from './task.js';
 import { createTool, type TaskTool, type TaskToolResult } from '../tools/tool.js';
 import { createSourceInput } from '../sources.js';
@@ -109,7 +109,11 @@ const updateFieldsSchema = createObjectSchema(
           maxLength: 160,
           description: 'Field label without sensitive values (min 1 char, max 160 chars).',
         },
-        value: valueSchema,
+        value: {
+          description: 'Value matching the custom field type, or null to clear it.',
+          anyOf: [...valueSchema.anyOf, { type: 'null' }],
+        },
+        valueType: customValueTypeSchema,
         sensitive: {
           type: 'boolean',
           description:
