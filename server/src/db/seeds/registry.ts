@@ -2964,7 +2964,6 @@ export const fields: FieldDefinition[] = [
   }),
   field('household.address', 'Address', undefined, {
     description: 'Address of the dwelling, including any flat or unit number and postal code.',
-    sensitive: true,
     icon: 'fieldAddress',
   }),
   field(
@@ -3096,7 +3095,6 @@ export const fields: FieldDefinition[] = [
     uiHint: 'MONEY',
   }),
   field('household.mortgageMonthlyPayment', 'Monthly mortgage payment', moneySchema, {
-    sensitive: true,
     uiHint: 'MONEY',
   }),
   field(
@@ -3124,7 +3122,6 @@ export const fields: FieldDefinition[] = [
     {
       description:
         'Current annual interest rate as a percentage, distinct from the annual percentage rate of charge.',
-      sensitive: true,
       uiHint: 'NUMBER',
     },
   ),
@@ -3143,7 +3140,6 @@ export const fields: FieldDefinition[] = [
   }),
   field('household.energyCertificateReference', 'Energy certificate reference', undefined, {
     description: 'Certificate number or reference, including leading zeroes and separators.',
-    sensitive: true,
   }),
 ];
 

@@ -8,7 +8,7 @@ import { setEnvValue } from '../../src/config.js';
 import { EpcGovUkProvider } from '../../src/providers/epc-govuk/index.js';
 import { createTestApp } from '../support/test-app.js';
 
-test('Household import saves EPC fields and masks the certificate reference', async () => {
+test('Household import saves EPC fields with a visible certificate reference', async () => {
   const reference = '0012-3456-7890-1234-5678';
   const provider = new EpcGovUkProvider(async (input) => {
     if (new URL(String(input)).pathname === '/api/domestic/search')
@@ -81,11 +81,10 @@ test('Household import saves EPC fields and masks the certificate reference', as
     assert.equal(uprn?.value, '123456789');
     assert.equal(uprn?.sourceRefs[0]?.provider, 'EPC_GOVUK');
     assert.equal(fields.find((field) => field.id === 'household.floorArea')?.value, 80);
-    assert.equal(
-      fields.find((field) => field.id === 'household.energyCertificateReference')?.masked,
-      true,
-    );
-    assert.doesNotMatch(detail.body, new RegExp(reference));
+    const certificate = fields.find((field) => field.id === 'household.energyCertificateReference');
+    assert.equal(certificate?.value, reference);
+    assert.equal(certificate?.masked, false);
+    assert.equal(certificate?.sourceRefs[0]?.provider, 'EPC_GOVUK');
   } finally {
     await env.close();
   }

@@ -204,7 +204,8 @@ test('Household basics, shared meter access and energy performance persist indep
   const detail = saved.json<Schema['Thing']>();
   const sets = new Map(detail.fieldSets.map((set) => [set.id, set.fields]));
   const find = (set: string, id: string) => sets.get(set)?.find((field) => field.id === id);
-  assert.equal(find(address.fieldSetId, address.fieldId)?.masked, true);
+  assert.equal(find(address.fieldSetId, address.fieldId)?.masked, false);
+  assert.equal(find(address.fieldSetId, address.fieldId)?.value, 'Flat 2, 1 Example Street');
   assert.equal(find('household.household', 'household.bedrooms')?.value, 0);
   assert.equal(
     find('household.waterInstallation', 'household.stopcockLocation')?.value,
@@ -216,10 +217,6 @@ test('Household basics, shared meter access and energy performance persist indep
   assert.equal(find('household.energyPerformance', 'household.energyRating')?.value, 'C');
   assert.ok(!sets.has('household.gasInstallation'));
   assert.ok(!sets.has('household.building'));
-  assert.ok(!saved.body.includes('Example Street'));
-  const reveal = await request('POST', `/things/${home.id}:reveal-field`, address);
-  assert.equal(reveal.statusCode, 200, reveal.body);
-  assert.equal(reveal.json().value, 'Flat 2, 1 Example Street');
 });
 
 test('country fields accept ISO codes and reject names and unassigned codes', async () => {
