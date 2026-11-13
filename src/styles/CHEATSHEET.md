@@ -17,6 +17,7 @@ One file per style scope, or one folder when a scope needs several files.
 | `typography/_index.scss` | Type roles, `role()` mixin, `$font-family`                                                    | No        |
 | `typography/_base.scss`  | Headings, paragraphs, eyebrow                                                                 | Yes       |
 | `_buttons.scss`          | Button classes                                                                                | Yes       |
+| `_links.scss`            | Inline link classes                                                                           | Yes       |
 | `_icons.scss`            | `ng-icon` defaults and icon size classes                                                      | Yes       |
 | `_forms.scss`            | Labels, inputs, selects, textareas, details                                                   | Yes       |
 | `_layout.scss`           | Page sections, grids, panels, empty states                                                    | Yes       |
