@@ -63,7 +63,7 @@
       } @else if (getEmailLink(getFieldFormat(field), field.value); as href) {
         <a class="email-link" [href]="href">{{ field.value }}</a>
       } @else {
-        {{ formatValue(field.value) }}
+        {{ formatValue(field.value, field.schema.format) }}
       }
     </bt-key-value-row>
   }

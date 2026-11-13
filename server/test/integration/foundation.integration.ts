@@ -222,6 +222,69 @@ test('Household basics, shared meter access and energy performance persist indep
   assert.equal(reveal.json().value, 'Flat 2, 1 Example Street');
 });
 
+test('country fields accept ISO codes and reject names and unassigned codes', async () => {
+  for (const [categoryId, fieldSetId, fieldId] of [
+    ['household', 'household.household', 'household.country'],
+    ['vehicles', 'vehicles.vehicle', 'vehicles.registrationCountry'],
+  ]) {
+    const thing = await create({ categoryId });
+    const write = (value: string) =>
+      request('PATCH', '/things/' + thing.id, { values: [{ fieldSetId, fieldId, value }] });
+    for (const value of ['United Kingdom', 'gb', 'ZZ']) {
+      const result = await write(value);
+      assert.equal(result.statusCode, 422, result.body);
+    }
+    const result = await write('GB');
+    assert.equal(result.statusCode, 200, result.body);
+    assert.equal(
+      result
+        .json<Schema['Thing']>()
+        .fieldSets.find(({ id }) => id === fieldSetId)
+        ?.fields.find(({ id }) => id === fieldId)?.value,
+      'GB',
+    );
+  }
+});
+
+test('country migration converts known names and keeps source references and other values', async () => {
+  const home = await create({ categoryId: 'household' });
+  const sourceRefs = [{ quote: 'Great Britain' }];
+  const before = (
+    await pool.query(
+      `insert into bt.thing_fields(thing_id, owner_id, field_key, field_id, value, origin, source_refs)
+      select t.id, t.owner_id, ':' || input.field_id, input.field_id, to_jsonb(input.value), 'USER', $2
+      from bt.things t cross join (values
+        ('household.country', ' Great Britain '),
+        ('vehicles.registrationCountry', 'Unrecognised location'),
+        ('common.model', 'Great Britain')
+      ) as input(field_id, value) where t.id = $1
+      returning *`,
+      [home.id, JSON.stringify(sourceRefs)],
+    )
+  ).rows;
+  await pool.query(
+    await readFile(
+      new URL(
+        '../../../supabase/migrations/20261113122520_country_field_codes.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  const after = await pool.query('select * from bt.thing_fields where id = any($1::uuid[])', [
+    before.map(({ id }) => id),
+  ]);
+  assert.deepEqual(
+    new Map(after.rows.map((row) => [row.id, row])),
+    new Map(
+      before.map((row) => [
+        row.id,
+        row.field_id === 'household.country' ? { ...row, value: 'GB' } : row,
+      ]),
+    ),
+  );
+});
+
 test('appliance field migration moves values and keeps ambiguous values and pins', async () => {
   const service = { fieldSetId: 'appliances.maintenance', fieldId: 'common.serviceInterval' };
   const cleaning = {

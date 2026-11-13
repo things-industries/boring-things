@@ -20,7 +20,7 @@ const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 const signal = new AbortController().signal;
 
 // Supplies a vehicle with invented registration details and no other evidence.
-function createThing(country = 'United Kingdom', registration = 'xy12 zzz'): ThingRow {
+function createThing(country: string | null = 'GB', registration = 'xy12 zzz'): ThingRow {
   return {
     id: 'fixture',
     ownerId: 'owner',
@@ -86,18 +86,7 @@ test('Zyfy accepts UK plate patterns without a country and skips conflicting cou
     calls++;
     return Response.json(createVehicle());
   });
-  for (const country of [
-    '',
-    'UK',
-    'GB',
-    'GBR',
-    'United Kingdom',
-    'England',
-    'Scotland',
-    'Wales',
-    'Northern Ireland',
-  ])
-    assert.equal(provider.applicable(createThing(country)), true);
+  for (const country of [null, 'GB']) assert.equal(provider.applicable(createThing(country)), true);
   for (const registration of [
     'xy12 zzz',
     'A1 ABC',
@@ -107,14 +96,14 @@ test('Zyfy accepts UK plate patterns without a country and skips conflicting cou
     'ABC 1234',
     '1 A',
   ])
-    assert.equal(provider.applicable(createThing('', registration)), true, registration);
+    assert.equal(provider.applicable(createThing(null, registration)), true, registration);
   const otherCategory = { ...createThing(), categoryId: 'devices' };
   for (const thing of [
-    createThing('France'),
-    createThing('UK', ''),
-    createThing('UK', 'TESTVIN00000000001'),
+    createThing('FR'),
+    createThing('GB', ''),
+    createThing('GB', 'TESTVIN00000000001'),
     ...['12345', 'LETTERS', 'AB-123', 'A1B2C3D', 'AB12345', '12345AB'].map((registration) =>
-      createThing('', registration),
+      createThing(null, registration),
     ),
     otherCategory,
   ]) {

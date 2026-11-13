@@ -233,7 +233,7 @@
                     } @else if (getEmailLink(row.format, row.value); as href) {
                       <a class="email-link" [href]="href">{{ row.value }}</a>
                     } @else {
-                      {{ formatValue(row.value) }}
+                      {{ formatValue(row.value, row.format) }}
                     }
                     @if (!processing() && row.value === null && !row.masked) {
                       <ng-icon

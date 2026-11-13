@@ -5879,8 +5879,8 @@
       },
       "SchemaFormatEnum": {
         "type": "string",
-        "description": "String format accepted by a field validation schema.",
-        "enum": ["date", "date-time", "email"]
+        "description": "String format accepted by a field validation schema. Country codes use ISO 3166-1 alpha-2.",
+        "enum": ["date", "date-time", "email", "country-code"]
       },
       "UiHintEnum": {
         "type": "string",
