@@ -2,14 +2,14 @@
 
 import { randomUUID } from 'node:crypto';
 import { getEnv } from '../../src/config.js';
-import { createPool } from '../../src/db/connection.js';
+import * as database from '../../src/db/connection.js';
 
 // Creates a database on the local test server and returns its connection and cleanup.
 export async function createTestDatabase() {
   const url = new URL(getEnv('TEST_DATABASE_URL'));
   if (!['localhost', '127.0.0.1'].includes(url.hostname))
     throw new Error('TEST_DATABASE_URL must point at a local database');
-  const admin = createPool(url.toString());
+  const admin = database.createPool(url.toString());
   const name = 'bt_test_' + randomUUID().replaceAll('-', '');
   try {
     await admin.query(`create database ${name}`);
@@ -20,7 +20,7 @@ export async function createTestDatabase() {
     throw error;
   }
   url.pathname = '/' + name;
-  const pool = createPool(url.toString());
+  const pool = database.createPool(url.toString());
   return {
     url,
     pool,
