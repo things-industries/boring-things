@@ -19,6 +19,7 @@ test('Household import saves EPC fields and masks the certificate reference', as
             addressLine1: '15 Example Street',
             postcode: 'LS6 1AA',
             registrationDate: '2024-06-12',
+            uprn: 123456789,
           },
         ],
         pagination: { totalPages: 1 },
@@ -69,10 +70,16 @@ test('Household import saves EPC fields and masks the certificate reference', as
     assert.deepEqual(job.warnings ?? [], []);
     const detail = await request('GET', '/api/things/' + thingId);
     assert.equal(detail.statusCode, 200, detail.body);
-    const fields = detail.json<Schema['Thing']>().fieldSets.flatMap((set) => set.fields);
+    const { fieldSets } = detail.json<Schema['Thing']>();
+    const fields = fieldSets.flatMap((set) => set.fields);
     const rating = fields.find((field) => field.id === 'household.energyRating');
     assert.equal(rating?.value, 'C');
     assert.equal(rating?.sourceRefs[0]?.provider, 'EPC_GOVUK');
+    const uprn = fieldSets
+      .find((set) => set.id === 'household.household')
+      ?.fields.find((field) => field.id === 'household.uprn');
+    assert.equal(uprn?.value, '123456789');
+    assert.equal(uprn?.sourceRefs[0]?.provider, 'EPC_GOVUK');
     assert.equal(fields.find((field) => field.id === 'household.floorArea')?.value, 80);
     assert.equal(
       fields.find((field) => field.id === 'household.energyCertificateReference')?.masked,

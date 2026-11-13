@@ -109,10 +109,11 @@ function matchesAddress(
   );
 }
 
-// Validates a register identifier before comparing search and certificate responses.
+// Normalizes the EPC API's padded or numeric property identifier to text.
 function getUprn(value: unknown) {
   const text = typeof value === 'number' ? String(value) : getText(value);
-  return text && /^\d{1,12}$/.test(text) && /[1-9]/.test(text) ? text.padStart(12, '0') : undefined;
+  if (!text || !/^\d{1,12}$/.test(text)) return undefined;
+  return text.replace(/^0+/, '') || undefined;
 }
 
 export class EpcGovUkProvider extends SpecialistProvider {
@@ -221,6 +222,7 @@ export class EpcGovUkProvider extends SpecialistProvider {
     const firstWall = Array.isArray(certificate.walls) ? certificate.walls[0] : undefined;
     const wall = getText(getObject(firstWall).description ?? firstWall);
     const proposals = [
+      [basics, 'household.uprn', certificateUprn ?? searchUprn],
       [basics, 'household.country', 'GB'],
       [basics, 'household.dwellingType', dwelling],
       [energy, 'household.energyCertificateScheme', 'EPC'],

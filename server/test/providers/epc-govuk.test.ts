@@ -25,10 +25,11 @@ const row = {
   addressLine2: '15 Example Street',
   postTown: 'Exampletown',
   registrationDate: '2024-06-12',
-  uprn: null,
+  uprn: 123456789,
 };
 const certificate = {
   status: 'entered',
+  uprn: '000123456789',
   report_type: 2,
   postcode: row.postcode,
   address_line_1: row.addressLine1,
@@ -144,6 +145,7 @@ test('EPC lookup matches the latest certificate for a flat without a UPRN', asyn
   assert.deepEqual(
     Object.fromEntries(result.values.map(({ fieldId, value }) => [fieldId, value])),
     {
+      'household.uprn': '123456789',
       'household.country': 'GB',
       'household.dwellingType': 'Flat',
       'household.energyCertificateScheme': 'EPC',
@@ -182,6 +184,7 @@ test('EPC lookup uses a supplied certificate number directly and accepts older w
     return Response.json({
       data: {
         ...certificate,
+        uprn: 0,
         property_type: 0,
         built_form: 3,
         walls: [{ value: 'Stone wall', language: '1' }],
@@ -195,6 +198,7 @@ test('EPC lookup uses a supplied certificate number directly and accepts older w
   assert.equal(provider.applicable(createThing(undefined, 'FR')), false);
   assert.equal(provider.applicable(createThing('Flat 2, 15 Example Street, BT1 1AA')), false);
   const result = await provider.lookup(thing, registry, signal);
+  assert.ok(!result.values.some(({ fieldId }) => fieldId === 'household.uprn'));
   assert.equal(
     result.values.find(({ fieldId }) => fieldId === 'household.houseForm')?.value,
     'End-terrace',
@@ -226,13 +230,15 @@ test('EPC lookup skips partial addresses, competing identities and incomplete se
   }
 });
 
-test('EPC lookup rejects a certificate for another flat and surfaces provider failures', async () => {
-  const wrong = new EpcGovUkProvider(async (input) =>
-    new URL(String(input)).pathname === '/api/domestic/search'
-      ? searchResponse([row])
-      : Response.json({ data: { ...certificate, address_line_1: 'Flat 12' } }),
-  );
-  assert.deepEqual((await wrong.lookup(createThing(), registry, signal)).values, []);
+test('EPC lookup rejects a conflicting dwelling and surfaces provider failures', async () => {
+  for (const mismatch of [{ address_line_1: 'Flat 12' }, { uprn: '000123456788' }]) {
+    const wrong = new EpcGovUkProvider(async (input) =>
+      new URL(String(input)).pathname === '/api/domestic/search'
+        ? searchResponse([row])
+        : Response.json({ data: { ...certificate, ...mismatch } }),
+    );
+    assert.deepEqual((await wrong.lookup(createThing(), registry, signal)).values, []);
+  }
   const unavailable = new EpcGovUkProvider(async () => new Response(null, { status: 503 }));
   await assert.rejects(
     unavailable.lookup(createThing(), registry, signal),

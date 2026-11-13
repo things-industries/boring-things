@@ -2968,6 +2968,15 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldAddress',
   }),
   field(
+    'household.uprn',
+    'UPRN',
+    { type: 'string', pattern: '^[1-9][0-9]{0,11}$' },
+    {
+      description: 'Unique Property Reference Number for the dwelling.',
+      icon: 'fieldAddress',
+    },
+  ),
+  field(
     'household.country',
     'Country',
     { type: 'string', format: 'country-code' },
@@ -4995,6 +5004,7 @@ export const sets: FieldSet[] = [
     null,
     [
       'household.address',
+      'household.uprn',
       'household.country',
       'household.dwellingType',
       'household.occupancyArrangement',
