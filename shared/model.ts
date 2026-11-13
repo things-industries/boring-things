@@ -21,9 +21,11 @@ export interface LocalField extends StoredValue {
   sensitive: boolean;
   scope?: Schema['FieldScopeEnum'];
   valueType: Schema['ValueTypeEnum'];
+  fromPreviousCategory?: true;
 }
 export interface ThingData {
   userEdited?: string[];
+  categoryVersion?: number;
   setIds: string[];
   values: Record<string, Record<string, StoredValue>>;
   standalone: Record<string, StoredValue>;

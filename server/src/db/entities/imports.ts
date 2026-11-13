@@ -11,6 +11,7 @@ import * as attachmentsDb from './attachments.js';
 import { importedName } from '../../application/import/naming.js';
 
 export interface WorkflowCheckpoint {
+  categoryVersion?: number;
   done: string[];
   failure?: { stage: string | undefined; reason: string };
   selected?: ThingCandidate;
@@ -37,11 +38,13 @@ export interface ImportRow {
   error: string | null;
   usage: Usage | null;
   sourceUsage?: Usage[];
+  previousCategory?: boolean;
   workflow: WorkflowCheckpoint;
 }
 const projection = `i.*,coalesce((select jsonb_agg(a.transcription_usage) from bt.import_sources s join bt.attachments a on a.id=s.attachment_id where s.import_id=i.id and a.transcription_usage is not null),'[]') as source_usage,coalesce((select array_agg(attachment_id order by position) from bt.import_sources where import_id=i.id),'{}') as attachment_ids,
   coalesce((select jsonb_agg(jsonb_build_object('attachmentId',a.id,'status',a.transcription_status) order by s.position)
   from bt.import_sources s join bt.attachments a on a.id=s.attachment_id where s.import_id=i.id),'[]') as sources`;
+const importCategoryVersion = "coalesce((i.workflow->>'categoryVersion')::integer,0)";
 
 // Supplies defaults for an empty checkpoint stored by a newly queued request.
 function decode(job: ImportRow): ImportRow {
@@ -66,7 +69,9 @@ export async function getOwnedImportOrThrow(
 ) {
   const [job] = await database.rows<ImportRow>(
     db,
-    `select ${projection} from bt.imports i where i.id=$1 and i.owner_id=$2 ${options.lock ? 'for update of i' : ''}`,
+    `select ${projection}, exists(select 1 from bt.things t where t.id=i.target_thing_id
+     and t.owner_id=i.owner_id and coalesce((t.data->>'categoryVersion')::integer,0)<>${importCategoryVersion}) as previous_category
+     from bt.imports i where i.id=$1 and i.owner_id=$2 ${options.lock ? 'for update of i' : ''}`,
     [id, owner],
   );
   ensure(job, 'Import not found', 'NOT_FOUND');
@@ -89,10 +94,11 @@ export function projectImport(job: ImportRow): Schema['Import'] {
     attachmentId: job.attachmentId,
     attachmentIds: job.attachmentIds,
     sources: job.sources,
-    revision: Number(job.revision),
+    revision: Number(job.revision) + Number(job.previousCategory ?? false),
     thingId: job.targetThingId,
     thingIds: job.resultThingIds,
     status: job.status,
+    ...(job.previousCategory && { previousCategory: true }),
     operation: job.operation,
     stage: job.workflow.stage ?? null,
     candidates: candidate
@@ -124,8 +130,10 @@ export async function createImportInTransaction(
   );
   for (const id of [...attachmentIds].sort())
     await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
+  let categoryVersion = 0;
   if (thingId) {
-    await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    categoryVersion = thing.data.categoryVersion ?? 0;
     await assertThingEditable(db, owner, thingId);
   }
   ensure(operation !== 'RECOMMENDATION' || !!thingId, 'Recommendation requires a Thing');
@@ -137,10 +145,17 @@ export async function createImportInTransaction(
         : 'QUEUED';
   const [job] = await database.rows<{ id: string }>(
     db,
-    `insert into bt.imports(owner_id,attachment_id,target_thing_id,status,operation,queued_at,source_wait_started_at)
+    `insert into bt.imports(owner_id,attachment_id,target_thing_id,status,operation,queued_at,source_wait_started_at,workflow)
      values($1,$2,$3,$4,$5,case when $4='QUEUED' then now() end,
-       case when $4='WAITING_FOR_TRANSCRIPTION' then now() end) returning id`,
-    [owner, attachmentIds[0] ?? null, thingId ?? null, status, operation],
+       case when $4='WAITING_FOR_TRANSCRIPTION' then now() end,$6) returning id`,
+    [
+      owner,
+      attachmentIds[0] ?? null,
+      thingId ?? null,
+      status,
+      operation,
+      JSON.stringify({ categoryVersion }),
+    ],
   );
   for (const [position, id] of attachmentIds.entries())
     await database.execute(
@@ -225,11 +240,18 @@ export async function findAvailableImportName(
 }
 
 // Projects the latest associated request, preferring active work.
-export async function findThingImport(db: Database, owner: string, id: string) {
+export async function findThingImport(
+  db: Database,
+  owner: string,
+  id: string,
+  categoryVersion?: number,
+) {
   const [job] = await database.rows<ImportRow>(
     db,
-    `select ${projection} from bt.imports i where i.owner_id=$1 and i.target_thing_id=$2 order by (i.status=any($3::text[])) desc,i.created_at desc limit 1`,
-    [owner, id, activeStatuses],
+    `select ${projection} from bt.imports i where i.owner_id=$1 and i.target_thing_id=$2
+     and ($4::integer is null or ${importCategoryVersion}=$4)
+     order by (i.status=any($3::text[])) desc,i.created_at desc limit 1`,
+    [owner, id, activeStatuses, categoryVersion ?? null],
   );
   return job ? projectImport(decode(job)) : null;
 }

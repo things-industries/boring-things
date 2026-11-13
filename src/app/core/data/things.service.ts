@@ -23,6 +23,12 @@ export class ThingsService {
     return this.client.PATCH('/api/things/{id}', { params: { path: { id } }, body }).then(apiData);
   }
 
+  changeCategory(id: string, body: Schema['ThingCategoryChange']) {
+    return this.client
+      .POST('/api/things/{id}:change-category', { params: { path: { id } }, body })
+      .then(apiData);
+  }
+
   async remove(id: string) {
     await this.client.DELETE('/api/things/{id}', { params: { path: { id } } });
   }

@@ -33,6 +33,7 @@ export const extractedHob: ExtractedThing = {
 };
 const sets: Record<string, string[]> = {
   appliances: ['appliances.appliance'],
+  devices: ['devices.device'],
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
   household: ['household.energyPerformance'],

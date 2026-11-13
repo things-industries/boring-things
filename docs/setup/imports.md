@@ -55,7 +55,9 @@ Field definitions classify attributes by `scope`: `GROUP` for manufacturer/provi
 
 Mandatory fieldsets have null eligibility. Each category has a mandatory set, and each category identifier has a designated mandatory occurrence so specialist lookups can run before optional fieldset selection. Empty registry fields added manually remain eligible for population. Imported fields are eligible. Manual values and custom fields disable automatic population. Manually clearing a registry value keeps an empty disabled occurrence. A `ValuePatch` can change `autoPopulate` alone while keeping the value and provenance. Every automatic writer uses the same permission check.
 
-Changing category or removing a populated fieldset preserves values, sensitivity, provenance and pins through custom fields. Owner-removed fieldsets, custom fields and Attachment links are recorded so automatic work cannot restore them.
+Category changes add the new required fieldsets and move fields with one occurrence in both layouts, including their provenance, pins and automatic-population permissions. Other populated values become custom fields for review and are excluded from public research. Removing a populated fieldset also keeps its values as custom fields. Owner-removed fieldsets, custom fields and Attachment links are recorded so automatic work cannot restore them.
+
+A Thing's category can change once its current request finishes. Earlier requests remain in import history and cannot be retried for the new classification. **Change category and find details** queues a fresh Import in the same transaction as the category change. The Import uses linked transcriptions and reassesses public documents before using them as evidence. The category change clears an automatically chosen public image and removes generated purchasables and unedited Task suggestions. The Attachment links, owner-selected image and accepted Tasks stay with the Thing.
 
 ## Shared resources and access
 
