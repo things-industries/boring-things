@@ -92,7 +92,7 @@ test('a Thing patch builds added field sets and applies values to the detail', (
 
   const pin = next.detail?.standaloneFields[0];
 
-  assert.equal(pin?.value, null, 'sensitive values stay masked');
+  assert.equal(pin?.value, '1234');
   assert.equal(pin?.masked, true);
 });
 

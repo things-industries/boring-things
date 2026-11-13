@@ -192,7 +192,7 @@ export interface paths {
         };
         /**
          * Get thing
-         * @description Returns a Thing with its fields, linked resources and current import status. Sensitive field values are masked.
+         * @description Returns a Thing with its fields, linked resources and current import status. Includes saved sensitive values for the owner.
          */
         get: operations["getThing"];
         put?: never;
@@ -209,26 +209,6 @@ export interface paths {
          * @description Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set or changing category preserves displaced values as custom fields. Returns 409 while an import is active.
          */
         patch: operations["patchThing"];
-        trace?: never;
-    };
-    "/api/things/{id}:reveal-field": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reveal field
-         * @description Returns the stored value of a selected field, including sensitive values masked in Thing responses. The response must not be cached.
-         */
-        post: operations["revealField"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/tags": {
@@ -923,7 +903,7 @@ export interface components {
         };
         /** @description A text, numeric, boolean or money value. Identifiers retain their string representation. */
         Value: string | number | boolean | components["schemas"]["Money"];
-        /** @description A field value, or null for an empty, removed or masked value. */
+        /** @description A field value, or null when no value is recorded. */
         NullableValue: components["schemas"]["Value"] | null;
         /** @description Attachment or public URL supporting a value, with an optional page and quote. Sensitive field quotes may be omitted. */
         SourceRef: {
@@ -989,6 +969,7 @@ export interface components {
             uiHint: components["schemas"]["UiHintEnum"];
             sensitive: boolean;
             value: components["schemas"]["NullableValue"];
+            /** @description Whether the saved value starts hidden in the interface. */
             masked: boolean;
             origin: components["schemas"]["FieldOriginEnum"] | null;
             sourceRefs: components["schemas"]["SourceRef"][];
@@ -1031,6 +1012,7 @@ export interface components {
             label: string;
             value: components["schemas"]["NullableValue"];
             sensitive: boolean;
+            /** @description Whether the saved value starts hidden in the interface. */
             masked: boolean;
             origin: components["schemas"]["FieldOriginEnum"];
             sourceRefs: components["schemas"]["SourceRef"][];
@@ -1113,7 +1095,7 @@ export interface components {
              */
             lastViewedAt: string | null;
         };
-        /** @description Thing details with fields, linked resource IDs and import status. Sensitive field values are masked. */
+        /** @description Thing details with fields, linked resource IDs and import status. Includes saved sensitive values for the owner. */
         Thing: {
             /** Format: uuid */
             id: string;
@@ -1223,12 +1205,6 @@ export interface components {
             pinnedFields?: components["schemas"]["Pin"][];
             /** Format: uuid */
             imageAttachmentId?: string | null;
-        };
-        /** @description Reference to the field whose stored value should be revealed. */
-        RevealRequest: components["schemas"]["Pin"];
-        /** @description Stored field value returned by an explicit reveal request. The response must not be cached. */
-        RevealResult: {
-            value: components["schemas"]["NullableValue"];
         };
         /** @description File metadata, document properties and IDs of linked Things. Transcription starts after upload. */
         Attachment: {
@@ -2417,39 +2393,6 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
-    revealField: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Id. */
-                id: components["parameters"]["resourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RevealRequest"];
-            };
-        };
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RevealResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["InvalidInput"];
-            500: components["responses"]["ServerError"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
     listTags: {
         parameters: {
             query?: {
@@ -3344,7 +3287,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Full masked Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state. */
+            /** @description Full owner-scoped Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state. */
             200: {
                 headers: {
                     [name: string]: unknown;

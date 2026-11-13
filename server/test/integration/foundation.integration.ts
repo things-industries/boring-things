@@ -205,6 +205,7 @@ test('Household basics, shared meter access and energy performance persist indep
   const sets = new Map(detail.fieldSets.map((set) => [set.id, set.fields]));
   const find = (set: string, id: string) => sets.get(set)?.find((field) => field.id === id);
   assert.equal(find(address.fieldSetId, address.fieldId)?.masked, true);
+  assert.equal(find(address.fieldSetId, address.fieldId)?.value, 'Flat 2, 1 Example Street');
   assert.equal(find('household.household', 'household.bedrooms')?.value, 0);
   assert.equal(
     find('household.waterInstallation', 'household.stopcockLocation')?.value,
@@ -216,10 +217,6 @@ test('Household basics, shared meter access and energy performance persist indep
   assert.equal(find('household.energyPerformance', 'household.energyRating')?.value, 'C');
   assert.ok(!sets.has('household.gasInstallation'));
   assert.ok(!sets.has('household.building'));
-  assert.ok(!saved.body.includes('Example Street'));
-  const reveal = await request('POST', `/things/${home.id}:reveal-field`, address);
-  assert.equal(reveal.statusCode, 200, reveal.body);
-  assert.equal(reveal.json().value, 'Flat 2, 1 Example Street');
 });
 
 test('country fields accept ISO codes and reject names and unassigned codes', async () => {
@@ -384,7 +381,7 @@ test('retired appliance labels discover the shared field definitions', async () 
     );
   }
 });
-test('isolation covers reads, edits, reveal, lists and relationships', async () => {
+test('isolation covers reads, edits, lists and relationships', async () => {
   const thing = await create({
     categoryId: 'memberships',
     addFieldSetIds: ['memberships.museum', 'memberships.access'],
@@ -400,11 +397,6 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
     ['GET', `/things/${thing.id}`, undefined],
     ['PATCH', `/things/${thing.id}`, { name: 'stolen' }],
     ['DELETE', `/things/${thing.id}`, undefined],
-    [
-      'POST',
-      `/things/${thing.id}:reveal-field`,
-      { fieldSetId: 'memberships.access', fieldId: 'membership.accessPin' },
-    ],
   ] as const) {
     const response = await request(method, path, body, 'bob');
     assert.equal(response.statusCode, 404, method + ' ' + path + ' ' + response.body);
@@ -423,15 +415,13 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
     (await request('POST', '/conversations', { thingId: thing.id }, 'bob')).statusCode,
     404,
   );
-  const body = (await request('GET', `/things/${thing.id}`)).body;
-  assert.ok(!body.includes('0098'));
-  const reveal = await request('POST', `/things/${thing.id}:reveal-field`, {
-    fieldSetId: 'memberships.access',
-    fieldId: 'membership.accessPin',
-  });
-  assert.equal(reveal.statusCode, 200, reveal.body);
-  assert.equal(reveal.json().value, '0098');
-  assert.match(reveal.headers['cache-control'] as string, /no-store/);
+  const owned = await request('GET', `/things/${thing.id}`);
+  assert.equal(owned.statusCode, 200, owned.body);
+  const pin = owned.json<Schema['Thing']>().fieldSets.find((set) => set.id === 'memberships.access')
+    ?.fields[0];
+  assert.equal(pin?.value, '0098');
+  assert.equal(pin?.masked, true);
+  assert.match(owned.headers['cache-control'] as string, /no-store/);
 });
 test('contract rejects unknown properties and invalid references; category counts are owner-scoped', async () => {
   assert.equal(

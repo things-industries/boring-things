@@ -38,7 +38,7 @@ export async function acceptTask(
   const task = await tasksDb.getOwnedTaskOrThrow(pool, owner, id);
   if (task.status !== 'SUGGESTED') return { task, nextTask: null };
   ensure(scheduler, 'Task scheduling is not configured', 'UNAVAILABLE');
-  const thing = await detail(pool, owner, task.thingId, registry);
+  const thing = await detail(pool, owner, task.thingId, registry, { redactSensitive: true });
   const history = (await tasksDb.listTasks(pool, owner, { thingId: task.thingId, limit: 200 }))
     .items;
   let dates: TaskSchedule;

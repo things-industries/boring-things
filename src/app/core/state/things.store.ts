@@ -17,7 +17,6 @@ import type { PendingChange } from '../../interfaces/optimistic.interface';
 import type { MutationResult } from '../../interfaces/state.interface';
 import type { ThingRecord } from '../../interfaces/thing.interface';
 import { groupBy } from '../../utils/collection.util';
-import { errorCode } from '../../utils/error.util';
 import { AttachmentsStore, unlinking } from './attachments.store';
 import { ConversationsStore } from './conversations.store';
 import { TasksStore } from './tasks.store';
@@ -173,18 +172,6 @@ export const ThingsStore = signalStore(
           silent: true,
           confirm: (access) => (thing) => thing && { ...thing, ...access },
         });
-      },
-
-      /** Returns a masked value, or `undefined` after reporting the failure. */
-      async reveal(id: string, field: Schema['RevealRequest']) {
-        try {
-          return (await store._service.reveal(id, field)).value;
-        } catch (e) {
-          const code = errorCode(e);
-
-          if (code !== 'unauthorized') store._toasts.error('revealField', code);
-          return undefined;
-        }
       },
 
       /**

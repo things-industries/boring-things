@@ -145,7 +145,7 @@ Dimensions are separate width, height, depth or length fields where applicable. 
 
 Supported schemas: string (length, pattern, enum, date/date-time), number/integer (bounds), boolean, and a money object with `amountMinor` and `currency` (`GBP`, `EUR`, `USD`, all using two decimal places). Identifiers stay strings. Missing values have no stored entry; responses expand them to `null`. `false`, `0` and empty text are actual values. Clearing a field sends `null`.
 
-Sensitive definitions set `sensitive: true`; `uiHint: password` also requires sensitivity. Custom fields have the same flag. Normal API responses omit sensitive values and source quotes. The Reveal control requests the value through a separate owner-scoped operation; Hide discards it from component state. Request bodies and validation values are not logged. Sensitive data is stored in the local database without field-level encryption; this scaffold is not a password vault.
+Sensitive definitions set `sensitive: true`; `uiHint: password` also requires sensitivity. Custom fields have the same flag. Owner-scoped Thing details include sensitive values and omit their source references. Sensitive values start masked in the interface. Reveal and Hide change their visibility locally. Copy includes the saved value while it is masked. Request bodies and validation values are not logged. Sensitive data is stored in the local database without field-level encryption; this scaffold is not a password vault.
 
 Removing a populated section or changing category preserves values, provenance and sensitivity as custom fields, and remaps pins. Buildings and contents share the sum-insured definition but store independent values.
 

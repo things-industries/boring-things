@@ -80,7 +80,7 @@ import { TopBar } from '../../components/top-bar/top-bar';
 import { byImportance, nextItems } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
-import { formatFieldValue, getEmailLink } from '../../utils/field.util';
+import { formatFieldCopy, formatFieldValue, getEmailLink } from '../../utils/field.util';
 import { issueBadges } from '../../utils/issue.util';
 import { ImportProgress } from './import-progress/import-progress';
 import { ImportSteps } from './import-steps/import-steps';
@@ -187,6 +187,7 @@ export class ThingPage {
   readonly attachmentBadge = attachmentBadge;
   readonly attachmentFormat = attachmentFormat;
   readonly formatValue = formatFieldValue;
+  readonly formatCopy = formatFieldCopy;
   readonly getEmailLink = getEmailLink;
 
   readonly issueBadges = issueBadges;
@@ -321,11 +322,8 @@ export class ThingPage {
 
   async copyDetails() {
     const lines = this.keyDetails()
-      .filter((row) => !row.masked && row.value !== null)
-      .map(
-        (row) =>
-          `${row.label}: ${typeof row.value === 'boolean' ? (row.value ? 'Yes' : 'No') : formatFieldValue(row.value, row.format)}`,
-      );
+      .filter((row) => row.value !== null)
+      .map((row) => `${row.label}: ${formatFieldCopy(row.value, row.format)}`);
 
     try {
       await navigator.clipboard.writeText(lines.join('\n'));

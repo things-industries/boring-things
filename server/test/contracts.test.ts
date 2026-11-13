@@ -48,10 +48,7 @@ void typeChecks;
 
 test('contract documentation, enum references and path conversion stay consistent', () => {
   checkContract();
-  assert.equal(
-    fastifyPath('/api/things/{id}:reveal-field'),
-    '/api/things/:id([^:]+)::reveal-field',
-  );
+  assert.equal(fastifyPath('/api/things/{id}:view'), '/api/things/:id([^:]+)::view');
   assert.throws(() => schemaRefs({ $ref: 'https://example.com/schema' }), /Unsupported/);
   assert.throws(() => schemaRefs({ $ref: '#/components/schemas/Missing' }), /Unknown/);
   const validate = schemaValidator('Money');
@@ -84,7 +81,10 @@ test('OpenAPI 3.1 nulls, response omission and action-path validation work in Fa
     updatedAt: '2026-09-30T00:00:00Z',
     privateSecret: 'hidden',
   }));
-  route(app, 'POST', '/api/things/{id}:reveal-field', async () => ({ value: null }));
+  route(app, 'POST', '/api/things/{id}:view', async () => ({
+    accessCount: 1,
+    lastViewedAt: '2026-09-30T00:00:00Z',
+  }));
   let response = await app.inject({
     method: 'PATCH',
     url: `/api/events/${id}`,
@@ -101,17 +101,15 @@ test('OpenAPI 3.1 nulls, response omission and action-path validation work in Fa
   assert.equal(response.statusCode, 422);
   response = await app.inject({
     method: 'POST',
-    url: '/api/things/not-a-uuid:reveal-field',
-    payload: { fieldId: 'test', fieldSetId: null },
+    url: '/api/things/not-a-uuid:view',
   });
   assert.equal(response.statusCode, 422);
   response = await app.inject({
     method: 'POST',
-    url: `/api/things/${id}:reveal-field`,
-    payload: { fieldId: 'test', fieldSetId: null },
+    url: `/api/things/${id}:view`,
   });
   assert.equal(response.statusCode, 200, response.body);
-  assert.deepEqual(response.json(), { value: null });
+  assert.deepEqual(response.json(), { accessCount: 1, lastViewedAt: '2026-09-30T00:00:00Z' });
 });
 
 test('application errors map at the HTTP boundary and unexpected details stay private', async (t) => {

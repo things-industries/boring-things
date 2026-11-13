@@ -4,7 +4,7 @@ import { emptyData } from '../../shared/model.js';
 import * as registrySeedDb from '../src/db/seeds/registry.js';
 import { Registry } from '../src/application/registry/registry.js';
 import { populateFields } from '../src/application/thing-fields.js';
-import { patchData, projectData, revealValue } from '../src/application/thing-data.js';
+import { patchData, projectData } from '../src/application/thing-data.js';
 const registry = new Registry(registrySeedDb.fields, registrySeedDb.sets);
 test('mandatory inclusion expands and a required dependency cannot be removed', () => {
   const data = patchData(emptyData(), { addFieldSetIds: ['vehicles.van'] }, 'vehicles', registry);
@@ -132,7 +132,7 @@ test('identifier types, membership, bounds, dates, enums and money are validated
     /not a member/,
   );
 });
-test('masked fields require reveal; category changes preserve sensitivity, provenance and pins', () => {
+test('sensitive values reach owners; category changes preserve sensitivity, provenance and pins', () => {
   let data = patchData(
     emptyData(),
     {
@@ -150,23 +150,21 @@ test('masked fields require reveal; category changes preserve sensitivity, prove
     registry,
   );
   data.values['memberships.access']['membership.accessPin'].sourceRefs = [{ quote: 'PIN 0042' }];
-  assert.ok(!JSON.stringify(projectData(data, registry)).includes('0042'));
-  assert.equal(
-    revealValue(
-      data,
-      { fieldSetId: 'memberships.access', fieldId: 'membership.accessPin' },
-      registry,
-    ),
-    '0042',
-  );
+  const pin = projectData(data, registry).fieldSets.find((set) => set.id === 'memberships.access')
+    ?.fields[0];
+  assert.equal(pin?.value, '0042');
+  assert.equal(pin?.masked, true);
+  assert.deepEqual(pin?.sourceRefs, []);
+  assert.ok(!JSON.stringify(projectData(data, registry, true)).includes('0042'));
   data = patchData(data, {}, 'other', registry);
   assert.equal(data.customFields[0].sensitive, true);
   assert.equal(data.customFields[0].sourceRefs[0].quote, 'PIN 0042');
   assert.deepEqual(data.pins, [{ customFieldId: data.customFields[0].id }]);
-  const masked = projectData(data, registry).customFields[0];
-  assert.equal(masked.value, null);
-  assert.equal(masked.masked, true);
-  assert.deepEqual(masked.sourceRefs, []);
+  const field = projectData(data, registry).customFields[0];
+  assert.equal(field.value, '0042');
+  assert.equal(field.masked, true);
+  assert.deepEqual(field.sourceRefs, []);
+  assert.equal(projectData(data, registry, true).customFields[0].value, null);
 });
 
 test('requested edits keep application provenance and disable later automatic population', () => {

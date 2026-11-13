@@ -23,13 +23,14 @@ export async function detail(
   owner: string,
   id: string,
   registry: Registry,
+  { redactSensitive = false } = {},
 ): Promise<Schema['Thing']> {
   const thing = await thingsDb.getOwnedThingOrThrow(db, owner, id);
   const { data, ownerId: _ownerId, ...summary } = thing;
   return {
     ...summary,
     import: await importsDb.findThingImport(db, owner, id),
-    ...projectData(data, registry),
+    ...projectData(data, registry, redactSensitive),
     ...(await thingsDb.getThingRelatedIds(db, owner, id)),
   };
 }

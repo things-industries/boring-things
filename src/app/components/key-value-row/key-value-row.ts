@@ -14,7 +14,7 @@ import { Toasts } from '../../core/services/toasts.service';
  * Key/value row with an optional icon, a label and a projected value; `loading` shows a skeleton in
  * place of the value. `[keyValueStart]` content precedes the label, `[keyValueLabel]` content
  * follows it and `[keyValueEnd]` content follows the value. With `copyable`, choosing the row
- * copies the value as displayed, without the label. With `editing`, the value takes the room a
+ * copies `copyValue` when provided, or the displayed value. With `editing`, the value takes the room a
  * projected editor needs; with `stacked`, it takes a row of its own under the label. The host
  * registers `icon` with `provideIcons`.
  */
@@ -36,12 +36,16 @@ export class KeyValueRow {
   readonly icon = input<string | null>(null);
   readonly loading = input(false);
   readonly copyable = input(false, { transform: booleanAttribute });
+  readonly copyValue = input<string | null>(null);
   readonly editing = input(false, { transform: booleanAttribute });
   readonly stacked = input(false, { transform: booleanAttribute });
   readonly copied = signal(false);
 
   async copy() {
-    const value = this.value()?.nativeElement.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const value =
+      this.copyValue() ??
+      this.value()?.nativeElement.textContent?.replace(/\s+/g, ' ').trim() ??
+      '';
 
     try {
       await navigator.clipboard.writeText(value);

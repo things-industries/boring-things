@@ -31,12 +31,6 @@ export class ThingsService {
     return this.client.POST('/api/things/{id}:view', { params: { path: { id } } }).then(apiData);
   }
 
-  reveal(id: string, body: Schema['RevealRequest']) {
-    return this.client
-      .POST('/api/things/{id}:reveal-field', { params: { path: { id } }, body })
-      .then(apiData);
-  }
-
   watch(
     id: string,
     signal: AbortSignal,

@@ -134,22 +134,11 @@ export interface DetailsDraft {
   fields: Partial<Record<string, FieldDraft>>;
 }
 
-/** Drafts holding the current values; masked values start empty unless revealed. */
-export function detailsDraft(
-  thing: Basics,
-  rows: DetailRow[],
-  revealed: ReadonlyMap<string, Value | null>,
-): Required<DetailsDraft> {
+/** Drafts holding the current values of the Thing. */
+export function detailsDraft(thing: Basics, rows: DetailRow[]): Required<DetailsDraft> {
   const fields: Record<string, FieldDraft> = {};
 
-  for (const row of rows) {
-    const known = revealed.has(row.anchor);
-
-    fields[row.anchor] =
-      row.masked && !known
-        ? ''
-        : valueDraft(row.input, known ? revealed.get(row.anchor)! : row.value);
-  }
+  for (const row of rows) fields[row.anchor] = valueDraft(row.input, row.value);
 
   return { name: thing.name, description: thing.description, categoryId: thing.categoryId, fields };
 }
@@ -162,7 +151,6 @@ export function detailsPatches(
   thing: Basics,
   rows: DetailRow[],
   draft: DetailsDraft,
-  revealed: ReadonlyMap<string, Value | null>,
 ): ThingPatch[] {
   const patch: ThingPatch = {};
   const name = draft.name === undefined ? thing.name : String(draft.name).trim();
@@ -178,12 +166,7 @@ export function detailsPatches(
     if (rowDraft === undefined) continue;
 
     const next = draftValue(row.input, rowDraft);
-    const known = revealed.has(row.anchor) || !row.masked;
-    const previous = revealed.has(row.anchor) ? revealed.get(row.anchor)! : row.value;
-
-    // An unrevealed masked value starts empty; only a typed replacement changes it.
-    if (!known && next === null) continue;
-    if (known && sameValue(previous, next)) continue;
+    if (sameValue(row.value, next)) continue;
 
     if (row.target.kind === 'field') {
       (patch.values ??= []).push({

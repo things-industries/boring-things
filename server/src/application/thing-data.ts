@@ -1,6 +1,6 @@
 /**
  * Applies Thing field patches, preserves values when sets change, maintains pins and projects
- * masked or explicitly revealed values.
+ * owner-visible or redacted values.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -162,11 +162,15 @@ export function patchData(
 }
 
 // Mask source quotes alongside sensitive values; provenance can contain the same secret.
-function projectField(definition: FieldDefinition, stored?: StoredValue): Schema['Field'] {
+function projectField(
+  definition: FieldDefinition,
+  stored: StoredValue | undefined,
+  redactSensitive: boolean,
+): Schema['Field'] {
   return {
     ...definition,
     autoPopulate: stored?.autoPopulate ?? stored?.origin !== 'USER',
-    value: definition.sensitive ? null : (stored?.value ?? null),
+    value: redactSensitive && definition.sensitive ? null : (stored?.value ?? null),
     masked: definition.sensitive && stored?.value != null,
     origin: stored?.origin ?? null,
     sourceRefs: definition.sensitive ? [] : (stored?.sourceRefs ?? []),
@@ -176,48 +180,26 @@ function projectField(definition: FieldDefinition, stored?: StoredValue): Schema
 export function projectData(
   data: ThingData,
   registry: Registry,
+  redactSensitive = false,
 ): Pick<Schema['Thing'], 'fieldSets' | 'standaloneFields' | 'customFields' | 'pinnedFields'> {
   return {
     fieldSets: data.setIds.map((id) => {
       const set = registry.sets.get(id)!;
       return {
         ...set,
-        fields: set.fields.map((f) => projectField(f, data.values[id]?.[f.id])),
+        fields: set.fields.map((f) => projectField(f, data.values[id]?.[f.id], redactSensitive)),
       };
     }),
     standaloneFields: Object.entries(data.standalone).map(([id, stored]) =>
-      projectField(registry.fields.get(id)!, stored),
+      projectField(registry.fields.get(id)!, stored, redactSensitive),
     ),
     customFields: data.customFields.map((f) => ({
       ...f,
       scope: f.scope ?? 'INSTANCE',
-      value: f.sensitive ? null : f.value,
+      value: redactSensitive && f.sensitive ? null : f.value,
       masked: f.sensitive && f.value !== null,
       sourceRefs: f.sensitive ? [] : f.sourceRefs,
     })),
     pinnedFields: data.pins,
   };
-}
-
-export function revealValue(data: ThingData, pin: Pin, registry: Registry) {
-  if (pin.customFieldId) {
-    ensure(!pin.fieldId && pin.fieldSetId === undefined, 'Invalid field reference');
-    const field = data.customFields.find((f) => f.id === pin.customFieldId);
-    ensure(field, 'Field not found', 'NOT_FOUND');
-    return field.value;
-  }
-
-  ensure(
-    pin.fieldId && pin.fieldSetId !== undefined && registry.fields.has(pin.fieldId),
-    'Invalid field reference',
-  );
-  if (pin.fieldSetId === null) return data.standalone[pin.fieldId]?.value ?? null;
-  ensure(
-    data.setIds.includes(pin.fieldSetId) &&
-      registry.sets.get(pin.fieldSetId)!.fields.some((f) => f.id === pin.fieldId),
-    'Field not found',
-    'NOT_FOUND',
-  );
-
-  return data.values[pin.fieldSetId]?.[pin.fieldId]?.value ?? null;
 }

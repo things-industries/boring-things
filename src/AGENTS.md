@@ -41,7 +41,7 @@ Keep feature-only code beside its feature; move it into `core/` only when it is 
 - Product data lives in one store per entity type (`providedIn: 'root'`). Stores keep entities normalised: a child's foreign key (`Issue.thingId`, `Attachment.thingIds`, …) is the source of truth for a relation, and selectors such as `issuesByThing` derive the reverse lists. Selectors ignore references to missing entities.
 - Stores depend in one direction: `ThingsStore` injects the child stores it cascades to; child stores never inject `ThingsStore`. Read models that combine stores and serve more than one page live in `core/state/views/`; page-only view mapping stays beside the page.
 - Collections load every page once per session (`ensureLoaded()`); pages filter and sort client-side. `load()` reuses a request in flight and `reload()` always fetches. Signing out clears every store and stops its streams.
-- Every user change applies optimistically through `withOptimisticEntities`: `stage()` the visible change, then `mutate()` the request. Success confirms the server value; failure reverts only that change and shows a toast. A cross-store change passes every store's staged change to one `mutate()`, so a failure reverts all of them. Server-computed operations (upload, import, reveal, sample data) show an in-progress state instead and report failures in a toast.
+- Every user change applies optimistically through `withOptimisticEntities`: `stage()` the visible change, then `mutate()` the request. Success confirms the server value; failure reverts only that change and shows a toast. A cross-store change passes every store's staged change to one `mutate()`, so a failure reverts all of them. Server-computed operations (upload, import, sample data) show an in-progress state instead and report failures in a toast.
 - Creates insert after the server responds until the API accepts browser-generated IDs (`core/mocks/client-ids.mock.ts`).
 - Component-only UI state (form drafts, open panels, filters) stays in local signals.
 - Keep nontrivial data orchestration outside presentation components as features grow.
@@ -56,7 +56,7 @@ Keep feature-only code beside its feature; move it into `core/` only when it is 
 - Show loading skeletons shaped like the content, with a visually hidden status. Keep each skeleton beside its page/component and share dimensions through mixins.
 - Render every selected field, including empty editable prompts. Preserve field-set identity when grouping sections or editing pins.
 - Keep `false`, `0`, empty text, missing values and masked values distinguishable. Use the generated money shape and supported currencies.
-- Sensitive fields start masked. Reveal uses the owner-scoped API; Hide, cancellation and record changes discard revealed state. Never persist revealed values in browser storage.
+- Sensitive fields start masked. Reveal and Hide change visibility locally. Copy uses the saved value while the field is masked. Cancelling edits or changing records resets visibility. Keep Thing details out of browser storage.
 - Use authenticated blob requests for attachments and images; revoke object URLs when no longer used. `ImageCache` keeps image URLs for the session and revokes them on sign-out. Never turn private files into public asset paths.
 - Keep sample labels visible and sample merchant actions disabled.
 

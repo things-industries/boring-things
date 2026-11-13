@@ -1186,6 +1186,10 @@ test('chat field validation rejects unread Things, unknown fields, invalid value
 
 test('chat field values keep retrieved attachment pages and research URLs while masking secrets', async (t) => {
   const { thing, chat } = await setup();
+  const privateField = await request('PATCH', `/things/${thing.id}`, {
+    customFields: [{ label: 'Account reference', value: 'private-0098', sensitive: true }],
+  });
+  assert.equal(privateField.statusCode, 200, privateField.body);
   const boundary = 'field-source';
   const pdf = await PDFDocument.create();
   pdf.addPage().drawText('Example manual.');
@@ -1221,7 +1225,12 @@ test('chat field values keep retrieved attachment pages and research URLs while 
     text: 'Public colour: blue.',
     sources: [sourceUrl],
   }));
-  ai.probe = async (_input, execute) => {
+  ai.probe = async (input, execute) => {
+    const field = input.activeThing?.thing.customFields.find(
+      (f) => f.label === 'Account reference',
+    );
+    assert.equal(field?.value, null);
+    assert.equal(field?.masked, true);
     await execute('search_fields', { labels: [{ label: 'common.model', context: '' }] });
     const patch: ChatFieldInput = {
       thingId: thing.id,
@@ -1304,7 +1313,8 @@ test('chat field values keep retrieved attachment pages and research URLs while 
   assert.equal(colour.origin, 'DISCOVERY');
   assert.equal(colour.autoPopulate, false);
   assert.deepEqual(colour.sourceRefs, [{ url: sourceUrl }]);
-  assert.equal(secret.value, null);
+  assert.equal(secret.value, 'private-0042');
+  assert.equal(secret.masked, true);
   assert.deepEqual(secret.sourceRefs, []);
   const stored = (
     await pool.query(

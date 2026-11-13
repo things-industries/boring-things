@@ -158,7 +158,8 @@ export class FieldControl implements ControlValueAccessor, OnInit {
   readonly control = computed(() => {
     const kind = this.field().kind;
 
-    if (kind === 'money' || kind === 'boolean' || kind === 'select') return kind;
+    if (kind === 'money' || kind === 'boolean' || kind === 'select')
+      return this.concealed() ? 'concealed-choice' : kind;
     return (kind === 'text' || kind === 'textarea') && !this.concealed() ? 'multiline' : 'input';
   });
 
