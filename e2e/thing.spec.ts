@@ -328,6 +328,29 @@ test('edit mode asks before leaving with unsaved changes', async ({ page }) => {
   await expect(page).toHaveURL(/\/things\/[0-9a-f-]+$/);
 });
 
+test('Support email validates in edit mode and links from the Thing', async ({ page }) => {
+  await createThing(page, `Support fixture ${Date.now()}`, 'appliances', 'appliances.support');
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+
+  const email = page.getByRole('textbox', { name: 'Support email' });
+  await expect(email).toHaveAttribute('type', 'email');
+  await email.fill('support@example');
+  await page.getByRole('button', { name: 'Save details' }).click();
+  await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+
+  const address = 'team+support@example.com';
+  const link = page.getByRole('link', { name: address });
+  await email.fill(address);
+  await page.getByRole('button', { name: 'Save details' }).click();
+  await expect(link).toHaveAttribute('href', 'mailto:team%2Bsupport@example.com');
+  await link.click({ trial: true });
+  await page.getByRole('button', { name: 'Pin Support email' }).click();
+  await page.getByRole('link', { name: 'Back to thing' }).click();
+  await expect(link).toHaveAttribute('href', 'mailto:team%2Bsupport@example.com');
+  await link.click({ trial: true });
+});
+
 test('edit mode masks a revealed value again after cancelling', async ({ page }) => {
   await page.goto('/things');
   await page.getByRole('link', { name: 'Museum membership', exact: true }).click();

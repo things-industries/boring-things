@@ -60,6 +60,8 @@
         {{ $any(field.value) | date: 'd MMM y' }}
       } @else if (field.schema.format === 'date-time') {
         {{ $any(field.value) | date: 'd MMM y, HH:mm' }}
+      } @else if (getEmailLink(getFieldFormat(field), field.value); as href) {
+        <a class="email-link" [href]="href">{{ field.value }}</a>
       } @else {
         {{ formatValue(field.value) }}
       }

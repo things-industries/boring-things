@@ -2,10 +2,8 @@ import type { ValidatorFn } from '@angular/forms';
 import { isValid, parseISO } from 'date-fns';
 import type { UiErrorCode } from '../interfaces/error.interface';
 import type { FieldDraft, FieldInput } from '../interfaces/field-input.interface';
-import { amountMinor } from '../utils/field.util';
+import { amountMinor, isEmailAddress } from '../utils/field.util';
 import { localDateTimeToUtc } from '../utils/date.util';
-
-const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** The first problem with a field draft. Empty drafts are valid unless the input is required. */
 export function fieldValueError(input: FieldInput, draft: FieldDraft | null): UiErrorCode | null {
@@ -25,7 +23,7 @@ export function fieldValueError(input: FieldInput, draft: FieldDraft | null): Ui
 
   switch (input.kind) {
     case 'email':
-      return email.test(text) ? null : 'invalid-email';
+      return isEmailAddress(text) ? null : 'invalid-email';
     case 'number': {
       const number = Number(text);
 

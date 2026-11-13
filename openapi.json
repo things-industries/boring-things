@@ -5879,8 +5879,8 @@
       },
       "SchemaFormatEnum": {
         "type": "string",
-        "description": "Date or timestamp format accepted by a field validation schema.",
-        "enum": ["date", "date-time"]
+        "description": "String format accepted by a field validation schema.",
+        "enum": ["date", "date-time", "email"]
       },
       "UiHintEnum": {
         "type": "string",
@@ -5888,6 +5888,7 @@
         "enum": [
           "TEXT",
           "TEXTAREA",
+          "EMAIL",
           "NUMBER",
           "CHECKBOX",
           "SELECT",

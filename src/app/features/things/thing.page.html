@@ -230,6 +230,8 @@
                       {{ $any(row.value) | date: 'd MMM y' }}
                     } @else if (row.format === 'date-time') {
                       {{ $any(row.value) | date: 'd MMM y, HH:mm' }}
+                    } @else if (getEmailLink(row.format, row.value); as href) {
+                      <a class="email-link" [href]="href">{{ row.value }}</a>
                     } @else {
                       {{ formatValue(row.value) }}
                     }

@@ -3,6 +3,28 @@ import { APP_CONFIG } from '../core/app.config';
 import type { FieldDraft, FieldInput, MoneyDraft } from '../interfaces/field-input.interface';
 import { dateTimeInput, localDateTimeToUtc } from './date.util';
 
+/** Checks email drafts and stored values using the registry validator's address syntax. */
+export function isEmailAddress(value: string): boolean {
+  return /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(
+    value,
+  );
+}
+
+/** Builds a mail link only for an email field with a valid address. */
+export function getEmailLink(format: Schema['SchemaFormatEnum'] | null, value: Value | null) {
+  return format === 'email' && typeof value === 'string' && isEmailAddress(value)
+    ? 'mailto:' + encodeURIComponent(value).replace('%40', '@')
+    : null;
+}
+
+/** The format used when displaying a registry field. */
+export function getFieldFormat(field: {
+  schema: Pick<Schema['FieldSchema'], 'format'>;
+  uiHint?: Schema['UiHintEnum'];
+}): Schema['SchemaFormatEnum'] | null {
+  return field.schema.format ?? (field.uiHint === 'EMAIL' ? 'email' : null);
+}
+
 export function amountMinor(draft: string) {
   const [whole, fraction = ''] = draft.split('.');
 
@@ -37,7 +59,12 @@ export function fieldInput(field: Schema['Field']): FieldInput {
 
   return {
     ...base,
-    kind: field.uiHint === 'TEXTAREA' ? 'textarea' : 'text',
+    kind:
+      getFieldFormat(field) === 'email'
+        ? 'email'
+        : field.uiHint === 'TEXTAREA'
+          ? 'textarea'
+          : 'text',
     maxLength: schema.maxLength,
     pattern: schema.pattern,
   };

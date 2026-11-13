@@ -80,7 +80,7 @@ import { TopBar } from '../../components/top-bar/top-bar';
 import { byImportance, nextItems } from '../../utils/agenda.util';
 import { daysUntil } from '../../utils/date.util';
 import { attachmentBadge, attachmentFormat } from '../../utils/attachment.util';
-import { formatFieldValue } from '../../utils/field.util';
+import { formatFieldValue, getEmailLink } from '../../utils/field.util';
 import { issueBadges } from '../../utils/issue.util';
 import { ImportProgress } from './import-progress/import-progress';
 import { ImportSteps } from './import-steps/import-steps';
@@ -187,6 +187,7 @@ export class ThingPage {
   readonly attachmentBadge = attachmentBadge;
   readonly attachmentFormat = attachmentFormat;
   readonly formatValue = formatFieldValue;
+  readonly getEmailLink = getEmailLink;
 
   readonly issueBadges = issueBadges;
 

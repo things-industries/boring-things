@@ -1,0 +1,7 @@
+// Inline link styles shared across views.
+
+.email-link {
+  text-decoration: underline;
+  // Make the link clickable inside rows that pass other clicks to their copy button.
+  pointer-events: auto;
+}

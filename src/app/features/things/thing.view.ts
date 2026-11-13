@@ -2,6 +2,7 @@ import type { Schema, Value } from '../../../../shared/model';
 import type { ThingDetail } from '../../interfaces/thing.interface';
 import { timeLeft, timeSince } from '../../utils/date.util';
 import { fieldIcon } from '../../utils/field-icon.util';
+import { getFieldFormat } from '../../utils/field.util';
 import { fieldAnchor } from '../../utils/sections.util';
 
 const ACTIVE_IMPORT = [
@@ -83,7 +84,7 @@ export interface KeyDetail {
   icon: string;
   value: Value | null;
   masked: boolean;
-  format: 'date' | 'date-time' | null;
+  format: Schema['SchemaFormatEnum'] | null;
 }
 
 /** Pinned fields in pin order, skipping pins whose field no longer exists. */
@@ -120,10 +121,7 @@ export function keyDetails(detail: ThingDetail): KeyDetail[] {
             icon: fieldIcon(field.icon),
             value: field.value,
             masked: field.masked,
-            format:
-              field.schema.format === 'date' || field.schema.format === 'date-time'
-                ? field.schema.format
-                : null,
+            format: getFieldFormat(field),
           },
         ]
       : [];

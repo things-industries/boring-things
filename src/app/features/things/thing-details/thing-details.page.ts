@@ -42,7 +42,7 @@ import { SectionHeader } from '../../../components/section-header/section-header
 import { TopBar } from '../../../components/top-bar/top-bar';
 import type { FieldInput } from '../../../interfaces/field-input.interface';
 import type { LeaveGuarded } from '../../../interfaces/leave-guarded.interface';
-import { formatFieldValue, valueDraft } from '../../../utils/field.util';
+import { formatFieldValue, getEmailLink, valueDraft } from '../../../utils/field.util';
 import { samePin } from '../../../utils/sections.util';
 import { activeImport } from '../thing.view';
 import {
@@ -116,6 +116,7 @@ export class ThingDetailsPage implements LeaveGuarded {
   readonly error = this.current.error;
   readonly processing = computed(() => activeImport(this.detail()?.import));
   readonly formatValue = formatFieldValue;
+  readonly getEmailLink = getEmailLink;
 
   /** Whether a row shows a value to copy: recorded, and revealed when sensitive. */
   copyable(row: DetailRow) {

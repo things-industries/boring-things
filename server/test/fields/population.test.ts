@@ -106,3 +106,20 @@ test('changing population permission preserves the value and its provenance', ()
     autoPopulate: false,
   });
 });
+
+test('email fields reject invalid values in manual and automatic writes', () => {
+  const address = { fieldSetId: 'memberships.support', fieldId: 'common.supportEmail' };
+  const data = addFieldSets(emptyData(), 'memberships', registry, [address.fieldSetId]);
+  const invalid = { ...address, value: 'team@example' };
+  const valid = { ...address, value: 'team+support@example.com' };
+
+  assert.throws(
+    () => patchData(data, { values: [invalid] }, 'memberships', registry),
+    /Invalid value for Support email/,
+  );
+  const proposals = [invalid, valid].map((entry) => ({ ...entry, sourceRefs: [] }));
+  const populated = populateFields(data, proposals, registry);
+  assert.equal(populated.values[address.fieldSetId][address.fieldId].value, valid.value);
+  assert.throws(() => registry.validate('common.accountEmail', 'account'), /Invalid value/);
+  registry.validate('common.accountEmail', 'account@example.com');
+});
