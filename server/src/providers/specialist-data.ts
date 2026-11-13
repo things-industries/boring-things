@@ -7,6 +7,7 @@ import type { FieldProposal } from '../application/thing-fields.js';
 export interface SpecialistResult {
   setIds: string[];
   values: FieldProposal[];
+  matchesThing?: (thing: ThingRow) => boolean;
 }
 
 export abstract class SpecialistProvider {
