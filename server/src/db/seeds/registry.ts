@@ -29,7 +29,7 @@ export const categories = names.map(
       name,
       description:
         name === 'Household'
-          ? 'A home you occupy, with its physical installations and property details.'
+          ? 'A home you care about, with its installations and property details.'
           : `${name} you own or use.`,
       icon: [
         'appliance',
@@ -42,7 +42,7 @@ export const categories = names.map(
         'household',
         'other',
       ][i],
-      defaultImage: name === 'Household' ? '/assets/household.webp' : null,
+      defaultImage: null,
       sortOrder: i,
       thingCount: 0,
     }) satisfies Schema['Category'],
@@ -2964,7 +2964,7 @@ export const fields: FieldDefinition[] = [
     icon: 'fieldAddress',
   }),
   field('household.country', 'Country', undefined, {
-    description: 'Country or constituent nation of the dwelling, such as Scotland or Portugal.',
+    description: 'Country where the home is located, such as the United Kingdom or Portugal.',
   }),
   field(
     'household.dwellingType',
@@ -3003,7 +3003,6 @@ export const fields: FieldDefinition[] = [
   field('household.installationAccess', 'Access notes', undefined, {
     description:
       'Access arrangements for this installation, such as a communal cupboard or who to contact.',
-    sensitive: true,
     uiHint: 'TEXTAREA',
   }),
 
@@ -3013,15 +3012,6 @@ export const fields: FieldDefinition[] = [
     {
       type: 'string',
       enum: ['Detached', 'Semi-detached', 'Mid-terrace', 'End-terrace', 'Other'],
-    },
-    { uiHint: 'SELECT' },
-  ),
-  field(
-    'household.buildingScope',
-    'Building details apply to',
-    {
-      type: 'string',
-      enum: ['Dwelling', 'Whole building'],
     },
     { uiHint: 'SELECT' },
   ),
@@ -3086,11 +3076,6 @@ export const fields: FieldDefinition[] = [
     sensitive: true,
     uiHint: 'MONEY',
   }),
-  field('household.mortgageBalance', 'Outstanding balance', moneySchema, {
-    sensitive: true,
-    uiHint: 'MONEY',
-  }),
-  field('household.mortgageBalanceOn', 'Balance statement date', dateSchema, { uiHint: 'DATE' }),
   field('household.mortgageMonthlyPayment', 'Monthly mortgage payment', moneySchema, {
     sensitive: true,
     uiHint: 'MONEY',
@@ -4995,7 +4980,7 @@ export const sets: FieldSet[] = [
     ['legal', 'expenses', 'legal expenses', 'legal protection'],
   ),
   set(
-    'household.basics',
+    'household.household',
     'Household basics',
     null,
     [
@@ -5052,10 +5037,9 @@ export const sets: FieldSet[] = [
   set(
     'household.building',
     'Building',
-    'A dwelling with documented construction details for the dwelling or its building.',
+    'A home whose building the household owns or is responsible for managing, with known construction details.',
     [
       'household.houseForm',
-      'household.buildingScope',
       'household.constructionPeriod',
       'household.floorArea',
       'household.wallConstruction',
@@ -5069,7 +5053,7 @@ export const sets: FieldSet[] = [
   set(
     'household.rebuildAssessment',
     'Rebuild assessment',
-    'A dwelling or building with a rebuild cost estimate.',
+    'A home whose building the household owns or is responsible for managing, with a rebuild cost estimate.',
     ['household.rebuildCost', 'household.rebuildAssessedOn', 'household.rebuildScope'],
     [],
     ['household.building'],
@@ -5087,7 +5071,7 @@ export const sets: FieldSet[] = [
   set(
     'household.heritagePlanning',
     'Heritage and planning',
-    'A dwelling or building with a recorded listing or conservation area status.',
+    'A home whose building the household owns or is responsible for managing, with a recorded listing or conservation area status.',
     [
       'household.listedBuilding',
       'household.heritageDesignation',
@@ -5103,12 +5087,10 @@ export const sets: FieldSet[] = [
   set(
     'household.mortgage',
     'Mortgage',
-    'A home with a primary mortgage.',
+    'A home with a mortgage.',
     [
       'household.mortgageLender',
       'household.mortgageAmountBorrowed',
-      'household.mortgageBalance',
-      'household.mortgageBalanceOn',
       'household.mortgageMonthlyPayment',
       'household.mortgageRepaymentMethod',
       'household.mortgageRateType',

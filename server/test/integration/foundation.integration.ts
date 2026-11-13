@@ -167,7 +167,7 @@ test('reseeding replaces category glyphs and preserves appliance details', async
 });
 
 test('Household basics, shared meter access and energy performance persist independently', async () => {
-  const address = { fieldSetId: 'household.basics', fieldId: 'household.address' };
+  const address = { fieldSetId: 'household.household', fieldId: 'household.address' };
   const access = 'household.installationAccess';
   const home = await create({
     name: 'Test studio',
@@ -179,7 +179,12 @@ test('Household basics, shared meter access and energy performance persist indep
     ],
     values: [
       { ...address, value: 'Flat 2, 1 Example Street' },
-      { fieldSetId: 'household.basics', fieldId: 'household.bedrooms', value: 0 },
+      {
+        fieldSetId: 'household.household',
+        fieldId: 'household.occupancyArrangement',
+        value: 'Rented',
+      },
+      { fieldSetId: 'household.household', fieldId: 'household.bedrooms', value: 0 },
       {
         fieldSetId: 'household.waterInstallation',
         fieldId: 'household.stopcockLocation',
@@ -200,26 +205,21 @@ test('Household basics, shared meter access and energy performance persist indep
   const sets = new Map(detail.fieldSets.map((set) => [set.id, set.fields]));
   const find = (set: string, id: string) => sets.get(set)?.find((field) => field.id === id);
   assert.equal(find(address.fieldSetId, address.fieldId)?.masked, true);
-  assert.equal(find('household.basics', 'household.bedrooms')?.value, 0);
+  assert.equal(find('household.household', 'household.bedrooms')?.value, 0);
   assert.equal(
     find('household.waterInstallation', 'household.stopcockLocation')?.value,
     'Under the sink',
   );
   assert.equal(find('household.waterInstallation', 'household.waterMeterLocation')?.value, null);
+  assert.equal(find('household.waterInstallation', access)?.value, 'Ask the caretaker');
+  assert.equal(find('household.electricalInstallation', access)?.value, 'Communal cupboard');
   assert.equal(find('household.energyPerformance', 'household.energyRating')?.value, 'C');
   assert.ok(!sets.has('household.gasInstallation'));
   assert.ok(!sets.has('household.building'));
   assert.ok(!saved.body.includes('Example Street'));
-  assert.ok(!saved.body.includes('Communal cupboard'));
-  for (const [field, value] of [
-    [address, 'Flat 2, 1 Example Street'],
-    [{ fieldSetId: 'household.waterInstallation', fieldId: access }, 'Ask the caretaker'],
-    [{ fieldSetId: 'household.electricalInstallation', fieldId: access }, 'Communal cupboard'],
-  ] as const) {
-    const reveal = await request('POST', `/things/${home.id}:reveal-field`, field);
-    assert.equal(reveal.statusCode, 200, reveal.body);
-    assert.equal(reveal.json().value, value);
-  }
+  const reveal = await request('POST', `/things/${home.id}:reveal-field`, address);
+  assert.equal(reveal.statusCode, 200, reveal.body);
+  assert.equal(reveal.json().value, 'Flat 2, 1 Example Street');
 });
 
 test('appliance field migration moves values and keeps ambiguous values and pins', async () => {

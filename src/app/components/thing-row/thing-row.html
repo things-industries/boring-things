@@ -2,7 +2,7 @@
   <bt-thing-thumbnail
     rowLeading
     [imageId]="thing().imageAttachmentId"
-    [category]="category() ?? null"
+    [category]="category()?.icon ?? null"
   />
   <span rowSubtitle>
     {{ category()?.name }}

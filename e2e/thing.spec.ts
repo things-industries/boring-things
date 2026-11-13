@@ -25,16 +25,12 @@ async function createThing(
   return page.url();
 }
 
-test('a Household shows default artwork and lets the owner record energy performance', async ({
+test('a Household shows a category icon and lets the owner record energy performance', async ({
   page,
 }) => {
   const name = `Studio ${Date.now()}`;
   await createThing(page, name, 'household', 'household.energyPerformance');
-  const artwork = page.locator('bt-hero img');
-  await expect(artwork).toHaveAttribute('src', '/assets/household.webp');
-  await expect
-    .poll(() => artwork.evaluate((img: HTMLImageElement) => img.naturalWidth))
-    .toBeGreaterThan(0);
+  await expect(page.locator('bt-hero bt-thing-thumbnail ng-icon')).toBeVisible();
 
   await page.getByRole('link', { name: 'See all details' }).click();
   await expect(page.getByRole('heading', { name: 'Household basics' })).toBeVisible();
@@ -57,7 +53,7 @@ test('a Household shows default artwork and lets the owner record energy perform
   const row = page
     .locator('bt-thing-row')
     .filter({ has: page.getByRole('link', { name, exact: true }) });
-  await expect(row.locator('img')).toHaveAttribute('src', '/assets/household.webp');
+  await expect(row.locator('bt-thing-thumbnail ng-icon')).toBeVisible();
 });
 
 test('Thing detail shows issues, tasks, products and attachments', async ({ page }) => {

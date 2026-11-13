@@ -5,7 +5,7 @@ You're performing a task for a service called **"Boring Things"**. A "Thing" is 
 - `vehicles`: Cars, trucks, bicycles, e-bikes, vans, quad bikes, etc
 - `utilities`: Supply/utility contract (eg. water, electricity, gas, internet)
 - `insurance`: Insurance policies (eg. car, life, building, home contents, travel)
-- `household`: A home the user occupies, including dwelling details, fixed installations and property administration.
+- `household`: A home the user cares about, including a home they help someone else manage.
 - `memberships`: of a service, club or other facility that provides a benefit usable on demand (eg. art gallery, gym, museum, members' club, networking club, TV/music streaming)
 - `subscriptions`: Regular, automatic, delivery of something, physical or digital (eg. newspaper, magazine, medication, groceries)
 - `other`: Anything that doesn't fit the above categories, such as financial accounts, licences, visas, permits etc.

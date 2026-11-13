@@ -103,20 +103,28 @@ Boring Things does not need to replace every adjacent product to be useful. In m
 
 Activities are ongoing or scheduled work the owner manages, including Tasks, Events and Issues. Tasks are actions the owner performs. Events are appointments, visits and deliveries; their end follows their dates. Issues connect related work. Purchasables are opportunities to buy something that maintains or improves a Thing, such as consumables, accessories or upgrades. They retain purchase links and supporting evidence independently of activity scheduling.
 
+### Thing categories
+
+- **Appliances** cover equipment such as a boiler, dishwasher or coffee machine.
+- **Devices** cover electronics such as a laptop, phone or smart thermostat.
+- **Vehicles** cover transport such as a car, van or bicycle.
+- **Memberships** cover access to benefits or facilities, such as a gym or museum pass.
+- **Subscriptions** cover recurring products or services, such as a meal kit or streaming plan.
+- **Utilities** cover supply agreements, such as an electricity, water or broadband account.
+- **Insurance** covers policies such as home contents or motor cover.
+- **Household** covers a home the user cares about, such as their rented flat or a relative's house they help manage. Fixed installations belong to the home. Equipment, utility agreements and policies have their own Things.
+- **Other** covers records with ongoing administration, such as a licence or permit.
+
+Things are records for items, agreements or places that need ongoing care or administration. People, pets and routine one-off purchases fall outside this scope.
+
 ### Thing fields
 
-- Fields capture durable attributes and contractual terms. Populated date fields contribute Thing dates to the timeline. The Household category also records locations of fixed installations and a dated mortgage balance from a statement.
+- Fields capture durable attributes and contractual terms, including locations of fixed installations. Populated date fields contribute Thing dates to the timeline. Transient observations, account balances and locations of movable items are outside the field registry.
 - Custom fields store their type. Clearing a value keeps the field, its type and any pin. Deleting the field also removes its pin.
 - Each category has a base field set. Sets for identifiable subtypes carry their distinct fields; shared traits and functions compose across types. Manufacturer groups share proprietary identifier sets where their markings have the same meaning.
 - Documents belong to attachments.
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
 - Store physical dimensions as separate width, height, length and depth measurements, as applicable.
-
-### Household
-
-A Household is a Thing for a home the user occupies. Household basics holds the dwelling's address, country, type, occupancy arrangement, legal tenure, move-in date and counts for occupants, bedrooms and bathrooms. The set is added on creation and its fields can start empty.
-
-Optional sets cover gas, electricity and water installations, construction, rebuild assessment, Council Tax, heritage and planning, the primary mortgage and energy performance. Record meters, panels and shutoff locations on the Household. Suppliers, meter serials, supply identifiers and tariffs belong to Utilities. Equipment specifications belong to their own Things and policy cover belongs to Insurance. Attach surveys, rebuild assessments and energy certificates as documents and use field provenance to cite them.
 
 ### Import and enrichment scope
 
