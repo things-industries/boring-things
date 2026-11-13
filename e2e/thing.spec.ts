@@ -342,6 +342,53 @@ test('edit mode saves money with a currency and two decimal places', async ({ pa
   );
 });
 
+// PR #168 recreated the sensitive money input with its old amount after Hide and Reveal.
+test('revealing an edited sensitive amount shows the draft that will be saved', async ({
+  page,
+}) => {
+  const url = await createThing(page, `Private amount ${Date.now()}`);
+  const thingId = new URL(url).pathname.split('/').at(-1);
+  const status = await page.evaluate(async (id) => {
+    const entries = JSON.parse(localStorage.getItem('logto:browser-test:accessToken') ?? '{}');
+    const session = Object.values(entries)[0] as { token: string };
+    const response = await fetch(`/api/things/${id}`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customFields: [
+          {
+            label: 'Private fee',
+            sensitive: true,
+            value: { amountMinor: 1000, currency: 'GBP' },
+          },
+        ],
+      }),
+    });
+    return response.status;
+  }, thingId);
+  expect(status).toBe(200);
+  await page.goto(url + '/details');
+  await page.getByRole('button', { name: 'Edit details' }).click();
+
+  const reveal = page.getByRole('button', { name: 'Reveal Private fee' });
+  const amount = page.getByRole('spinbutton', { name: 'Private fee' });
+  await reveal.click();
+  await expect(amount).toHaveValue('10.00');
+  await amount.fill('25.00');
+  await page.getByRole('button', { name: 'Hide Private fee' }).click();
+  await expect(amount).toHaveCount(0);
+  await reveal.click();
+  await expect(amount).toHaveValue('25.00');
+
+  const saved = page.waitForResponse((response) => response.request().method() === 'PATCH');
+  await page.getByRole('button', { name: 'Save details' }).click();
+  const response = await saved;
+  expect(response.ok()).toBe(true);
+  expect((await response.json()).customFields).toMatchObject([
+    { label: 'Private fee', value: { amountMinor: 2500, currency: 'GBP' } },
+  ]);
+});
+
 test('edit mode rejects an unreadable amount, and cancelling asks first', async ({ page }) => {
   await createThing(page, `Unreadable policy ${Date.now()}`, 'insurance', 'insurance.buildings');
   await page.getByRole('link', { name: 'See all details' }).click();

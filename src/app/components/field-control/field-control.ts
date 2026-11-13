@@ -9,6 +9,7 @@ import {
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -191,6 +192,11 @@ export class FieldControl implements ControlValueAccessor, OnInit {
 
   constructor() {
     if (this.ngControl) this.ngControl.valueAccessor = this;
+
+    // A revealed amount input starts from the draft, including edits made before it was hidden.
+    effect(() => {
+      if (this.amountInput()) untracked(() => this.showAmount(this.money().amount));
+    });
 
     // Fits the textarea after renders and width changes; the observer writes outside the effect.
     effect((onCleanup) => {
