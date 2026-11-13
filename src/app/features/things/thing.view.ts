@@ -100,7 +100,7 @@ export function keyDetails(detail: ThingDetail): KeyDetail[] {
               icon: fieldIcon(null),
               value: field.value,
               masked: field.masked,
-              format: null,
+              format: field.valueType === 'DATE' ? 'date' : null,
             },
           ]
         : [];

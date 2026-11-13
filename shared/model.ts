@@ -20,7 +20,7 @@ export interface LocalField extends StoredValue {
   label: string;
   sensitive: boolean;
   scope?: Schema['FieldScopeEnum'];
-  valueType?: Schema['ValueTypeEnum'];
+  valueType: Schema['ValueTypeEnum'];
 }
 export interface ThingData {
   userEdited?: string[];

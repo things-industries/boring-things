@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/model.js';
 import { ensure } from './errors.js';
 import type { Registry } from './registry/registry.js';
+import { getDisplacedValueType, inferCustomValueType, isCustomValue } from './custom-fields.js';
 
 export const pinKey = (pin: Pin) =>
   pin.customFieldId ? `local:${pin.customFieldId}` : `${pin.fieldSetId ?? ''}:${pin.fieldId}`;
@@ -62,6 +63,7 @@ export function patchData(
         label: `${registry.sets.get(oldId)!.name}: ${definition.name}`,
         sensitive: definition.sensitive,
         scope: definition.scope,
+        valueType: getDisplacedValueType(definition.schema, stored.value),
       });
       data.pins = data.pins.map((pin) =>
         pin.fieldSetId === oldId && pin.fieldId === fieldId ? { customFieldId: id } : pin,
@@ -116,10 +118,17 @@ export function patchData(
   data.customFields = data.customFields.filter((f) => !removeLocal.has(f.id));
 
   for (const [index, input] of (patch.customFields ?? []).entries()) {
-    ensure(!input.id || data.customFields.some((f) => f.id === input.id), 'Unknown local field');
+    const existing = data.customFields.find((f) => f.id === input.id);
+    ensure(!input.id || existing, 'Unknown local field');
+    const valueType = input.valueType ?? existing?.valueType ?? inferCustomValueType(input.value);
+    ensure(
+      isCustomValue(input.value, valueType),
+      `Invalid value for custom field type ${valueType}`,
+    );
     const field = {
       ...input,
-      scope: input.scope ?? data.customFields.find((f) => f.id === input.id)?.scope ?? 'INSTANCE',
+      scope: input.scope ?? existing?.scope ?? 'INSTANCE',
+      valueType,
       id: input.id ?? randomUUID(),
       origin: 'USER' as const,
       autoPopulate: false,
@@ -182,17 +191,8 @@ export function projectData(
     customFields: data.customFields.map((f) => ({
       ...f,
       scope: f.scope ?? 'INSTANCE',
-      valueType:
-        f.valueType ??
-        ((typeof f.value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.value)
-          ? 'DATE'
-          : f.value === null
-            ? 'STRING'
-            : typeof f.value === 'object'
-              ? 'MONEY'
-              : (typeof f.value).toUpperCase()) as Schema['ValueTypeEnum']),
       value: f.sensitive ? null : f.value,
-      masked: f.sensitive,
+      masked: f.sensitive && f.value !== null,
       sourceRefs: f.sensitive ? [] : f.sourceRefs,
     })),
     pinnedFields: data.pins,

@@ -10,7 +10,12 @@ import { AiTask } from './task.js';
 import { getPrompt } from '../prompts.js';
 import { createFieldsTool, createFieldSetsTool } from '../tools/registry.js';
 import { createTranscriptionTool } from '../tools/transcription.js';
-import { createObjectSchema, valueSchema, sourceEvidenceProperties } from '../schemas.js';
+import {
+  createObjectSchema,
+  customValueTypeSchema,
+  valueSchema,
+  sourceEvidenceProperties,
+} from '../schemas.js';
 import type { Value } from '../../../../../shared/model.js';
 
 export interface AdditionalInformationInput {
@@ -73,6 +78,7 @@ export const outputSchema = createObjectSchema(
             type: ['string', 'null'],
           },
           value: valueSchema,
+          valueType: customValueTypeSchema,
           sensitive: {
             description: 'Whether this finding contains sensitive information.',
             type: 'boolean',

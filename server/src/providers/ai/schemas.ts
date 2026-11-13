@@ -70,6 +70,13 @@ export const valueSchema = {
   ],
 } as const;
 
+export const customValueTypeSchema = {
+  type: ['string', 'null'],
+  enum: ['STRING', 'NUMBER', 'BOOLEAN', 'MONEY', 'DATE', null],
+  description:
+    'Custom field type. Use DATE for a full calendar date in YYYY-MM-DD format. Use STRING for text even if it resembles a date. Use null for registry fields or to keep an existing custom type.',
+} as const;
+
 export const attachmentMetadataSchema = createObjectSchema(
   {
     title: {

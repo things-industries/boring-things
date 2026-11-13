@@ -162,7 +162,12 @@ export class ResourceCard {
     if (card.customFieldId) {
       const field = detail.customFields.find((field) => field.id === card.customFieldId);
       return field
-        ? { ...field, name: field.label, icon: '', schema: { format: undefined } }
+        ? {
+            ...field,
+            name: field.label,
+            icon: '',
+            schema: { format: field.valueType === 'DATE' ? ('date' as const) : undefined },
+          }
         : null;
     }
     return (

@@ -115,3 +115,26 @@ test('custom field input validates scope through the HTTP contract', () => {
   assert.ok(validate(field));
   assert.equal(validate({ ...field, scope: 'PUBLIC' }), false);
 });
+
+test('category changes use registry schemas to type displaced custom fields', () => {
+  const values = [
+    { fieldId: 'common.warrantyEnds', value: '2090-02-28' },
+    { fieldId: 'common.warrantyProvider', value: '2090-02-28' },
+  ];
+  const data = patchData(
+    emptyData(),
+    {
+      addFieldSetIds: ['appliances.warranty'],
+      values: values.map((value) => ({ ...value, fieldSetId: 'appliances.warranty' })),
+      pinnedFields: [{ fieldId: 'common.warrantyEnds', fieldSetId: 'appliances.warranty' }],
+    },
+    'appliances',
+    registry,
+  );
+  const moved = patchData(data, {}, 'other', registry);
+  const end = moved.customFields.find((field) => field.label.endsWith(': Warranty ends'));
+  const provider = moved.customFields.find((field) => field.label.endsWith(': Warranty provider'));
+  assert.equal(end?.valueType, 'DATE');
+  assert.equal(provider?.valueType, 'STRING');
+  assert.deepEqual(moved.pins, [{ customFieldId: end?.id }]);
+});

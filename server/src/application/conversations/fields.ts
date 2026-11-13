@@ -30,7 +30,8 @@ export interface ChatFieldInput {
   customFields: {
     customFieldId: string | null;
     label: string;
-    value: Schema['Value'];
+    value: Schema['NullableValue'];
+    valueType?: Schema['ValueTypeEnum'] | null;
     sensitive: boolean;
     scope: Schema['FieldScopeEnum'];
     source: FieldSource | null;
@@ -144,11 +145,13 @@ export async function updateChatFields(
         ? pinKey({ customFieldId: field.customFieldId })
         : `local:new:${index}`;
       ensure(!provenance.has(key), 'Duplicate field address');
+      ensure(field.value !== null || field.source === null, 'A value removal has no source');
       provenance.set(key, await getProvenance(field.source));
       customFields.push({
         ...(field.customFieldId ? { id: field.customFieldId } : {}),
         label: field.label,
         value: field.value,
+        valueType: field.valueType ?? undefined,
         sensitive: field.sensitive,
         scope: field.scope,
       });

@@ -104,17 +104,28 @@ test('a Thing summary without detail takes only the scalar changes', () => {
   assert.equal(next.detail, undefined);
 });
 
-test('optimistic custom-field edits keep scope unless the patch changes it', () => {
+test('optimistic custom-field edits use the saved scope and type when omitted', () => {
   const input = {
     id: 'custom',
     label: 'Note',
-    value: 'Text',
+    value: '2027-05-16',
     sensitive: false,
     scope: 'CLASS' as const,
   };
-  const created = applyThingPatch(thing, { customFields: [input] }, registry);
+  const created = structuredClone(thing);
+  created.detail!.customFields = [
+    { ...input, masked: false, origin: 'USER', sourceRefs: [], valueType: 'DATE' },
+  ];
+  created.detail!.pinnedFields = [{ customFieldId: input.id }];
   for (const scope of [undefined, 'GROUP', 'INSTANCE'] as const) {
-    const edited = applyThingPatch(created, { customFields: [{ ...input, scope }] }, registry);
+    const edited = applyThingPatch(
+      created,
+      { customFields: [{ ...input, value: null, scope }] },
+      registry,
+    );
     assert.equal(edited.detail?.customFields[0].scope, scope ?? 'CLASS');
+    assert.equal(edited.detail?.customFields[0].valueType, 'DATE');
+    assert.equal(edited.detail?.customFields[0].value, null);
+    assert.deepEqual(edited.detail?.pinnedFields, created.detail!.pinnedFields);
   }
 });

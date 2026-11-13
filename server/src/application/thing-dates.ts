@@ -1,6 +1,5 @@
 /** Projection of populated, unmasked date fields into future timeline entries. */
 
-import { isValid, parseISO } from 'date-fns';
 import type { Schema } from '../../../shared/model.js';
 import type { Database } from '../db/connection.js';
 import type { RouteTypes } from '../contracts/routes.js';
@@ -8,6 +7,7 @@ import * as database from '../db/connection.js';
 import * as thingFieldsDb from '../db/entities/thing-fields.js';
 import type { Registry } from './registry/registry.js';
 import { projectData } from './thing-data.js';
+import { isCalendarDate } from './custom-fields.js';
 import type { ThingData } from '../../../shared/model.js';
 import { getLocalDate } from './task-recurrence.js';
 import { page, pageResult } from './pagination.js';
@@ -31,30 +31,23 @@ export async function listThingDates(
     const detail = projectData(await thingFieldsDb.load(db, owner, thing.id, thing.data), registry);
     const add = (
       label: string,
-      value: unknown,
+      value: Schema['NullableValue'],
       masked: boolean,
       address: Pick<Schema['ThingDate'], 'fieldId' | 'fieldSetId' | 'customFieldId'>,
     ) => {
-      if (
-        !masked &&
-        typeof value === 'string' &&
-        /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-        isValid(parseISO(value)) &&
-        value >= from &&
-        (!query.to || value <= query.to)
-      )
+      if (!masked && typeof value === 'string' && value >= from && (!query.to || value <= query.to))
         items.push({ thingId: thing.id, label, date: value, ...address });
     };
     for (const set of detail.fieldSets)
       for (const field of set.fields)
-        if (field.uiHint === 'DATE')
+        if (field.schema.format === 'date' && isCalendarDate(field.value))
           add(field.name, field.value, field.masked, {
             fieldId: field.id,
             fieldSetId: set.id,
             customFieldId: null,
           });
     for (const field of detail.standaloneFields)
-      if (field.uiHint === 'DATE')
+      if (field.schema.format === 'date' && isCalendarDate(field.value))
         add(field.name, field.value, field.masked, {
           fieldId: field.id,
           fieldSetId: null,

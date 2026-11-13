@@ -347,11 +347,14 @@ test('edit mode masks a revealed value again after cancelling', async ({ page })
   await expect(row).not.toContainText('0000');
 });
 
-test('edit mode saves field values before a category change', async ({ page }) => {
+test('edit mode saves values before a category change and can clear a custom date', async ({
+  page,
+}) => {
   await createThing(page, `Recategorised kettle ${Date.now()}`);
   await page.getByRole('link', { name: 'See all details' }).click();
   await page.getByRole('button', { name: 'Edit details' }).click();
   await page.getByRole('textbox', { name: 'Warranty provider' }).fill('Example Care');
+  await page.locator('input[aria-label="Warranty ends"]').fill('2090-02-28');
   await page.getByRole('combobox', { name: 'Category' }).selectOption('insurance');
   await expect(page.locator('bt-notice')).toContainText('kept as custom fields');
 
@@ -369,9 +372,56 @@ test('edit mode saves field values before a category change', async ({ page }) =
   await page.getByRole('button', { name: 'Save details' }).click();
   await second;
   expect(patches).toMatchObject([
-    { values: [{ fieldId: 'common.warrantyProvider', value: 'Example Care' }] },
+    {
+      values: expect.arrayContaining([
+        {
+          fieldSetId: 'appliances.warranty',
+          fieldId: 'common.warrantyProvider',
+          value: 'Example Care',
+        },
+        { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds', value: '2090-02-28' },
+      ]),
+    },
     { categoryId: 'insurance' },
   ]);
+
+  const pin = page.getByRole('button', { name: /^Pin .+: Warranty ends$/ });
+  const pinned = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      'pinnedFields' in (response.request().postDataJSON() ?? {}),
+  );
+  await pin.click();
+  expect((await pinned).ok()).toBe(true);
+  await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit details', level: 1 })).toBeVisible();
+  const date = page.locator('input[aria-label$=": Warranty ends"]');
+  await expect(date).toHaveAttribute('type', 'date');
+  await date.fill('');
+  const cleared = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      'customFields' in (response.request().postDataJSON() ?? {}),
+  );
+  await page.getByRole('button', { name: 'Save details' }).click();
+  expect((await cleared).ok()).toBe(true);
+  await page.reload();
+  const row = page.locator('bt-key-value-row').filter({ hasText: ': Warranty ends' });
+  await expect(row).toContainText('Not recorded');
+  await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  await row.getByRole('button', { name: /^Actions for / }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+  const deleted = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      'removeCustomFieldIds' in (response.request().postDataJSON() ?? {}),
+  );
+  await page.getByRole('button', { name: 'Delete detail' }).click();
+  expect((await deleted).ok()).toBe(true);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'All details', level: 1 })).toBeVisible();
+  await expect(row).toHaveCount(0);
 });
 
 test('choosing a detail copies its value', async ({ page }) => {

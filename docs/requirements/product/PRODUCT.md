@@ -106,6 +106,7 @@ Activities are ongoing or scheduled work the owner manages, including Tasks, Eve
 ### Thing fields
 
 - Fields capture durable attributes and contractual terms. Populated date fields contribute Thing dates to the timeline. Transient observations, account balances and physical-item locations are outside the field registry.
+- Custom fields store their type. Clearing a value keeps the field, its type and any pin. Deleting the field also removes its pin.
 - Each category has a base field set. Sets for identifiable subtypes carry their distinct fields; shared traits and functions compose across types. Manufacturer groups share proprietary identifier sets where their markings have the same meaning.
 - Documents belong to attachments.
 - Use `Acquired on` for the acquisition date, including purchases, gifts and transfers.
