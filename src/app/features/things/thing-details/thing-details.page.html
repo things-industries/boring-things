@@ -307,6 +307,8 @@
     {{ value | date: 'd MMM y' }}
   } @else if (row.format === 'date-time') {
     {{ value | date: 'd MMM y, HH:mm' }}
+  } @else if (getEmailLink(row.format, value); as href) {
+    <a class="email-link" [href]="href">{{ value }}</a>
   } @else {
     {{ formatValue(value) }}
   }

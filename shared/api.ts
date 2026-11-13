@@ -1846,15 +1846,15 @@ export interface components {
          */
         SchemaTypeEnum: "string" | "number" | "integer" | "boolean" | "object";
         /**
-         * @description Date or timestamp format accepted by a field validation schema.
+         * @description String format accepted by a field validation schema.
          * @enum {string}
          */
-        SchemaFormatEnum: "date" | "date-time";
+        SchemaFormatEnum: "date" | "date-time" | "email";
         /**
          * @description Suggested input control for displaying and editing a field.
          * @enum {string}
          */
-        UiHintEnum: "TEXT" | "TEXTAREA" | "NUMBER" | "CHECKBOX" | "SELECT" | "DATE" | "DATETIME" | "MONEY" | "PASSWORD";
+        UiHintEnum: "TEXT" | "TEXTAREA" | "EMAIL" | "NUMBER" | "CHECKBOX" | "SELECT" | "DATE" | "DATETIME" | "MONEY" | "PASSWORD";
         /**
          * @description Whether a field value was entered by the user, extracted from an uploaded source or enriched from a reference document.
          * @enum {string}

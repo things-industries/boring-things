@@ -16,6 +16,7 @@ import {
   draftValue,
   fieldInput,
   formatMoneyDraft,
+  getEmailLink,
   valueDraft,
 } from '../app/utils/field.util.js';
 import { fieldValueError } from '../app/validators/field-value.validator.js';
@@ -69,6 +70,18 @@ test('registry fields choose the control for their type', () => {
   assert.equal(fieldInput(field({ schema: { type: 'integer' } })).integer, true);
   assert.equal(customFieldInput(custom({ valueType: 'MONEY' })).kind, 'money');
   assert.equal(customFieldInput(custom({ label: 'Support email' })).kind, 'text');
+});
+
+test('email fields use the email editor and link to a single valid address', () => {
+  const schema = { type: 'string', format: 'email', maxLength: 500 } as const;
+  const input = fieldInput(field({ schema }));
+  assert.equal(input.kind, 'email');
+  assert.equal(input.maxLength, 500);
+  assert.equal(fieldInput(field({ uiHint: 'EMAIL' })).kind, 'email');
+  assert.equal(fieldValueError(input, 'a..b@example.com'), 'invalid-email');
+  assert.equal(getEmailLink('email', 'team?ops@example.com'), 'mailto:team%3Fops@example.com');
+  assert.equal(getEmailLink('email', 'Contact support'), null);
+  assert.equal(getEmailLink(null, 'team@example.com'), null);
 });
 
 test('the currency choices match the API currencies', () => {

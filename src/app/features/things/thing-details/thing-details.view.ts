@@ -5,6 +5,7 @@ import {
   customFieldInput,
   draftValue,
   fieldInput,
+  getFieldFormat,
   sameValue,
   valueDraft,
 } from '../../../utils/field.util';
@@ -26,7 +27,7 @@ export interface DetailRow {
   label: string;
   value: Value | null;
   masked: boolean;
-  format: 'date' | 'date-time' | null;
+  format: Schema['SchemaFormatEnum'] | null;
   input: FieldInput;
   target: DetailTarget;
   pin: Pin;
@@ -42,12 +43,6 @@ export interface DetailGroup {
   rows: DetailRow[];
 }
 
-function dateFormat(field: Schema['Field']) {
-  const format = field.schema.format;
-
-  return format === 'date' || format === 'date-time' ? format : null;
-}
-
 function fieldRow(detail: ThingDetail, field: Schema['Field'], setId: string | null): DetailRow {
   const pin: Pin = { fieldSetId: setId, fieldId: field.id };
 
@@ -56,7 +51,7 @@ function fieldRow(detail: ThingDetail, field: Schema['Field'], setId: string | n
     label: field.name,
     value: field.value,
     masked: field.masked,
-    format: dateFormat(field),
+    format: getFieldFormat(field),
     input: fieldInput(field),
     target: { kind: 'field', fieldSetId: setId, fieldId: field.id },
     pin,

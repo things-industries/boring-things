@@ -61,7 +61,7 @@ import { RelativeTimePipe } from '../../../pipes/relative-time.pipe';
 import { attachmentBadge, attachmentFormat } from '../../../utils/attachment.util';
 import { errorCode } from '../../../utils/error.util';
 import { fieldIcon } from '../../../utils/field-icon.util';
-import { formatFieldValue } from '../../../utils/field.util';
+import { formatFieldValue, getEmailLink, getFieldFormat } from '../../../utils/field.util';
 import { issueBadges } from '../../../utils/issue.util';
 
 type CardStatus = 'idle' | 'loading' | 'missing' | 'error';
@@ -141,6 +141,8 @@ export class ResourceCard {
   readonly issueBadges = issueBadges;
   readonly fieldIcon = fieldIcon;
   readonly formatValue = formatFieldValue;
+  readonly getEmailLink = getEmailLink;
+  readonly getFieldFormat = getFieldFormat;
 
   readonly thing = computed(() => {
     const card = this.card();

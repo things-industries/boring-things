@@ -31,6 +31,10 @@ a {
   color: inherit;
   text-decoration: none;
 }
+.email-link {
+  text-decoration: underline;
+  pointer-events: auto;
+}
 .visually-hidden {
   @include mixins.visually-hidden;
 }

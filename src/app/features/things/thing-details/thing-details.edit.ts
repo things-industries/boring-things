@@ -9,9 +9,15 @@ import {
 } from './thing-details.view';
 
 function draftControl(input: FieldInput, draft: FieldDraft) {
+  const validate = fieldValueValidator(input);
+
   return new FormControl<FieldDraft>(draft, {
     nonNullable: true,
-    validators: fieldValueValidator(input),
+    // Account email values saved as text can stay as entered until the owner changes them.
+    validators: (control) =>
+      input.kind === 'email' && control.pristine && control.value === draft
+        ? null
+        : validate(control),
   });
 }
 

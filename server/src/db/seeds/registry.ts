@@ -112,6 +112,8 @@ export const moneySchema: FieldDefinition['schema'] = {
   },
 };
 
+const emailSchema: FieldDefinition['schema'] = { type: 'string', format: 'email', maxLength: 500 };
+
 export const fields: FieldDefinition[] = [
   field(
     'common.acquiredOn',
@@ -223,6 +225,13 @@ export const fields: FieldDefinition[] = [
     description: 'Support phone.',
     uiHint: 'TEXT',
     icon: 'fieldPhone',
+  }),
+  field('common.supportEmail', 'Support email', emailSchema, {
+    scope: 'CLASS',
+    description: 'Email address for the provider or manufacturer’s customer support.',
+    keywords: ['customer service email', 'support email address'],
+    uiHint: 'EMAIL',
+    icon: 'fieldEmail',
   }),
   field('common.supportReference', 'Support reference', undefined, {
     description: 'Support reference.',
@@ -1427,9 +1436,9 @@ export const fields: FieldDefinition[] = [
     uiHint: 'TEXT',
     icon: 'fieldPerson',
   }),
-  field('common.accountEmail', 'Account email', undefined, {
+  field('common.accountEmail', 'Account email', emailSchema, {
     description: 'Account email.',
-    uiHint: 'TEXT',
+    uiHint: 'EMAIL',
     icon: 'fieldEmail',
   }),
   field('common.accountPortal', 'Account portal', undefined, {
@@ -3000,7 +3009,7 @@ export const sets: FieldSet[] = [
     'appliances.support',
     'Support',
     'A product with a support channel or manufacturer support registration.',
-    ['common.supportUrl', 'common.supportPhone', 'common.supportReference'],
+    ['common.supportUrl', 'common.supportPhone', 'common.supportEmail', 'common.supportReference'],
     [],
     [],
     ['support', 'customer service', 'help'],
@@ -3321,7 +3330,7 @@ export const sets: FieldSet[] = [
     'devices.support',
     'Support',
     'A product with a support channel or manufacturer support registration.',
-    ['common.supportUrl', 'common.supportPhone', 'common.supportReference'],
+    ['common.supportUrl', 'common.supportPhone', 'common.supportEmail', 'common.supportReference'],
     [],
     ['devices.maintenance'],
     ['support', 'customer service', 'help'],
@@ -3543,7 +3552,7 @@ export const sets: FieldSet[] = [
     'vehicles.support',
     'Support',
     'A product with a support channel or manufacturer support registration.',
-    ['common.supportUrl', 'common.supportPhone', 'common.supportReference'],
+    ['common.supportUrl', 'common.supportPhone', 'common.supportEmail', 'common.supportReference'],
     [],
     ['vehicles.maintenance'],
     ['support', 'customer service', 'help'],
@@ -3839,7 +3848,7 @@ export const sets: FieldSet[] = [
     'memberships.support',
     'Support',
     'An account with customer-support contact information.',
-    ['common.supportUrl', 'common.supportPhone'],
+    ['common.supportUrl', 'common.supportPhone', 'common.supportEmail'],
     [],
     [],
     ['support', 'customer service', 'help'],
@@ -3996,7 +4005,7 @@ export const sets: FieldSet[] = [
     'subscriptions.support',
     'Support',
     'An account with customer-support contact information.',
-    ['common.supportUrl', 'common.supportPhone'],
+    ['common.supportUrl', 'common.supportPhone', 'common.supportEmail'],
     [],
     [],
     ['support', 'customer service', 'help'],
@@ -4200,7 +4209,7 @@ export const sets: FieldSet[] = [
     'utilities.support',
     'Support',
     'An account with customer-support contact information.',
-    ['common.supportUrl', 'common.supportPhone'],
+    ['common.supportUrl', 'common.supportPhone', 'common.supportEmail'],
     [],
     [],
     ['support', 'customer service', 'help'],

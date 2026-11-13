@@ -1316,6 +1316,37 @@ test('chat field values keep retrieved attachment pages and research URLs while 
   assert.equal(stored.auto_populate, false);
 });
 
+test('chat applies registry email validation before saving an address', async () => {
+  const { thing, chat } = await setup();
+  const value = 'team+support@example.com';
+  ai.probe = async (_input, execute) => {
+    await execute('search_fields', { labels: [{ label: 'common.supportEmail', context: '' }] });
+    const patch: ChatFieldInput = {
+      thingId: thing.id,
+      addFieldSetIds: [],
+      values: [{ fieldSetId: null, fieldId: 'common.supportEmail', value, source: null }],
+      customFields: [],
+    };
+    const invalid = await execute('update_thing_fields', {
+      ...patch,
+      values: [{ ...patch.values[0], value: 'team@example' }],
+    });
+    assert.deepEqual(invalid.output, { error: 'Invalid value for Support email' });
+    const saved = await execute('update_thing_fields', patch);
+    assert.ok(!('error' in (saved.output as object)), JSON.stringify(saved.output));
+  };
+  await request('POST', `/conversations/${chat.id}/messages`, {
+    text: 'Save the support email',
+    requestId: randomUUID(),
+  });
+  assert.equal((await wait(chat.id)).message.status, 'COMPLETE');
+  const saved = (await request('GET', `/things/${thing.id}`)).json<Schema['Thing']>();
+  assert.equal(
+    saved.standaloneFields.find((field) => field.id === 'common.supportEmail')?.value,
+    value,
+  );
+});
+
 // Selecting changed custom fields by their returned positions could cite an untouched field.
 test('chat field cards identify the edited custom field after database ordering', async () => {
   const { thing, chat } = await setup();

@@ -133,6 +133,8 @@ export class FieldControl implements ControlValueAccessor, OnInit {
     if (this.concealed()) return 'password';
 
     switch (this.field().kind) {
+      case 'email':
+        return 'email';
       case 'number':
         return 'number';
       case 'date':
