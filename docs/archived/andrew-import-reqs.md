@@ -1,4 +1,11 @@
+---
+archived: 2026-11-12
+reason: Original Import requirements and design notes.
+---
+
 # Import architecture and workflows
+
+> Historical record. See the [Import guide](../setup/imports.md) for the current workflow.
 
 How I'd ideally like our import process to work.
 

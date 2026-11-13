@@ -2,7 +2,7 @@
 
 import { getEnv } from '../../config.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { ensure } from '../../application/errors.js';
+import { ensure, ProviderHttpError } from '../../application/errors.js';
 import { maxDocumentTextLength } from '../../lib/document-limits.js';
 import * as metrics from '../../metrics.js';
 
@@ -56,7 +56,8 @@ export async function readImageText(content: Buffer, signal: AbortSignal): Promi
           ],
         }),
       });
-      ensure(response.ok, `google_vision_http_${response.status}`, 'UNAVAILABLE');
+      if (!response.ok)
+        throw new ProviderHttpError(response.status, `google_vision_http_${response.status}`);
       const body: unknown = await response.json();
       ensure(
         body !== null &&

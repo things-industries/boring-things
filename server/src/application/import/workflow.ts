@@ -59,34 +59,28 @@ export class ImportWorkflow {
 
   // Executes unfinished stages while preserving the selected Thing and completed batches.
   async run() {
+    metrics.setJobStage('read_sources');
     this.sources = await importsDb.listImportSources(this.pool, this.job);
-    await this.identity();
+    await metrics.withStage('resolve_import_identity', () => this.identity());
     for (const source of this.job.sources) {
       if (source.status === 'FAILED')
         await this.warning('source:' + source.attachmentId, null, 'EXTRACTION_FAILED');
       else await this.commit('source:' + source.attachmentId);
     }
     if (this.job.operation === 'IMPORT') {
-      await this.specialists();
-      await this.research();
+      await metrics.withStage('look_up_specialist_data', () => this.specialists());
+      await metrics.withStage('research_import', () => this.research());
       await this.applyResearchIdentity();
       await this.readLinkedSources();
       await this.assessSources();
       await this.selectFields();
-      await this.populate();
+      await metrics.withStage('populate_import_fields', () => this.populate());
       await this.additional();
     }
     await this.readLinkedSources();
     await this.assessSources();
-    await this.recommend();
-    await importsDb.setImportStatus(this.pool, this.job.ownerId, this.job.id, 'COMPLETE');
-    metrics.recordImportOutcome(
-      this.job.workflow.warnings.map(({ stage, reason, warning }) => ({
-        stage: stage.split(':', 1)[0],
-        reason: reason ?? warning.code,
-      })),
-    );
-    this.publish();
+    await metrics.withStage('recommend_for_thing', () => this.recommend());
+    return this.job.workflow.warnings.length;
   }
 
   // Applies a cited everyday name to an imported Thing until the owner edits its name.
@@ -141,30 +135,33 @@ export class ImportWorkflow {
     work?: (db: Database, current: thingsDb.ThingRow) => Promise<void>,
   ) {
     this.context.signal.throwIfAborted();
-    await database.transaction(this.pool, async (db) => {
-      const job = await importsDb.getOwnedImportOrThrow(db, this.job.ownerId, this.job.id, {
-        lock: true,
-      });
-      ensure(job.targetThingId, 'no_thing_identified');
-      const current = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, job.targetThingId, {
-        lock: true,
-      });
-      if (work) await work(db, current);
-      this.context.signal.throwIfAborted();
-      const saved = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id);
-      const workflow = {
-        ...saved.workflow,
-        done: [...new Set([...saved.workflow.done, key])],
-        warnings: saved.workflow.warnings.filter((entry) => entry.stage !== key),
-      };
-      await importsDb.saveWorkflow(db, job, workflow);
-      this.job = { ...saved, workflow };
-    });
+    await metrics.withStage('save_import_checkpoint', () =>
+      database.transaction(this.pool, async (db) => {
+        const job = await importsDb.getOwnedImportOrThrow(db, this.job.ownerId, this.job.id, {
+          lock: true,
+        });
+        ensure(job.targetThingId, 'no_thing_identified');
+        const current = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, job.targetThingId, {
+          lock: true,
+        });
+        if (work) await work(db, current);
+        this.context.signal.throwIfAborted();
+        const saved = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id);
+        const workflow = {
+          ...saved.workflow,
+          done: [...new Set([...saved.workflow.done, key])],
+          warnings: saved.workflow.warnings.filter((entry) => entry.stage !== key),
+        };
+        await importsDb.saveWorkflow(db, job, workflow);
+        this.job = { ...saved, workflow };
+      }),
+    );
     this.publish();
   }
 
   // Records a visible stage before issuing external work.
   private async stage(stage: string, status: ImportRow['status']) {
+    metrics.setJobStage(stage.toLowerCase());
     this.job.workflow.stage = stage;
     await importsDb.saveWorkflow(this.pool, this.job, this.job.workflow);
     await importsDb.setImportStatus(this.pool, this.job.ownerId, this.job.id, status);
@@ -192,6 +189,14 @@ export class ImportWorkflow {
     );
     this.job.workflow.warnings.push({ stage, warning, reason });
     await importsDb.saveWorkflow(this.pool, this.job, this.job.workflow);
+    const [operation, item] = stage.split(':');
+    metrics.recordImportWarning({
+      stage: operation,
+      reason: reason ?? code,
+      ...(['source', 'applicability', 'additional'].includes(operation) && { attachmentId: item }),
+      ...(operation === 'specialist' && { provider: item }),
+      ...(operation === 'resource' && { provider: 'web' }),
+    });
     this.publish();
   }
 
@@ -453,6 +458,7 @@ export class ImportWorkflow {
   private async specialists() {
     if (this.job.workflow.done.includes('specialists')) return;
     await this.stage('RESEARCH', 'DISCOVERING');
+    metrics.setJobStage('specialist');
     const providers = this.options.specialists ?? [
       ...(getEnv('ICECAT_ACCESS_TOKEN', { optional: true }) ? [new IcecatProvider()] : []),
       ...(getEnv('ZYFY_API_KEY', { optional: true }) ? [new ZyfyProvider()] : []),
@@ -470,7 +476,7 @@ export class ImportWorkflow {
       } catch (error) {
         if (error instanceof UsagePersistenceError) throw error;
         this.context.signal.throwIfAborted();
-        await this.warning(key);
+        await this.warning(key, null, 'RESEARCH_FAILED', getImportFailureReason(error));
         continue;
       }
       await this.commit(key, async (db, current) => {
@@ -527,11 +533,13 @@ export class ImportWorkflow {
       0,
       getEnv('IMPORT_MAX_RESOURCES'),
     ) ?? []) {
+      metrics.setJobStage('download_resource');
       const key = 'resource:' + resourceKey(item);
       if (this.job.workflow.done.includes(key)) continue;
       let id = (
         await attachmentsDb.findDiscoveryAttachment(this.pool, this.job.ownerId, resourceKey(item))
       )?.id;
+      const reused = id !== undefined;
       if (!id) {
         let content: { content: Buffer; mediaType: string } | null | undefined;
         try {
@@ -552,9 +560,10 @@ export class ImportWorkflow {
         } catch (error) {
           if (error instanceof UsagePersistenceError) throw error;
           this.context.signal.throwIfAborted();
-          await this.warning(key, item.url, 'UNAVAILABLE');
+          await this.warning(key, item.url, 'UNAVAILABLE', getImportFailureReason(error));
           continue;
         }
+        metrics.setJobStage('save_resource');
         id = (
           await saveResourceAttachment(
             this.pool,
@@ -571,27 +580,32 @@ export class ImportWorkflow {
       }
       await this.attachResource(id);
       await this.commit(key);
+      metrics.recordImportDiagnostic('import_resource_linked', { attachmentId: id, reused });
     }
     const waiting = AbortSignal.any([
       this.context.signal,
       AbortSignal.timeout(getEnv('DISCOVERY_TIMEOUT_MS')),
     ]);
+    metrics.setJobStage('wait_for_transcription');
     try {
-      for (;;) {
-        const files = await importsDb.listImportSources(this.pool, this.job);
-        if (
-          !files.some(
-            (file) =>
-              this.job.workflow.resourceIds.includes(file.id) &&
-              ['PENDING', 'PROCESSING'].includes(file.transcriptionStatus),
+      await metrics.withStage('wait_for_discovered_transcriptions', async () => {
+        for (;;) {
+          const files = await importsDb.listImportSources(this.pool, this.job);
+          if (
+            !files.some(
+              (file) =>
+                this.job.workflow.resourceIds.includes(file.id) &&
+                ['PENDING', 'PROCESSING'].includes(file.transcriptionStatus),
+            )
           )
-        )
-          break;
-        await setTimeout(100, undefined, { signal: waiting });
-      }
-    } catch {
+            return;
+          await setTimeout(100, undefined, { signal: waiting });
+        }
+      });
+    } catch (error) {
       this.context.signal.throwIfAborted();
-      await this.warning('research', null, 'TIMEOUT');
+      if (!(error instanceof Error && error.name === 'AbortError' && waiting.aborted)) throw error;
+      await this.warning('research', null, 'TIMEOUT', 'transcription_wait_timeout');
       return;
     }
     for (const id of this.job.workflow.resourceIds) {
@@ -669,13 +683,15 @@ export class ImportWorkflow {
 
   // Reads linked source content once for fieldset selection and population.
   private async readLinkedSources() {
+    metrics.setJobStage('read_linked_sources');
     const thing = await this.thing();
     const links = await database.rows<{ attachmentId: string }>(
       this.pool,
       'select attachment_id from bt.thing_attachments where thing_id=$1 and owner_id=$2',
       [thing.id, this.job.ownerId],
     );
-    if (links.length > 20) await this.warning('source_limit', null, 'RESEARCH_FAILED');
+    if (links.length > 20)
+      await this.warning('source_limit', null, 'RESEARCH_FAILED', 'source_limit');
     this.sources = (
       await Promise.all(
         links
@@ -694,6 +710,7 @@ export class ImportWorkflow {
   // Checks applicability and records cited public coverage for shared-resource reuse.
   private async assessSources() {
     if (!this.ai.assessResource) return;
+    metrics.setJobStage('assess_source');
     const thing = await this.thing();
     for (const source of this.sources.filter((file) => file.ownerId === null)) {
       const key = 'applicability:' + source.id + ':' + this.sourceFingerprint();
@@ -719,7 +736,7 @@ export class ImportWorkflow {
       } catch (error) {
         if (error instanceof UsagePersistenceError) throw error;
         this.context.signal.throwIfAborted();
-        await this.warning(key, source.sourceUrl);
+        await this.warning(key, source.sourceUrl, 'RESEARCH_FAILED', getImportFailureReason(error));
         this.job.workflow.excludedIds = this.job.workflow.excludedIds.filter(
           (id) => id !== source.id,
         );
@@ -991,6 +1008,7 @@ export class ImportWorkflow {
           continue;
         } finally {
           metrics.recordImportDiagnostic('additional_information_batch', {
+            attachmentId: source.id,
             start,
             end: offset,
             elapsedMs: Date.now() - batchStarted,

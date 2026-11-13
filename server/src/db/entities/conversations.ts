@@ -127,7 +127,11 @@ export async function getOwnedConversationSnapshot(
   return { ...item, messages };
 }
 
-export type ChatJob = MessageRow & { ownerId: string; thingId: string | null };
+export type ChatJob = MessageRow & {
+  ownerId: string;
+  thingId: string | null;
+  queuedAt: string | null;
+};
 
 export async function recoverMessages(db: Database) {
   await database.execute(
@@ -253,7 +257,7 @@ export async function queueMessage(
   db: Database,
   id: string,
   input: Schema['MessageInput'],
-): Promise<boolean> {
+): Promise<'first' | 'queued' | 'retried' | 'unchanged'> {
   const existing = await database.rows<MessageRow>(
     db,
     'select * from bt.messages where conversation_id=$1 and request_id=$2',
@@ -265,7 +269,7 @@ export async function queueMessage(
 
   if (user) ensure(user.text === input.text.trim(), 'Request ID already used', 'CONFLICT');
 
-  if (assistant && assistant.status !== 'FAILED') return false;
+  if (assistant && assistant.status !== 'FAILED') return 'unchanged';
   ensure(
     !(
       await database.execute(
@@ -289,7 +293,7 @@ export async function queueMessage(
     ensure(latest?.id === assistant.id, 'Only the latest response can be retried', 'CONFLICT');
     await database.execute(
       db,
-      "update bt.messages set status='QUEUED',text='',error=null where id=$1",
+      "update bt.messages set status='QUEUED',text='',error=null,queued_at=now() where id=$1",
       [assistant.id],
     );
   } else {
@@ -302,9 +306,9 @@ export async function queueMessage(
       "insert into bt.messages(conversation_id,request_id,role,text,status) values($1,$2,'USER',$3,'COMPLETE'),($1,$2,'ASSISTANT','','QUEUED')",
       [id, input.requestId, input.text.trim()],
     );
-    return count === 0;
+    return count === 0 ? 'first' : 'queued';
   }
-  return false;
+  return 'retried';
 }
 
 /** Finds the conversation already opened for an item's followup. */

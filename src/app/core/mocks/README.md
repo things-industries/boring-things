@@ -1,8 +1,9 @@
 # Frontend mocks
 
-Temporary fills for data or behaviour the API does not provide yet. Each mock is removed when its Backend issue is delivered.
+Temporary fills for missing API behaviour. Use one `<capability>.mock.ts` per capability and name the issue in the header. Mocks fill gaps in view models. Remove the mock when the corresponding API behaviour is ready for the frontend, and update this list.
 
-- One file per missing capability, named `<capability>.mock.ts`.
-- The file starts with a header comment naming the issue: `// Mock for #<issue>: <capability>. Remove when #<issue> is delivered.`
-- Mocks fill gaps in view models only. Feature code maps API responses to view models and fills the missing values from the mock.
-- Record each mock in the Mocks table of `docs/plans/poc-frontend-progress.md` when it is added, and remove the row when it is deleted.
+| Mock                        | File                                             | Issue                                                               |
+| --------------------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| Issue kind and due date     | [issue-kind.mock.ts](issue-kind.mock.ts)         | [#9](https://github.com/things-industries/boring-things/issues/9)   |
+| Creates wait for server IDs | [client-ids.mock.ts](client-ids.mock.ts)         | [#34](https://github.com/things-industries/boring-things/issues/34) |
+| Saved-document card         | [saved-document.mock.ts](saved-document.mock.ts) | [#14](https://github.com/things-industries/boring-things/issues/14) |

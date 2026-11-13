@@ -3516,7 +3516,7 @@
       },
       "Config": {
         "type": "object",
-        "description": "Browser sign-in settings, upload limits and feature availability.",
+        "description": "Browser sign-in settings, upload limits, feature availability and monitoring.",
         "required": [
           "logtoEndpoint",
           "logtoAppId",
@@ -3554,6 +3554,23 @@
           },
           "chatEnabled": {
             "type": "boolean"
+          },
+          "sentry": {
+            "type": "object",
+            "description": "Public browser monitoring configuration.",
+            "required": ["dsn", "environment"],
+            "properties": {
+              "dsn": {
+                "type": "string"
+              },
+              "environment": {
+                "type": "string"
+              },
+              "release": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

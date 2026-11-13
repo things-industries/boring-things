@@ -8,7 +8,7 @@ GitHub Actions validates pull requests and pushes to `main`. Render deploys `mai
 2. Render builds the same commit using `render.yaml`.
 3. After compilation succeeds, the final build step `pnpm deploy:prepare` applies pending Supabase migrations, upserts registry metadata and creates or verifies the private attachment bucket. The build fails if preparation fails.
 4. Render starts the compiled application and checks `/health`, which checks database connectivity.
-5. The replacement process waits for the database runner lock. The old process aborts and finishes active work before releasing that lock. Queued jobs can then run on the replacement; interrupted jobs require user retry.
+5. The replacement process waits for the database runner lock. The old process aborts and finishes active work before releasing that lock. The replacement recovers work from persisted job state and starts the queue. See [execution and recovery](imports.md#execution-and-recovery).
 
 Use the Render workspace's **Wait** overlapping deploy policy. Run production migrations through this release path; coordinate any manual deployment preparation so it cannot overlap. Migration or seed failure stops deployment. Already-applied migrations remain applied when a later step fails.
 
@@ -35,7 +35,7 @@ Use a dedicated project with PostgreSQL 17. Inspect its migration history before
 
 The Blueprint uses one Free instance in Frankfurt, the nearest available Render region to the initial London Supabase project. Render provides `PORT`; the Blueprint sets `HOST=0.0.0.0` and disables sample data.
 
-Free services sleep after 15 minutes without inbound traffic and take about a minute to wake. They may also restart at any time. Queued jobs remain in PostgreSQL and resume on wake; interrupted imports and chat require user retry. Attachments remain in Supabase Storage. The workspace shares 750 Free instance hours per month across its Free services, including any Travel Things service in the same workspace. Bandwidth and build-minute limits also apply; monitor these in Render billing. See [Free service limits](https://render.com/docs/free).
+Free services sleep after 15 minutes without inbound traffic and take about a minute to wake. They may also restart at any time. Queued jobs remain in PostgreSQL and resume on wake. Attachments remain in Supabase Storage. The workspace shares 750 Free instance hours per month across its Free services, including any Travel Things service in the same workspace. Bandwidth and build-minute limits also apply; monitor these in Render billing. See [Free service limits](https://render.com/docs/free).
 
 Configure production values in Render. Keep local `.env` and its `DATABASE_URL` pointing at the local database. The Blueprint's build command handles hosted preparation without a local production configuration file. For optional manual hosted preparation, put the production values in ignored `.env.render` with file permissions restricted to the owner. Do not commit or print that file.
 
@@ -60,6 +60,14 @@ After the deployment changes are merged and `main` passes CI:
 A new Blueprint can perform an initial deployment during creation. Prepare all credentials and inspect migration history before creating it.
 
 For an existing Blueprint, sync `render.yaml` after merging changes. Confirm the service shows **Free** compute and an empty **Pre-Deploy Command**; clear any retained pre-deploy command in the service settings. The build command must end with `corepack pnpm deploy:prepare`.
+
+## Sentry monitoring
+
+Set `SENTRY_DSN` to the `boring-things-server` DSN and `SENTRY_FRONTEND_DSN` to the `boring-things-frontend` DSN in the Render service environment. Each SDK uses `NODE_ENV` for the event environment and `RENDER_GIT_COMMIT` for the release. With `NODE_ENV=production`, each SDK starts at a 10% trace sample rate.
+
+After deploying, check that Sentry receives the server's API and queue metrics and that Langfuse observations appear under `production`. Match the release to the deployed commit. Set the Langfuse project keys and environment in Render as described in the [observability guide](observability.md#configuration).
+
+Readable production TypeScript stack traces require source maps from the same build. Generate Angular script maps and server TypeScript maps, upload each set to its Sentry project with a build-only `SENTRY_AUTH_TOKEN`, and remove the browser maps from the public output before deploying. See [Angular source maps](https://docs.sentry.io/platforms/javascript/guides/angular/sourcemaps/uploading/) and [Node source maps](https://docs.sentry.io/platforms/javascript/guides/node/sourcemaps/).
 
 ## Verification and recovery
 

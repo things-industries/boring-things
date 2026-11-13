@@ -13,6 +13,7 @@ import type { JobRunner } from '../application/jobs/runner.js';
 import type { Assistant } from '../application/conversations/assistant.js';
 import type { ApplicationEvents } from '../application/events.js';
 import { sseHeaders, type ServerSentEvents } from '../http/sse.js';
+import { getRequestContext } from '../http/logging.js';
 
 interface Options {
   db: pg.Pool;
@@ -41,11 +42,32 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
 
   route(app, 'POST', '/api/conversations/{id}/messages', async (req, reply) => {
     ensure(enabled, 'Assistant is not configured', 'UNAVAILABLE');
-    const result = await enqueueMessage(db, req.ownerId, req.params.id, req.body);
+    const { outcome, conversation } = await enqueueMessage(
+      db,
+      req.ownerId,
+      req.params.id,
+      req.body,
+    );
+    const message = conversation.messages.find(
+      (item) => item.role === 'ASSISTANT' && item.requestId === req.body.requestId,
+    );
+    if (outcome !== 'unchanged' && message)
+      req.log.info(
+        {
+          event: outcome === 'retried' ? 'job_retried' : 'job_queued',
+          ...getRequestContext(req),
+          jobKind: 'chat',
+          jobId: message.id,
+          messageId: message.id,
+          conversationId: conversation.id,
+          thingId: conversation.thingId,
+        },
+        'Assistant turn queued',
+      );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     reply.code(202);
-    return result;
+    return conversation;
   });
 
   route(app, 'GET', '/api/conversations/{id}/stream', async (req, reply) => {
@@ -57,6 +79,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
       .send(
         sse.stream(subscription, {
           event: 'conversation.snapshot',
+          diagnostics: { request: req, conversationId: req.params.id },
           snapshot: () => assistant.snapshot(req.ownerId, req.params.id),
           eventFor: (event) =>
             event.type === 'conversation.delta'

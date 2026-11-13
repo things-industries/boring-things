@@ -9,6 +9,7 @@ import { createTestApp, type TestApp } from '../support/test-app.js';
 import type { Schema } from '../../../shared/model.js';
 import type { ImportAi } from '../../src/application/import/types.js';
 import * as googleVision from '../../src/providers/google-vision/index.js';
+import { setDiagnosticLogger } from '../../src/metrics.js';
 
 // Uploads a fixture and waits for its persisted transcription outcome.
 async function uploadAttachment(
@@ -49,7 +50,7 @@ async function uploadAttachment(
   throw new Error('Fixture OCR timed out');
 }
 
-test('image analysis receives OCR text and the original image while OCR failures stop analysis', async () => {
+test('image analysis receives OCR text and the original image while OCR failures stop analysis', async (t) => {
   const content = await createCanvas(300, 300).encode('png');
   const text = 'Model: AX1/02\nZ-Nr: 00026\n';
   let outcome = 'text',
@@ -64,6 +65,15 @@ test('image analysis receives OCR text and the original image while OCR failures
       return outcome === 'empty' ? '' : text;
     },
   });
+  const warnings: unknown[] = [];
+  setDiagnosticLogger({
+    info: () => {},
+    warn: () => {},
+    error: (details: unknown, message?: string) => {
+      if (message === 'Background job finished') warnings.push(details);
+    },
+  });
+  t.after(() => setDiagnosticLogger(undefined));
   try {
     const ai: ImportAi = env.importAi;
     ai.summarizeAttachment = async ({ text: input, image }) => {
@@ -96,9 +106,20 @@ test('image analysis receives OCR text and the original image while OCR failures
     outcome = 'empty';
     assert.equal((await upload('EMPTY')).transcription, '');
     outcome = 'missing-key';
-    await upload('FAILED');
+    const missingKey = await upload('FAILED');
     outcome = 'error';
-    await upload('FAILED');
+    const ocrFailure = await upload('FAILED');
+    assert.deepEqual(
+      warnings.map((warning) => {
+        assert.ok(warning && typeof warning === 'object');
+        return ['jobId', 'stage', 'reason', 'status'].map((key) => Reflect.get(warning, key));
+      }),
+      [
+        [missingKey.id, 'ocr', 'ocr_credentials_missing', 'FAILED'],
+        [ocrFailure.id, 'ocr', 'transcription_failed', 'FAILED'],
+      ],
+    );
+    assert.doesNotMatch(JSON.stringify(warnings), /Fixture OCR failure/);
     assert.equal(ocrCalls, 4);
     assert.equal(aiCalls, 2);
   } finally {

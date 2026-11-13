@@ -12,6 +12,7 @@ import { AiTask, responseText } from '../../src/providers/ai/tasks/task.js';
 import { readImageText } from '../../src/providers/google-vision/index.js';
 import { summarizeProviderCalls, type RecordedObservation } from '../../src/metrics-report.js';
 import type { Usage } from '../../src/application/import/types.js';
+import { ReportedJobError } from '../../src/application/jobs/runner.js';
 
 class TextTask extends AiTask<never, string> {
   protected readonly model = 'gpt-6-luna';
@@ -43,7 +44,12 @@ test('concurrent jobs isolate traces and record provider usage without source co
     await sdk.shutdown();
   });
   const warnings: unknown[] = [];
-  metrics.setDiagnosticLogger({ info: () => {}, warn: (data: unknown) => warnings.push(data) });
+  const errors: unknown[] = [];
+  metrics.setDiagnosticLogger({
+    info: () => {},
+    warn: (data: unknown) => warnings.push(data),
+    error: (data: unknown) => errors.push(data),
+  });
   t.after(() => metrics.setDiagnosticLogger(undefined));
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
@@ -70,7 +76,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   const recorded: Partial<Usage>[] = [];
   await Promise.all(
     ids.map((id) =>
-      metrics.withJob('import', id, async () => {
+      metrics.withJob('import', { id: id }, async () => {
         for (let turn = 0; turn < 2; turn++)
           await new TextTask({
             signal: new AbortController().signal,
@@ -78,6 +84,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
               recorded.push(usage);
             },
           }).run();
+        return { status: 'COMPLETE' };
       }),
     ),
   );
@@ -113,7 +120,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
     assert.equal(unfinished.length, 2);
     for (const { attributes: details } of unfinished) {
       assert.equal(details[`${attributes.OBSERVATION_METADATA}.toolStatus`], '"incomplete"');
-      assert.equal(details[`${attributes.OBSERVATION_METADATA}.requestId`], '"response-fixture"');
+      assert.equal(details[`${attributes.OBSERVATION_METADATA}.responseId`], '"response-fixture"');
       assert.equal(details[attributes.OBSERVATION_COST_DETAILS], undefined);
     }
   }
@@ -149,7 +156,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   exporter.reset();
   const failure = new Error('private failure details');
   await assert.rejects(
-    metrics.withJob('attachment', ids[0], () =>
+    metrics.withJob('attachment', { id: ids[0] }, () =>
       metrics.withTask('ocr', () =>
         metrics.withProviderCall(
           { task: 'ocr', provider: 'google_vision', costUsd: 0.0015 },
@@ -159,7 +166,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
         ),
       ),
     ),
-    (error) => error === failure,
+    (error) => error instanceof ReportedJobError && error.cause === failure,
   );
   await processor.forceFlush();
   const failed = exporter.getFinishedSpans();
@@ -225,13 +232,14 @@ test('concurrent jobs isolate traces and record provider usage without source co
       },
     ),
   );
-  await metrics.withJob('import', ids[0], async () => {
+  await metrics.withJob('import', { id: ids[0] }, async () => {
     metrics.setJobEntity({ type: 'thing', id: ids[1], name: 'Fixture dishwasher' });
     await assert.rejects(
       new TextTask({ signal: new AbortController().signal, record: async () => {} }).run(),
       /ai_http_429/,
     );
-    metrics.recordImportOutcome([{ stage: 'purchasables', reason: 'ai_http_429' }]);
+    metrics.recordImportWarning({ stage: 'purchasables', reason: 'ai_http_429' });
+    return { status: 'COMPLETE', warningCount: 1 };
   });
   await processor.forceFlush();
   const diagnostics = exporter.getFinishedSpans();
@@ -266,24 +274,62 @@ test('concurrent jobs isolate traces and record provider usage without source co
   await processor.forceFlush();
   assert.equal(exporter.getFinishedSpans().length, 0);
 
+  await metrics.withJob('attachment', { id: ids[1] }, async () => {
+    return {
+      status: 'FAILED',
+      mediaType: 'application/pdf',
+      byteSize: 4096,
+      stage: 'text_extraction',
+      reason: 'pdf_parse_timeout',
+    };
+  });
+  await processor.forceFlush();
+  const attachment = exporter.getFinishedSpans().find((span) => span.name === 'process_attachment');
+  assert(attachment);
+  assert.equal(attachment.spanContext().traceId, metrics.getJobTraceId(ids[1]));
+  assert.equal(attachment.attributes[attributes.OBSERVATION_LEVEL], 'ERROR');
+  assert.equal(attachment.attributes[attributes.OBSERVATION_STATUS_MESSAGE], 'pdf_parse_timeout');
+  assert.deepEqual(JSON.parse(String(attachment.attributes[attributes.OBSERVATION_OUTPUT])), {
+    status: 'FAILED',
+    stage: 'text_extraction',
+    reason: 'pdf_parse_timeout',
+  });
+  assert.partialDeepStrictEqual(errors.at(-1), {
+    event: 'job_finished',
+    jobId: ids[1],
+    status: 'FAILED',
+    reason: 'pdf_parse_timeout',
+  });
+
   // Two messages and a retry share the conversation session but use one trace per message.
+  exporter.reset();
   const conversationId = '20000000-0000-4000-8000-000000000001';
   for (const messageId of [ids[0], ids[1], ids[0]]) {
-    await metrics.withChatTurn(messageId, conversationId, async () => {
+    await metrics.withChatTurn({ id: messageId, conversationId, ownerId: ids[0] }, async () => {
       metrics.recordProviderCall({
         task: 'assistant_response',
         provider: 'openai',
         model: 'gpt-6-luna',
         status: 'success',
       });
+      return messageId === ids[1]
+        ? { status: 'FAILED', stage: 'respond', reason: 'deadline' }
+        : { status: 'COMPLETE' };
     });
   }
   await processor.forceFlush();
   const chatSpans = exporter.getFinishedSpans();
   assert.equal(chatSpans.length, 6);
+  const failedChat = chatSpans.find(
+    (span) =>
+      span.name === 'process_chat' && span.spanContext().traceId === metrics.getJobTraceId(ids[1]),
+  );
+  assert.equal(failedChat?.attributes[attributes.OBSERVATION_LEVEL], 'ERROR');
+  assert.equal(failedChat?.attributes[attributes.OBSERVATION_STATUS_MESSAGE], 'deadline');
   assert(
     chatSpans.every((span) => span.attributes[attributes.TRACE_SESSION_ID] === conversationId),
   );
+  assert(chatSpans.every((span) => span.attributes[attributes.TRACE_USER_ID] === ids[0]));
   assert(
     chatSpans.every(
       (span) =>

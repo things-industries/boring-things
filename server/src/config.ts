@@ -11,6 +11,8 @@ const defaults = {
   TEST_DATABASE_URL: localDatabaseUrl,
   LOG_FORMAT: '',
   LOG_LEVEL: 'info',
+  SENTRY_DSN: '',
+  SENTRY_FRONTEND_DSN: '',
   BLOB_STORAGE: 'local',
   BLOB_DIRECTORY: '.data/blobs',
   S3_ENDPOINT: '',

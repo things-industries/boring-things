@@ -11,17 +11,10 @@ import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { Registry } from '../registry/registry.js';
-import type {
-  ChatAi,
-  ChatToolResult,
-  ChatFailure,
-  ChatToolCall,
-  ChatTools,
-  ResearchAnswer,
-} from './types.js';
+import type { ChatAi, ChatToolResult, ChatToolCall, ChatTools, ResearchAnswer } from './types.js';
 import { chatThingContext } from './context.js';
 import { mergeResourceCards } from '../../../../shared/resource-cards.js';
-import { blankUsage } from '../import/types.js';
+import { blankUsage, getImportFailureReason } from '../import/types.js';
 import * as conversationsDb from '../../db/entities/conversations.js';
 import type { ChatJob } from '../../db/entities/conversations.js';
 import * as thingsDb from '../../db/entities/things.js';
@@ -46,7 +39,6 @@ export class Assistant {
     private blobs: BlobStorage,
     private ai: ChatAi | undefined,
     private events: ApplicationEvents,
-    private reportFailure: (failure: ChatFailure) => void,
   ) {}
 
   async snapshot(owner: string, id: string) {
@@ -71,7 +63,7 @@ export class Assistant {
     if (!this.ai) return false;
     const job = await conversationsDb.getNextQueuedMessage(this.pool);
     if (!job) return false;
-    await metrics.withChatTurn(job.id, job.conversationId, () => this.run(job, shutdown));
+    await metrics.withChatTurn(job, () => this.run(job, shutdown));
     return true;
   }
 
@@ -84,6 +76,7 @@ export class Assistant {
     const started = Date.now();
     const elapsed = usage.elapsedMs;
     let cards: Schema['ResourceCard'][] = [];
+    let timeToFirstTokenMs: number | undefined;
     const refs: Schema['SourceRef'][] = [];
     // Retrieval grants this turn access to cards and tools; model-supplied IDs alone do not authorise resources.
     const allowedThings = new Map<string, Schema['Thing']>();
@@ -118,6 +111,7 @@ export class Assistant {
 
     const readThing = async (id: string) => {
       const thing = await detail(this.pool, job.ownerId, id, this.registry);
+      if (id === job.thingId) metrics.setJobEntity({ type: 'thing', id, name: thing.name });
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
       const resources = await conversationsDb.getOwnedChatResources(this.pool, job.ownerId, id);
@@ -385,6 +379,7 @@ export class Assistant {
     };
 
     try {
+      metrics.setJobStage('load_context');
       await conversationsDb.saveMessage(this.pool, job, { status: 'PROCESSING' });
       this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
       const history = await conversationsDb.getOwnedConversationSnapshot(
@@ -402,17 +397,17 @@ export class Assistant {
         if (receipt.card) addCards(receipt.card);
         addCards(...(receipt.cards ?? []));
       }
+      const { activityContext } = await conversationsDb.getOwnedConversationOrThrow(
+        this.pool,
+        job.ownerId,
+        job.conversationId,
+      );
+      metrics.setJobStage('respond');
       const text = await awaitWithSignal(
         this.ai!.respond(
           {
             messages,
-            activityContext: (
-              await conversationsDb.getOwnedConversationOrThrow(
-                this.pool,
-                job.ownerId,
-                job.conversationId,
-              )
-            ).activityContext,
+            activityContext,
             thingId: job.thingId,
             completedWrites: job.toolResults.filter(
               (r) => r.key.startsWith('create_') || r.key === 'update_thing_fields',
@@ -424,6 +419,8 @@ export class Assistant {
             signal,
             record,
             delta: (text) => {
+              if (text && timeToFirstTokenMs === undefined)
+                timeToFirstTokenMs = Date.now() - started;
               signal.throwIfAborted();
               ensure(
                 typeof text === 'string' && live.text.length + text.length <= 100000,
@@ -445,50 +442,61 @@ export class Assistant {
       );
       signal.throwIfAborted();
       ensure(text.trim() && text.length <= 100000, 'Empty assistant answer');
+      metrics.setJobStage('save_outcome');
+      usage.elapsedMs = elapsed + Date.now() - started;
       await conversationsDb.saveMessage(this.pool, job, {
         text,
         cards,
         sourceRefs: [...new Map(refs.map((r) => [JSON.stringify(r), r])).values()],
         status: 'COMPLETE',
         error: null,
+        usage,
       });
+      return {
+        status: 'COMPLETE',
+        textCharacters: text.length,
+        cardCount: cards.length,
+        sourceCount: refs.length,
+        timeToFirstTokenMs,
+      } as const;
     } catch (error) {
+      const stage = metrics.getJobStage();
       const code = shutdown.aborted
         ? 'interrupted'
         : signal.aborted
           ? 'timeout'
           : 'assistant_failed';
-      this.reportFailure({
-        conversationId: job.conversationId,
-        messageId: job.id,
-        kind:
-          error instanceof ApplicationError
-            ? error.kind
-            : error instanceof Error
-              ? error.name
-              : code,
-        message:
-          error instanceof ApplicationError
-            ? error.message
-            : error instanceof Error &&
-                /^(chat_provider_failed|tool_limit|ai_http_\d+)$/.test(error.message)
-              ? error.message
-              : code,
-      });
+      const failureReason = getImportFailureReason(error);
+      const reason =
+        code === 'interrupted'
+          ? 'shutdown'
+          : code === 'timeout'
+            ? 'deadline'
+            : failureReason === 'import_failed'
+              ? code
+              : failureReason;
+      metrics.setJobStage('save_outcome');
+      usage.elapsedMs = elapsed + Date.now() - started;
       await conversationsDb.saveMessage(this.pool, job, {
         text: live.text,
         cards,
         sourceRefs: [...new Map(refs.map((r) => [JSON.stringify(r), r])).values()],
         status: 'FAILED',
         error: code,
+        usage,
       });
+      return {
+        status: 'FAILED',
+        stage,
+        reason,
+        textCharacters: live.text.length,
+        timeToFirstTokenMs,
+        unexpectedError:
+          reason.startsWith('database_') || reason === 'assistant_failed' ? error : undefined,
+      } as const;
     } finally {
-      try {
-        await record({});
-      } finally {
-        this.live.delete(key);
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-      }
+      this.live.delete(key);
+      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
     }
   }
 }

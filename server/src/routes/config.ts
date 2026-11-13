@@ -11,6 +11,7 @@ interface Options {
 }
 
 const configRoutes: FastifyPluginAsync<Options> = async (app, { chatEnabled, importEnabled }) => {
+  const dsn = getEnv('SENTRY_FRONTEND_DSN', { optional: true });
   route(app, 'GET', '/api/config', async () => ({
     logtoEndpoint: getEnv('LOGTO_ENDPOINT'),
     logtoAppId: getEnv('LOGTO_APP_ID'),
@@ -20,6 +21,13 @@ const configRoutes: FastifyPluginAsync<Options> = async (app, { chatEnabled, imp
     sampleDataEnabled: getEnv('ENABLE_SAMPLE_DATA'),
     chatEnabled,
     importEnabled,
+    ...(dsn && {
+      sentry: {
+        dsn,
+        environment: getEnv('NODE_ENV'),
+        release: getEnv('RENDER_GIT_COMMIT', { optional: true }),
+      },
+    }),
   }));
 };
 

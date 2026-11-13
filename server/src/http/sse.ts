@@ -1,4 +1,8 @@
 import { Readable } from 'node:stream';
+import type { FastifyRequest } from 'fastify';
+import { getRequestContext } from './logging.js';
+import { getFailureReason } from '../application/errors.js';
+import { applicationMetrics, captureFailure } from '../sentry.js';
 
 export const sseHeaders = {
   'Content-Type': 'text/event-stream',
@@ -15,6 +19,12 @@ interface SnapshotOptions<T, E> {
   event: string;
   snapshot(): Promise<T>;
   revision?(snapshot: T): number;
+  diagnostics?: {
+    request: FastifyRequest;
+    importId?: string;
+    thingId?: string;
+    conversationId?: string;
+  };
   // Notifications without an outgoing event trigger a fresh snapshot.
   eventFor?(notification: E): StreamEvent | undefined;
 }
@@ -35,17 +45,44 @@ export class ServerSentEvents {
       dirty = true,
       revision = -1;
     let unsubscribe = () => {};
-    const close = () => {
+    const started = Date.now();
+    const close = (reason = 'shutdown', error?: unknown) => {
       if (closed) return;
       closed = true;
       unsubscribe();
       clearInterval(keepalive);
       clearTimeout(renew);
-      this.active.delete(close);
+      this.active.delete(shutdown);
       stream.push(null);
+      const diagnostic = options.diagnostics;
+      if (!diagnostic) return;
+      const { request, ...entity } = diagnostic;
+      applicationMetrics.count('sse.closed', 1, { attributes: { stream: options.event, reason } });
+      if (error !== undefined || reason === 'backpressure') {
+        const context = getRequestContext(request);
+        const failureReason = error === undefined ? reason : getFailureReason(error);
+        request.log.warn(
+          {
+            event: 'sse_closed',
+            ...context,
+            ...entity,
+            stream: options.event,
+            reason,
+            failureReason,
+            elapsedMs: Date.now() - started,
+          },
+          'Event stream closed',
+        );
+        if (error !== undefined && failureReason !== 'not_found')
+          captureFailure(error, 'sse_' + reason, failureReason, {
+            requestId: context.requestId,
+            route: context.route,
+          });
+      }
     };
+    const shutdown = () => close();
     const write = (value: string) => {
-      if (!closed && !stream.push(value)) close();
+      if (!closed && !stream.push(value)) close('backpressure');
     };
     const send = async () => {
       if (closed || running) return;
@@ -63,8 +100,8 @@ export class ServerSentEvents {
             );
           }
         } while (dirty && !closed);
-      } catch {
-        close();
+      } catch (error) {
+        close('snapshot_failed', error);
       } finally {
         running = false;
       }
@@ -75,9 +112,9 @@ export class ServerSentEvents {
       void send();
     }, 10000);
     // Reconnecting renews bearer authentication.
-    const renew = setTimeout(close, 55000);
-    this.active.add(close);
-    stream.once('close', close);
+    const renew = setTimeout(() => close('renewal'), 55000);
+    this.active.add(shutdown);
+    stream.once('close', () => close('client_disconnect'));
     try {
       // Subscribe before the first read so changes during that read cause another snapshot.
       unsubscribe = subscribe((notification) => {
@@ -89,8 +126,8 @@ export class ServerSentEvents {
             dirty = true;
             void send();
           }
-        } catch {
-          close();
+        } catch (error) {
+          close('event_failed', error);
         }
       });
       if (closed) unsubscribe();

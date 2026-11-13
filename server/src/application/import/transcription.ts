@@ -4,7 +4,7 @@ import { getEnv } from '../../config.js';
 import type pg from 'pg';
 import type { BlobStorage } from '../../providers/blobs/index.js';
 import type { ApplicationEvents } from '../events.js';
-import { blankUsage } from './types.js';
+import { blankUsage, getImportFailureReason } from './types.js';
 import { mapValidResults, normalizeWhitespace } from './evidence.js';
 import type { Schema } from '../../../../shared/model.js';
 import type { ImportAi, AttachmentSummary } from './types.js';
@@ -12,12 +12,30 @@ import * as database from '../../db/connection.js';
 import * as attachmentsDb from '../../db/entities/attachments.js';
 import { updateAttachmentMetadata, validateAttachmentMetadata } from '../attachments.js';
 import { ensure } from '../errors.js';
-import { pdfText } from '../../lib/pdf.js';
-import { maxDocumentBytes, maxDocumentTextLength } from '../../lib/document-limits.js';
+import { PdfParseError, pdfText } from '../../lib/pdf.js';
+import {
+  DocumentSizeError,
+  maxDocumentBytes,
+  maxDocumentTextLength,
+} from '../../lib/document-limits.js';
 import * as googleVision from '../../providers/google-vision/index.js';
 import * as metrics from '../../metrics.js';
 
 const imageAnalysisTextThreshold = 500;
+
+// Classifies failures without exposing exception messages, storage keys or document contents.
+function getTranscriptionFailureReason(error: unknown) {
+  if (error instanceof PdfParseError) return error.reason;
+  if (error instanceof DocumentSizeError) return 'too_large';
+  if (error instanceof Error) {
+    if (error.name === 'TimeoutError') return 'timeout';
+    if (error.name === 'NoSuchKey' || ('code' in error && error.code === 'ENOENT'))
+      return 'blob_missing';
+    if (error.message === 'Missing GOOGLE_VISION_API_KEY') return 'ocr_credentials_missing';
+  }
+  const reason = getImportFailureReason(error);
+  return reason === 'import_failed' ? 'transcription_failed' : reason;
+}
 
 export class AttachmentTranscriptionProcessor {
   constructor(
@@ -39,25 +57,34 @@ export class AttachmentTranscriptionProcessor {
       attachmentsDb.claimPendingTranscription(db),
     );
     if (!claimed) return false;
-    const { file, ownerId } = claimed;
-    if (ownerId === null && file.mediaType.startsWith('image/')) {
-      await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'SKIPPED');
-      return true;
-    }
-    return metrics.withJob('attachment', file.id, async () => {
+    const { file, ownerId, queuedAt } = claimed;
+    const { id, mediaType, byteSize } = file;
+    await metrics.withJob('attachment', { id, ownerId, queuedAt }, async () => {
+      if (ownerId === null && file.mediaType.startsWith('image/')) {
+        metrics.setJobStage('save_outcome');
+        await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'SKIPPED');
+        return { status: 'SKIPPED', reason: 'display_image', mediaType, byteSize };
+      }
       const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('IMPORT_TIMEOUT_MS'))]);
       const usage = file.transcriptionUsage ?? blankUsage(),
         started = Date.now();
       const elapsed = usage.elapsedMs;
       let requests = usage.entries?.length ?? 0;
       let extractedText: string | undefined;
+      let ocrPageCount = 0;
+      let pageCount = file.pageCount;
+      let stage = 'storage_read';
+      let outcome: metrics.JobOutcome;
       try {
-        const chunks: Buffer[] = [];
-        for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
-          signal.throwIfAborted();
-          chunks.push(Buffer.from(chunk));
-        }
-        const content = Buffer.concat(chunks);
+        const content = await metrics.withStage('read_attachment', async () => {
+          const chunks: Buffer[] = [];
+          for await (const chunk of await this.blobs.read(file.storageKey, signal)) {
+            signal.throwIfAborted();
+            chunks.push(Buffer.from(chunk));
+          }
+          return Buffer.concat(chunks);
+        });
+        stage = 'text_extraction';
         ensure(content.length <= maxDocumentBytes, 'Attachment too large', 'TOO_LARGE');
         const context = {
           signal,
@@ -78,20 +105,25 @@ export class AttachmentTranscriptionProcessor {
           },
         };
         const readImageText = async (bytes: Buffer) => {
+          stage = 'ocr';
+          ocrPageCount++;
           const text = await this.readImageText(bytes, signal);
+          stage = 'save_ocr_usage';
           await context.record({
             toolCalls: [
               { name: 'google_vision_ocr', resultCount: text.trim() ? 1 : 0, truncated: false },
             ],
           });
+          stage = 'text_extraction';
           return text;
         };
 
         // Complete text extraction before asking the model for source analysis.
         let text: string;
-        let pageCount = file.pageCount;
         if (file.mediaType === 'application/pdf')
-          ({ text, pageCount } = await pdfText(content, signal, readImageText));
+          ({ text, pageCount } = await metrics.withStage('extract_pdf_text', () =>
+            pdfText(content, signal, readImageText),
+          ));
         else if (file.mediaType.startsWith('image/')) text = await readImageText(content);
         else {
           ensure(file.mediaType === 'text/plain', 'Unsupported attachment type');
@@ -100,6 +132,7 @@ export class AttachmentTranscriptionProcessor {
         ensure(text.length <= maxDocumentTextLength, 'Attachment text too large', 'TOO_LARGE');
 
         // Commit extracted text before optional model analysis and metadata updates.
+        stage = 'save_text';
         await database.transaction(this.pool, async (db) => {
           await attachmentsDb.saveTranscription(db, ownerId, file.id, {
             text,
@@ -115,6 +148,7 @@ export class AttachmentTranscriptionProcessor {
             ]);
         });
         extractedText = text;
+        stage = 'analysis';
         const image =
           file.mediaType.startsWith('image/') && text.trim().length < imageAnalysisTextThreshold
             ? { filename: file.filename, mediaType: file.mediaType, content }
@@ -149,17 +183,19 @@ export class AttachmentTranscriptionProcessor {
                 : '',
           }))
           .slice(0, 30);
+        stage = 'save_result';
+        const status =
+          !text.trim() && !result.summary?.trim()
+            ? 'EMPTY'
+            : result.status === 'COMPLETE'
+              ? 'COMPLETE'
+              : 'PARTIAL';
         await database.transaction(this.pool, async (db) => {
           await attachmentsDb.saveTranscription(db, ownerId, file.id, {
             text,
             summary: result.summary?.slice(0, 2000) ?? null,
             terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
-            status:
-              !text.trim() && !result.summary?.trim()
-                ? 'EMPTY'
-                : result.status === 'COMPLETE'
-                  ? 'COMPLETE'
-                  : 'PARTIAL',
+            status,
             identifiers,
           });
           if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))
@@ -186,17 +222,39 @@ export class AttachmentTranscriptionProcessor {
             await attachmentsDb.saveAttachmentMetadata(db, null, file);
           }
         });
-      } catch {
+        outcome =
+          status === 'PARTIAL'
+            ? { status, stage: 'analysis', reason: result.status.toLowerCase() }
+            : { status };
+      } catch (error) {
+        if (stage === 'storage_read' && !signal.aborted)
+          metrics.recordDependencyFailure('storage', 'transcription_read', error);
+        const status = extractedText?.trim() ? 'PARTIAL' : 'EMPTY';
+        const reason = signal.aborted
+          ? shutdown.aborted
+            ? 'shutdown'
+            : 'deadline'
+          : getTranscriptionFailureReason(error);
+        metrics.setJobStage('save_outcome');
         if (extractedText !== undefined)
           await attachmentsDb.saveTranscription(this.pool, ownerId, file.id, {
             text: extractedText,
             summary: null,
             terms: [],
             identifiers: [],
-            status: extractedText.trim() ? 'PARTIAL' : 'EMPTY',
+            status,
           });
         else await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
+        outcome = {
+          status: extractedText === undefined ? 'FAILED' : status,
+          stage,
+          reason,
+          mediaType: file.mediaType,
+          byteSize: file.byteSize,
+          unexpectedError: reason.startsWith('database_') ? error : undefined,
+        };
       }
+      metrics.setJobStage('notify');
       await database.execute(
         this.pool,
         `update bt.imports i set updated_at=now() from bt.import_sources s
@@ -206,7 +264,15 @@ export class AttachmentTranscriptionProcessor {
       );
       for (const recipient of await attachmentsDb.affectedOwners(this.pool, file))
         this.events.publish({ type: 'data.changed', ownerId: recipient });
-      return true;
+      return {
+        ...outcome,
+        mediaType,
+        byteSize,
+        pageCount,
+        ocrPageCount,
+        textCharacters: extractedText?.length,
+      };
     });
+    return true;
   }
 }

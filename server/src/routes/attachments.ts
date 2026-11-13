@@ -18,6 +18,9 @@ import type { BlobStorage } from '../providers/blobs/index.js';
 import type { ApplicationEvents } from '../application/events.js';
 import * as database from '../db/connection.js';
 import type { JobRunner } from '../application/jobs/runner.js';
+import { getRequestContext } from '../http/logging.js';
+import { recordDependencyFailure } from '../metrics.js';
+import { applicationMetrics } from '../sentry.js';
 
 interface Options {
   db: pg.Pool;
@@ -75,6 +78,19 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
 
     ensure(file, 'Choose a file');
     const result = await uploadAttachment(db, blobs, req.ownerId, file, req.query.thingId);
+    req.log.info(
+      {
+        event: 'job_queued',
+        ...getRequestContext(req),
+        jobKind: 'attachment',
+        jobId: result.id,
+        attachmentId: result.id,
+        thingId: req.query.thingId,
+        mediaType: file.type,
+        byteSize: file.buffer.length,
+      },
+      'Attachment uploaded',
+    );
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
     runner.wake();
     return reply.code(201).send(result);
@@ -96,6 +112,25 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   });
   route(app, 'GET', '/api/attachments/{id}/content', async (req, reply) => {
     const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, req.ownerId, req.params.id);
+    const started = performance.now();
+    const content = await blobs.read(file.storageKey).catch((error: unknown) => {
+      recordDependencyFailure('storage', 'read', error, {
+        ownerId: req.ownerId,
+        attachmentId: file.id,
+      });
+      throw error;
+    });
+    content.once('error', (error: unknown) => {
+      recordDependencyFailure('storage', 'read_body', error, {
+        ownerId: req.ownerId,
+        attachmentId: file.id,
+      });
+    });
+    content.once('end', () =>
+      applicationMetrics.distribution('storage.download.duration', performance.now() - started, {
+        unit: 'millisecond',
+      }),
+    );
     return reply
       .header('X-Content-Type-Options', 'nosniff')
       .header('Content-Security-Policy', "default-src 'none'; sandbox")
@@ -105,7 +140,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
       )
       .type(file.mediaType)
       .code(200)
-      .send(await blobs.read(file.storageKey));
+      .send(content);
   });
   route(app, 'DELETE', '/api/attachments/{id}', async (req, reply) => {
     await removeAttachment(db, blobs, req.ownerId, req.params.id);
@@ -114,7 +149,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   });
   for (const method of ['PUT', 'DELETE'] as const)
     route(app, method, '/api/attachments/{id}/things/{thingId}', async (req, reply) => {
-      await setAttachmentLink(
+      const queued = await setAttachmentLink(
         db,
         req.ownerId,
         req.params.id,
@@ -122,6 +157,20 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
         method === 'PUT',
         importEnabled,
       );
+      if (queued)
+        req.log.info(
+          {
+            event: 'job_queued',
+            ...getRequestContext(req),
+            jobKind: 'import',
+            jobId: queued.importId,
+            importId: queued.importId,
+            attachmentId: req.params.id,
+            thingId: queued.thingId,
+            status: queued.status,
+          },
+          'Linked attachment import submitted',
+        );
       events.publish({ type: 'data.changed', ownerId: req.ownerId });
       if (method === 'PUT' && importEnabled) runner.wake();
       return reply.code(204).send();

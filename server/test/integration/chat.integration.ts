@@ -15,6 +15,7 @@ import * as database from '../../src/db/connection.js';
 import * as registrySeedDb from '../../src/db/seeds/registry.js';
 import { ApplicationError } from '../../src/application/errors.js';
 import type { ChatFieldInput } from '../../src/application/conversations/fields.js';
+import { setDiagnosticLogger } from '../../src/metrics.js';
 
 const url = new URL(getEnv('TEST_DATABASE_URL'));
 assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
@@ -245,6 +246,8 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   t.mock.method(app.log, 'error', (failure: unknown) => {
     failures.push(failure);
   });
+  setDiagnosticLogger(app.log);
+  t.after(() => setDiagnosticLogger(undefined));
   const { thing, chat } = await setup();
   const input = {
     text: 'Create a filter check',
@@ -258,12 +261,15 @@ test('chat writes, retry receipts, multiple messages, owner isolation and delete
   );
   const failed = await wait(chat.id);
   assert.equal(failed.message.status, 'FAILED');
-  assert.deepEqual(failures, [
+  assert.partialDeepStrictEqual(failures, [
     {
+      event: 'job_finished',
+      jobKind: 'chat',
       conversationId: chat.id,
-      messageId: failed.message.id,
-      kind: 'Error',
-      message: 'assistant_failed',
+      jobId: failed.message.id,
+      status: 'FAILED',
+      stage: 'respond',
+      reason: 'assistant_failed',
     },
   ]);
   assert.equal(failed.message.cards.filter((c) => c.type === 'TASK').length, 1);

@@ -2,6 +2,14 @@
 
 Dated measurements on public or synthetic sources. Each report states its coverage and limits.
 
+## Evaluation method
+
+- Measure quality, median and tail latency, failure rate and full-task cost for each Import stage, including tool and retrieval costs, retries and checkpoint reuse. Record input sizes and source coverage, model and provider versions, prompt and schema versions, request counts, tokens, latency and measured or dated estimated costs.
+- Use labelled synthetic or redacted fixtures. Include ambiguous and duplicate instances, unrelated attachments, conflicting owner values, long and multilingual sources, family manuals and future multi-Thing imports. Score candidate recall and precision, incorrect merges, fieldset and field selection, unwanted custom fields, provenance, resource applicability, retrieval success and suggestion compatibility. Incorrect instance merges and private-data exposure block adoption.
+- Compare configurations on the same full tasks, including validation, retry and fallback. Set thresholds in advance and use held-out data for the adoption decision. Compare page-aware batches and reuse with a separate identity pass when testing time to first Thing. Record omitted source regions so partial scans cannot be mistaken for complete coverage.
+- Evaluate models by task. Candidates include smaller models for extraction and mapping, Jev for decisions over supplied evidence, and Firecrawl for retrieval. Review schema fit, citations, privacy, retention, regional availability and failure handling before selecting a provider. See the [research sources](sources.md#import-provider-evaluation--4-october-2026).
+- Run offline fixtures separately. Follow [metered AI validation](../../agents/agent-behaviour.md#metered-ai-validation) for paid evaluations and use the [observability guide](../../setup/observability.md) to collect request counts and costs.
+
 ## PDF text validation
 
 On 5 October 2026, the [Samsung RF65A967FS9 multilingual manual](https://org.downloadcenter.samsung.com/downloadfile/ContentsFile.aspx?CDSite=UNI_UK&OriginYN=N&ModelType=N&ModelName=RF65A967FS9&CttFileID=8203148&CDCttType=UM&VPath=UM%2F202106%2F20210629104532259%2FT-TYPE_RF9000A_DA68-04023P-01_EN_IT_ES_PT_EL.pdf) (45,792,215 bytes, 428 pages) produced 533,312 characters of page-labelled text in about 1.9 seconds. A mocked provider check confirmed one text request and preservation of the full extraction through application validation. No live model request was made; fact recall, multilingual deduplication and table interpretation remain unmeasured.

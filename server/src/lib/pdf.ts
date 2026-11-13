@@ -7,6 +7,21 @@ import { DocumentSizeError, maxDocumentTextLength } from './document-limits.js';
 const parserPath = createRequire(import.meta.url).resolve('pdfjs-dist/legacy/build/pdf.mjs');
 const canvasPath = createRequire(import.meta.url).resolve('@napi-rs/canvas');
 
+type PdfWorkerFailure = 'pdf_open_failed' | 'pdf_page_failed' | 'pdf_render_failed';
+
+export class PdfParseError extends Error {
+  constructor(
+    readonly reason:
+      | PdfWorkerFailure
+      | 'pdf_parse_timeout'
+      | 'pdf_worker_error'
+      | 'pdf_worker_out_of_memory'
+      | 'pdf_worker_exit',
+  ) {
+    super(reason === 'pdf_parse_timeout' ? 'Document parsing timeout' : 'Document parsing failed');
+  }
+}
+
 // Parse untrusted PDFs outside the API thread with bounded time, heap and extracted text.
 async function parsePdf<T>(
   content: Buffer,
@@ -18,6 +33,7 @@ async function parsePdf<T>(
   return new Promise((resolve, reject) => {
     const worker = new Worker(
       `const { parentPort, workerData } = require('node:worker_threads');
+       let failure = 'pdf_open_failed';
        (async () => {
          const { getDocument } = await import(workerData.parserPath);
          const task = getDocument({ data: workerData.content, verbosity: 0,
@@ -28,11 +44,13 @@ async function parsePdf<T>(
            const pages = [];
            let size = 0;
            for (let number = 1; number <= pdf.numPages; number++) {
+             failure = 'pdf_page_failed';
              const page = await pdf.getPage(number);
              const { items } = await page.getTextContent();
              let text = items.filter(item => typeof item.str === 'string')
                .map(item => item.str + (item.hasEOL ? '\\n' : ' ')).join('').trim();
              if (!text && workerData.ocr) {
+               failure = 'pdf_render_failed';
                const { createCanvas } = require(workerData.canvasPath);
                const viewport = page.getViewport({ scale: 1 });
                const scale = Math.min(2, Math.sqrt(4000000 / (viewport.width * viewport.height)));
@@ -58,7 +76,7 @@ async function parsePdf<T>(
            await task.destroy();
          }
        })().then(result => parentPort.postMessage(result))
-         .catch(() => parentPort.postMessage({ error: true }));`,
+         .catch(() => parentPort.postMessage({ failure }));`,
       {
         eval: true,
         execArgv: [],
@@ -87,12 +105,12 @@ async function parsePdf<T>(
       if (error) reject(error);
       else resolve(result!);
     };
-    const abort = () => finish(undefined, signal?.reason ?? new Error('Document parsing timeout'));
+    const abort = () => finish(undefined, signal?.reason ?? new PdfParseError('pdf_parse_timeout'));
     let timeout = setTimeout(abort, 15000);
     signal?.addEventListener('abort', abort, { once: true });
     worker.on(
       'message',
-      (message: { result?: T; size?: number; error?: boolean; image?: Uint8Array }) => {
+      (message: { result?: T; size?: number; failure?: PdfWorkerFailure; image?: Uint8Array }) => {
         if (settled) return;
         if (message.image && readImageText) {
           // OCR uses its own deadline; restart the parsing deadline when the worker resumes.
@@ -110,12 +128,21 @@ async function parsePdf<T>(
         }
         if (message.size)
           finish(undefined, new DocumentSizeError(message.size, maxDocumentTextLength));
-        else if (message.error) finish(undefined, new Error('Document parsing failed'));
+        else if (message.failure) finish(undefined, new PdfParseError(message.failure));
         else finish(message.result);
       },
     );
-    worker.once('error', () => finish(undefined, new Error('Document parsing failed')));
-    worker.once('exit', () => finish(undefined, new Error('Document parsing failed')));
+    worker.once('error', (error: Error & { code?: string }) =>
+      finish(
+        undefined,
+        new PdfParseError(
+          error.code === 'ERR_WORKER_OUT_OF_MEMORY'
+            ? 'pdf_worker_out_of_memory'
+            : 'pdf_worker_error',
+        ),
+      ),
+    );
+    worker.once('exit', () => finish(undefined, new PdfParseError('pdf_worker_exit')));
   });
 }
 

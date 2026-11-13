@@ -236,7 +236,7 @@ export abstract class AiTask<Output = never, Result = Output> {
     } catch {
       throw new Error('Invalid AI tool arguments');
     }
-    return tool.execute(args);
+    return metrics.withTool(tool.definition.name, () => tool.execute(args));
   }
 
   // Validates model JSON before task-specific conversion into an application result.
@@ -354,13 +354,15 @@ export abstract class AiTask<Output = never, Result = Output> {
     let result: Response | undefined;
     let tokenUsage: metrics.ProviderCall['usage'];
     let failure: metrics.ProviderFailure | undefined;
+    let httpRequestId: string | null = null;
     let completedWebCalls = 0;
     try {
       if (delta) {
-        const stream = await client.responses.create(
-          { ...parameters, stream: true },
-          { signal: context.signal },
-        );
+        const request = await client.responses
+          .create({ ...parameters, stream: true }, { signal: context.signal })
+          .withResponse();
+        httpRequestId = request.request_id;
+        const stream = request.data;
         try {
           const events = stream[Symbol.asyncIterator]();
           for (let event = await events.next(); !event.done; event = await events.next()) {
@@ -379,11 +381,13 @@ export abstract class AiTask<Output = never, Result = Output> {
         } finally {
           stream.controller.abort();
         }
-      } else
-        result = await client.responses.create(
-          { ...parameters, stream: false },
-          { signal: context.signal },
-        );
+      } else {
+        const request = await client.responses
+          .create({ ...parameters, stream: false }, { signal: context.signal })
+          .withResponse();
+        httpRequestId = request.request_id;
+        result = request.data;
+      }
     } catch (error) {
       failure = describeProviderFailure(error, context);
       context.signal.throwIfAborted();
@@ -406,7 +410,9 @@ export abstract class AiTask<Output = never, Result = Output> {
         task,
         provider: 'openai',
         model: result?.model || parameters.model,
-        requestId: result?.id,
+        httpRequestId:
+          httpRequestId && /^[a-zA-Z0-9_-]{1,128}$/.test(httpRequestId) ? httpRequestId : undefined,
+        responseId: result?.id,
         serviceTier: result?.service_tier,
         startedAt: started,
         status: !failure && result?.status === 'completed' ? 'success' : 'error',
@@ -421,7 +427,7 @@ export abstract class AiTask<Output = never, Result = Output> {
           task,
           provider: 'openai',
           operation: 'web_search',
-          requestId: result?.id,
+          responseId: result?.id,
           units: 1,
           costUsd: completed ? webSearchCallCostUsd : undefined,
           status: completed ? 'success' : 'error',
