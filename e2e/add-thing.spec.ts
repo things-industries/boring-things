@@ -67,26 +67,26 @@ test('a text Import opens the Thing with its populated fields', async ({ page })
   ).toContainText('ABC-12');
 });
 
-for (const { source, name, section, value } of [
+for (const { source, category, section, value } of [
   {
     source: 'Energy performance certificate\nEnergy rating: C',
-    name: 'Example home',
+    category: 'Household',
     section: 'Energy performance',
     value: 'C',
   },
   {
     source: 'Electricity bill',
-    name: 'Example electricity',
+    category: 'Utilities',
     section: 'Electricity supply',
   },
 ]) {
-  test(`imports a source for ${name}`, async ({ page }) => {
+  test(`imports a source into ${category}`, async ({ page }) => {
     await page.goto('/things/new/text');
     await page.getByLabel('Text to import', { exact: true }).fill(source);
     await page.getByRole('button', { name: 'Import text', exact: true }).click();
     await expect(page.getByText('Import complete.', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'View Thing 1', exact: true }).click();
-    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    await expect(page.getByText(category, { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'See all details', exact: true }).click();
     await expect(page.getByRole('heading', { name: section, exact: true })).toBeVisible();
     if (value)
