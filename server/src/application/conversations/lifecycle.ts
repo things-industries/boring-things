@@ -25,10 +25,13 @@ export async function enqueueMessage(
     if (initial.activityContext?.followup && initial.thingId)
       await thingsDb.getOwnedThingOrThrow(db, owner, initial.thingId, { lock: true });
     const conversation = await conversationsDb.getOwnedConversationOrThrow(db, owner, id, true);
-    const firstMessage = await conversationsDb.queueMessage(db, id, input);
-    if (firstMessage && conversation.activityContext?.followup)
+    const outcome = await conversationsDb.queueMessage(db, id, input);
+    if (outcome === 'first' && conversation.activityContext?.followup)
       await recordChatFollowup(db, owner, id, conversation.activityContext);
-    return conversationsDb.getOwnedConversationSnapshot(db, owner, id);
+    return {
+      outcome,
+      conversation: await conversationsDb.getOwnedConversationSnapshot(db, owner, id),
+    };
   });
 }
 

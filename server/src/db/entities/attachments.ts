@@ -123,10 +123,14 @@ export async function saveTranscription(
 // Claims one persisted upload for the shared runner.
 export async function claimPendingTranscription(
   db: Database,
-): Promise<{ file: AttachmentRow; ownerId: string | null } | undefined> {
-  const [row] = await database.rows<{ id: string; ownerId: string | null }>(
+): Promise<{ file: AttachmentRow; ownerId: string | null; queuedAt: string | null } | undefined> {
+  const [row] = await database.rows<{
+    id: string;
+    ownerId: string | null;
+    queuedAt: string | null;
+  }>(
     db,
-    `select a.id,a.owner_id from bt.attachments a where a.transcription_status='PENDING'
+    `select a.id,a.owner_id,a.transcription_queued_at as queued_at from bt.attachments a where a.transcription_status='PENDING'
      order by a.created_at,a.id limit 1 for update of a skip locked`,
   );
   if (!row) return undefined;
@@ -135,13 +139,17 @@ export async function claimPendingTranscription(
     "update bt.attachments set transcription_status='PROCESSING' where id=$1 and owner_id is not distinct from $2",
     [row.id, row.ownerId],
   );
-  return { file: await getProcessingAttachment(db, row.ownerId, row.id), ownerId: row.ownerId };
+  return {
+    file: await getProcessingAttachment(db, row.ownerId, row.id),
+    ownerId: row.ownerId,
+    queuedAt: row.queuedAt,
+  };
 }
 
 export async function recoverTranscriptions(db: Database): Promise<void> {
   await database.execute(
     db,
-    "update bt.attachments set transcription_status='PENDING' where transcription_status='PROCESSING' and transcription_completed_at is null",
+    "update bt.attachments set transcription_status='PENDING',transcription_queued_at=now() where transcription_status='PROCESSING' and transcription_completed_at is null",
   );
 }
 

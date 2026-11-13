@@ -212,10 +212,14 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 | `HOST`, `PORT`          | API bind address; default `127.0.0.1:3000`                                 |
 | `LOG_LEVEL`             | Minimum severity; default `info`; use `trace` for requests                 |
 | `LOG_FORMAT`            | `pretty` locally; `json` when `NODE_ENV=production`                        |
+| `SENTRY_DSN`            | Optional DSN for the Fastify Sentry project                                |
+| `SENTRY_FRONTEND_DSN`   | Optional public DSN for the Angular Sentry project                         |
 
 Local server logs use Fastify's [Pino transport support](https://fastify.dev/docs/latest/Reference/Logging/#environment-specific-configuration) with `pino-pretty`: local timestamps, severity, messages and structured context on one line, with process ID and hostname omitted. Production defaults to JSON.
 
 Routine incoming-request and request-completed messages use `trace`; application and Fastify error logs retain their severity. Set `LOG_LEVEL=trace` for request diagnostics or `LOG_FORMAT=json` for structured output. Supported levels are `trace`, `debug`, `info`, `warn`, `error`, `fatal` and `silent`.
+
+Set either Sentry DSN in `.env` to enable monitoring for that platform. Sentry reports unexpected errors, failure logs and sampled request traces. Development samples every trace, and production starts at 10%. The browser gets its public DSN from `/api/config`. Request payloads, cookies, headers and query parameters are excluded. AI telemetry goes to Langfuse.
 
 Premature stream closures use `trace`. Each completed AI response, including tool-call rounds, emits `AI turn completed` at `info` with task first, model, a `toolCalls` array and measurements grouped under `metrics`. Tokens use `[input, output]` in provider-reported units; cached and total token fields are omitted from logs. Saved usage accounting still includes cached tokens. Structured tasks report `aiCount` for the task's main collection before schema validation and `validCount` after provider validation and filtering; application evidence checks and persistence happen later. Research reports source counts, summaries report term and character counts, and OCR reports image and text character counts. Elapsed milliseconds measure each provider request. Tool names follow response order, retaining repeated calls; responses without tool calls log an empty array. Logs contain usage metadata; prompts, source content and model output remain private.
 

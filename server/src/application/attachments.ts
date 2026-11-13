@@ -1,6 +1,7 @@
 // Manages private attachment uploads, metadata, links and deletion.
 import type pg from 'pg';
 import type { BlobStorage } from '../providers/blobs/index.js';
+import { recordDependencyFailure } from '../metrics.js';
 import * as database from '../db/connection.js';
 import * as attachmentsDb from '../db/entities/attachments.js';
 import type { Schema } from '../../../shared/model.js';
@@ -31,7 +32,10 @@ export async function uploadAttachment(
   file: UploadedFile,
   thingId?: string,
 ) {
-  const key = await blobs.put(file.buffer);
+  const key = await blobs.put(file.buffer).catch((error: unknown) => {
+    recordDependencyFailure('storage', 'upload', error, { ownerId: owner, thingId });
+    throw error;
+  });
   try {
     return await database.transaction(pool, async (db) => {
       const attachment = await attachmentsDb.insertAttachment(db, owner, {
@@ -52,7 +56,12 @@ export async function uploadAttachment(
       );
     });
   } catch (error) {
-    await blobs.remove(key).catch(() => {});
+    await blobs.remove(key).catch((cleanupError: unknown) =>
+      recordDependencyFailure('storage', 'upload_cleanup', cleanupError, {
+        ownerId: owner,
+        thingId,
+      }),
+    );
     throw error;
   }
 }
@@ -116,7 +125,10 @@ export async function removeAttachment(
     await attachmentsDb.deleteAttachment(db, owner, file);
     return file.storageKey;
   });
-  await blobs.remove(key);
+  await blobs.remove(key).catch((error: unknown) => {
+    recordDependencyFailure('storage', 'delete', error, { ownerId: owner, attachmentId: id });
+    throw error;
+  });
 }
 export async function setAttachmentLink(
   pool: pg.Pool,
@@ -125,8 +137,8 @@ export async function setAttachmentLink(
   thingId: string,
   linked: boolean,
   importEnabled = true,
-): Promise<void> {
-  await database.transaction(pool, async (db) => {
+): Promise<Schema['ImportAccepted'] | undefined> {
+  return database.transaction(pool, async (db) => {
     await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
     const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
     if (linked) await importsDb.assertThingEditable(db, owner, thingId);
@@ -142,7 +154,7 @@ export async function setAttachmentLink(
     );
     await attachmentsDb.linkAttachment(db, owner, id, thingId, linked);
     if (linked && !existing.rowCount && importEnabled)
-      await importsDb.createImportInTransaction(db, owner, [id], thingId);
-    else await thingsDb.bumpThing(db, owner, thingId);
+      return importsDb.createImportInTransaction(db, owner, [id], thingId);
+    await thingsDb.bumpThing(db, owner, thingId);
   });
 }

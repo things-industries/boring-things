@@ -5,7 +5,7 @@ import { getEnv } from '../../config.js';
 import type { ThingRow } from '../../db/entities/things.js';
 import type { Registry } from '../../application/registry/registry.js';
 import { SpecialistProvider, type SpecialistResult } from '../specialist-data.js';
-import { ensure } from '../../application/errors.js';
+import { ensure, ProviderHttpError } from '../../application/errors.js';
 import * as metrics from '../../metrics.js';
 
 const endpoint = 'https://live.icecat.biz/api';
@@ -83,7 +83,14 @@ export class IcecatProvider extends SpecialistProvider {
         headers: { 'api-token': getEnv('ICECAT_ACCESS_TOKEN') },
         signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
       });
-      const body = getObject(await response.json());
+      const body = await response
+        .json()
+        .then(getObject)
+        .catch((error: unknown) => {
+          if (!response.ok)
+            throw new ProviderHttpError(response.status, 'Icecat lookup unavailable');
+          throw error;
+        });
       const result: SpecialistResult = { setIds: [], values: [] };
 
       // Missing products and subscription/publication restrictions are normal catalogue outcomes.
@@ -92,7 +99,8 @@ export class IcecatProvider extends SpecialistProvider {
         (response.status === 404 && body.StatusCode === undefined && body.Code === 404)
       )
         return result;
-      ensure(response.ok && body.msg === 'OK', 'Icecat lookup unavailable');
+      if (!response.ok) throw new ProviderHttpError(response.status, 'Icecat lookup unavailable');
+      ensure(body.msg === 'OK', 'Icecat lookup unavailable');
       const data = getObject(body.data);
       const info = getObject(data.GeneralInfo);
       ensure(

@@ -5,6 +5,7 @@ import addFormats from 'ajv-formats';
 import type { FunctionTool, ResponseInput } from 'openai/resources/responses/responses';
 import type { AiContext } from '../types.js';
 import { ensure } from '../../../application/errors.js';
+import { recordToolResult } from '../../../metrics.js';
 
 const ajv = new Ajv({ strict: false });
 addFormats.default(ajv);
@@ -44,4 +45,5 @@ export async function recordToolCall(
 ) {
   ensure(++context.toolCalls <= context.toolCallLimit, 'tool_limit');
   await context.record({ toolCalls: [{ name, resultCount: count, truncated }] });
+  recordToolResult(count, truncated);
 }

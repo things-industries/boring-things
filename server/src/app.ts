@@ -16,6 +16,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import type pg from 'pg';
 import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import * as database from './db/connection.js';
 import * as jobLeaseDb from './db/job-lease.js';
@@ -33,6 +34,9 @@ import type { ImportAi } from './application/import/types.js';
 import { AttachmentTranscriptionProcessor } from './application/import/transcription.js';
 import { JobRunner } from './application/jobs/runner.js';
 import * as metrics from './metrics.js';
+import { captureFailure, flushSentry } from './sentry.js';
+import { monitorQueues } from './application/jobs/monitor.js';
+import { getFailureReason } from './application/errors.js';
 import { ApplicationEvents } from './application/events.js';
 import * as googleVision from './providers/google-vision/index.js';
 
@@ -52,14 +56,18 @@ export interface BuildAppOptions {
 export async function buildApp(options: BuildAppOptions = {}) {
   getEnv('NODE_ENV');
 
-  const dbPool = options.dbPool ?? database.createPool();
   const app = Fastify({
     logger: options.logger ? loggerOptions() : false,
     logController: new RequestLogController(),
+    genReqId: () => randomUUID(),
     bodyLimit: 1048576,
   });
+  const reportPoolError = (error: Error) =>
+    metrics.recordDependencyFailure('database', 'idle_connection', error);
+  const dbPool = options.dbPool ?? database.createPool(undefined, reportPoolError);
 
   // Close hooks run in reverse order: stop jobs and database work before flushing telemetry.
+  app.addHook('onClose', flushSentry);
   app.addHook('onClose', metrics.shutdownMetrics);
 
   // Close the database pool on shutdown only when buildApp created it.
@@ -88,11 +96,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
     // Registry definitions are cached at startup; restart the server after changing seeded metadata.
     const registry = await loadRegistry(dbPool);
-    const { importAi, chatAi, taskScheduler } = createAi(
-      options,
-      (turn) => app.log.info({ ...turn, ...metrics.getDiagnosticContext() }, 'AI turn completed'),
-      { db: dbPool, registry },
-    );
+    const { importAi, chatAi, taskScheduler } = createAi(options, undefined, {
+      db: dbPool,
+      registry,
+    });
     await app.register(routes.configRoutes, {
       chatEnabled: !!chatAi,
       importEnabled: !!importAi,
@@ -102,9 +109,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     if (!options.blobs) app.addHook('onClose', async () => blobs.close?.());
     const events = new ApplicationEvents();
 
-    const assistant = new Assistant(dbPool, registry, blobs, chatAi, events, (failure) =>
-      app.log.error(failure, 'Assistant response failed'),
-    );
+    const assistant = new Assistant(dbPool, registry, blobs, chatAi, events);
     const runner = new JobRunner(
       [
         assistant,
@@ -113,34 +118,33 @@ export async function buildApp(options: BuildAppOptions = {}) {
           blobs,
           importAi,
           events,
-          options.readImageText ??
-            (async (content, signal) => {
-              const started = Date.now();
-              const text = await googleVision.readImageText(content, signal);
-              app.log.info(
-                {
-                  task: 'image_ocr',
-                  metrics: {
-                    elapsedMs: Date.now() - started,
-                    imageCount: 1,
-                    textCharacters: text.length,
-                  },
-                },
-                'Google Vision OCR completed',
-              );
-              return text;
-            }),
+          options.readImageText,
         ),
         new ImportProcessor(dbPool, registry, blobs, importAi, events, options.importWorkflow),
       ],
-      () => app.log.error({ code: 'job_runner_failed' }, 'Background work failed'),
+      (error, operation, processor) => {
+        const reason = getFailureReason(error);
+        app.log.error(
+          { event: 'job_runner_failed', operation, processor, reason },
+          'Background runner failed',
+        );
+        captureFailure(error, operation, reason);
+      },
       jobLeaseDb.jobLease(dbPool, () => {
         // Stop immediately: another instance may recover jobs after this session loses its lock.
-        app.log.fatal({ code: 'job_lock_lost' }, 'Background runner lost its database session');
+        app.log.fatal(
+          { event: 'job_runner_failed', operation: 'lease_lost' },
+          'Background runner lost its database session',
+        );
         process.exit(1);
       }),
     );
     const sse = new ServerSentEvents();
+    let stopQueueMonitor: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => {
+      stopQueueMonitor = monitorQueues(dbPool);
+    });
+    app.addHook('preClose', async () => stopQueueMonitor?.());
     app.addHook('preClose', async () => sse.close());
     app.addHook('onReady', () => runner.start());
     app.addHook('preClose', () => runner.stop());

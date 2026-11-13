@@ -9,7 +9,12 @@ import * as errorsDb from './errors.js';
 
 export type Database = Pick<pg.Pool, 'query'>;
 
-export function createPool(connectionString = getEnv('DATABASE_URL')) {
+export function createPool(
+  connectionString = getEnv('DATABASE_URL'),
+  onIdleError = (error: Error) => {
+    console.error('Idle database connection failed', { code: (error as pg.DatabaseError).code });
+  },
+) {
   const { hostname } = new URL(connectionString);
   const supabase = hostname.endsWith('.supabase.co') || hostname.endsWith('.pooler.supabase.com');
   const pool = new pg.Pool({
@@ -18,13 +23,7 @@ export function createPool(connectionString = getEnv('DATABASE_URL')) {
     connectionTimeoutMillis: 10000,
     ssl: supabase ? { rejectUnauthorized: false } : false,
   });
-  pool.on('error', (error) => {
-    // Idle connections can disappear on database restart. Never log query/value details.
-    console.error('Idle database connection failed', {
-      code: (error as pg.DatabaseError).code,
-    });
-  });
-
+  pool.on('error', onIdleError);
   return pool;
 }
 

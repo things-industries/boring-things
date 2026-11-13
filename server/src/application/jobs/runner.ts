@@ -3,9 +3,20 @@ export interface JobProcessor {
   recover(): Promise<void>;
   next(signal: AbortSignal): Promise<boolean>;
 }
-export type ReportJobFailure = (error: unknown) => void;
+export type ReportJobFailure = (
+  error: unknown,
+  operation: 'process' | 'recover' | 'acquire_lease' | 'release_lease',
+  processor?: string,
+) => void;
 export interface JobLease {
   acquire(): Promise<(() => Promise<void>) | undefined>;
+}
+
+/** Signals that a claimed job already reported its exception. */
+export class ReportedJobError extends Error {
+  constructor(cause: unknown) {
+    super('Claimed job failed', { cause });
+  }
 }
 
 export class JobRunner {
@@ -40,12 +51,15 @@ export class JobRunner {
         for (const processor of this.processors) {
           if (this.pending.has(processor)) continue;
           const work = this.drain(processor)
-            .catch(this.reportFailure)
+            .catch((error: unknown) => {
+              if (!(error instanceof ReportedJobError))
+                this.reportFailure(error, 'process', processor.constructor.name);
+            })
             .finally(() => this.pending.delete(processor));
           this.pending.set(processor, work);
         }
       })
-      .catch(this.reportFailure);
+      .catch(() => {}); // Activation reports failures before rejecting.
   }
 
   // Stops every job before allowing another process to acquire leadership.
@@ -55,8 +69,7 @@ export class JobRunner {
     this.abort.abort();
     await this.activation;
     await Promise.all(this.pending.values());
-    await this.release?.();
-    this.release = undefined;
+    await this.releaseLease();
   }
 
   // Shares leadership acquisition and recovery across concurrent wake requests.
@@ -70,19 +83,39 @@ export class JobRunner {
   // Recovers interrupted jobs once after acquiring the database lease.
   private async activate() {
     if (this.recovered) return true;
-    if (this.lease) {
-      this.release = await this.lease.acquire();
-      if (!this.release) return false;
-    }
+    let processor: JobProcessor | undefined;
     try {
+      if (this.lease) {
+        this.release = await this.lease.acquire();
+        if (!this.release) return false;
+      }
       if (this.stopped) return false;
-      for (const processor of this.processors) await processor.recover();
+      for (const current of this.processors) {
+        processor = current;
+        await current.recover();
+      }
       this.recovered = true;
       return true;
     } catch (error) {
-      await this.release?.();
-      this.release = undefined;
+      this.reportFailure(
+        error,
+        processor ? 'recover' : 'acquire_lease',
+        processor?.constructor.name,
+      );
+      await this.releaseLease();
       throw error;
+    }
+  }
+
+  // Releases leadership and reports failures outside an individual job.
+  private async releaseLease() {
+    try {
+      await this.release?.();
+    } catch (error) {
+      this.reportFailure(error, 'release_lease');
+      throw error;
+    } finally {
+      this.release = undefined;
     }
   }
 

@@ -7,7 +7,7 @@ import { lookup } from 'node:dns/promises';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { BlockList, isIP } from 'node:net';
-import { ensure } from '../../application/errors.js';
+import { ensure, ProviderHttpError } from '../../application/errors.js';
 import { awaitWithSignal } from '../../lib/abort.js';
 import { DocumentSizeError } from '../../lib/document-limits.js';
 import * as metrics from '../../metrics.js';
@@ -123,7 +123,9 @@ export async function downloadResource(
     signal.throwIfAborted();
     const startedAt = Date.now();
     let status: metrics.ProviderCall['status'] = 'error';
+    let failure: metrics.ProviderFailure | undefined;
     let response: IncomingMessage | undefined;
+    let outcome: metrics.ProviderCall['outcome'];
     try {
       response = await request(url, signal);
       if ([301, 302, 303, 307, 308].includes(response.statusCode ?? 0)) {
@@ -131,14 +133,17 @@ export async function downloadResource(
         // Every redirect is a new untrusted target and must pass URL and connection-time DNS checks again.
         url = documentUrl(new URL(response.headers.location, url).href);
         status = 'success';
+        outcome = 'redirected';
         continue;
       }
 
-      ensure(response.statusCode === 200, 'Document download failed');
+      if (response.statusCode !== 200)
+        throw new ProviderHttpError(response.statusCode ?? 0, 'Document download failed');
       const type = response.headers['content-type']?.split(';')[0].trim().toLowerCase();
 
       if (type && mediaTypes.length && !mediaTypes.includes(type)) {
         status = 'success';
+        outcome = 'unsupported_media';
         return null;
       }
 
@@ -164,7 +169,11 @@ export async function downloadResource(
 
       const content = Buffer.concat(chunks);
       status = 'success';
+      outcome = 'found';
       return { content, mediaType: type ?? '', url: url.href };
+    } catch (error) {
+      failure = metrics.getProviderFailure(error);
+      throw error;
     } finally {
       response?.destroy();
       metrics.recordProviderCall({
@@ -173,6 +182,9 @@ export async function downloadResource(
         costUsd: 0,
         startedAt,
         status,
+        outcome,
+        httpStatus: response?.statusCode,
+        failure,
       });
     }
   }
