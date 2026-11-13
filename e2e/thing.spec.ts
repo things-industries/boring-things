@@ -25,6 +25,37 @@ async function createThing(
   return page.url();
 }
 
+test('a Household shows a category icon and lets the owner record energy performance', async ({
+  page,
+}) => {
+  const name = `Studio ${Date.now()}`;
+  await createThing(page, name, 'household', 'household.energyPerformance');
+  await expect(page.locator('bt-hero bt-thing-thumbnail ng-icon')).toBeVisible();
+
+  await page.getByRole('link', { name: 'See all details' }).click();
+  await expect(page.getByRole('heading', { name: 'Household basics' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Energy performance' })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  await page.getByRole('textbox', { name: 'Energy rating', exact: true }).fill('C');
+  await page.getByRole('spinbutton', { name: 'Bedrooms', exact: true }).fill('0');
+  const saved = page.waitForResponse((response) => response.request().method() === 'PATCH');
+  await page.getByRole('button', { name: 'Save details' }).click();
+  expect((await saved).ok()).toBe(true);
+  await page.reload();
+  await expect(
+    page.locator('bt-key-value-row', { hasText: 'Energy rating' }).locator('.key-value-value'),
+  ).toHaveText('C');
+  await expect(
+    page.locator('bt-key-value-row', { hasText: 'Bedrooms' }).locator('.key-value-value'),
+  ).toHaveText('0');
+
+  await page.goto('/things');
+  const row = page
+    .locator('bt-thing-row')
+    .filter({ has: page.getByRole('link', { name, exact: true }) });
+  await expect(row.locator('bt-thing-thumbnail ng-icon')).toBeVisible();
+});
+
 test('Thing detail shows issues, tasks, products and attachments', async ({ page }) => {
   await page.goto('/things');
   await page.getByRole('link', { name: 'Kitchen hob', exact: true }).click();

@@ -130,12 +130,10 @@ test('reseeding replaces category glyphs and preserves appliance details', async
     subscriptions: 'subscription',
     utilities: 'utility',
     insurance: 'insurance',
+    household: 'household',
     other: 'other',
   };
-  const glyphs = ['▧', '⌘', '↗', '◉', '↻', '⌁', '◇', '○'];
-  for (const [index, id] of Object.keys(categoryIcons).entries()) {
-    await pool.query('update bt.categories set icon=$1 where id=$2', [glyphs[index], id]);
-  }
+  await pool.query("update bt.categories set icon='○'");
   for (let pass = 0; pass < 2; pass++) {
     await database.transaction(pool, registrySeedDb.seedRegistry);
     const response = await request('GET', '/categories');
@@ -166,6 +164,62 @@ test('reseeding replaces category glyphs and preserves appliance details', async
   });
   assert.equal(invalid.statusCode, 422, invalid.body);
   assert.equal((await request('GET', `/things/${thing.id}`, undefined, 'bob')).statusCode, 404);
+});
+
+test('Household basics, shared meter access and energy performance persist independently', async () => {
+  const address = { fieldSetId: 'household.household', fieldId: 'household.address' };
+  const access = 'household.installationAccess';
+  const home = await create({
+    name: 'Test studio',
+    categoryId: 'household',
+    addFieldSetIds: [
+      'household.waterInstallation',
+      'household.electricalInstallation',
+      'household.energyPerformance',
+    ],
+    values: [
+      { ...address, value: 'Flat 2, 1 Example Street' },
+      {
+        fieldSetId: 'household.household',
+        fieldId: 'household.occupancyArrangement',
+        value: 'Rented',
+      },
+      { fieldSetId: 'household.household', fieldId: 'household.bedrooms', value: 0 },
+      {
+        fieldSetId: 'household.waterInstallation',
+        fieldId: 'household.stopcockLocation',
+        value: 'Under the sink',
+      },
+      { fieldSetId: 'household.waterInstallation', fieldId: access, value: 'Ask the caretaker' },
+      {
+        fieldSetId: 'household.electricalInstallation',
+        fieldId: access,
+        value: 'Communal cupboard',
+      },
+      { fieldSetId: 'household.energyPerformance', fieldId: 'household.energyRating', value: 'C' },
+    ],
+  });
+  const saved = await request('GET', `/things/${home.id}`);
+  assert.equal(saved.statusCode, 200, saved.body);
+  const detail = saved.json<Schema['Thing']>();
+  const sets = new Map(detail.fieldSets.map((set) => [set.id, set.fields]));
+  const find = (set: string, id: string) => sets.get(set)?.find((field) => field.id === id);
+  assert.equal(find(address.fieldSetId, address.fieldId)?.masked, true);
+  assert.equal(find('household.household', 'household.bedrooms')?.value, 0);
+  assert.equal(
+    find('household.waterInstallation', 'household.stopcockLocation')?.value,
+    'Under the sink',
+  );
+  assert.equal(find('household.waterInstallation', 'household.waterMeterLocation')?.value, null);
+  assert.equal(find('household.waterInstallation', access)?.value, 'Ask the caretaker');
+  assert.equal(find('household.electricalInstallation', access)?.value, 'Communal cupboard');
+  assert.equal(find('household.energyPerformance', 'household.energyRating')?.value, 'C');
+  assert.ok(!sets.has('household.gasInstallation'));
+  assert.ok(!sets.has('household.building'));
+  assert.ok(!saved.body.includes('Example Street'));
+  const reveal = await request('POST', `/things/${home.id}:reveal-field`, address);
+  assert.equal(reveal.statusCode, 200, reveal.body);
+  assert.equal(reveal.json().value, 'Flat 2, 1 Example Street');
 });
 
 test('appliance field migration moves values and keeps ambiguous values and pins', async () => {

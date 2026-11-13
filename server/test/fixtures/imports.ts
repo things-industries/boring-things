@@ -35,6 +35,8 @@ const sets: Record<string, string[]> = {
   appliances: ['appliances.appliance'],
   vehicles: ['vehicles.van'],
   insurance: ['insurance.combined'],
+  household: ['household.energyPerformance'],
+  utilities: ['utilities.electricity'],
 };
 export class FixtureAi implements ImportAi {
   constructor(private registryResources: RegistryResources) {}
@@ -69,11 +71,12 @@ export class FixtureAi implements ImportAi {
     if (!source) return { candidates: [], contradiction: false };
     const evidence = await searchTranscription(context, source.attachmentId, '', 0);
     const text = evidence.text.toLowerCase();
-    const categoryId = text.includes('policy')
-      ? 'insurance'
-      : text.includes('van')
-        ? 'vehicles'
-        : 'appliances';
+    const fixture = [
+      { term: 'energy performance certificate', name: 'Example home', categoryId: 'household' },
+      { term: 'electricity bill', name: 'Example electricity', categoryId: 'utilities' },
+      { term: 'policy', name: 'Policy', categoryId: 'insurance' },
+      { term: 'van', name: 'Cargo van', categoryId: 'vehicles' },
+    ].find(({ term }) => text.includes(term));
     const contextual = input.existingThings.find((thing) => thing.id === input.thingContextId);
     if (text.includes('nonsense') || text === 'non-english')
       return { candidates: [], contradiction: false };
@@ -92,14 +95,8 @@ export class FixtureAi implements ImportAi {
       contradiction: !!contextual && text.includes('wrong'),
       candidates: [
         {
-          name:
-            contextual?.name ??
-            (categoryId === 'vehicles'
-              ? 'Cargo van'
-              : categoryId === 'insurance'
-                ? 'Policy'
-                : 'Neff oven'),
-          categoryId: contextual?.categoryId ?? categoryId,
+          name: contextual?.name ?? fixture?.name ?? 'Neff oven',
+          categoryId: contextual?.categoryId ?? fixture?.categoryId ?? 'appliances',
           terms: source.terms,
           identifiers,
           attachmentIds: [source.attachmentId],
@@ -134,6 +131,19 @@ export class FixtureAi implements ImportAi {
       input.sources[0];
     if (!source) return { values: [], pinnedFields: [] };
     const evidence = await searchTranscription(context, source.attachmentId, '', 0);
+    if (evidence.text.includes('Energy rating: C')) {
+      return {
+        pinnedFields: [],
+        values: input.fields
+          .filter((target) => target.field.id === 'household.energyRating')
+          .map(({ fieldSetId, field }) => ({
+            fieldSetId,
+            fieldId: field.id,
+            value: 'C',
+            sourceRefs: [{ attachmentId: source.attachmentId, quote: 'Energy rating: C' }],
+          })),
+      };
+    }
     return {
       pinnedFields: input.fields
         .filter((target) => ['appliances.zNumber', 'vehicles.payloadKg'].includes(target.field.id))

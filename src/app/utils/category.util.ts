@@ -8,6 +8,7 @@ const icons: Record<string, CategoryIconName> = {
   subscription: 'categorySubscription',
   utility: 'categoryUtility',
   insurance: 'categoryInsurance',
+  household: 'categoryHousehold',
   other: 'categoryOther',
 };
 /** Catalogue icon name for a registry `Category.icon` key; unknown keys use the Other icon. */
