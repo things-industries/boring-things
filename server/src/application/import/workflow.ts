@@ -423,6 +423,7 @@ export class ImportWorkflow {
           data,
         });
       }
+      ensure(thing.categoryId === candidate.categoryId, 'wrong_thing');
       let data = addFieldSets(thing.data, thing.categoryId, this.registry);
       const proposals: FieldProposal[] = candidate.identifiers.map((entry) => {
         const fieldset = [...this.registry.sets.values()].find(
@@ -445,6 +446,7 @@ export class ImportWorkflow {
         await attachmentsDb.linkAttachment(db, current.ownerId, id, thing.id, true);
       const workflow: WorkflowCheckpoint = {
         ...current.workflow,
+        categoryVersion: thing.data.categoryVersion ?? 0,
         selected: candidate,
         isNew,
         done: [...current.workflow.done, 'identity'],
@@ -741,6 +743,7 @@ export class ImportWorkflow {
         this.job.workflow.excludedIds = this.job.workflow.excludedIds.filter(
           (id) => id !== source.id,
         );
+        if (thing.data.categoryVersion) this.job.workflow.excludedIds.push(source.id);
         await importsDb.saveWorkflow(this.pool, this.job, this.job.workflow);
         continue;
       }

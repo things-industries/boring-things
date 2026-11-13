@@ -162,6 +162,15 @@ export async function existingTasks(db: Database, owner: string, thingId: string
   );
 }
 
+/** Removes generated suggestions the owner has neither edited nor acted on. */
+export async function removeUneditedSuggestions(db: Database, owner: string, thingId: string) {
+  await database.execute(
+    db,
+    "delete from bt.tasks where owner_id=$1 and thing_id=$2 and status='SUGGESTED' and import_key is not null and updated_at=created_at",
+    [owner, thingId],
+  );
+}
+
 /** Inserts a cited task suggestion once without replacing owner edits. */
 export async function saveSuggestedTask(
   db: Database,

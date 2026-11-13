@@ -6,10 +6,12 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
 import type { ApplicationEvents } from '../application/events.js';
+import type { JobRunner } from '../application/jobs/runner.js';
 import type { Registry } from '../application/registry/registry.js';
 import { route } from '../contracts/routes.js';
 import * as database from '../db/connection.js';
-import { detail, writeThing } from '../application/things.js';
+import { changeThingCategory, detail, writeThing } from '../application/things.js';
+import { ensure } from '../application/errors.js';
 import * as importsDb from '../db/entities/imports.js';
 import * as thingsDb from '../db/entities/things.js';
 import { revealValue } from '../application/thing-data.js';
@@ -18,9 +20,14 @@ interface Options {
   db: pg.Pool;
   registry: Registry;
   events: ApplicationEvents;
+  runner: JobRunner;
+  importEnabled: boolean;
 }
 
-const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, events }) => {
+const thingRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  { db, registry, events, runner, importEnabled },
+) => {
   route(app, 'GET', '/api/things', (req) => thingsDb.listThings(db, req.ownerId, req.query));
 
   route(app, 'POST', '/api/things', async (req, reply) => {
@@ -40,6 +47,14 @@ const thingRoutes: FastifyPluginAsync<Options> = async (app, { db, registry, eve
   route(app, 'PATCH', '/api/things/{id}', async (req) => {
     const result = await writeThing(db, req.ownerId, req.body, registry, req.params.id);
     events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    return result;
+  });
+
+  route(app, 'POST', '/api/things/{id}:change-category', async (req) => {
+    ensure(!req.body.findDetails || importEnabled, 'Import is not configured', 'UNAVAILABLE');
+    const result = await changeThingCategory(db, req.ownerId, req.params.id, req.body, registry);
+    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    if (req.body.findDetails) runner.wake();
     return result;
   });
 
