@@ -60,12 +60,8 @@
                 [field]="nameInput"
               />
             </bt-key-value-row>
-            <bt-key-value-row label="Category" editing>
-              <bt-field-control
-                formControlName="categoryId"
-                label="Category"
-                [field]="categoryInput()"
-              />
+            <bt-key-value-row label="Category">
+              <span class="details-fixed-value">{{ category() ?? t.categoryId }}</span>
             </bt-key-value-row>
             <bt-key-value-row label="Description" editing [stacked]="descriptionControl.long()">
               <bt-field-control
@@ -77,14 +73,6 @@
               />
             </bt-key-value-row>
           </bt-card-group>
-          @if (f.controls.categoryId.value !== t.categoryId) {
-            <bt-notice tone="warning" icon="issueFault">
-              <span noticeDetail
-                >Populated fields from sections that don't fit the new category are kept as custom
-                fields.</span
-              >
-            </bt-notice>
-          }
         </section>
 
         @for (group of groups(); track group.id) {

@@ -31,7 +31,11 @@ export function publicFields(data: ThingData, registry: Registry): PublicField[]
     for (const field of registry.sets.get(setId)?.fields ?? []) add(setId, field.id);
   for (const id of Object.keys(data.standalone)) add(null, id);
   for (const field of data.customFields)
-    if (['GROUP', 'CLASS'].includes(field.scope ?? 'INSTANCE') && field.value != null)
+    if (
+      !field.fromPreviousCategory &&
+      ['GROUP', 'CLASS'].includes(field.scope ?? 'INSTANCE') &&
+      field.value != null
+    )
       fields.push({
         fieldSetId: null,
         fieldId: field.id,

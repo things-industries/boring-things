@@ -31,7 +31,6 @@ export function detailsForm(draft: Required<DetailsDraft>, rows: DetailRow[]) {
   return new FormGroup({
     name: draftControl(nameInput, draft.name),
     description: draftControl(descriptionInput, draft.description),
-    categoryId: new FormControl<FieldDraft>(draft.categoryId, { nonNullable: true }),
     fields,
   });
 }
@@ -43,12 +42,11 @@ export type DetailsForm = ReturnType<typeof detailsForm>;
  * writes back a value that changed elsewhere during the edit.
  */
 export function changedDraft(form: DetailsForm): DetailsDraft {
-  const { name, description, categoryId, fields } = form.controls;
+  const { name, description, fields } = form.controls;
   const draft: DetailsDraft = { fields: {} };
 
   if (name.dirty) draft.name = name.value;
   if (description.dirty) draft.description = description.value;
-  if (categoryId.dirty) draft.categoryId = categoryId.value;
   for (const [anchor, control] of Object.entries(fields.controls))
     if (control.dirty) draft.fields[anchor] = control.value;
   return draft;

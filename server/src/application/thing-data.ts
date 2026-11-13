@@ -29,6 +29,7 @@ export function patchData(
   categoryId: string,
   registry: Registry,
   provenance?: FieldProvenance,
+  categoryChanged = false,
 ): ThingData {
   const data = structuredClone(original);
   // Track explicit clears and removals too, so later import retries cannot restore values the owner discarded.
@@ -45,15 +46,54 @@ export function patchData(
   const roots = data.setIds.filter(
     (id) => !removed.has(id) && registry.sets.get(id)?.categoryId === categoryId,
   );
+  if (categoryChanged) {
+    // Carry over shared sections such as Warranty when their definitions match.
+    for (const id of data.setIds) {
+      if (removed.has(id)) continue;
+      const old = registry.sets.get(id)!;
+      const matches = [...registry.sets.values()].filter(
+        (set) =>
+          set.categoryId === categoryId &&
+          set.name === old.name &&
+          set.fields.length === old.fields.length &&
+          set.fields.every((field) => old.fields.some((previous) => previous.id === field.id)),
+      );
+      if (matches.length === 1 && !edited.has(`set:${matches[0].id}`)) roots.push(matches[0].id);
+    }
+  }
   const selected = registry.expand([...roots, ...(patch.addFieldSetIds ?? [])], categoryId);
   ensure(
     [...removed].every((id) => !selected.includes(id)),
     'An included set is still required',
   );
 
-  // Removing a populated set preserves its values as custom fields and moves pins to the new local IDs.
-  for (const oldId of data.setIds.filter((id) => !selected.includes(id))) {
+  const oldSets = data.setIds.filter((id) => !selected.includes(id));
+  const destinations = new Map<string, string[]>();
+  const oldOccurrences = new Map<string, number>();
+  if (categoryChanged) {
+    for (const id of oldSets)
+      for (const field of registry.sets.get(id)!.fields)
+        oldOccurrences.set(field.id, (oldOccurrences.get(field.id) ?? 0) + 1);
+    for (const id of selected)
+      for (const field of registry.sets.get(id)!.fields)
+        destinations.set(field.id, [...(destinations.get(field.id) ?? []), id]);
+    data.categoryVersion = (data.categoryVersion ?? 0) + 1;
+  }
+
+  // Move fields with one old and one new occurrence. Keep other populated fields for review.
+  for (const oldId of oldSets) {
     for (const [fieldId, stored] of Object.entries(data.values[oldId] ?? {})) {
+      const matches = destinations.get(fieldId);
+      if (!removed.has(oldId) && oldOccurrences.get(fieldId) === 1 && matches?.length === 1) {
+        const [newId] = matches;
+        (data.values[newId] ??= {})[fieldId] = stored;
+        data.pins = data.pins.map((pin) =>
+          pin.fieldSetId === oldId && pin.fieldId === fieldId
+            ? { fieldSetId: newId, fieldId }
+            : pin,
+        );
+        continue;
+      }
       if (stored.value === null) continue;
       const definition = registry.fields.get(fieldId)!;
       const id = randomUUID();
@@ -64,6 +104,7 @@ export function patchData(
         sensitive: definition.sensitive,
         scope: definition.scope,
         valueType: getDisplacedValueType(definition.schema, stored.value),
+        ...(categoryChanged && { fromPreviousCategory: true, autoPopulate: false }),
       });
       data.pins = data.pins.map((pin) =>
         pin.fieldSetId === oldId && pin.fieldId === fieldId ? { customFieldId: id } : pin,
@@ -130,6 +171,7 @@ export function patchData(
       scope: input.scope ?? existing?.scope ?? 'INSTANCE',
       valueType,
       id: input.id ?? randomUUID(),
+      ...(existing?.fromPreviousCategory && { fromPreviousCategory: true as const }),
       origin: 'USER' as const,
       autoPopulate: false,
       sourceRefs: [],
@@ -188,13 +230,15 @@ export function projectData(
     standaloneFields: Object.entries(data.standalone).map(([id, stored]) =>
       projectField(registry.fields.get(id)!, stored),
     ),
-    customFields: data.customFields.map((f) => ({
-      ...f,
-      scope: f.scope ?? 'INSTANCE',
-      value: f.sensitive ? null : f.value,
-      masked: f.sensitive && f.value !== null,
-      sourceRefs: f.sensitive ? [] : f.sourceRefs,
-    })),
+    customFields: data.customFields.map(
+      ({ fromPreviousCategory: _fromPreviousCategory, ...f }) => ({
+        ...f,
+        scope: f.scope ?? 'INSTANCE',
+        value: f.sensitive ? null : f.value,
+        masked: f.sensitive && f.value !== null,
+        sourceRefs: f.sensitive ? [] : f.sourceRefs,
+      }),
+    ),
     pinnedFields: data.pins,
   };
 }

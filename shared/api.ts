@@ -206,9 +206,29 @@ export interface paths {
         head?: never;
         /**
          * Patch thing
-         * @description Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set or changing category preserves displaced values as custom fields. Returns 409 while an import is active.
+         * @description Updates selected properties, fields, tags and pins of a Thing. Removing a populated field set keeps displaced values as custom fields. Category changes move matching field occurrences and keep other populated values as custom fields. Category changes return 409 while an import is queued or running.
          */
         patch: operations["patchThing"];
+        trace?: never;
+    };
+    "/api/things/{id}:change-category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Thing category
+         * @description Changes the category of an existing Thing and optionally queues a fresh import in the same transaction. Returns 409 while an import is queued or running.
+         */
+        post: operations["changeThingCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/things/{id}:reveal-field": {
@@ -1224,6 +1244,12 @@ export interface components {
             /** Format: uuid */
             imageAttachmentId?: string | null;
         };
+        /** @description New category and optional research request for an existing Thing. */
+        ThingCategoryChange: {
+            categoryId: string;
+            /** @description Queue an import for the updated Thing using linked sources and public research. */
+            findDetails?: boolean;
+        };
         /** @description Reference to the field whose stored value should be revealed. */
         RevealRequest: components["schemas"]["Pin"];
         /** @description Stored field value returned by an explicit reveal request. The response must not be cached. */
@@ -1550,6 +1576,8 @@ export interface components {
             /** Format: uuid */
             thingId: string | null;
             status: components["schemas"]["ImportStatusEnum"];
+            /** @description Whether the Thing changed category after this request and a fresh import is needed. */
+            previousCategory?: boolean;
             candidates: components["schemas"]["ImportCandidate"][];
             thingIds: string[];
             error: string | null;
@@ -2401,6 +2429,39 @@ export interface operations {
         };
         responses: {
             /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Thing"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["InvalidInput"];
+            500: components["responses"]["ServerError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    changeThingCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id. */
+                id: components["parameters"]["resourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThingCategoryChange"];
+            };
+        };
+        responses: {
+            /** @description Updated Thing, including any newly queued import. */
             200: {
                 headers: {
                     [name: string]: unknown;

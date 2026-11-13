@@ -121,7 +121,7 @@ export const nameInput: FieldInput = {
 
 export const descriptionInput: FieldInput = { kind: 'textarea', sensitive: false, maxLength: 4000 };
 
-type Basics = Pick<Schema['ThingSummary'], 'name' | 'description' | 'categoryId'>;
+type Basics = Pick<Schema['ThingSummary'], 'name' | 'description'>;
 
 /**
  * Edit-mode drafts: the Thing's basics and one draft per row, keyed by row anchor. A missing entry
@@ -130,7 +130,6 @@ type Basics = Pick<Schema['ThingSummary'], 'name' | 'description' | 'categoryId'
 export interface DetailsDraft {
   name?: FieldDraft;
   description?: FieldDraft;
-  categoryId?: FieldDraft;
   fields: Partial<Record<string, FieldDraft>>;
 }
 
@@ -151,19 +150,16 @@ export function detailsDraft(
         : valueDraft(row.input, known ? revealed.get(row.anchor)! : row.value);
   }
 
-  return { name: thing.name, description: thing.description, categoryId: thing.categoryId, fields };
+  return { name: thing.name, description: thing.description, fields };
 }
 
-/**
- * The patches that save edit-mode drafts, in order. Field changes go first: a category change
- * drops sections that don't fit the new category, so their values must be written beforehand.
- */
-export function detailsPatches(
+/** Builds one patch from the values changed in edit mode. */
+export function detailsPatch(
   thing: Basics,
   rows: DetailRow[],
   draft: DetailsDraft,
   revealed: ReadonlyMap<string, Value | null>,
-): ThingPatch[] {
+): ThingPatch | undefined {
   const patch: ThingPatch = {};
   const name = draft.name === undefined ? thing.name : String(draft.name).trim();
   const description =
@@ -202,9 +198,5 @@ export function detailsPatches(
     }
   }
 
-  const patches = Object.keys(patch).length ? [patch] : [];
-  const categoryId = String(draft.categoryId ?? '');
-
-  if (categoryId && categoryId !== thing.categoryId) patches.push({ categoryId });
-  return patches;
+  return Object.keys(patch).length ? patch : undefined;
 }

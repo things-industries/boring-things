@@ -384,6 +384,103 @@ test('retired appliance labels discover the shared field definitions', async () 
     );
   }
 });
+
+test('category change moves shared fields and queues research for the same Thing', async () => {
+  const thing = await create({
+    name: 'Fixture media player',
+    categoryId: 'appliances',
+    addFieldSetIds: ['appliances.warranty'],
+    values: [
+      { fieldSetId: 'appliances.appliance', fieldId: 'common.model', value: 'Player A' },
+      { fieldSetId: 'appliances.appliance', fieldId: 'common.serialNumber', value: null },
+      { fieldSetId: 'appliances.warranty', fieldId: 'common.warrantyEnds', value: '2090-02-28' },
+      { fieldSetId: 'appliances.appliance', fieldId: 'appliances.eNumber', value: 'A/01' },
+    ],
+    pinnedFields: [{ fieldSetId: 'appliances.appliance', fieldId: 'common.model' }],
+  });
+  const {
+    rows: [oldImport],
+  } = await pool.query<{ id: string }>(
+    "insert into bt.imports(owner_id,target_thing_id,status) select owner_id,id,'INCOMPLETE' from bt.things where id=$1 returning id",
+    [thing.id],
+  );
+  await pool.query(
+    `insert into bt.tasks(owner_id,thing_id,title,status,import_key,scheduled_on)
+     select owner_id,id,title,status,key,scheduled_on::date from bt.things cross join (values
+       ('Old suggestion','SUGGESTED','old-suggestion',null),
+       ('Accepted task','ACTIVE','accepted-task','2090-02-28')
+     ) as fixture(title,status,key,scheduled_on) where id=$1`,
+    [thing.id],
+  );
+  await pool.query(
+    `insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,import_key)
+     select owner_id,id,'ACCESSORY','Old accessory','','https://example.test/accessory','old-accessory'
+     from bt.things where id=$1`,
+    [thing.id],
+  );
+
+  const path = `/things/${thing.id}:change-category`;
+  let releasePopulation = () => {};
+  importAi.pause = new Promise<void>((resolve) => {
+    releasePopulation = resolve;
+  });
+  const response = await (async () => {
+    try {
+      const changed = await request('POST', path, { categoryId: 'devices', findDetails: true });
+      assert.equal(changed.statusCode, 200, changed.body);
+      const competing = await request('POST', path, { categoryId: 'appliances' });
+      assert.equal(competing.statusCode, 409, competing.body);
+      return changed;
+    } finally {
+      releasePopulation();
+      importAi.pause = undefined;
+    }
+  })();
+  const changed = response.json<Schema['Thing']>();
+  assert.equal(changed.id, thing.id);
+  assert.equal(changed.categoryId, 'devices');
+  const deviceFields = changed.fieldSets.find(({ id }) => id === 'devices.device')?.fields;
+  assert.equal(deviceFields?.find(({ id }) => id === 'common.model')?.value, 'Player A');
+  assert.equal(deviceFields?.find(({ id }) => id === 'common.serialNumber')?.autoPopulate, false);
+  assert.equal(
+    changed.fieldSets
+      .find(({ id }) => id === 'devices.warranty')
+      ?.fields.find(({ id }) => id === 'common.warrantyEnds')?.value,
+    '2090-02-28',
+  );
+  assert.deepEqual(changed.pinnedFields, [
+    { fieldSetId: 'devices.device', fieldId: 'common.model' },
+  ]);
+  assert.ok(changed.customFields.some(({ value }) => value === 'A/01'));
+  assert.deepEqual(changed.purchasableIds, []);
+  const tasks = (await request('GET', `/tasks?thingId=${thing.id}`)).json<Schema['TaskList']>()
+    .items;
+  assert.deepEqual(
+    tasks.map(({ title, scheduledOn }) => [title, scheduledOn]),
+    [['Accepted task', '2090-02-28']],
+  );
+
+  const fresh = changed.import;
+  assert.equal(fresh?.status, 'QUEUED');
+  assert.notEqual(fresh.id, oldImport.id);
+  let completed = fresh;
+  for (let attempt = 0; attempt < 100 && activeStatuses.includes(completed.status); attempt++) {
+    await setTimeout(20);
+    completed = (await request('GET', `/imports/${fresh.id}`)).json<Schema['Import']>();
+  }
+  assert.equal(completed.status, 'COMPLETE', JSON.stringify(completed));
+  assert.equal(completed.candidates?.[0]?.categoryId, 'devices');
+
+  const back = await request('POST', path, { categoryId: 'appliances' });
+  assert.equal(back.statusCode, 200, back.body);
+  assert.equal(back.json<Schema['Thing']>().import, null);
+  const previous = await request('GET', `/imports/${oldImport.id}`);
+  assert.equal(previous.json<Schema['Import']>().previousCategory, true);
+  const retry = await request('POST', `/imports/${oldImport.id}:retry`);
+  assert.equal(retry.statusCode, 409, retry.body);
+  assert.match(retry.body, /previous category/);
+});
+
 test('isolation covers reads, edits, reveal, lists and relationships', async () => {
   const thing = await create({
     categoryId: 'memberships',
@@ -399,6 +496,7 @@ test('isolation covers reads, edits, reveal, lists and relationships', async () 
   for (const [method, path, body] of [
     ['GET', `/things/${thing.id}`, undefined],
     ['PATCH', `/things/${thing.id}`, { name: 'stolen' }],
+    ['POST', `/things/${thing.id}:change-category`, { categoryId: 'other' }],
     ['DELETE', `/things/${thing.id}`, undefined],
     [
       'POST',
