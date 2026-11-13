@@ -84,7 +84,7 @@ export interface ProviderFailure {
 
 export interface ProviderCall {
   task: string;
-  provider: 'openai' | 'google_vision' | 'icecat' | 'zyfy' | 'web';
+  provider: 'openai' | 'google_vision' | 'icecat' | 'zyfy' | 'epc_govuk' | 'web';
   operation?: string;
   startedAt?: number;
   model?: string;

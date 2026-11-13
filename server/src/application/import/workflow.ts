@@ -36,6 +36,7 @@ import { validateResource, saveResourceAttachment, resourceKey } from './resourc
 import type { SpecialistProvider } from '../../providers/specialist-data.js';
 import { IcecatProvider } from '../../providers/icecat/index.js';
 import { ZyfyProvider } from '../../providers/zyfy/index.js';
+import { EpcGovUkProvider } from '../../providers/epc-govuk/index.js';
 import { getAdditionalInformationBatch } from '../../providers/ai/tasks/additional-information.js';
 import * as metrics from '../../metrics.js';
 
@@ -465,6 +466,7 @@ export class ImportWorkflow {
     const providers = this.options.specialists ?? [
       ...(getEnv('ICECAT_ACCESS_TOKEN', { optional: true }) ? [new IcecatProvider()] : []),
       ...(getEnv('ZYFY_API_KEY', { optional: true }) ? [new ZyfyProvider()] : []),
+      ...(getEnv('EPC_GOVUK_API_KEY', { optional: true }) ? [new EpcGovUkProvider()] : []),
     ];
     for (const provider of providers) {
       const key = 'specialist:' + provider.id;
@@ -483,6 +485,7 @@ export class ImportWorkflow {
         continue;
       }
       await this.commit(key, async (db, current) => {
+        if (result.matchesThing && !result.matchesThing(current)) return;
         let data = addFieldSets(current.data, current.categoryId, this.registry, result.setIds);
         data = populateFields(data, result.values, this.registry, 'DISCOVERY');
         await thingsDb.saveThingData(db, current.ownerId, current.id, data);

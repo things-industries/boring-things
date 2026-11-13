@@ -204,7 +204,7 @@ test('Household basics, shared meter access and energy performance persist indep
   const detail = saved.json<Schema['Thing']>();
   const sets = new Map(detail.fieldSets.map((set) => [set.id, set.fields]));
   const find = (set: string, id: string) => sets.get(set)?.find((field) => field.id === id);
-  assert.equal(find(address.fieldSetId, address.fieldId)?.masked, true);
+  assert.equal(find(address.fieldSetId, address.fieldId)?.masked, false);
   assert.equal(find(address.fieldSetId, address.fieldId)?.value, 'Flat 2, 1 Example Street');
   assert.equal(find('household.household', 'household.bedrooms')?.value, 0);
   assert.equal(

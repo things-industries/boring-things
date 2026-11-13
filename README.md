@@ -64,6 +64,7 @@ On a Thing, **Add details from a source** submits a contextual Import. **Find mo
 - Category-mandatory fieldsets contain identifiers. Registry search returns bounded optional fieldset and field definitions. Population validates occurrence addresses, value schemas, source quotes and original pages in batches of twenty.
 - Specialist lookup runs before public resource research. Icecat uses `ICECAT_ACCESS_TOKEN` to look up appliances and devices by GTIN or manufacturer plus product code/model number. Free Open Icecat access covers participating brands such as Philips. Catalogue misses and access restrictions allow public research to continue.
 - Zyfy uses `ZYFY_API_KEY` for vehicles whose registration matches a UK plate pattern and whose registration country is UK or unset. It fills identity, specifications, MOT, road tax and recall fields with provider provenance. First registration uses `YYYY-MM` precision. Pending enrichment retries up to three requests within thirty seconds; missing vehicles allow research to continue and provider failures create retryable warnings. See [vehicle lookup](docs/setup/imports.md#vehicle-lookup).
+- The free GOV.UK EPC API uses `EPC_GOVUK_API_KEY` to look up domestic energy certificates in England and Wales. It fills Energy performance and available property fields from the matching certificate. See [Household EPC lookup](docs/setup/imports.md#household-epc-lookup).
 - Public research receives populated fields classified as `scope: GROUP` or `scope: CLASS`. Discovered resources are shared unowned Attachments with system-managed content and metadata. Owner-scoped links expose only the owner's associations. Unlink decisions survive research retries.
 - Recommendation runs one AI task for management tasks and one for purchasables in parallel. Each reads applicable Attachment content and saved fields, then uses web search for missing evidence or purchase links. Tasks become unscheduled suggestions; purchasables require cited compatibility and purchase links. Existing suggestions and owner decisions are preserved.
 - Authenticated revisioned SSE snapshots restore progress after navigation and reconnect. Source text, identity evidence and credentials remain outside ordinary Import responses.
@@ -191,31 +192,32 @@ Lists accept `limit` and opaque offset cursors. They reapply owner scope on each
 
 `server/src/config.ts` supplies typed settings through `getEnv(name)`. It parses and caches defaults and environment values on first access. Application components read their settings where needed; configuration objects and credentials are not passed through application interfaces. AI provider assembly requires `OPENAI_API_KEY` at startup; each task reads it through `getEnv` when issuing its first request. Tests select synthetic credentials with `setEnvMode('test')` and override individual settings with `setEnvValue(name, value)`. Selecting a mode resets overrides and the cache. Test mode uses authored defaults and imports `TEST_DATABASE_URL` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` from the process environment. Tests changing settings within one process run sequentially. Runtime mode reads the process environment. The base AI task sets limits of 120,000 text characters and 12,000 output tokens; specialised tasks override these settings where needed. Each research task sets its web search limit to three calls in its class.
 
-| Variable                | Purpose                                                                    |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `DATABASE_URL`          | Backend Postgres connection; local default uses port 55432                 |
-| `LOGTO_ENDPOINT`        | Tenant endpoint, without `/oidc`                                           |
-| `LOGTO_APP_ID`          | SPA application ID; public identifier                                      |
-| `LOGTO_API_RESOURCE`    | API audience; `https://api.boring-things.local`                            |
-| `BLOB_DIRECTORY`        | Local blob directory; default `.data/blobs`                                |
-| `MAX_UPLOAD_BYTES`      | Upload and research document limit; default 100000000                      |
-| `ENABLE_SAMPLE_DATA`    | Enables the authenticated sample-data action; default false                |
-| `GOOGLE_VISION_API_KEY` | Server-only Google Vision key; required for image and scanned PDF page OCR |
-| `OPENAI_API_KEY`        | Server-only OpenAI credential; required at startup                         |
-| `ICECAT_ACCESS_TOKEN`   | Optional Icecat API token; free access covers participating brands         |
-| `ZYFY_API_KEY`          | Optional Zyfy API key for UK vehicle registration lookup                   |
-| `IMPORT_MAX_REQUESTS`   | Model request limit per Import or Attachment across retries; default 60    |
-| `IMPORT_MAX_RESOURCES`  | Discovered resource limit per Import; default 3                            |
-| `IMPORT_TIMEOUT_MS`     | Import attempt deadline; default 300000                                    |
-| `IMPORT_TOOL_ROUNDS`    | Default local tool-call budget for general import tasks                    |
-| `DISCOVERY_TIMEOUT_MS`  | Resource transcription wait deadline; default 90000                        |
-| `CHAT_TIMEOUT_MS`       | Assistant attempt deadline; default 180000                                 |
-| `CHAT_TOOL_CALLS`       | Function-call budget per assistant response; default 12                    |
-| `HOST`, `PORT`          | API bind address; default `127.0.0.1:3000`                                 |
-| `LOG_LEVEL`             | Minimum severity; default `info`; use `trace` for requests                 |
-| `LOG_FORMAT`            | `pretty` locally; `json` when `NODE_ENV=production`                        |
-| `SENTRY_DSN`            | Optional DSN for the Fastify Sentry project                                |
-| `SENTRY_FRONTEND_DSN`   | Optional public DSN for the Angular Sentry project                         |
+| Variable                | Purpose                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `DATABASE_URL`          | Backend Postgres connection; local default uses port 55432                     |
+| `LOGTO_ENDPOINT`        | Tenant endpoint, without `/oidc`                                               |
+| `LOGTO_APP_ID`          | SPA application ID; public identifier                                          |
+| `LOGTO_API_RESOURCE`    | API audience; `https://api.boring-things.local`                                |
+| `BLOB_DIRECTORY`        | Local blob directory; default `.data/blobs`                                    |
+| `MAX_UPLOAD_BYTES`      | Upload and research document limit; default 100000000                          |
+| `ENABLE_SAMPLE_DATA`    | Enables the authenticated sample-data action; default false                    |
+| `GOOGLE_VISION_API_KEY` | Server-only Google Vision key; required for image and scanned PDF page OCR     |
+| `OPENAI_API_KEY`        | Server-only OpenAI credential; required at startup                             |
+| `ICECAT_ACCESS_TOKEN`   | Optional Icecat API token; free access covers participating brands             |
+| `ZYFY_API_KEY`          | Optional Zyfy API key for UK vehicle registration lookup                       |
+| `EPC_GOVUK_API_KEY`     | Optional server-side GOV.UK token for domestic EPC lookup in England and Wales |
+| `IMPORT_MAX_REQUESTS`   | Model request limit per Import or Attachment across retries; default 60        |
+| `IMPORT_MAX_RESOURCES`  | Discovered resource limit per Import; default 3                                |
+| `IMPORT_TIMEOUT_MS`     | Import attempt deadline; default 300000                                        |
+| `IMPORT_TOOL_ROUNDS`    | Default local tool-call budget for general import tasks                        |
+| `DISCOVERY_TIMEOUT_MS`  | Resource transcription wait deadline; default 90000                            |
+| `CHAT_TIMEOUT_MS`       | Assistant attempt deadline; default 180000                                     |
+| `CHAT_TOOL_CALLS`       | Function-call budget per assistant response; default 12                        |
+| `HOST`, `PORT`          | API bind address; default `127.0.0.1:3000`                                     |
+| `LOG_LEVEL`             | Minimum severity; default `info`; use `trace` for requests                     |
+| `LOG_FORMAT`            | `pretty` locally; `json` when `NODE_ENV=production`                            |
+| `SENTRY_DSN`            | Optional DSN for the Fastify Sentry project                                    |
+| `SENTRY_FRONTEND_DSN`   | Optional public DSN for the Angular Sentry project                             |
 
 Local server logs use Fastify's [Pino transport support](https://fastify.dev/docs/latest/Reference/Logging/#environment-specific-configuration) with `pino-pretty`: local timestamps, severity, messages and structured context on one line, with process ID and hostname omitted. Production defaults to JSON.
 
