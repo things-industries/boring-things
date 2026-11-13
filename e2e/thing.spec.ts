@@ -57,7 +57,7 @@ test('a Household shows a category icon and lets the owner record energy perform
 });
 
 test('a country dropdown shows names and saves the selected code', async ({ page }) => {
-  await createThing(page, 'Country fixture', 'household', 'household.energyPerformance');
+  await createThing(page, 'Holiday flat', 'household', 'household.energyPerformance');
   await page.getByRole('link', { name: 'See all details' }).click();
   await page.getByRole('button', { name: 'Edit details' }).click();
   const country = page.getByRole('combobox', { name: 'Country', exact: true });
@@ -73,7 +73,10 @@ test('a country dropdown shows names and saves the selected code', async ({ page
   ]);
   await page.reload();
   await expect(
-    page.locator('bt-key-value-row', { hasText: 'Country' }).locator('.key-value-value'),
+    page
+      .locator('bt-key-value-row')
+      .filter({ has: page.getByRole('button', { name: 'Actions for Country', exact: true }) })
+      .locator('.key-value-value'),
   ).toHaveText('Portugal');
 });
 
