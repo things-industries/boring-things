@@ -62,7 +62,7 @@ function createThing(
 ): ThingRow {
   return {
     id: 'fixture',
-    ownerId: 'owner',
+    userId: 'owner',
     name: 'Example home',
     categoryId: 'household',
     description: '',

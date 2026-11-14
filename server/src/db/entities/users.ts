@@ -1,17 +1,17 @@
 import * as database from '../connection.js';
 import type { Database } from '../connection.js';
 import type { Schema } from '../../../../shared/model.js';
-export async function getOwnerProfile(db: Database, owner: string) {
+export async function getUserProfile(db: Database, userId: string) {
   return (
     await database.rows<Schema['Profile']>(
       db,
       'select id,display_name,samples_added from bt.users where id=$1',
-      [owner],
+      [userId],
     )
   )[0];
 }
 
-export async function getOrCreateOwnerForSubject(
+export async function getOrCreateUserForSubject(
   db: Database,
   subject: string,
   name?: string,

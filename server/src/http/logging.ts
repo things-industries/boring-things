@@ -5,13 +5,13 @@ import { LogController, type FastifyReply, type FastifyRequest } from 'fastify';
 import { getFailureReason } from '../application/errors.js';
 import { recordHttpDuration } from '../sentry.js';
 
-// Uses the matched route template and the internal owner resolved by authentication.
+// Uses the matched route template and the user ID resolved by authentication.
 export function getRequestContext(request: FastifyRequest) {
   return {
     requestId: request.id,
     route: request.routeOptions.url ?? 'unmatched',
     method: request.method,
-    ownerId: request.ownerId || undefined,
+    userId: request.userId || undefined,
   };
 }
 

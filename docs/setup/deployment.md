@@ -17,7 +17,7 @@ Use the Render workspace's **Wait** overlapping deploy policy. Run production mi
 Use a dedicated project with PostgreSQL 17. Inspect its migration history before initial deployment. The application uses the private `bt` schema and Logto identities. Keep `bt` outside exposed Data API schemas.
 
 1. In **Connect**, copy the **Session pooler** connection string on port `5432`. Copy the hostname from the console. The persistent runner lock requires a session connection. No SSL query parameter is needed: the application requires TLS for Supabase hosts, and deployment preparation supplies `sslmode=require` to the migration CLI. This default encrypts traffic without verifying the server certificate. Explicit SSL parameters in the URL override the default; `sslmode=verify-full` requires a trusted CA certificate.
-2. In [**Storage → S3**](https://supabase.com/dashboard/project/_/storage/s3), enable the S3 connection and generate an Access Key ID and Secret Access Key. These keys bypass storage row-level security and must remain server-side. Fastify checks ownership before every user download or mutation.
+2. In [**Storage → S3**](https://supabase.com/dashboard/project/_/storage/s3), enable the S3 connection and generate an Access Key ID and Secret Access Key. These keys bypass storage row-level security and must remain server-side. Fastify checks user access before every download or mutation.
 3. Configure the variables below. The deployment script creates the `attachments` bucket through the S3 API and verifies that it is private. Leave public bucket access disabled.
 
 | Variable                                               | Value                                                                                                                        |

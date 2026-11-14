@@ -38,7 +38,7 @@ export interface DiagnosticEntity {
   name: string;
 }
 interface DiagnosticScope {
-  ownerId?: string;
+  userId?: string;
   thingId?: string;
   traceId?: string;
   jobId?: string;
@@ -50,7 +50,7 @@ interface DiagnosticScope {
 }
 interface JobContext {
   id: string;
-  ownerId?: string | null;
+  userId?: string | null;
   thingId?: string | null;
   conversationId?: string;
   queuedAt?: string | null;
@@ -114,7 +114,7 @@ export function recordDependencyFailure(
   dependency: 'database' | 'storage' | 'logto',
   operation: string,
   error: unknown,
-  context?: { ownerId?: string; attachmentId?: string; thingId?: string },
+  context?: { userId?: string; attachmentId?: string; thingId?: string },
 ) {
   const reason = getFailureReason(error);
   const attributes = { dependency, operation, reason };
@@ -140,7 +140,7 @@ export function recordToolResult(resultCount: number, truncated: boolean) {
   updateTrace({ metadata: { resultCount, truncated } });
 }
 
-// Adds the owner-scoped entity once its display label is available.
+// Adds the user-scoped entity once its display label is available.
 export function setJobEntity(entity: DiagnosticEntity) {
   const scope = diagnostics.getStore();
   if (!scope?.jobId || (scope.entity?.id === entity.id && scope.entity.name === entity.name))
@@ -199,14 +199,14 @@ export function recordImportDiagnostic(
 
 // Correlates job events by ID without including record names.
 function getJobMetadata() {
-  const { jobId, jobKind, attemptId, conversationId, ownerId, thingId, traceId } =
+  const { jobId, jobKind, attemptId, conversationId, userId, thingId, traceId } =
     diagnostics.getStore() ?? {};
   return {
     jobKind,
     jobId,
     attemptId,
     conversationId,
-    ownerId,
+    userId,
     thingId,
     traceId,
     importId: jobKind === 'import' ? jobId : undefined,
@@ -366,7 +366,7 @@ function withJobTrace(
   job: JobContext,
   work: () => Promise<JobOutcome>,
 ) {
-  const { id, ownerId, thingId, conversationId, queuedAt, sourceWaitMs } = job;
+  const { id, userId, thingId, conversationId, queuedAt, sourceWaitMs } = job;
   const started = Date.now();
   const attemptId = randomBytes(8).toString('hex');
   const traceId = getJobTraceId(id);
@@ -377,7 +377,7 @@ function withJobTrace(
       jobKind: kind,
       attemptId,
       conversationId,
-      ownerId: ownerId ?? undefined,
+      userId: userId ?? undefined,
       thingId: thingId ?? undefined,
       traceId,
     },
@@ -385,7 +385,7 @@ function withJobTrace(
       propagateAttributes(
         {
           sessionId: conversationId ?? id,
-          userId: ownerId ?? undefined,
+          userId: userId ?? undefined,
           traceName: `process_${kind}`,
           metadata: {
             jobKind: kind,

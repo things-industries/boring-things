@@ -1,4 +1,4 @@
-/** Exercises authenticated API persistence, ownership and import flows with fixture providers. */
+/** Exercises authenticated API persistence, user isolation and import flows with fixture providers. */
 
 import { getEnv, setEnvMode, setEnvValue } from '../../src/config.js';
 import { test, before, after } from 'node:test';
@@ -41,20 +41,20 @@ const request = (
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   body?: object,
-  owner = 'alice',
+  userSubject = 'alice',
 ) =>
   app.inject({
     method,
     url: '/api' + path,
     payload: body,
-    headers: { authorization: 'Bearer ' + owner },
+    headers: { authorization: 'Bearer ' + userSubject },
   });
-async function create(input: Partial<Schema['ThingCreate']> = {}, owner = 'alice') {
+async function create(input: Partial<Schema['ThingCreate']> = {}, userSubject = 'alice') {
   const res = await request(
     'POST',
     '/things',
     { name: 'Test thing', categoryId: 'other', ...input },
-    owner,
+    userSubject,
   );
   assert.equal(res.statusCode, 201, res.body);
   return res.json<Schema['Thing']>();
@@ -248,8 +248,8 @@ test('country migration converts known names and keeps source references and oth
   const sourceRefs = [{ quote: 'Great Britain' }];
   const before = (
     await pool.query(
-      `insert into bt.thing_fields(thing_id, owner_id, field_key, field_id, value, origin, source_refs)
-      select t.id, t.owner_id, ':' || input.field_id, input.field_id, to_jsonb(input.value), 'USER', $2
+      `insert into bt.thing_fields(thing_id, user_id, field_key, field_id, value, origin, source_refs)
+      select t.id, t.user_id, ':' || input.field_id, input.field_id, to_jsonb(input.value), 'USER', $2
       from bt.things t cross join (values
         ('household.country', ' Great Britain '),
         ('vehicles.registrationCountry', 'Unrecognised location'),
@@ -320,8 +320,8 @@ test('appliance field migration moves values and keeps ambiguous values and pins
       [thing.id, JSON.stringify([address.fieldSetId]), JSON.stringify([address])],
     );
     await pool.query(
-      `insert into bt.thing_fields(thing_id,owner_id,field_key,field_id,field_set_id,value,origin,auto_populate,source_refs)
-        select id,owner_id,$2,$3,$4,$5,'USER',false,$6 from bt.things where id=$1`,
+      `insert into bt.thing_fields(thing_id,user_id,field_key,field_id,field_set_id,value,origin,auto_populate,source_refs)
+        select id,user_id,$2,$3,$4,$5,'USER',false,$6 from bt.things where id=$1`,
       [
         thing.id,
         `${address.fieldSetId}:${address.fieldId}`,
@@ -398,20 +398,20 @@ test('category change moves shared fields and queues research for the same Thing
   const {
     rows: [oldImport],
   } = await pool.query<{ id: string }>(
-    "insert into bt.imports(owner_id,target_thing_id,status) select owner_id,id,'INCOMPLETE' from bt.things where id=$1 returning id",
+    "insert into bt.imports(user_id,target_thing_id,status) select user_id,id,'INCOMPLETE' from bt.things where id=$1 returning id",
     [thing.id],
   );
   await pool.query(
-    `insert into bt.tasks(owner_id,thing_id,title,status,import_key,scheduled_on)
-     select owner_id,id,title,status,key,scheduled_on::date from bt.things cross join (values
+    `insert into bt.tasks(user_id,thing_id,title,status,import_key,scheduled_on)
+     select user_id,id,title,status,key,scheduled_on::date from bt.things cross join (values
        ('Old suggestion','SUGGESTED','old-suggestion',null),
        ('Accepted task','ACTIVE','accepted-task','2090-02-28')
      ) as fixture(title,status,key,scheduled_on) where id=$1`,
     [thing.id],
   );
   await pool.query(
-    `insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,import_key)
-     select owner_id,id,'ACCESSORY','Old accessory','','https://example.test/accessory','old-accessory'
+    `insert into bt.purchasables(user_id,thing_id,kind,name,description,merchant_url,import_key)
+     select user_id,id,'ACCESSORY','Old accessory','','https://example.test/accessory','old-accessory'
      from bt.things where id=$1`,
     [thing.id],
   );
@@ -513,21 +513,22 @@ test('isolation covers reads, edits, lists and relationships', async () => {
     (await request('POST', '/conversations', { thingId: thing.id }, 'bob')).statusCode,
     404,
   );
-  const owned = await request('GET', `/things/${thing.id}`);
-  assert.equal(owned.statusCode, 200, owned.body);
-  const pin = owned.json<Schema['Thing']>().fieldSets.find((set) => set.id === 'memberships.access')
-    ?.fields[0];
+  const response = await request('GET', `/things/${thing.id}`);
+  assert.equal(response.statusCode, 200, response.body);
+  const pin = response
+    .json<Schema['Thing']>()
+    .fieldSets.find((set) => set.id === 'memberships.access')?.fields[0];
   assert.equal(pin?.value, '0098');
   assert.equal(pin?.masked, true);
-  assert.match(owned.headers['cache-control'] as string, /no-store/);
+  assert.match(response.headers['cache-control'] as string, /no-store/);
 });
-test('contract rejects unknown properties and invalid references; category counts are owner-scoped', async () => {
+test('contract rejects unknown properties and invalid references; category counts are user-scoped', async () => {
   assert.equal(
     (
       await request('POST', '/things', {
         name: 'x',
         categoryId: 'other',
-        ownerId: randomUUID(),
+        userId: randomUUID(),
       })
     ).statusCode,
     422,
@@ -589,21 +590,26 @@ test('concurrent field patches preserve each other and insurance values stay ind
     null,
   );
 });
-async function upload(content = 'manual', type = 'text/plain', owner = 'alice') {
+async function upload(content = 'manual', type = 'text/plain', userSubject = 'alice') {
   const boundary = 'test-boundary';
   return app.inject({
     method: 'POST',
     url: '/api/attachments',
     headers: {
-      authorization: 'Bearer ' + owner,
+      authorization: 'Bearer ' + userSubject,
       'content-type': 'multipart/form-data; boundary=' + boundary,
     },
     payload: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="manual.txt"\r\nContent-Type: ${type}\r\n\r\n${content}\r\n--${boundary}--\r\n`,
   });
 }
 // Waits for the Import started by linking an Attachment before the next Thing write.
-async function linkAttachment(id: string, thingId: string, owner = 'alice') {
-  const response = await request('PUT', `/attachments/${id}/things/${thingId}`, undefined, owner);
+async function linkAttachment(id: string, thingId: string, userSubject = 'alice') {
+  const response = await request(
+    'PUT',
+    `/attachments/${id}/things/${thingId}`,
+    undefined,
+    userSubject,
+  );
   assert.equal(response.statusCode, 204, response.body);
   const signal = AbortSignal.timeout(10000);
   while (true) {
@@ -627,14 +633,14 @@ test('list filters omit inaccessible records on every page', async (t) => {
   });
   const paths = ['/attachments', '/issues', '/events', '/purchasables'];
   const foreignIds = new Set<string>();
-  for (const [owner, thing] of [
+  for (const [userSubject, thing] of [
     ['alice', alice],
     ['bob', bob],
   ] as const) {
-    const ownerId = (await request('GET', '/profile', undefined, owner)).json().id;
+    const userId = (await request('GET', '/profile', undefined, userSubject)).json().id;
     for (let index = 0; index < 2; index++) {
-      const file = (await upload('manual', 'text/plain', owner)).json<Schema['Attachment']>();
-      await linkAttachment(file.id, thing.id, owner);
+      const file = (await upload('manual', 'text/plain', userSubject)).json<Schema['Attachment']>();
+      await linkAttachment(file.id, thing.id, userSubject);
       const ids = [file.id];
       for (const path of ['/issues', '/events']) {
         const response = await request(
@@ -645,18 +651,18 @@ test('list filters omit inaccessible records on every page', async (t) => {
             title: 'List fixture',
             ...(path === '/events' ? { startsOn: '2026-10-01' } : {}),
           },
-          owner,
+          userSubject,
         );
         assert.equal(response.statusCode, 201, response.body);
         ids.push(response.json().id);
       }
       const productId = randomUUID();
       await pool.query(
-        "insert into bt.purchasables(id,owner_id,thing_id,kind,name,merchant_url) values($1,$2,$3,$4,'List fixture','https://example.com/product')",
-        [productId, ownerId, thing.id, index ? 'ACCESSORY' : 'CONSUMABLE'],
+        "insert into bt.purchasables(id,user_id,thing_id,kind,name,merchant_url) values($1,$2,$3,$4,'List fixture','https://example.com/product')",
+        [productId, userId, thing.id, index ? 'ACCESSORY' : 'CONSUMABLE'],
       );
       ids.push(productId);
-      if (owner === 'bob') for (const id of ids) foreignIds.add(id);
+      if (userSubject === 'bob') for (const id of ids) foreignIds.add(id);
     }
   }
   for (const path of paths) {
@@ -742,9 +748,9 @@ test('shared attachments, authorized downloads, unlinking and retained-import de
   assert.equal((await request('DELETE', `/things/${a.id}`)).statusCode, 204);
   assert.equal((await request('GET', `/attachments/${file.id}/content`)).body, 'manual');
   assert.equal((await request('DELETE', `/attachments/${file.id}/things/${b.id}`)).statusCode, 204);
-  const owner = (await request('GET', '/profile')).json().id;
-  await pool.query("insert into bt.imports(owner_id,attachment_id,status) values($1,$2,'FAILED')", [
-    owner,
+  const userId = (await request('GET', '/profile')).json().id;
+  await pool.query("insert into bt.imports(user_id,attachment_id,status) values($1,$2,'FAILED')", [
+    userId,
     file.id,
   ]);
   assert.equal((await request('DELETE', `/attachments/${file.id}`)).statusCode, 409);
@@ -756,7 +762,7 @@ test('upload limits and content type checks are enforced', async () => {
   assert.equal((await upload('not a png', 'image/png')).statusCode, 415);
   assert.equal((await upload('<svg/>', 'image/svg+xml')).statusCode, 415);
 });
-test('attachment metadata edits are partial, owner-scoped and shared without changing downloads', async () => {
+test('attachment metadata edits are partial, user-scoped and shared without changing downloads', async () => {
   const file = (await upload()).json<Schema['Attachment']>();
   assert.equal(file.title, null);
   assert.equal(file.pageCount, null);
@@ -812,7 +818,7 @@ test('attachment metadata edits are partial, owner-scoped and shared without cha
   assert.ok(String(download.headers['content-disposition']).includes(file.filename));
   assert.ok(!JSON.stringify(cleared).includes('storageKey'));
 });
-test('activity transitions and conversation/message persistence are owner-scoped', async () => {
+test('activity transitions and conversation/message persistence are user-scoped', async () => {
   const thing = await create();
   const issue = (
     await request('POST', '/issues', { thingId: thing.id, title: 'A problem' })
@@ -894,7 +900,7 @@ test('stored data survives application restart', async () => {
   assert.equal((await request('GET', `/things/${thing.id}`)).json().name, 'Persists');
 });
 
-test('Issue status text and due dates preserve omission, clear with null and stay owner-scoped', async () => {
+test('Issue status text and due dates preserve omission, clear with null and stay user-scoped', async () => {
   const thing = await create();
   const res = await request('POST', '/issues', {
     thingId: thing.id,

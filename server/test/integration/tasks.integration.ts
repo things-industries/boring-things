@@ -1,4 +1,4 @@
-/** Task lifecycle, recurrence, followup context and owner access through the API. */
+/** Task lifecycle, recurrence, followup context and user access through the API. */
 
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -323,7 +323,7 @@ test('issue resolution closes linked suggestions, active tasks, completed tasks 
   );
 });
 
-test('chat followups reuse conversations and record the first owner message with item and issue context', async (t) => {
+test('chat followups reuse conversations and record the first user message with item and issue context', async (t) => {
   const thing = await createThing();
   const issue = (
     await request('POST', '/issues', { thingId: thing.id, title: 'Filter leak' })
@@ -433,7 +433,7 @@ test('Thing dates include future registry and custom dates, and omit text and se
   );
 });
 
-test('all Task operations and linked context enforce owner scope', async () => {
+test('all Task operations and linked context enforce user scope', async () => {
   const thing = await createThing();
   const task = await createTask(thing.id);
   const other = 'Bearer ' + (await app.signToken({ subject: 'task-other-owner' }));

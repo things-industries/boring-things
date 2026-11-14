@@ -42,15 +42,15 @@ export async function listCategoryIds(db: Database): Promise<string[]> {
 }
 export async function listCategories(
   db: Database,
-  owner: string,
+  userId: string,
   query: PageQuery,
 ): Promise<Schema['CategoryList']> {
   const { limit, offset } = page(query);
   return pageResult(
     await database.rows<Schema['Category']>(
       db,
-      'select c.*, (select count(*)::integer from bt.things t where t.category_id=c.id and t.owner_id=$1) as thing_count from bt.categories c order by sort_order,id limit $2 offset $3',
-      [owner, limit + 1, offset],
+      'select c.*, (select count(*)::integer from bt.things t where t.category_id=c.id and t.user_id=$1) as thing_count from bt.categories c order by sort_order,id limit $2 offset $3',
+      [userId, limit + 1, offset],
     ),
     query,
   );

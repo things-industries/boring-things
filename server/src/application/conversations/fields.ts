@@ -1,4 +1,4 @@
-/** Owner-requested field batches with source validation, field cards and transactional retry receipts. */
+/** User-requested field batches with source validation, field cards and transactional retry receipts. */
 
 import type pg from 'pg';
 import type { Schema, StoredValue, ThingPatch } from '../../../../shared/model.js';
@@ -82,7 +82,7 @@ export async function updateChatFields(
       input.values.every((field) => evidence.fieldIds.has(field.fieldId)),
       'Search for the registry field first',
     );
-    const currentThing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, input.thingId, {
+    const currentThing = await thingsDb.getThingForUserOrThrow(db, job.userId, input.thingId, {
       lock: true,
     });
     const originalCustomIds = new Set(currentThing.data.customFields.map((field) => field.id));
@@ -99,9 +99,9 @@ export async function updateChatFields(
       ensure(!!source.attachmentId !== !!source.url, 'Choose one source');
       if (source.attachmentId) {
         ensure(evidence.attachmentIds.has(source.attachmentId), 'Read the attachment first');
-        const attachment = await attachmentsDb.getOwnedAttachmentOrThrow(
+        const attachment = await attachmentsDb.getAttachmentForUserOrThrow(
           db,
-          job.ownerId,
+          job.userId,
           source.attachmentId,
         );
         ensure(
@@ -161,7 +161,7 @@ export async function updateChatFields(
     try {
       thing = await saveThing(
         db,
-        job.ownerId,
+        job.userId,
         {
           addFieldSetIds: input.addFieldSetIds,
           values: input.values.map(({ source: _source, ...field }) => ({

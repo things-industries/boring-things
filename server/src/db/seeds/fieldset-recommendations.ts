@@ -65,7 +65,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           title: 'Clean the drain pump filter',
           description: 'Clearing lint and debris from the filter helps the washing machine drain.',
           eligibility:
-            'The washing machine has a drain pump filter that the owner can access and clean.',
+            'The washing machine has a drain pump filter that the user can access and clean.',
           importance: 'RECOMMENDED',
           recurrence: 'every 2 months',
         },
@@ -87,14 +87,14 @@ export const recommendationSuggestionsByFieldSet = new Map<
           title: 'Clean the lint filter',
           description:
             'Removing lint helps air flow through the dryer so it can dry clothes efficiently.',
-          eligibility: 'The dryer has a lint filter that the owner can access and clean.',
+          eligibility: 'The dryer has a lint filter that the user can access and clean.',
           importance: 'IMPORTANT',
         },
         {
           title: 'Empty the condenser tank',
           description:
             'The condenser tank needs emptying since the dryer does not vent moisture to the outside',
-          eligibility: 'The dryer collects water in a tank that the owner can empty.',
+          eligibility: 'The dryer collects water in a tank that the user can empty.',
           importance: 'RECOMMENDED',
         },
       ],
@@ -103,7 +103,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           name: 'Lint filter',
           description:
             'A lint filter traps fluff that comes off clothes during drying. A new filter restores that function if the old one is broken or no longer fits properly.',
-          eligibility: 'The dryer has a lint filter that the owner can replace.',
+          eligibility: 'The dryer has a lint filter that the user can replace.',
           kind: 'CONSUMABLE',
         },
       ],
@@ -114,7 +114,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           title: 'Replace the water filter',
           description:
             "Replacing the cartridge keeps the fridge's drinking water or ice supply filtered.",
-          eligibility: 'The fridge uses a water filter cartridge that the owner can replace.',
+          eligibility: 'The fridge uses a water filter cartridge that the user can replace.',
           importance: 'RECOMMENDED',
           recurrence: 'every 6 months',
         },
@@ -165,7 +165,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'A working oven light lets you see how food is cooking without opening the door.',
           eligibility:
-            'The oven manual permits owner replacement of the light bulb and specifies its fitting, wattage and heat rating.',
+            'The oven manual permits the user to replace the light bulb and specifies its fitting, wattage and heat rating.',
           kind: 'CONSUMABLE',
         },
       ],
@@ -190,7 +190,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'A service checks how the heating system is working and can identify faults before they interrupt heating or hot water.',
           eligibility:
-            'The owner is responsible for arranging service for the boiler or heat pump. ',
+            'The user is responsible for arranging service for the boiler or heat pump. ',
           importance: 'IMPORTANT',
           recurrence: 'every year',
         },
@@ -204,7 +204,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'A clean filter lets air flow through the unit and keeps dust from accumulating inside it.',
           eligibility:
-            'The unit has a user-accessible air filter that the owner can clean or replace.',
+            'The unit has a user-accessible air filter that the user can clean or replace.',
           importance: 'RECOMMENDED',
         },
       ],
@@ -243,7 +243,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
         {
           title: 'Replace the exhaust filter',
           description: 'A fresh exhaust filter traps fine dust before air leaves the vacuum.',
-          eligibility: 'The vacuum uses an exhaust filter that the owner can replace.',
+          eligibility: 'The vacuum uses an exhaust filter that the user can replace.',
           importance: 'RECOMMENDED',
         },
       ],
@@ -282,7 +282,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           title: 'Check backups',
           description:
             'Opening a file restored from backup shows whether you can recover it when you need it.',
-          eligibility: 'The device uses a backup system that lets the owner restore a sample file.',
+          eligibility: 'The device uses a backup system that lets the user restore a sample file.',
           importance: 'IMPORTANT',
           recurrence: 'every 3 months',
         },
@@ -311,7 +311,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
         {
           name: 'Battery',
           description: 'A fresh battery restores the time the device can run between charges.',
-          eligibility: 'The device uses a battery that the owner can replace.',
+          eligibility: 'The device uses a battery that the user can replace.',
           kind: 'CONSUMABLE',
         },
         {
@@ -330,7 +330,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           title: 'Restart the router',
           description:
             'Restarting the router can restore a connection that has dropped or stopped responding.',
-          eligibility: 'The device is a router with a restart procedure the owner can carry out.',
+          eligibility: 'The device is a router with a restart procedure the user can carry out.',
           importance: 'RECOMMENDED',
         },
       ],
@@ -362,7 +362,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             "The printer's maintenance routine can help diagnose or correct defects such as streaks, gaps or misalignment.",
           eligibility:
-            'The printer has a documented print-quality maintenance routine that the owner can run.',
+            'The printer has a documented print-quality maintenance routine that the user can run.',
           importance: 'NICE_TO_HAVE',
         },
       ],
@@ -527,7 +527,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'Checking the status gives you time to renew the tax or make a statutory off-road notification if you plan to take the vehicle off the road.',
           eligibility:
-            'The vehicle is subject to UK vehicle tax rules and the owner is the registered keeper.',
+            'The vehicle is subject to UK vehicle tax rules and the user is the registered keeper.',
           importance: 'IMPORTANT',
         },
       ],
@@ -781,7 +781,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'Restoring and opening a sample file shows whether you can recover files from the service when needed.',
           eligibility:
-            'The subscription includes a backup the owner can access and a way to restore a sample.',
+            'The subscription includes a backup the user can access and a way to restore a sample.',
           importance: 'IMPORTANT',
           recurrence: 'every 3 months',
         },
@@ -807,7 +807,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'A coordinated test confirms that the monitoring centre receives signals from the alarm.',
           eligibility:
-            'The alarm is connected to a monitoring centre and the provider offers an owner test with a way to prevent a false callout.',
+            'The alarm is connected to a monitoring centre and the provider offers a test the user can run with a way to prevent a false callout.',
           importance: 'IMPORTANT',
         },
       ],
@@ -870,7 +870,7 @@ export const recommendationSuggestionsByFieldSet = new Map<
           description:
             'An actual reading gives the supplier the figures it needs to bill for the water used.',
           eligibility:
-            'The water account uses a meter that the owner can read and the supplier accepts manual readings.',
+            'The water account uses a meter that the user can read and the supplier accepts manual readings.',
           importance: 'RECOMMENDED',
         },
       ],

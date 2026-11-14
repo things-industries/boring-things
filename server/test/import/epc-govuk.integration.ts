@@ -1,4 +1,4 @@
-/** Checks that an EPC lookup populates owner-scoped Household fields through an Import. */
+/** Checks that an EPC lookup populates user-scoped Household fields through an Import. */
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';

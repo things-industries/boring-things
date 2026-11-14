@@ -11,7 +11,7 @@ import type { Schema } from '../../../shared/model.js';
 import type { ImportAi, ResearchThing } from '../../src/application/import/types.js';
 import type { RecommendationInput } from '../../src/providers/ai/tasks/recommendation.js';
 
-test('contextual Import and Recommendation preserve owner fields and retry unfinished work', async () => {
+test('contextual Import and Recommendation preserve user fields and retry unfinished work', async () => {
   const app = await createTestApp({ importWorkflow: { specialists: [] } });
   try {
     const researchNames: (string | undefined)[] = [];
@@ -210,7 +210,7 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     };
     env.importAi.assessResource = async () => {
       const source = await env.pool.query<{ id: string }>(
-        'select id from bt.attachments where owner_id is null',
+        'select id from bt.attachments where user_id is null',
       );
       return {
         applicable: true,
@@ -267,11 +267,11 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
     assert.equal(job.thingIds.length, 1);
     const first = job.thingIds[0];
     const shared = (
-      await env.pool.query<{ id: string; owner_id: string | null; identifier_coverage: unknown }>(
-        'select id,owner_id,identifier_coverage from bt.attachments where owner_id is null',
+      await env.pool.query<{ id: string; user_id: string | null; identifier_coverage: unknown }>(
+        'select id,user_id,identifier_coverage from bt.attachments where user_id is null',
       )
     ).rows[0];
-    assert.equal(shared.owner_id, null);
+    assert.equal(shared.user_id, null);
     assert.deepEqual(shared.identifier_coverage, [
       { fieldId: 'common.model', value: 'X1' },
       { fieldId: 'common.model', value: 'UNKNOWN' },
@@ -280,26 +280,26 @@ test('uploaded evidence populates one Thing and shared manuals are reused withou
       .json<Schema['Thing']>()
       .fieldSets.flatMap((set) => set.fields);
     assert.equal(fields.find((field) => field.id === 'appliances.zNumber')?.value, '0015');
-    const foreignOwner = randomUUID(),
+    const otherUser = randomUUID(),
       foreignThing = randomUUID();
     await env.pool.query('insert into bt.users(id,auth_subject) values($1,$2)', [
-      foreignOwner,
+      otherUser,
       'foreign-fixture',
     ]);
     await env.pool.query(
-      "insert into bt.things(id,owner_id,category_id,name,data) values($1,$2,'appliances','Other owner oven','{}')",
-      [foreignThing, foreignOwner],
+      "insert into bt.things(id,user_id,category_id,name,data) values($1,$2,'appliances','Other owner oven','{}')",
+      [foreignThing, otherUser],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3)',
-      [foreignThing, shared.id, foreignOwner],
+      'insert into bt.thing_attachments(thing_id,attachment_id,user_id) values($1,$2,$3)',
+      [foreignThing, shared.id, otherUser],
     );
     const visible = (await request('GET', '/api/attachments/' + shared.id)).json<
       Schema['Attachment']
     >();
     assert.ok(!visible.thingIds.includes(foreignThing));
     await assert.rejects(
-      attachmentsDb.getOwnedAttachmentOrThrow(env.pool, foreignOwner, privateId),
+      attachmentsDb.getAttachmentForUserOrThrow(env.pool, otherUser, privateId),
       /not found/,
     );
     assert.equal(downloads, 1);
@@ -426,12 +426,12 @@ test('invalid citation pages omit page links while persistence failures abort th
     const thingId = created.json<Schema['Thing']>().id;
     const source = randomUUID();
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,page_count,transcription,transcription_status)
-       select $1,owner_id,'policy.pdf','application/pdf',1,'fixture-policy',2,$3,'COMPLETE' from bt.things where id=$2`,
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,page_count,transcription,transcription_status)
+       select $1,user_id,'policy.pdf','application/pdf',1,'fixture-policy',2,$3,'COMPLETE' from bt.things where id=$2`,
       [source, thingId, '[PDF page 1]\nCheck the renewal terms.\n[PDF page 2]\nContact details.'],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      'insert into bt.thing_attachments(attachment_id,thing_id,user_id) select $1,id,user_id from bt.things where id=$2',
       [source, thingId],
     );
     let page = 2,
@@ -525,12 +525,12 @@ test('field quote mismatches omit citations while keeping proposed values', asyn
     const thingId = created.json<Schema['Thing']>().id;
     const source = randomUUID();
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,page_count,transcription,transcription_status)
-       select $1,owner_id,'label.pdf','application/pdf',1,'fixture-label',2,$3,'COMPLETE' from bt.things where id=$2`,
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,page_count,transcription,transcription_status)
+       select $1,user_id,'label.pdf','application/pdf',1,'fixture-label',2,$3,'COMPLETE' from bt.things where id=$2`,
       [source, thingId, '[PDF page 1]\nModel: AX1\nSerial:   00026\n[PDF page 2]\nOther details.'],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      'insert into bt.thing_attachments(attachment_id,thing_id,user_id) select $1,id,user_id from bt.things where id=$2',
       [source, thingId],
     );
     const ai: ImportAi = env.importAi;

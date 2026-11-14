@@ -7,24 +7,24 @@ test('event subscriptions isolate owners and conversations and release listeners
   const first: ApplicationEvent[] = [],
     second: ApplicationEvent[] = [],
     things: ApplicationEvent[] = [];
-  const stop = events.subscribe({ ownerId: 'alice', conversationId: 'one' })((event) =>
+  const stop = events.subscribe({ userId: 'alice', conversationId: 'one' })((event) =>
     first.push(event),
   );
-  const stopSecond = events.subscribe({ ownerId: 'alice', conversationId: 'two' })((event) =>
+  const stopSecond = events.subscribe({ userId: 'alice', conversationId: 'two' })((event) =>
     second.push(event),
   );
-  const stopThings = events.subscribe({ ownerId: 'alice' })((event) => things.push(event));
-  events.publish({ type: 'data.changed', ownerId: 'bob' });
+  const stopThings = events.subscribe({ userId: 'alice' })((event) => things.push(event));
+  events.publish({ type: 'data.changed', userId: 'bob' });
   events.publish({
     type: 'conversation.delta',
-    ownerId: 'bob',
+    userId: 'bob',
     conversationId: 'one',
     delta: { messageId: 'message', offset: 0, text: 'private' },
   });
-  const changed: ApplicationEvent = { type: 'data.changed', ownerId: 'alice' };
+  const changed: ApplicationEvent = { type: 'data.changed', userId: 'alice' };
   const delta: ApplicationEvent = {
     type: 'conversation.delta',
-    ownerId: 'alice',
+    userId: 'alice',
     conversationId: 'one',
     delta: { messageId: 'message', offset: 0, text: 'hello' },
   };

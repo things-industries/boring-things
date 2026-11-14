@@ -20,7 +20,7 @@ export class SuggestedTask {
   readonly task = input.required<Task>();
   readonly adding = signal(false);
 
-  /** Adds the suggestion to the schedule; the day is chosen for the owner. */
+  /** Adds the suggestion to the schedule; the day is chosen for the user. */
   async add() {
     this.adding.set(true);
     await this.tasks.schedule(this.task().id);

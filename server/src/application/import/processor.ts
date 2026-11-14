@@ -62,12 +62,12 @@ export class ImportProcessor {
         }
       },
     };
-    const { id, ownerId, targetThingId: thingId, queuedAt, sourceWaitStartedAt } = job;
+    const { id, userId, targetThingId: thingId, queuedAt, sourceWaitStartedAt } = job;
     const sourceWaitMs =
       queuedAt && sourceWaitStartedAt
         ? Math.max(0, Date.parse(queuedAt) - Date.parse(sourceWaitStartedAt))
         : undefined;
-    await metrics.withJob('import', { id, ownerId, thingId, queuedAt, sourceWaitMs }, async () => {
+    await metrics.withJob('import', { id, userId, thingId, queuedAt, sourceWaitMs }, async () => {
       let warningCount = 0;
       let failure: { error: unknown; stage: string | undefined; reason: string } | undefined;
       try {
@@ -118,14 +118,14 @@ export class ImportProcessor {
                 ? reason
                 : 'import_failed';
         metrics.setJobStage('save_outcome');
-        const current = await importsDb.getOwnedImportOrThrow(this.pool, job.ownerId, job.id);
+        const current = await importsDb.getImportForUserOrThrow(this.pool, job.userId, job.id);
         const status = current.targetThingId ? 'INCOMPLETE' : 'FAILED';
         await importsDb.saveWorkflow(this.pool, current, {
           ...current.workflow,
           failure: { stage: current.workflow.stage, reason },
         });
-        await importsDb.setImportStatus(this.pool, job.ownerId, job.id, status, code);
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        await importsDb.setImportStatus(this.pool, job.userId, job.id, status, code);
+        this.events.publish({ type: 'data.changed', userId: job.userId });
         return {
           status,
           stage,
@@ -137,8 +137,8 @@ export class ImportProcessor {
         };
       }
       metrics.setJobStage('save_outcome');
-      await importsDb.setImportStatus(this.pool, job.ownerId, job.id, 'COMPLETE');
-      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+      await importsDb.setImportStatus(this.pool, job.userId, job.id, 'COMPLETE');
+      this.events.publish({ type: 'data.changed', userId: job.userId });
       return { status: 'COMPLETE', warningCount, sourceCount: job.sources.length };
     });
     return true;

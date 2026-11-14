@@ -1,4 +1,4 @@
-/** Creates field occurrences and validates automatic field writes against current owner permissions. */
+/** Creates field occurrences and validates automatic field writes against current automatic-population permissions. */
 import type { FieldSet, SourceRef, ThingData, Value } from '../../../shared/model.js';
 import type { Registry } from './registry/registry.js';
 import { ApplicationError, ensure } from './errors.js';

@@ -1,5 +1,5 @@
 /**
- * Applies authentication, owner mapping and private response caching to the registering Fastify scope.
+ * Applies authentication, user mapping and private response caching to the registering Fastify scope.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -11,7 +11,7 @@ import type { Identity, VerifyIdentity } from '../providers/auth/logto.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    ownerId: string;
+    userId: string;
   }
 }
 
@@ -21,7 +21,7 @@ interface Options {
 }
 
 const auth: FastifyPluginAsync<Options> = async (app, { db, verify }) => {
-  app.decorateRequest('ownerId', '');
+  app.decorateRequest('userId', '');
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'private, no-store');
     const auth = request.headers.authorization;
@@ -35,7 +35,7 @@ const auth: FastifyPluginAsync<Options> = async (app, { db, verify }) => {
       throw new ApplicationError('UNAUTHENTICATED', 'Invalid or expired access token');
     }
 
-    request.ownerId = await usersDb.getOrCreateOwnerForSubject(db, identity.subject, identity.name);
+    request.userId = await usersDb.getOrCreateUserForSubject(db, identity.subject, identity.name);
   });
 };
 

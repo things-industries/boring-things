@@ -1,4 +1,4 @@
-// Keeps owner-scoped Import snapshots available while a progress page is open.
+// Keeps user-scoped Import snapshots available while a progress page is open.
 import { inject } from '@angular/core';
 import {
   patchState,

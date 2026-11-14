@@ -13,7 +13,7 @@ function draftControl(input: FieldInput, draft: FieldDraft) {
 
   return new FormControl<FieldDraft>(draft, {
     nonNullable: true,
-    // Account email values saved as text can stay as entered until the owner changes them.
+    // Account email values saved as text can stay as entered until the user changes them.
     validators: (control) =>
       input.kind === 'email' && control.pristine && control.value === draft
         ? null
@@ -38,7 +38,7 @@ export function detailsForm(draft: Required<DetailsDraft>, rows: DetailRow[]) {
 export type DetailsForm = ReturnType<typeof detailsForm>;
 
 /**
- * The drafts of the controls the owner changed. Untouched values are left out, so saving never
+ * The drafts of the controls the user changed. Untouched values are left out, so saving never
  * writes back a value that changed elsewhere during the edit.
  */
 export function changedDraft(form: DetailsForm): DetailsDraft {

@@ -25,7 +25,7 @@ async function createThing(
   return page.url();
 }
 
-test('a Household shows a category icon and lets the owner record energy performance', async ({
+test('a Household shows a category icon and lets the user record energy performance', async ({
   page,
 }) => {
   const name = `Studio ${Date.now()}`;

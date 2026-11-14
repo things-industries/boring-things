@@ -1,6 +1,6 @@
 /**
  * Applies Thing field patches, preserves values when sets change, maintains pins and projects
- * owner-visible or redacted values.
+ * user-visible or redacted values.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -22,7 +22,7 @@ export const pinKey = (pin: Pin) =>
 /** Uses pin keys for existing addresses and local:new:index for new custom fields. */
 export type FieldProvenance = ReadonlyMap<string, Pick<StoredValue, 'origin' | 'sourceRefs'>>;
 
-/** Applies owner-requested changes with optional application-validated field provenance. */
+/** Applies user-requested changes with optional application-validated field provenance. */
 export function patchData(
   original: ThingData,
   patch: ThingPatch,
@@ -32,7 +32,7 @@ export function patchData(
   categoryChanged = false,
 ): ThingData {
   const data = structuredClone(original);
-  // Track explicit clears and removals too, so later import retries cannot restore values the owner discarded.
+  // Track explicit clears and removals too, so later import retries cannot restore values the user discarded.
   const edited = new Set(data.userEdited ?? []);
   for (const key of ['name', 'categoryId', 'description', 'imageAttachmentId'] as const)
     if (patch[key] !== undefined) edited.add(key);

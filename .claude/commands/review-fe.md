@@ -97,7 +97,7 @@ Each finding takes this shape: a numbered short title, then the location, then t
 ```
 ### 3. Missing empty state on the Things list
    [dashboard.page.html:42](src/app/features/dashboard/dashboard.page.html#L42)
-   The list renders nothing when the owner has no Things yet, so the screen reads as broken rather than empty.
+   The list renders nothing when the user has no Things yet, so the screen reads as broken rather than empty.
    Fix: add an `@empty` block to the `@for` with an empty-state pattern matching the one already used elsewhere in the dashboard, with the copy in the template.
 ```
 

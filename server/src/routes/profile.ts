@@ -8,7 +8,7 @@ interface Options {
 }
 
 const profileRoutes: FastifyPluginAsync<Options> = async (app, { db }) => {
-  route(app, 'GET', '/api/profile', (req) => usersDb.getOwnerProfile(db, req.ownerId));
+  route(app, 'GET', '/api/profile', (req) => usersDb.getUserProfile(db, req.userId));
 };
 
 export default profileRoutes;

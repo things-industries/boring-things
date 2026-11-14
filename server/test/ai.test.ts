@@ -554,7 +554,7 @@ test('SDK purchasable research discovers products and purchase links within one 
     assert.match(body.instructions, /Name each purchasable with its basic item name/);
     assert.match(
       body.instructions,
-      /Describe why the item is useful and when the owner should buy it/,
+      /Describe why the item is useful and when the user should buy it/,
     );
     assert.match(body.input, /consumables/);
     assert.ok(body.input.includes(`"purchaseUrl":"${url}"`));

@@ -5,7 +5,7 @@ export interface PageQuery {
   cursor?: string;
 }
 
-// Cursors contain only an offset; every query reapplies owner and filters.
+// Cursors contain only an offset; every query reapplies user access and filters.
 export function page(query: PageQuery) {
   let offset = 0;
 

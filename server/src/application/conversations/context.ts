@@ -5,7 +5,7 @@ import type * as conversationsDb from '../../db/entities/conversations.js';
 // Include empty field addresses and definitions so requested edits can use the registry.
 export function chatThingContext(
   thing: Schema['Thing'],
-  resources: Awaited<ReturnType<typeof conversationsDb.getOwnedChatResources>>,
+  resources: Awaited<ReturnType<typeof conversationsDb.getChatResourcesForUser>>,
 ) {
   const fields = (items: Schema['Field'][]) =>
     items.map(({ id, name, description, value, masked, schema, scope, sensitive }) => ({

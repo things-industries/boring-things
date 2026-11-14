@@ -1,5 +1,5 @@
 /**
- * Persists owner-scoped conversations and queued messages, reads assistant resources and records
+ * Persists user-scoped conversations and queued messages, reads assistant resources and records
  * transactional write receipts for retries.
  */
 
@@ -20,7 +20,7 @@ type ConversationQuery = RouteTypes<'/api/conversations', 'get'>['Querystring'];
 
 export async function listConversations(
   db: Database,
-  owner: string,
+  userId: string,
   query: ConversationQuery,
 ): Promise<Schema['ConversationSummaryList']> {
   const { limit, offset } = page(query);
@@ -35,9 +35,9 @@ export async function listConversations(
       select count(*)::integer as message_count,max(created_at) as last_message_at
       from bt.messages where conversation_id=c.id
     ) m
-    where c.owner_id=$1 and ($2::uuid is null or c.thing_id=$2) and m.message_count >= $3
+    where c.user_id=$1 and ($2::uuid is null or c.thing_id=$2) and m.message_count >= $3
     order by last_message_at desc,c.id limit $4 offset $5`,
-    [owner, query.thingId ?? null, query.minMessageCount ?? 0, limit + 1, offset],
+    [userId, query.thingId ?? null, query.minMessageCount ?? 0, limit + 1, offset],
   );
   return pageResult(
     items.map((item) => ({
@@ -57,9 +57,9 @@ export type MessageRow = Schema['Message'] & {
   }[];
 };
 
-export async function getOwnedConversationOrThrow(
+export async function getConversationForUserOrThrow(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   lock = false,
 ) {
@@ -69,19 +69,19 @@ export async function getOwnedConversationOrThrow(
     activityContext: ActivityContext | null;
   }>(
     db,
-    `select id,thing_id,activity_context from bt.conversations where id=$1 and owner_id=$2${lock ? ' for update' : ''}`,
-    [id, owner],
+    `select id,thing_id,activity_context from bt.conversations where id=$1 and user_id=$2${lock ? ' for update' : ''}`,
+    [id, userId],
   );
   ensure(item, 'Conversation not found', 'NOT_FOUND');
   return item;
 }
 
-export async function getOwnedConversationSnapshot(
+export async function getConversationSnapshotForUser(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
 ): Promise<Schema['Conversation']> {
-  const item = await getOwnedConversationOrThrow(db, owner, id);
+  const item = await getConversationForUserOrThrow(db, userId, id);
   const messages = await database.rows<Schema['Message']>(
     db,
     "select id,conversation_id,request_id,role,text,cards,source_refs,status,error,usage,created_at from bt.messages where conversation_id=$1 order by created_at,case role when 'USER' then 0 else 1 end,id",
@@ -98,7 +98,7 @@ export async function getOwnedConversationSnapshot(
     message.sourceRefs = [];
   }
 
-  // Cards can outlive their targets; recheck owner access so clients can mark deleted resources unavailable.
+  // Cards can outlive their targets; recheck user access so clients can mark deleted resources unavailable.
   for (const message of messages)
     for (const card of message.cards) {
       const table =
@@ -117,9 +117,9 @@ export async function getOwnedConversationSnapshot(
       const key = card.type === 'FIELD' ? 'thingId' : `${card.type.toLowerCase()}Id`;
       const value = (card as unknown as Record<string, unknown>)[key];
       card.available = !!(
-        await database.execute(db, `select 1 from bt.${table} where id=$1 and owner_id=$2`, [
+        await database.execute(db, `select 1 from bt.${table} where id=$1 and user_id=$2`, [
           value,
-          owner,
+          userId,
         ])
       ).rowCount;
     }
@@ -128,7 +128,7 @@ export async function getOwnedConversationSnapshot(
 }
 
 export type ChatJob = MessageRow & {
-  ownerId: string;
+  userId: string;
   thingId: string | null;
   queuedAt: string | null;
 };
@@ -144,7 +144,7 @@ export async function recoverMessages(db: Database) {
 export async function getNextQueuedMessage(db: Database) {
   const [job] = await database.rows<ChatJob>(
     db,
-    "select m.*,c.owner_id,c.thing_id from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.role='ASSISTANT' and m.status='QUEUED' order by m.created_at,m.id limit 1",
+    "select m.*,c.user_id,c.thing_id from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.role='ASSISTANT' and m.status='QUEUED' order by m.created_at,m.id limit 1",
   );
 
   return job;
@@ -173,20 +173,20 @@ export async function saveMessage(
   );
   await database.execute(
     db,
-    `update bt.messages set ${entries.map(([key], i) => columns[key] + '=$' + (i + 1)).join(',')} where id=$${values.length + 1} and conversation_id in (select id from bt.conversations where owner_id=$${values.length + 2})`,
-    [...values, job.id, job.ownerId],
+    `update bt.messages set ${entries.map(([key], i) => columns[key] + '=$' + (i + 1)).join(',')} where id=$${values.length + 1} and conversation_id in (select id from bt.conversations where user_id=$${values.length + 2})`,
+    [...values, job.id, job.userId],
   );
 }
 
-export async function searchChatThings(db: Database, owner: string, query: string) {
+export async function searchChatThings(db: Database, userId: string, query: string) {
   return database.rows<{ id: string; name: string; categoryId: string }>(
     db,
-    "select id,name,category_id from bt.things where owner_id=$1 and name ilike '%' || $2 || '%' order by updated_at desc,id limit 21",
-    [owner, query],
+    "select id,name,category_id from bt.things where user_id=$1 and name ilike '%' || $2 || '%' order by updated_at desc,id limit 21",
+    [userId, query],
   );
 }
 
-export async function getOwnedChatResources(db: Database, owner: string, id: string) {
+export async function getChatResourcesForUser(db: Database, userId: string, id: string) {
   const attachments = await database.rows<
     Pick<
       Schema['Attachment'],
@@ -203,8 +203,8 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
     >
   >(
     db,
-    'select a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count from bt.attachments a join bt.thing_attachments l on l.attachment_id=a.id where l.thing_id=$1 and l.owner_id=$2 order by a.created_at desc,a.id limit 31',
-    [id, owner],
+    'select a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count from bt.attachments a join bt.thing_attachments l on l.attachment_id=a.id where l.thing_id=$1 and l.user_id=$2 order by a.created_at desc,a.id limit 31',
+    [id, userId],
   );
 
   const records: Record<string, { id: string }[]> = {};
@@ -217,8 +217,8 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
   ] as const) {
     records[table] = await database.rows<{ id: string }>(
       db,
-      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ',issue_id'}`}${kind === 'event' ? ',starts_at,starts_on::text,ends_at,closed_at,completed_followup,source_refs' : kind === 'task' ? ',importance,scheduled_on::text,deadline_on::text,recurrence,completed_at,closed_at,completed_followup,source_refs' : ''} from bt.${table} where thing_id=$1 and owner_id=$2 order by created_at desc,id limit 31`,
-      [id, owner],
+      `select ${kind === 'purchasable' ? 'id,thing_id,kind,name,description,merchant_url,source_refs,checked_at,is_sample' : `id,thing_id,title,description,status,is_sample${kind === 'issue' ? ',status_text,due_date::text' : ',issue_id'}`}${kind === 'event' ? ',starts_at,starts_on::text,ends_at,closed_at,completed_followup,source_refs' : kind === 'task' ? ',importance,scheduled_on::text,deadline_on::text,recurrence,completed_at,closed_at,completed_followup,source_refs' : ''} from bt.${table} where thing_id=$1 and user_id=$2 order by created_at desc,id limit 31`,
+      [id, userId],
     );
   }
 
@@ -232,11 +232,11 @@ export async function getOwnedChatResources(db: Database, owner: string, id: str
   };
 }
 
-export async function getOwnedChatAttachmentOrThrow(db: Database, owner: string, id: string) {
+export async function getChatAttachmentForUserOrThrow(db: Database, userId: string, id: string) {
   const [file] = await database.rows<ChatAttachment>(
     db,
-    'select id,filename,media_type,storage_key,byte_size from bt.attachments where id=$1 and owner_id=$2',
-    [id, owner],
+    'select id,filename,media_type,storage_key,byte_size from bt.attachments where id=$1 and user_id=$2',
+    [id, userId],
   );
 
   return file;
@@ -245,8 +245,8 @@ export async function getOwnedChatAttachmentOrThrow(db: Database, owner: string,
 export async function getProcessingMessageOrThrow(db: Database, job: ChatJob): Promise<MessageRow> {
   const [current] = await database.rows<MessageRow>(
     db,
-    "select m.* from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.id=$1 and c.owner_id=$2 and m.status='PROCESSING' for update of m",
-    [job.id, job.ownerId],
+    "select m.* from bt.messages m join bt.conversations c on c.id=m.conversation_id where m.id=$1 and c.user_id=$2 and m.status='PROCESSING' for update of m",
+    [job.id, job.userId],
   );
   ensure(current, 'Message is no longer processing', 'CONFLICT');
   return current;
@@ -312,11 +312,11 @@ export async function queueMessage(
 }
 
 /** Finds the conversation already opened for an item's followup. */
-export async function findFollowupConversation(db: Database, owner: string, itemId: string) {
+export async function findFollowupConversation(db: Database, userId: string, itemId: string) {
   const [existing] = await database.rows<{ id: string }>(
     db,
-    'select id from bt.conversations where owner_id=$1 and activity_context @> $2::jsonb order by created_at,id limit 1',
-    [owner, JSON.stringify({ item: { id: itemId }, followup: true })],
+    'select id from bt.conversations where user_id=$1 and activity_context @> $2::jsonb order by created_at,id limit 1',
+    [userId, JSON.stringify({ item: { id: itemId }, followup: true })],
   );
   return existing?.id;
 }
@@ -324,15 +324,15 @@ export async function findFollowupConversation(db: Database, owner: string, item
 /** Inserts a conversation with its authorised item and Issue context. */
 export async function insertConversation(
   db: Database,
-  owner: string,
+  userId: string,
   input: Pick<Schema['ConversationInput'], 'id' | 'thingId'> & {
     activityContext: ActivityContext | null;
   },
 ) {
   const [item] = await database.rows<{ id: string }>(
     db,
-    'insert into bt.conversations(owner_id,thing_id,id,activity_context) values($1,$2,coalesce($3::uuid,gen_random_uuid()),$4) returning id',
-    [owner, input.thingId ?? null, input.id, JSON.stringify(input.activityContext)],
+    'insert into bt.conversations(user_id,thing_id,id,activity_context) values($1,$2,coalesce($3::uuid,gen_random_uuid()),$4) returning id',
+    [userId, input.thingId ?? null, input.id, JSON.stringify(input.activityContext)],
   );
   return item.id;
 }

@@ -108,7 +108,7 @@ Each finding takes this shape: a numbered short title, then the location, then t
 
 The title is a few words naming the problem — readable on its own, no filename in it. Every finding carries a `Fix:` line with a concrete change, never a restatement of the problem. Where one finding spans several files, list the extra locations on the location line rather than splitting it into separate numbers.
 
-Write the problem in plain prose: what actually goes wrong, in terms of behaviour the owner, the caller, or the data ends up with. Name a symbol only when that symbol is the thing at fault and has to be named to point at it — never as shorthand for a step in a sequence, and never as the whole explanation. A reader who has not opened the file should follow the problem from the sentence alone.
+Write the problem in plain prose: what actually goes wrong, in terms of behaviour the user, the caller, or the data ends up with. Name a symbol only when that symbol is the thing at fault and has to be named to point at it — never as shorthand for a step in a sequence, and never as the whole explanation. A reader who has not opened the file should follow the problem from the sentence alone.
 
 The `Fix:` line can be more specific: it names files, symbols, functions, and columns exactly, because it is an instruction to carry out, but should still describe the solution in brief simple prose.
 

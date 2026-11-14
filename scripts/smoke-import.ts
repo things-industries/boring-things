@@ -183,7 +183,7 @@ try {
     assert.match(answer.text, /0015/);
     assert.ok(answer.cards.some((c) => c.type === 'FIELD' || c.type === 'ATTACHMENT'));
     const maintenance = await send(
-      'Create a maintenance event titled Review hob care instructions. It should remind the owner to read the saved manual before cleaning.',
+      'Create a maintenance event titled Review hob care instructions. It should remind the user to read the saved manual before cleaning.',
     );
     const event = maintenance.cards.find((c) => c.type === 'EVENT');
     assert.ok(event && event.type === 'EVENT');

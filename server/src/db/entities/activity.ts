@@ -1,4 +1,4 @@
-/** Owner-scoped Issue and Event persistence. */
+/** User-scoped Issue and Event persistence. */
 
 import type { Schema } from '../../../../shared/model.js';
 import type { RouteTypes } from '../../contracts/routes.js';
@@ -26,13 +26,13 @@ const columns = {
 } as const;
 export async function listActivity<K extends ActivityKind>(
   db: Database,
-  owner: string,
+  userId: string,
   kind: K,
   query: IssueQuery | EventQuery,
 ): Promise<ActivityPage<K>> {
   const { limit, offset } = page(query);
-  const filters = ['owner_id=$1'];
-  const params: unknown[] = [owner];
+  const filters = ['user_id=$1'];
+  const params: unknown[] = [userId];
   const q = query as Partial<Record<keyof ActivityQuery, string | number>>;
   for (const [key, column, op] of [
     ['thingId', 'thing_id', '='],
@@ -81,17 +81,17 @@ export async function listActivity<K extends ActivityKind>(
     query,
   );
 }
-export async function getOwnedActivityOrThrow<K extends ActivityKind>(
+export async function getActivityForUserOrThrow<K extends ActivityKind>(
   db: Database,
-  owner: string,
+  userId: string,
   kind: K,
   id: string,
   options: { lock?: boolean } = {},
 ): Promise<Activity[K]> {
   const [item] = await database.rows<Activity[K]>(
     db,
-    `select ${columns[kind]} from bt.${kind} where id=$1 and owner_id=$2${options.lock ? ' for update' : ''}`,
-    [id, owner],
+    `select ${columns[kind]} from bt.${kind} where id=$1 and user_id=$2${options.lock ? ' for update' : ''}`,
+    [id, userId],
   );
   ensure(item, 'Record not found', 'NOT_FOUND');
   return item;
@@ -115,7 +115,7 @@ export type EventWrite = Pick<
 >;
 export async function saveIssue(
   db: Database,
-  owner: string,
+  userId: string,
   value: IssueWrite & Pick<Schema['IssueInput'], 'id'>,
   id?: string,
 ): Promise<Schema['Issue']> {
@@ -127,20 +127,20 @@ export async function saveIssue(
     value.statusText,
     value.dueDate,
     id ?? value.thingId,
-    owner,
+    userId,
   ];
   const [item] = await database.rows<Schema['Issue']>(
     db,
     id
-      ? `update bt.issues set title=$1,description=$2,status=$3,resolved_at=$4,status_text=$5,due_date=$6 where id=$7 and owner_id=$8 returning ${columns.issues}`
-      : `insert into bt.issues(title,description,status,resolved_at,status_text,due_date,thing_id,owner_id,id) values($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9::uuid,gen_random_uuid())) returning ${columns.issues}`,
+      ? `update bt.issues set title=$1,description=$2,status=$3,resolved_at=$4,status_text=$5,due_date=$6 where id=$7 and user_id=$8 returning ${columns.issues}`
+      : `insert into bt.issues(title,description,status,resolved_at,status_text,due_date,thing_id,user_id,id) values($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9::uuid,gen_random_uuid())) returning ${columns.issues}`,
     id ? params : [...params, value.id],
   );
   return item;
 }
 export async function saveEvent(
   db: Database,
-  owner: string,
+  userId: string,
   value: EventWrite & Pick<Schema['EventInput'], 'id'>,
   id?: string,
 ): Promise<Schema['Event']> {
@@ -153,30 +153,30 @@ export async function saveEvent(
     value.issueId,
     value.startsOn,
     id ?? value.thingId,
-    owner,
+    userId,
     value.closedAt,
     value.completedFollowup ? JSON.stringify(value.completedFollowup) : null,
   ];
   const [item] = await database.rows<Schema['Event']>(
     db,
     id
-      ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,ends_at=$5,issue_id=$6,starts_on=$7,closed_at=$10,completed_followup=$11 where id=$8 and owner_id=$9 returning ${columns.events}`
-      : `insert into bt.events(title,description,status,starts_at,ends_at,issue_id,starts_on,thing_id,owner_id,closed_at,completed_followup,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::uuid,gen_random_uuid())) returning ${columns.events}`,
+      ? `update bt.events set title=$1,description=$2,status=$3,starts_at=$4,ends_at=$5,issue_id=$6,starts_on=$7,closed_at=$10,completed_followup=$11 where id=$8 and user_id=$9 returning ${columns.events}`
+      : `insert into bt.events(title,description,status,starts_at,ends_at,issue_id,starts_on,thing_id,user_id,closed_at,completed_followup,id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::uuid,gen_random_uuid())) returning ${columns.events}`,
     id ? params : [...params, value.id],
   );
   return item;
 }
 
 /** Closes linked Events and returns all closed Events for an Issue. */
-export async function closeEventsForIssue(db: Database, owner: string, issueId: string) {
+export async function closeEventsForIssue(db: Database, userId: string, issueId: string) {
   await database.execute(
     db,
-    "update bt.events set status='CLOSED',closed_at=coalesce(closed_at,now()) where owner_id=$1 and issue_id=$2 and status<>'CLOSED'",
-    [owner, issueId],
+    "update bt.events set status='CLOSED',closed_at=coalesce(closed_at,now()) where user_id=$1 and issue_id=$2 and status<>'CLOSED'",
+    [userId, issueId],
   );
   return database.rows<Schema['Event']>(
     db,
-    `select ${columns.events} from bt.events where owner_id=$1 and issue_id=$2 and status='CLOSED'`,
-    [owner, issueId],
+    `select ${columns.events} from bt.events where user_id=$1 and issue_id=$2 and status='CLOSED'`,
+    [userId, issueId],
   );
 }

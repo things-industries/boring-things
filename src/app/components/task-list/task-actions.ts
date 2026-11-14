@@ -21,7 +21,7 @@ export class TaskActions {
       void this.tasks.reopen(item.task.id);
   }
 
-  /** Opens chat with item context, optionally recording a followup after the first owner message. */
+  /** Opens chat with item context, optionally recording a followup after the first user message. */
   ask(item: AgendaItem, followup = false) {
     const context =
       item.type === 'TASK'

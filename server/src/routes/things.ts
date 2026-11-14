@@ -1,5 +1,5 @@
 /**
- * Registers owner-scoped Thing listing, creation, editing, deletion and view tracking.
+ * Registers user-scoped Thing listing, creation, editing, deletion and view tracking.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -26,44 +26,44 @@ const thingRoutes: FastifyPluginAsync<Options> = async (
   app,
   { db, registry, events, runner, importEnabled },
 ) => {
-  route(app, 'GET', '/api/things', (req) => thingsDb.listThings(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/things', (req) => thingsDb.listThings(db, req.userId, req.query));
 
   route(app, 'POST', '/api/things', async (req, reply) => {
-    const result = await writeThing(db, req.ownerId, req.body, registry);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await writeThing(db, req.userId, req.body, registry);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(201).send(result);
   });
 
-  route(app, 'GET', '/api/things/{id}', (req) => detail(db, req.ownerId, req.params.id, registry));
+  route(app, 'GET', '/api/things/{id}', (req) => detail(db, req.userId, req.params.id, registry));
 
   route(app, 'POST', '/api/things/{id}:view', async (req) => {
-    const result = await thingsDb.recordThingView(db, req.ownerId, req.params.id);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await thingsDb.recordThingView(db, req.userId, req.params.id);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return result;
   });
 
   route(app, 'PATCH', '/api/things/{id}', async (req) => {
-    const result = await writeThing(db, req.ownerId, req.body, registry, req.params.id);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await writeThing(db, req.userId, req.body, registry, req.params.id);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return result;
   });
 
   route(app, 'POST', '/api/things/{id}:change-category', async (req) => {
     ensure(!req.body.findDetails || importEnabled, 'Import is not configured', 'UNAVAILABLE');
-    const result = await changeThingCategory(db, req.ownerId, req.params.id, req.body, registry);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await changeThingCategory(db, req.userId, req.params.id, req.body, registry);
+    events.publish({ type: 'data.changed', userId: req.userId });
     if (req.body.findDetails) runner.wake();
     return result;
   });
 
   route(app, 'DELETE', '/api/things/{id}', async (req, reply) => {
     await database.transaction(db, async (tx) => {
-      await thingsDb.getOwnedThingOrThrow(tx, req.ownerId, req.params.id, { lock: true });
-      await importsDb.removeQueuedThingImports(tx, req.ownerId, req.params.id);
-      await importsDb.assertThingEditable(tx, req.ownerId, req.params.id);
-      await thingsDb.deleteThing(tx, req.ownerId, req.params.id);
+      await thingsDb.getThingForUserOrThrow(tx, req.userId, req.params.id, { lock: true });
+      await importsDb.removeQueuedThingImports(tx, req.userId, req.params.id);
+      await importsDb.assertThingEditable(tx, req.userId, req.params.id);
+      await thingsDb.deleteThing(tx, req.userId, req.params.id);
     });
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(204).send();
   });
 };

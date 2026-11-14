@@ -28,17 +28,17 @@ export interface UploadedFile {
 export async function uploadAttachment(
   pool: pg.Pool,
   blobs: BlobStorage,
-  owner: string,
+  userId: string,
   file: UploadedFile,
   thingId?: string,
 ) {
   const key = await blobs.put(file.buffer).catch((error: unknown) => {
-    recordDependencyFailure('storage', 'upload', error, { ownerId: owner, thingId });
+    recordDependencyFailure('storage', 'upload', error, { userId, thingId });
     throw error;
   });
   try {
     return await database.transaction(pool, async (db) => {
-      const attachment = await attachmentsDb.insertAttachment(db, owner, {
+      const attachment = await attachmentsDb.insertAttachment(db, userId, {
         filename: file.filename,
         mediaType: file.type,
         byteSize: file.buffer.length,
@@ -46,19 +46,19 @@ export async function uploadAttachment(
         pageCount: await pdfPageCount(file.buffer, file.type),
       });
       if (thingId) {
-        await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
-        await importsDb.assertThingEditable(db, owner, thingId);
-        await attachmentsDb.linkAttachment(db, owner, attachment.id, thingId, true);
-        await thingsDb.bumpThing(db, owner, thingId);
+        await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
+        await importsDb.assertThingEditable(db, userId, thingId);
+        await attachmentsDb.linkAttachment(db, userId, attachment.id, thingId, true);
+        await thingsDb.bumpThing(db, userId, thingId);
       }
       return attachmentsDb.publicAttachment(
-        await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, attachment.id),
+        await attachmentsDb.getAttachmentForUserOrThrow(db, userId, attachment.id),
       );
     });
   } catch (error) {
     await blobs.remove(key).catch((cleanupError: unknown) =>
       recordDependencyFailure('storage', 'upload_cleanup', cleanupError, {
-        ownerId: owner,
+        userId,
         thingId,
       }),
     );
@@ -79,10 +79,10 @@ export function validateAttachmentMetadata(input: unknown): Schema['AttachmentPa
   return metadata;
 }
 
-// Merges metadata while preserving owner edits and explicit clears during automated updates.
+// Merges metadata while preserving user edits and explicit clears during automated updates.
 export async function updateAttachmentMetadata(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   patch: Schema['AttachmentPatch'],
   source: Schema['AttachmentMetadataSource'],
@@ -90,9 +90,9 @@ export async function updateAttachmentMetadata(
   options: { replaceAutomated?: boolean } = {},
 ): Promise<Schema['Attachment']> {
   const values = validateAttachmentMetadata(patch);
-  const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
+  const file = await attachmentsDb.getAttachmentForUserOrThrow(db, userId, id, { lock: true });
   ensure(
-    file.ownerId !== null || source.origin !== 'USER',
+    file.userId !== null || source.origin !== 'USER',
     'Shared metadata is system-managed',
     'CONFLICT',
   );
@@ -110,51 +110,51 @@ export async function updateAttachmentMetadata(
     file.metadataSources[key] = source;
   }
   if (pageCount != null && file.mediaType === 'application/pdf') file.pageCount = pageCount;
-  const saved = await attachmentsDb.saveAttachmentMetadata(db, owner, file);
-  for (const thingId of file.thingIds) await thingsDb.bumpThing(db, owner, thingId);
+  const saved = await attachmentsDb.saveAttachmentMetadata(db, userId, file);
+  for (const thingId of file.thingIds) await thingsDb.bumpThing(db, userId, thingId);
   return saved;
 }
 export async function removeAttachment(
   pool: pg.Pool,
   blobs: BlobStorage,
-  owner: string,
+  userId: string,
   id: string,
 ): Promise<void> {
   const key = await database.transaction(pool, async (db) => {
-    const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
-    await attachmentsDb.deleteAttachment(db, owner, file);
+    const file = await attachmentsDb.getAttachmentForUserOrThrow(db, userId, id, { lock: true });
+    await attachmentsDb.deleteAttachment(db, userId, file);
     return file.storageKey;
   });
   await blobs.remove(key).catch((error: unknown) => {
-    recordDependencyFailure('storage', 'delete', error, { ownerId: owner, attachmentId: id });
+    recordDependencyFailure('storage', 'delete', error, { userId, attachmentId: id });
     throw error;
   });
 }
 export async function setAttachmentLink(
   pool: pg.Pool,
-  owner: string,
+  userId: string,
   id: string,
   thingId: string,
   linked: boolean,
   importEnabled = true,
 ): Promise<Schema['ImportAccepted'] | undefined> {
   return database.transaction(pool, async (db) => {
-    await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
-    const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
-    if (linked) await importsDb.assertThingEditable(db, owner, thingId);
+    await attachmentsDb.getAttachmentForUserOrThrow(db, userId, id, { lock: true });
+    const thing = await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
+    if (linked) await importsDb.assertThingEditable(db, userId, thingId);
     const decisions = new Set(thing.data.userEdited ?? []);
     if (linked) decisions.delete('attachment:' + id);
     else decisions.add('attachment:' + id);
     thing.data.userEdited = [...decisions];
-    await thingsDb.saveThingData(db, owner, thingId, thing.data);
+    await thingsDb.saveThingData(db, userId, thingId, thing.data);
     const existing = await database.execute(
       db,
-      'select 1 from bt.thing_attachments where thing_id=$1 and attachment_id=$2 and owner_id=$3',
-      [thingId, id, owner],
+      'select 1 from bt.thing_attachments where thing_id=$1 and attachment_id=$2 and user_id=$3',
+      [thingId, id, userId],
     );
-    await attachmentsDb.linkAttachment(db, owner, id, thingId, linked);
+    await attachmentsDb.linkAttachment(db, userId, id, thingId, linked);
     if (linked && !existing.rowCount && importEnabled)
-      return importsDb.createImportInTransaction(db, owner, [id], thingId);
-    await thingsDb.bumpThing(db, owner, thingId);
+      return importsDb.createImportInTransaction(db, userId, [id], thingId);
+    await thingsDb.bumpThing(db, userId, thingId);
   });
 }

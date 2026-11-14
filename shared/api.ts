@@ -192,7 +192,7 @@ export interface paths {
         };
         /**
          * Get thing
-         * @description Returns a Thing with its fields, linked resources and current import status. Includes saved sensitive values for the owner.
+         * @description Returns a Thing with its fields, linked resources and current import status. Includes saved sensitive values for the signed-in user.
          */
         get: operations["getThing"];
         put?: never;
@@ -367,7 +367,7 @@ export interface paths {
         post?: never;
         /**
          * Unlink attachment
-         * @description Removes the owner-scoped link and records that automatic work must not restore it.
+         * @description Removes the user-scoped link and records that automatic work must not restore it.
          */
         delete: operations["unlinkAttachment"];
         options?: never;
@@ -432,7 +432,7 @@ export interface paths {
         };
         /**
          * List events
-         * @description Lists owner-scoped Events by schedule and ID, with optional status, Thing and inclusive date bounds. Ended Events with pending followups are included before the lower bound. Date-only schedules use timeZone.
+         * @description Lists user-scoped Events by schedule and ID, with optional status, Thing and inclusive date bounds. Ended Events with pending followups are included before the lower bound. Date-only schedules use timeZone.
          */
         get: operations["listEvents"];
         put?: never;
@@ -456,7 +456,7 @@ export interface paths {
         };
         /**
          * Get event
-         * @description Returns owner-scoped appointments, visits and deliveries.
+         * @description Returns user-scoped appointments, visits and deliveries.
          */
         get: operations["getEvent"];
         put?: never;
@@ -566,7 +566,7 @@ export interface paths {
         put?: never;
         /**
          * Start an Import
-         * @description References one to ten owned Attachments. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.
+         * @description References one to ten Attachments accessible to the signed-in user. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.
          */
         post: operations["createImport"];
         delete?: never;
@@ -604,7 +604,7 @@ export interface paths {
         };
         /**
          * Stream Import progress
-         * @description Streams owner-scoped revisioned Import snapshots, including progress before any Thing exists.
+         * @description Streams user-scoped revisioned Import snapshots, including progress before any Thing exists.
          */
         get: operations["streamImport"];
         put?: never;
@@ -744,7 +744,7 @@ export interface paths {
         };
         /**
          * List tasks
-         * @description Lists owner-scoped Tasks by schedule and ID. Date bounds include active carryover, undated Tasks and completed followups. Status and Thing filters apply before pagination.
+         * @description Lists user-scoped Tasks by schedule and ID. Date bounds include active carryover, undated Tasks and completed followups. Status and Thing filters apply before pagination.
          */
         get: operations["listTasks"];
         put?: never;
@@ -1115,7 +1115,7 @@ export interface components {
              */
             lastViewedAt: string | null;
         };
-        /** @description Thing details with fields, linked resource IDs and import status. Includes saved sensitive values for the owner. */
+        /** @description Thing details with fields, linked resource IDs and import status. Includes saved sensitive values for the signed-in user. */
         Thing: {
             /** Format: uuid */
             id: string;
@@ -1335,7 +1335,7 @@ export interface components {
             endsAt: string | null;
             /** Format: date-time */
             closedAt: string | null;
-            /** @description Recorded chat followup, or null until the owner sends the first followup message. */
+            /** @description Recorded chat followup, or null until the user sends the first followup message. */
             completedFollowup: components["schemas"]["CompletedActivityFollowup"] | null;
         };
         /** @description Appointment, visit or delivery with one start date or timestamp and chat followup after it ends. */
@@ -1462,7 +1462,7 @@ export interface components {
             eventId?: string;
             /** @description Local calendar timezone for date-only Event followup eligibility. */
             timeZone?: string;
-            /** @description Follow up on a completed Task or ended Event. The first owner message records the followup and closes the item. */
+            /** @description Follow up on a completed Task or ended Event. The first user message records the followup and closes the item. */
             followup?: boolean;
         };
         /** @description A page of categories. nextCursor is null when no further page is available. */
@@ -1566,11 +1566,11 @@ export interface components {
         };
         /** @description Start an Import using up to ten Attachments and optional Thing context. A contextual Import may have no Attachments; empty input completes without work. */
         ImportSubmission: {
-            /** @description One to ten distinct owned Attachment IDs in source order. */
+            /** @description One to ten distinct Attachment IDs accessible to the signed-in user, in source order. */
             attachmentIds: string[];
             /**
              * Format: uuid
-             * @description Owned Thing receiving relevant evidence; omitted for open identification.
+             * @description Thing in the signed-in user's records that receives relevant evidence; omitted for open identification.
              */
             thingId?: string;
         };
@@ -1770,10 +1770,10 @@ export interface components {
             referenceTaskId: string | null;
             sourceRefs: components["schemas"]["SourceRef"][];
             isSample: boolean;
-            /** @description Recorded chat followup, or null until the owner sends the first followup message. */
+            /** @description Recorded chat followup, or null until the user sends the first followup message. */
             completedFollowup: components["schemas"]["CompletedActivityFollowup"] | null;
         };
-        /** @description Page of tasks accessible to the owner. */
+        /** @description Page of tasks accessible to the user. */
         TaskList: {
             items: components["schemas"]["Task"][];
             nextCursor: string | null;
@@ -1817,7 +1817,7 @@ export interface components {
             items: components["schemas"]["ThingDate"][];
             nextCursor: string | null;
         };
-        /** @description Chat followup conversation and the time the owner first sent a message. Historical followups without a linked chat have a null conversationId. */
+        /** @description Chat followup conversation and the time the user first sent a message. Historical followups without a linked chat have a null conversationId. */
         CompletedActivityFollowup: {
             /** Format: date-time */
             completedAt: string;
@@ -1915,7 +1915,7 @@ export interface components {
          */
         ImportOperationEnum: "IMPORT" | "RECOMMENDATION";
         /**
-         * @description Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the owned item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.
+         * @description Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the specific item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.
          * @enum {string}
          */
         FieldScopeEnum: "GROUP" | "CLASS" | "INSTANCE";
@@ -2034,7 +2034,7 @@ export interface components {
         resourceId: string;
         /** @description Filter by Thing. Missing or inaccessible Things return an empty list. */
         thingId: string;
-        /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+        /** @description Thing in the signed-in user's records that receives this Attachment. Processing is restricted to this Thing. */
         attachmentThingId: string;
         /** @description Thing id. */
         thingIdPath: string;
@@ -2607,7 +2607,7 @@ export interface operations {
     uploadAttachment: {
         parameters: {
             query?: {
-                /** @description Owned Thing that receives this Attachment. Processing is restricted to this Thing. */
+                /** @description Thing in the signed-in user's records that receives this Attachment. Processing is restricted to this Thing. */
                 thingId?: components["parameters"]["attachmentThingId"];
             };
             header?: never;
@@ -3348,7 +3348,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Full owner-scoped Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state. */
+            /** @description Full user-scoped Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state. */
             200: {
                 headers: {
                     [name: string]: unknown;

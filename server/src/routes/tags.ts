@@ -10,20 +10,20 @@ interface Options {
 }
 
 const tagRoutes: FastifyPluginAsync<Options> = async (app, { db, events }) => {
-  route(app, 'GET', '/api/tags', (req) => tagsDb.listTags(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/tags', (req) => tagsDb.listTags(db, req.userId, req.query));
   route(app, 'POST', '/api/tags', async (req, reply) => {
-    const result = await tagsDb.saveTag(db, req.ownerId, req.body);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await tagsDb.saveTag(db, req.userId, req.body);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(201).send(result);
   });
   route(app, 'PATCH', '/api/tags/{id}', async (req) => {
-    const result = await tagsDb.saveTag(db, req.ownerId, req.body, req.params.id);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await tagsDb.saveTag(db, req.userId, req.body, req.params.id);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return result;
   });
   route(app, 'DELETE', '/api/tags/{id}', async (req, reply) => {
-    await tagsDb.deleteTag(db, req.ownerId, req.params.id);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    await tagsDb.deleteTag(db, req.userId, req.params.id);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(204).send();
   });
 };

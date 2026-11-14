@@ -1,4 +1,4 @@
-/** Checks scope migration without changing stored field values, citations or owner permissions. */
+/** Checks scope migration without changing stored field values, citations or automatic-population permissions. */
 
 import { getEnv } from '../../src/config.js';
 import assert from 'node:assert/strict';
@@ -21,9 +21,8 @@ test('scope migration converts registry and custom metadata and keeps field data
   try {
     await admin.query(`create database ${name}`);
     const directory = new URL('../../../supabase/migrations/', import.meta.url);
-    for (const file of (await readdir(directory))
-      .filter((file) => file.endsWith('.sql') && file < migration)
-      .sort())
+    const files = (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort();
+    for (const file of files.filter((file) => file < migration))
       await pool.query(await readFile(new URL(file, directory), 'utf8'));
     const definitions = [
       ['provider', false, 'GROUP', 'GROUP', true],
@@ -107,9 +106,6 @@ test('scope migration converts registry and custom metadata and keeps field data
         });
       }
     }
-    assert.deepEqual(await thingFieldsDb.identifiers(pool, owner, 'test'), [
-      { thingId: thing, fieldId: 'serial', value: '0012' },
-    ]);
     await pool.query(`insert into bt.field_definitions(id,name,description,schema,ui_hint)
       values('new','New','','{"type":"string"}','TEXT')`);
     assert.deepEqual(
@@ -137,6 +133,11 @@ test('scope migration converts registry and custom metadata and keeps field data
         ['instance_specific', 'identifier_kind'].includes(column_name),
       ),
     );
+    for (const file of files.filter((file) => file > migration))
+      await pool.query(await readFile(new URL(file, directory), 'utf8'));
+    assert.deepEqual(await thingFieldsDb.identifiers(pool, owner, 'test'), [
+      { thingId: thing, fieldId: 'serial', value: '0012' },
+    ]);
   } finally {
     await pool.end();
     await admin.query(`drop database if exists ${name} with (force)`);

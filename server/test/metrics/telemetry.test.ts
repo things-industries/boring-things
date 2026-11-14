@@ -305,7 +305,7 @@ test('concurrent jobs isolate traces and record provider usage without source co
   exporter.reset();
   const conversationId = '20000000-0000-4000-8000-000000000001';
   for (const messageId of [ids[0], ids[1], ids[0]]) {
-    await metrics.withChatTurn({ id: messageId, conversationId, ownerId: ids[0] }, async () => {
+    await metrics.withChatTurn({ id: messageId, conversationId, userId: ids[0] }, async () => {
       metrics.recordProviderCall({
         task: 'assistant_response',
         provider: 'openai',

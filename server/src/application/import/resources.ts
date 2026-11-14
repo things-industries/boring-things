@@ -32,7 +32,7 @@ export function validateResource(item: DiscoveryItem) {
 export async function saveResourceAttachment(
   pool: pg.Pool,
   blobs: BlobStorage,
-  owner: string,
+  userId: string,
   thingId: string,
   key: string,
   item: DiscoveryItem,
@@ -50,7 +50,7 @@ export async function saveResourceAttachment(
   try {
     used = await database.transaction(pool, (db) => {
       signal.throwIfAborted();
-      return attachmentsDb.saveDiscoveredAttachment(db, owner, thingId, key, item, {
+      return attachmentsDb.saveDiscoveredAttachment(db, userId, thingId, key, item, {
         storageKey,
         byteSize: file.content.length,
         mediaType: file.mediaType,
@@ -58,7 +58,7 @@ export async function saveResourceAttachment(
         metadataSources: file.metadataSources,
       });
     });
-    return await attachmentsDb.findDiscoveryAttachment(pool, owner, key);
+    return await attachmentsDb.findDiscoveryAttachment(pool, userId, key);
   } finally {
     if (!used) await blobs.remove(storageKey);
   }

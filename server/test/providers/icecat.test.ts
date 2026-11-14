@@ -24,7 +24,7 @@ const signal = new AbortController().signal;
 function createThing(values: Record<string, string>, categoryId = 'appliances'): ThingRow {
   return {
     id: 'fixture',
-    ownerId: 'owner',
+    userId: 'owner',
     name: 'Test product',
     categoryId,
     description: '',
@@ -203,7 +203,7 @@ test('Icecat catalogue misses and access restrictions return no field proposals'
   }
 });
 
-test('Icecat proposals respect owner edits and disabled empty fields', async () => {
+test('Icecat proposals respect user edits and disabled empty fields', async () => {
   const thing = createThing({ 'common.manufacturer': 'Example', 'common.model': 'X1/AB' });
   thing.data = patchData(
     thing.data,

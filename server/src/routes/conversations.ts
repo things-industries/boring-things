@@ -1,5 +1,5 @@
 /**
- * Registers owner-scoped conversation creation, message enqueueing, reads and authenticated
+ * Registers user-scoped conversation creation, message enqueueing, reads and authenticated
  * snapshot and text streams.
  */
 
@@ -29,25 +29,20 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   { db, runner, assistant, events, enabled, sse },
 ) => {
   route(app, 'GET', '/api/conversations', (req) =>
-    conversationsDb.listConversations(db, req.ownerId, req.query),
+    conversationsDb.listConversations(db, req.userId, req.query),
   );
 
   route(app, 'POST', '/api/conversations', async (req, reply) => {
     ensure(!req.body.followup || enabled, 'Assistant is not configured', 'UNAVAILABLE');
-    const result = await createConversation(db, req.ownerId, req.body);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await createConversation(db, req.userId, req.body);
+    events.publish({ type: 'data.changed', userId: req.userId });
     runner.wake();
     return reply.code(201).send(result);
   });
 
   route(app, 'POST', '/api/conversations/{id}/messages', async (req, reply) => {
     ensure(enabled, 'Assistant is not configured', 'UNAVAILABLE');
-    const { outcome, conversation } = await enqueueMessage(
-      db,
-      req.ownerId,
-      req.params.id,
-      req.body,
-    );
+    const { outcome, conversation } = await enqueueMessage(db, req.userId, req.params.id, req.body);
     const message = conversation.messages.find(
       (item) => item.role === 'ASSISTANT' && item.requestId === req.body.requestId,
     );
@@ -64,15 +59,15 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
         },
         'Assistant turn queued',
       );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     runner.wake();
     reply.code(202);
     return conversation;
   });
 
   route(app, 'GET', '/api/conversations/{id}/stream', async (req, reply) => {
-    await conversationsDb.getOwnedConversationOrThrow(db, req.ownerId, req.params.id);
-    const subscription = events.subscribe({ ownerId: req.ownerId, conversationId: req.params.id });
+    await conversationsDb.getConversationForUserOrThrow(db, req.userId, req.params.id);
+    const subscription = events.subscribe({ userId: req.userId, conversationId: req.params.id });
     return reply
       .headers(sseHeaders)
       .code(200)
@@ -80,7 +75,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
         sse.stream(subscription, {
           event: 'conversation.snapshot',
           diagnostics: { request: req, conversationId: req.params.id },
-          snapshot: () => assistant.snapshot(req.ownerId, req.params.id),
+          snapshot: () => assistant.snapshot(req.userId, req.params.id),
           eventFor: (event) =>
             event.type === 'conversation.delta'
               ? { event: event.type, data: event.delta }
@@ -90,7 +85,7 @@ const conversationRoutes: FastifyPluginAsync<Options> = async (
   });
 
   route(app, 'GET', '/api/conversations/{id}', (req) =>
-    conversationsDb.getOwnedConversationSnapshot(db, req.ownerId, req.params.id),
+    conversationsDb.getConversationSnapshotForUser(db, req.userId, req.params.id),
   );
 };
 

@@ -85,7 +85,7 @@ export class ImportWorkflow {
     return this.job.workflow.warnings.length;
   }
 
-  // Applies a cited everyday name to an imported Thing until the owner edits its name.
+  // Applies a cited everyday name to an imported Thing until the user edits its name.
   private async applyResearchIdentity() {
     const discovery = this.job.workflow.discovery,
       identity = discovery?.identity;
@@ -105,26 +105,26 @@ export class ImportWorkflow {
       )?.value;
       const name = await importsDb.findAvailableImportName(
         db,
-        current.ownerId,
+        current.userId,
         current.id,
         identity.name,
         typeof model === 'string' ? model : undefined,
       );
-      await thingsDb.renameThing(db, current.ownerId, current.id, name);
+      await thingsDb.renameThing(db, current.userId, current.id, name);
     });
   }
 
   // Publishes progress after persisted changes are visible.
   private publish() {
-    this.events.publish({ type: 'data.changed', ownerId: this.job.ownerId });
+    this.events.publish({ type: 'data.changed', userId: this.job.userId });
   }
 
-  // Reads the selected Thing using the request's ownership boundary.
+  // Reads the selected Thing using the request's user ID.
   private async thing() {
     ensure(this.job.targetThingId, 'no_thing_identified');
-    const thing = await thingsDb.getOwnedThingOrThrow(
+    const thing = await thingsDb.getThingForUserOrThrow(
       this.pool,
-      this.job.ownerId,
+      this.job.userId,
       this.job.targetThingId,
     );
     metrics.setJobEntity({ type: 'thing', id: thing.id, name: thing.name });
@@ -139,16 +139,16 @@ export class ImportWorkflow {
     this.context.signal.throwIfAborted();
     await metrics.withStage('save_import_checkpoint', () =>
       database.transaction(this.pool, async (db) => {
-        const job = await importsDb.getOwnedImportOrThrow(db, this.job.ownerId, this.job.id, {
+        const job = await importsDb.getImportForUserOrThrow(db, this.job.userId, this.job.id, {
           lock: true,
         });
         ensure(job.targetThingId, 'no_thing_identified');
-        const current = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, job.targetThingId, {
+        const current = await thingsDb.getThingForUserOrThrow(db, job.userId, job.targetThingId, {
           lock: true,
         });
         if (work) await work(db, current);
         this.context.signal.throwIfAborted();
-        const saved = await importsDb.getOwnedImportOrThrow(db, job.ownerId, job.id);
+        const saved = await importsDb.getImportForUserOrThrow(db, job.userId, job.id);
         const workflow = {
           ...saved.workflow,
           done: [...new Set([...saved.workflow.done, key])],
@@ -166,7 +166,7 @@ export class ImportWorkflow {
     metrics.setJobStage(stage.toLowerCase());
     this.job.workflow.stage = stage;
     await importsDb.saveWorkflow(this.pool, this.job, this.job.workflow);
-    await importsDb.setImportStatus(this.pool, this.job.ownerId, this.job.id, status);
+    await importsDb.setImportStatus(this.pool, this.job.userId, this.job.id, status);
     this.publish();
   }
 
@@ -305,23 +305,26 @@ export class ImportWorkflow {
           ],
         }),
       );
-      const owned = await database.rows<{ id: string; name: string; categoryId: string }>(
+      const userThings = await database.rows<{ id: string; name: string; categoryId: string }>(
         this.pool,
-        'select id,name,category_id from bt.things where owner_id=$1 order by id limit 100',
-        [this.job.ownerId],
+        'select id,name,category_id from bt.things where user_id=$1 order by id limit 100',
+        [this.job.userId],
       );
-      if (this.job.targetThingId && !owned.some((thing) => thing.id === this.job.targetThingId)) {
+      if (
+        this.job.targetThingId &&
+        !userThings.some((thing) => thing.id === this.job.targetThingId)
+      ) {
         const context = await this.thing();
-        owned.push({ id: context.id, name: context.name, categoryId: context.categoryId });
+        userThings.push({ id: context.id, name: context.name, categoryId: context.categoryId });
       }
       const existing: ResolutionInput['existingThings'] = [];
       const cached = new Map<string, Awaited<ReturnType<typeof thingFieldsDb.identifiers>>>();
-      for (const thing of owned) {
+      for (const thing of userThings) {
         let identifiers = cached.get(thing.categoryId);
         if (!identifiers) {
           identifiers = await thingFieldsDb.identifiers(
             this.pool,
-            this.job.ownerId,
+            this.job.userId,
             thing.categoryId,
           );
           cached.set(thing.categoryId, identifiers);
@@ -357,7 +360,7 @@ export class ImportWorkflow {
       );
       ensure(
         !candidate.matchedThingId ||
-          owned.some(
+          userThings.some(
             (thing) =>
               thing.id === candidate.matchedThingId && thing.categoryId === candidate.categoryId,
           ),
@@ -377,7 +380,7 @@ export class ImportWorkflow {
         );
         const source = this.sources.find((file) => file.id === identifier.attachmentId);
         ensure(
-          source?.ownerId !== null ||
+          source?.userId !== null ||
             ['GROUP', 'CLASS'].includes(this.registry.fields.get(identifier.fieldId)?.scope ?? ''),
           'Public source supplied instance data',
         );
@@ -390,15 +393,20 @@ export class ImportWorkflow {
       );
     }
     await database.transaction(this.pool, async (db) => {
-      const current = await importsDb.getOwnedImportOrThrow(db, this.job.ownerId, this.job.id, {
+      const current = await importsDb.getImportForUserOrThrow(db, this.job.userId, this.job.id, {
         lock: true,
       });
       let thing: thingsDb.ThingRow;
       const isNew = !candidate.matchedThingId;
       if (candidate.matchedThingId)
-        thing = await thingsDb.getOwnedThingOrThrow(db, current.ownerId, candidate.matchedThingId, {
-          lock: true,
-        });
+        thing = await thingsDb.getThingForUserOrThrow(
+          db,
+          current.userId,
+          candidate.matchedThingId,
+          {
+            lock: true,
+          },
+        );
       else {
         const model = candidate.identifiers.find(
           (entry) =>
@@ -407,7 +415,7 @@ export class ImportWorkflow {
         )?.value;
         const name = await importsDb.findAvailableImportName(
           db,
-          current.ownerId,
+          current.userId,
           null,
           candidate.name,
           model,
@@ -417,7 +425,7 @@ export class ImportWorkflow {
           candidate.categoryId,
           this.registry,
         );
-        thing = await thingsDb.insertThing(db, current.ownerId, {
+        thing = await thingsDb.insertThing(db, current.userId, {
           name,
           description: '',
           categoryId: candidate.categoryId,
@@ -442,9 +450,9 @@ export class ImportWorkflow {
         };
       });
       data = populateFields(data, proposals, this.registry);
-      await thingsDb.saveThingData(db, current.ownerId, thing.id, data);
+      await thingsDb.saveThingData(db, current.userId, thing.id, data);
       for (const id of candidate.attachmentIds)
-        await attachmentsDb.linkAttachment(db, current.ownerId, id, thing.id, true);
+        await attachmentsDb.linkAttachment(db, current.userId, id, thing.id, true);
       const workflow: WorkflowCheckpoint = {
         ...current.workflow,
         categoryVersion: thing.data.categoryVersion ?? 0,
@@ -488,7 +496,7 @@ export class ImportWorkflow {
         if (result.matchesThing && !result.matchesThing(current)) return;
         let data = addFieldSets(current.data, current.categoryId, this.registry, result.setIds);
         data = populateFields(data, result.values, this.registry, 'DISCOVERY');
-        await thingsDb.saveThingData(db, current.ownerId, current.id, data);
+        await thingsDb.saveThingData(db, current.userId, current.id, data);
       });
     }
     if (!this.job.workflow.warnings.some((entry) => entry.stage.startsWith('specialist:')))
@@ -543,7 +551,7 @@ export class ImportWorkflow {
       const key = 'resource:' + resourceKey(item);
       if (this.job.workflow.done.includes(key)) continue;
       let id = (
-        await attachmentsDb.findDiscoveryAttachment(this.pool, this.job.ownerId, resourceKey(item))
+        await attachmentsDb.findDiscoveryAttachment(this.pool, this.job.userId, resourceKey(item))
       )?.id;
       const reused = id !== undefined;
       if (!id) {
@@ -574,7 +582,7 @@ export class ImportWorkflow {
           await saveResourceAttachment(
             this.pool,
             this.blobs,
-            this.job.ownerId,
+            this.job.userId,
             thing.id,
             resourceKey(item),
             item,
@@ -615,7 +623,7 @@ export class ImportWorkflow {
       return;
     }
     for (const id of this.job.workflow.resourceIds) {
-      const file = await attachmentsDb.getOwnedAttachmentOrThrow(this.pool, this.job.ownerId, id);
+      const file = await attachmentsDb.getAttachmentForUserOrThrow(this.pool, this.job.userId, id);
       if (file.transcriptionStatus !== 'FAILED') await this.commit('source:' + id);
       if (file.transcriptionStatus === 'FAILED')
         await this.warning('source:' + id, file.sourceUrl, 'EXTRACTION_FAILED');
@@ -627,16 +635,16 @@ export class ImportWorkflow {
   // Registers a resource link and its Import reference atomically.
   private async attachResource(id: string) {
     await database.transaction(this.pool, async (db) => {
-      const job = await importsDb.getOwnedImportOrThrow(db, this.job.ownerId, this.job.id, {
+      const job = await importsDb.getImportForUserOrThrow(db, this.job.userId, this.job.id, {
         lock: true,
       });
       ensure(job.targetThingId, 'no_thing_identified');
-      const thing = await thingsDb.getOwnedThingOrThrow(db, job.ownerId, job.targetThingId, {
+      const thing = await thingsDb.getThingForUserOrThrow(db, job.userId, job.targetThingId, {
         lock: true,
       });
       if (thing.data.userEdited?.includes('attachment:' + id)) return;
-      await attachmentsDb.linkAttachment(db, job.ownerId, id, job.targetThingId, true);
-      const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, job.ownerId, id);
+      await attachmentsDb.linkAttachment(db, job.userId, id, job.targetThingId, true);
+      const file = await attachmentsDb.getAttachmentForUserOrThrow(db, job.userId, id);
       if (
         file.mediaType.startsWith('image/') &&
         !thing.imageAttachmentId &&
@@ -644,8 +652,8 @@ export class ImportWorkflow {
       )
         await database.execute(
           db,
-          'update bt.things set image_attachment_id=$1 where id=$2 and owner_id=$3',
-          [id, thing.id, job.ownerId],
+          'update bt.things set image_attachment_id=$1 where id=$2 and user_id=$3',
+          [id, thing.id, job.userId],
         );
       await importsDb.addSource(db, job, id);
       job.workflow.resourceIds = [...new Set([...job.workflow.resourceIds, id])];
@@ -674,11 +682,11 @@ export class ImportWorkflow {
     const original = this.sources.find((source) => source.id === id);
     const linked = await database.execute(
       db,
-      'select 1 from bt.thing_attachments where thing_id=$1 and owner_id=$2 and attachment_id=$3',
-      [thing.id, thing.ownerId, id],
+      'select 1 from bt.thing_attachments where thing_id=$1 and user_id=$2 and attachment_id=$3',
+      [thing.id, thing.userId, id],
     );
     if (!original || !linked.rowCount) return false;
-    const current = await attachmentsDb.getOwnedAttachmentOrThrow(db, thing.ownerId, id, {
+    const current = await attachmentsDb.getAttachmentForUserOrThrow(db, thing.userId, id, {
       lock: true,
     });
     return (
@@ -693,8 +701,8 @@ export class ImportWorkflow {
     const thing = await this.thing();
     const links = await database.rows<{ attachmentId: string }>(
       this.pool,
-      'select attachment_id from bt.thing_attachments where thing_id=$1 and owner_id=$2',
-      [thing.id, this.job.ownerId],
+      'select attachment_id from bt.thing_attachments where thing_id=$1 and user_id=$2',
+      [thing.id, this.job.userId],
     );
     if (links.length > 20)
       await this.warning('source_limit', null, 'RESEARCH_FAILED', 'source_limit');
@@ -703,12 +711,16 @@ export class ImportWorkflow {
         links
           .slice(0, 20)
           .map((link) =>
-            attachmentsDb.getOwnedAttachmentOrThrow(this.pool, this.job.ownerId, link.attachmentId),
+            attachmentsDb.getAttachmentForUserOrThrow(
+              this.pool,
+              this.job.userId,
+              link.attachmentId,
+            ),
           ),
       )
     ).filter(
       (file) =>
-        (file.ownerId !== null || !file.mediaType.startsWith('image/')) &&
+        (file.userId !== null || !file.mediaType.startsWith('image/')) &&
         (file.transcription || file.transcriptionSummary) &&
         ['COMPLETE', 'PARTIAL'].includes(file.transcriptionStatus),
     );
@@ -718,7 +730,7 @@ export class ImportWorkflow {
     if (!this.ai.assessResource) return;
     metrics.setJobStage('assess_source');
     const thing = await this.thing();
-    for (const source of this.sources.filter((file) => file.ownerId === null)) {
+    for (const source of this.sources.filter((file) => file.userId === null)) {
       const key = 'applicability:' + source.id + ':' + this.sourceFingerprint();
       if (this.job.workflow.done.includes(key)) continue;
       let result;
@@ -770,7 +782,7 @@ export class ImportWorkflow {
         this.job.workflow.excludedIds = result.applicable
           ? this.job.workflow.excludedIds.filter((id) => id !== source.id)
           : [...new Set([...this.job.workflow.excludedIds, source.id])];
-        const stored = await importsDb.getOwnedImportOrThrow(db, this.job.ownerId, this.job.id);
+        const stored = await importsDb.getImportForUserOrThrow(db, this.job.userId, this.job.id);
         await importsDb.saveWorkflow(db, stored, {
           ...stored.workflow,
           excludedIds: this.job.workflow.excludedIds,
@@ -818,7 +830,7 @@ export class ImportWorkflow {
     await this.commit(key, async (db, current) => {
       await thingsDb.saveThingData(
         db,
-        current.ownerId,
+        current.userId,
         current.id,
         addFieldSets(current.data, current.categoryId, this.registry, selection.setIds),
       );
@@ -884,14 +896,14 @@ export class ImportWorkflow {
         );
         const sources = citedSources.length ? citedSources : this.sources;
         ensure(
-          sources.every((source) => source.ownerId !== null) ||
+          sources.every((source) => source.userId !== null) ||
             ['GROUP', 'CLASS'].includes(this.registry.fields.get(value.fieldId)?.scope ?? ''),
           'Public source supplied instance data',
         );
         return {
           ...value,
           sourceRefs,
-          origin: sources.some((source) => source.ownerId === null) ? 'DISCOVERY' : 'IMPORT',
+          origin: sources.some((source) => source.userId === null) ? 'DISCOVERY' : 'IMPORT',
         };
       });
       await this.commit(key, async (db, current) => {
@@ -923,12 +935,12 @@ export class ImportWorkflow {
             )
               data.pins.push(pin);
           }
-        await thingsDb.saveThingData(db, current.ownerId, current.id, data);
+        await thingsDb.saveThingData(db, current.userId, current.id, data);
       });
     }
   }
 
-  // Saves only significant owner-source findings and reuses existing field occurrences.
+  // Saves only significant private source findings and reuses existing field occurrences.
   private async additional() {
     if (!this.ai.additionalInformation) return;
     this.job.workflow.warnings = this.job.workflow.warnings.filter(
@@ -936,7 +948,7 @@ export class ImportWorkflow {
     );
     await this.stage('ADDITIONAL_INFORMATION', 'MAPPING');
     const fingerprint = this.sourceFingerprint();
-    for (const source of this.sources.filter((source) => source.ownerId !== null))
+    for (const source of this.sources.filter((source) => source.userId !== null))
       for (let offset = 0; offset < (source.transcription?.length ?? 0);) {
         const start = offset;
         const prefix = `additional:${source.id}:${fingerprint}:${start}:`;
@@ -1076,7 +1088,7 @@ export class ImportWorkflow {
               });
             }
           }
-          await thingsDb.saveThingData(db, current.ownerId, current.id, data);
+          await thingsDb.saveThingData(db, current.userId, current.id, data);
         });
       }
   }
@@ -1131,7 +1143,7 @@ export class ImportWorkflow {
       this.job.workflow.done.includes('tasks')
         ? undefined
         : tasksDb
-            .existingTasks(this.pool, this.job.ownerId, thing.id)
+            .existingTasks(this.pool, this.job.userId, thing.id)
             .then((existingTasks) =>
               this.ai.suggestTasks(
                 {
@@ -1156,7 +1168,7 @@ export class ImportWorkflow {
       this.job.workflow.done.includes('purchasables')
         ? undefined
         : purchasablesDb
-            .existingPurchasables(this.pool, this.job.ownerId, thing.id)
+            .existingPurchasables(this.pool, this.job.userId, thing.id)
             .then((existingPurchasables) =>
               this.ai.findPurchasables(
                 {
@@ -1201,7 +1213,7 @@ export class ImportWorkflow {
           for (const ref of task.sourceRefs)
             if (ref.attachmentId && !(await this.isSourceCurrent(db, current, ref.attachmentId)))
               continue tasks;
-          const id = await tasksDb.saveSuggestedTask(db, current.ownerId, current.id, task);
+          const id = await tasksDb.saveSuggestedTask(db, current.userId, current.id, task);
           if (id) saved.push({ type: 'task', id, name: task.title });
         }
       });
@@ -1221,7 +1233,7 @@ export class ImportWorkflow {
               continue products;
           const id = await purchasablesDb.saveSuggestedPurchasable(
             db,
-            current.ownerId,
+            current.userId,
             current.id,
             product,
           );

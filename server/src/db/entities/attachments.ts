@@ -11,7 +11,7 @@ import { ensure } from '../../application/errors.js';
 import { page, pageResult } from '../../application/pagination.js';
 
 export type AttachmentRow = Omit<Schema['Attachment'], 'pageCount'> & {
-  ownerId: string | null;
+  userId: string | null;
   transcriptionUsage: import('../../application/import/types.js').Usage | null;
   identifierObservations: IdentifierObservation[];
   identifierCoverage: { fieldId: string; value: string }[];
@@ -31,25 +31,25 @@ export interface AttachmentInput {
   storageKey: string;
   pageCount?: number | null;
 }
-const columns = (ownerParameter = '$2') =>
-  `a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.created_at,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count,a.metadata_sources,coalesce((select jsonb_agg(thing_id order by thing_id) from bt.thing_attachments where attachment_id=a.id and owner_id=${ownerParameter}),'[]') as thing_ids`;
-export async function getOwnedAttachmentOrThrow(
+const columns = (userIdParameter = '$2') =>
+  `a.id,a.filename,a.media_type,a.byte_size,a.source_url,a.created_at,a.title,a.document_type,a.publisher,a.document_date::text,a.page_count,a.metadata_sources,coalesce((select jsonb_agg(thing_id order by thing_id) from bt.thing_attachments where attachment_id=a.id and user_id=${userIdParameter}),'[]') as thing_ids`;
+export async function getAttachmentForUserOrThrow(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   options: { lock?: boolean } = {},
 ): Promise<AttachmentRow> {
   const [file] = await database.rows<AttachmentRow>(
     db,
-    `select ${columns()},a.owner_id,a.transcription_usage,a.identifier_observations,a.identifier_coverage,a.storage_key,a.transcription,a.transcription_summary,a.transcription_terms,a.transcription_status,a.transcription_completed_at from bt.attachments a where a.id=$1 and (a.owner_id=$2 or (a.owner_id is null and (exists(select 1 from bt.thing_attachments l where l.attachment_id=a.id and l.owner_id=$2) or exists(select 1 from bt.import_sources s where s.attachment_id=a.id and s.owner_id=$2) or exists(select 1 from bt.thing_fields f where f.owner_id=$2 and f.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id))) or exists(select 1 from bt.events e where e.owner_id=$2 and e.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id))) or exists(select 1 from bt.messages m join bt.conversations c on c.id=m.conversation_id where c.owner_id=$2 and m.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id))) or exists(select 1 from bt.purchasables p where p.owner_id=$2 and p.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id)))))) ${options.lock ? 'for update' : ''}`,
-    [id, owner],
+    `select ${columns()},a.user_id,a.transcription_usage,a.identifier_observations,a.identifier_coverage,a.storage_key,a.transcription,a.transcription_summary,a.transcription_terms,a.transcription_status,a.transcription_completed_at from bt.attachments a where a.id=$1 and (a.user_id=$2 or (a.user_id is null and (exists(select 1 from bt.thing_attachments l where l.attachment_id=a.id and l.user_id=$2) or exists(select 1 from bt.import_sources s where s.attachment_id=a.id and s.user_id=$2) or exists(select 1 from bt.thing_fields f where f.user_id=$2 and f.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id))) or exists(select 1 from bt.events e where e.user_id=$2 and e.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id))) or exists(select 1 from bt.messages m join bt.conversations c on c.id=m.conversation_id where c.user_id=$2 and m.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id))) or exists(select 1 from bt.purchasables p where p.user_id=$2 and p.source_refs @> jsonb_build_array(jsonb_build_object('attachmentId',a.id)))))) ${options.lock ? 'for update' : ''}`,
+    [id, userId],
   );
   ensure(file, 'Attachment not found', 'NOT_FOUND');
   return file;
 }
 export function publicAttachment(file: AttachmentRow): Schema['Attachment'] {
   const {
-    ownerId: _owner,
+    userId: _userId,
     transcriptionUsage: _usage,
     identifierObservations: _identifiers,
     identifierCoverage: _coverage,
@@ -65,36 +65,36 @@ export function publicAttachment(file: AttachmentRow): Schema['Attachment'] {
 }
 export async function listAttachments(
   db: Database,
-  owner: string,
+  userId: string,
   query: AttachmentQuery,
 ): Promise<Schema['AttachmentList']> {
   const { limit, offset } = page(query);
   return pageResult(
     await database.rows<Schema['Attachment']>(
       db,
-      `select ${columns('$1')} from bt.attachments a where (a.owner_id=$1 or (a.owner_id is null and exists(select 1 from bt.thing_attachments l where l.attachment_id=a.id and l.owner_id=$1))) and ($2::uuid is null or exists(select 1 from bt.thing_attachments where attachment_id=a.id and thing_id=$2)) order by created_at desc,id limit $3 offset $4`,
-      [owner, query.thingId ?? null, limit + 1, offset],
+      `select ${columns('$1')} from bt.attachments a where (a.user_id=$1 or (a.user_id is null and exists(select 1 from bt.thing_attachments l where l.attachment_id=a.id and l.user_id=$1))) and ($2::uuid is null or exists(select 1 from bt.thing_attachments where attachment_id=a.id and thing_id=$2)) order by created_at desc,id limit $3 offset $4`,
+      [userId, query.thingId ?? null, limit + 1, offset],
     ),
     query,
   );
 }
 export async function insertAttachment(
   db: Database,
-  owner: string,
+  userId: string,
   file: AttachmentInput,
 ): Promise<AttachmentRow> {
   const [row] = await database.rows<{ id: string }>(
     db,
-    'insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,page_count) values($1,$2,$3,$4,$5,$6) returning id',
-    [owner, file.filename, file.mediaType, file.byteSize, file.storageKey, file.pageCount ?? null],
+    'insert into bt.attachments(user_id,filename,media_type,byte_size,storage_key,page_count) values($1,$2,$3,$4,$5,$6) returning id',
+    [userId, file.filename, file.mediaType, file.byteSize, file.storageKey, file.pageCount ?? null],
   );
-  return getOwnedAttachmentOrThrow(db, owner, row.id);
+  return getAttachmentForUserOrThrow(db, userId, row.id);
 }
 
 // Saves source-wide readable content for the immutable uploaded Attachment.
 export async function saveTranscription(
   db: Database,
-  owner: string | null,
+  userId: string | null,
   id: string,
   input: {
     text: string;
@@ -107,14 +107,14 @@ export async function saveTranscription(
   await database.execute(
     db,
     `update bt.attachments set transcription=$1,transcription_summary=$2,transcription_terms=$3,
-      transcription_status=$4,transcription_completed_at=case when $4='PROCESSING' then null else now() end,identifier_observations=$7 where id=$5 and owner_id is not distinct from $6`,
+      transcription_status=$4,transcription_completed_at=case when $4='PROCESSING' then null else now() end,identifier_observations=$7 where id=$5 and user_id is not distinct from $6`,
     [
       input.text,
       input.summary,
       JSON.stringify(input.terms),
       input.status,
       id,
-      owner,
+      userId,
       JSON.stringify(input.identifiers ?? []),
     ],
   );
@@ -123,25 +123,25 @@ export async function saveTranscription(
 // Claims one persisted upload for the shared runner.
 export async function claimPendingTranscription(
   db: Database,
-): Promise<{ file: AttachmentRow; ownerId: string | null; queuedAt: string | null } | undefined> {
+): Promise<{ file: AttachmentRow; userId: string | null; queuedAt: string | null } | undefined> {
   const [row] = await database.rows<{
     id: string;
-    ownerId: string | null;
+    userId: string | null;
     queuedAt: string | null;
   }>(
     db,
-    `select a.id,a.owner_id,a.transcription_queued_at as queued_at from bt.attachments a where a.transcription_status='PENDING'
+    `select a.id,a.user_id,a.transcription_queued_at as queued_at from bt.attachments a where a.transcription_status='PENDING'
      order by a.created_at,a.id limit 1 for update of a skip locked`,
   );
   if (!row) return undefined;
   await database.execute(
     db,
-    "update bt.attachments set transcription_status='PROCESSING' where id=$1 and owner_id is not distinct from $2",
-    [row.id, row.ownerId],
+    "update bt.attachments set transcription_status='PROCESSING' where id=$1 and user_id is not distinct from $2",
+    [row.id, row.userId],
   );
   return {
-    file: await getProcessingAttachment(db, row.ownerId, row.id),
-    ownerId: row.ownerId,
+    file: await getProcessingAttachment(db, row.userId, row.id),
+    userId: row.userId,
     queuedAt: row.queuedAt,
   };
 }
@@ -156,26 +156,26 @@ export async function recoverTranscriptions(db: Database): Promise<void> {
 // Records pending-source outcomes without replacing completed transcriptions.
 export async function setTranscriptionStatus(
   db: Database,
-  owner: string | null,
+  userId: string | null,
   id: string,
   status: 'PROCESSING' | 'FAILED' | 'SKIPPED',
 ): Promise<void> {
   await database.execute(
     db,
     `update bt.attachments set transcription_status=$1
-     where id=$2 and owner_id is not distinct from $3 and transcription_completed_at is null
+     where id=$2 and user_id is not distinct from $3 and transcription_completed_at is null
        and transcription_status in ('PENDING','PROCESSING','FAILED')`,
-    [status, id, owner],
+    [status, id, userId],
   );
 }
 export async function saveAttachmentMetadata(
   db: Database,
-  owner: string | null,
+  userId: string | null,
   file: AttachmentRow,
 ): Promise<Schema['Attachment']> {
   await database.execute(
     db,
-    'update bt.attachments set title=$1,document_type=$2,publisher=$3,document_date=$4,metadata_sources=$5,page_count=$6 where id=$7 and owner_id is not distinct from $8',
+    'update bt.attachments set title=$1,document_type=$2,publisher=$3,document_date=$4,metadata_sources=$5,page_count=$6 where id=$7 and user_id is not distinct from $8',
     [
       file.title,
       file.documentType,
@@ -184,18 +184,18 @@ export async function saveAttachmentMetadata(
       JSON.stringify(file.metadataSources),
       file.pageCount,
       file.id,
-      owner,
+      userId,
     ],
   );
   return publicAttachment(file);
 }
 export async function deleteAttachment(
   db: Database,
-  owner: string,
+  userId: string,
   file: AttachmentRow,
 ): Promise<void> {
   ensure(
-    file.ownerId === owner &&
+    file.userId === userId &&
       file.thingIds.length === 0 &&
       !(
         await database.execute(db, 'select 1 from bt.import_sources where attachment_id=$1', [
@@ -212,14 +212,14 @@ export async function deleteAttachment(
     'Attachment is still referenced',
     'CONFLICT',
   );
-  await database.execute(db, 'delete from bt.attachments where id=$1 and owner_id=$2', [
+  await database.execute(db, 'delete from bt.attachments where id=$1 and user_id=$2', [
     file.id,
-    owner,
+    userId,
   ]);
 }
 export async function linkAttachment(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   thingId: string,
   linked: boolean,
@@ -227,59 +227,59 @@ export async function linkAttachment(
   if (linked)
     await database.execute(
       db,
-      'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
-      [thingId, id, owner],
+      'insert into bt.thing_attachments(thing_id,attachment_id,user_id) values($1,$2,$3) on conflict do nothing',
+      [thingId, id, userId],
     );
   else {
-    const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    const thing = await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
     if (thing.imageAttachmentId === id) {
       thing.data.userEdited = [...new Set([...(thing.data.userEdited ?? []), 'imageAttachmentId'])];
-      await thingsDb.saveThingData(db, owner, thingId, thing.data);
+      await thingsDb.saveThingData(db, userId, thingId, thing.data);
     }
     await database.execute(
       db,
-      'update bt.things set image_attachment_id=null where id=$1 and owner_id=$2 and image_attachment_id=$3',
-      [thingId, owner, id],
+      'update bt.things set image_attachment_id=null where id=$1 and user_id=$2 and image_attachment_id=$3',
+      [thingId, userId, id],
     );
     await database.execute(
       db,
-      'delete from bt.thing_attachments where thing_id=$1 and attachment_id=$2 and owner_id=$3',
-      [thingId, id, owner],
+      'delete from bt.thing_attachments where thing_id=$1 and attachment_id=$2 and user_id=$3',
+      [thingId, id, userId],
     );
   }
 }
 export async function isLinkedImage(
   db: Database,
-  owner: string,
+  userId: string,
   thingId: string,
   id: string,
 ): Promise<boolean> {
   return !!(
     await database.execute(
       db,
-      "select 1 from bt.thing_attachments l join bt.attachments a on a.id=l.attachment_id where l.thing_id=$1 and l.attachment_id=$2 and l.owner_id=$3 and a.media_type like 'image/%'",
-      [thingId, id, owner],
+      "select 1 from bt.thing_attachments l join bt.attachments a on a.id=l.attachment_id where l.thing_id=$1 and l.attachment_id=$2 and l.user_id=$3 and a.media_type like 'image/%'",
+      [thingId, id, userId],
     )
   ).rowCount;
 }
 
 export async function findDiscoveryAttachment(
   db: Database,
-  owner: string,
+  userId: string,
   key: string,
 ): Promise<{ id: string } | undefined> {
   return (
     await database.rows<{ id: string }>(
       db,
-      'select id from bt.attachments where import_key=$1 and (owner_id=$2 or owner_id is null)',
-      [key, owner],
+      'select id from bt.attachments where import_key=$1 and (user_id=$2 or user_id is null)',
+      [key, userId],
     )
   )[0];
 }
-// Links a discovered resource and selects an image only while the owner has left it unset.
+// Links a discovered resource and selects an image only while the user has left it unset.
 export async function saveDiscoveredAttachment(
   db: Database,
-  owner: string,
+  userId: string,
   thingId: string,
   key: string,
   item: DiscoveryItem,
@@ -288,7 +288,7 @@ export async function saveDiscoveredAttachment(
   },
 ): Promise<boolean> {
   ensure(['reference', 'image'].includes(item.kind), 'Invalid attachment resource');
-  const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+  const thing = await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
   if (
     item.kind === 'image' &&
     (thing.imageAttachmentId || thing.data.userEdited?.includes('imageAttachmentId'))
@@ -311,7 +311,7 @@ export async function saveDiscoveredAttachment(
     (item.kind === 'reference' ? '.pdf' : '.' + document.mediaType.split('/')[1]);
   const inserted = await database.rows<{ id: string }>(
     db,
-    'insert into bt.attachments(owner_id,filename,media_type,byte_size,storage_key,source_url,import_key,title,document_type,publisher,document_date,page_count,metadata_sources,transcription_status) values($1,$2,$13,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$14) on conflict(import_key) do nothing returning id',
+    'insert into bt.attachments(user_id,filename,media_type,byte_size,storage_key,source_url,import_key,title,document_type,publisher,document_date,page_count,metadata_sources,transcription_status) values($1,$2,$13,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$14) on conflict(import_key) do nothing returning id',
     [
       null,
       filename,
@@ -329,32 +329,32 @@ export async function saveDiscoveredAttachment(
       item.kind === 'image' ? 'SKIPPED' : 'PENDING',
     ],
   );
-  const file = inserted[0] ?? (await findDiscoveryAttachment(db, owner, key));
+  const file = inserted[0] ?? (await findDiscoveryAttachment(db, userId, key));
   ensure(file, 'Discovery attachment unavailable');
   if (thing.data.userEdited?.includes('attachment:' + file.id)) return inserted.length > 0;
   await database.execute(
     db,
-    'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3) on conflict do nothing',
-    [thingId, file.id, owner],
+    'insert into bt.thing_attachments(thing_id,attachment_id,user_id) values($1,$2,$3) on conflict do nothing',
+    [thingId, file.id, userId],
   );
   if (item.kind === 'image')
     await database.execute(
       db,
-      'update bt.things set image_attachment_id=$1 where id=$2 and owner_id is not distinct from $3',
-      [file.id, thingId, owner],
+      'update bt.things set image_attachment_id=$1 where id=$2 and user_id is not distinct from $3',
+      [file.id, thingId, userId],
     );
-  await thingsDb.bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, userId, thingId);
   return inserted.length > 0;
 }
 
-// Reads a claimed source using its persisted ownership rather than a browser access grant.
-export async function getProcessingAttachment(db: Database, owner: string | null, id: string) {
+// Reads a claimed source by its saved user ID, which can be null for shared evidence.
+export async function getProcessingAttachment(db: Database, userId: string | null, id: string) {
   const [file] = await database.rows<AttachmentRow>(
     db,
-    `select ${columns()},a.owner_id,a.transcription_usage,a.identifier_observations,a.identifier_coverage,a.storage_key,
+    `select ${columns()},a.user_id,a.transcription_usage,a.identifier_observations,a.identifier_coverage,a.storage_key,
       a.transcription,a.transcription_summary,a.transcription_terms,a.transcription_status,a.transcription_completed_at
-     from bt.attachments a where a.id=$1 and a.owner_id is not distinct from $2`,
-    [id, owner],
+     from bt.attachments a where a.id=$1 and a.user_id is not distinct from $2`,
+    [id, userId],
   );
   ensure(file, 'Attachment not found', 'NOT_FOUND');
   return file;
@@ -365,7 +365,7 @@ export async function findShared(db: Database, identifiers: { fieldId: string; v
   if (!identifiers.length) return [];
   return database.rows<{ id: string }>(
     db,
-    `select id from bt.attachments where owner_id is null and transcription_status in ('COMPLETE','PARTIAL')
+    `select id from bt.attachments where user_id is null and transcription_status in ('COMPLETE','PARTIAL')
      and exists(select 1 from jsonb_array_elements($1::jsonb) candidate
        where identifier_coverage @> jsonb_build_array(candidate)) order by created_at limit 3`,
     [JSON.stringify(identifiers)],
@@ -380,19 +380,19 @@ export async function saveCoverage(
 ) {
   await database.execute(
     db,
-    'update bt.attachments set identifier_coverage=$1 where id=$2 and owner_id is null',
+    'update bt.attachments set identifier_coverage=$1 where id=$2 and user_id is null',
     [JSON.stringify(identifiers), id],
   );
 }
 
-// Returns recipients without exposing other owners' relationships to browsers.
-export async function affectedOwners(db: Database, file: AttachmentRow) {
-  if (file.ownerId) return [file.ownerId];
+// Returns recipients without exposing other users' links to browsers.
+export async function getAffectedUserIds(db: Database, file: AttachmentRow) {
+  if (file.userId) return [file.userId];
   return (
-    await database.rows<{ ownerId: string }>(
+    await database.rows<{ userId: string }>(
       db,
-      'select distinct owner_id from bt.thing_attachments where attachment_id=$1',
+      'select distinct user_id from bt.thing_attachments where attachment_id=$1',
       [file.id],
     )
-  ).map((row) => row.ownerId);
+  ).map((row) => row.userId);
 }
