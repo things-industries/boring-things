@@ -1,4 +1,15 @@
-/** Executes AI requests, streamed deltas and bounded tool conversations with validation and usage reporting. */
+/**
+ * Base class for model requests, tool calls, output validation and usage reporting.
+ *
+ * Runs after: The application starts a specialised task
+ * As part of: Attachment processing, Import, Refresh recommendations,
+ *   Task acceptance, assistant chat and provider checks
+ * Inputs: Execution context and the specialised task's model settings, instructions,
+ *   request content, tools and output schema where applicable
+ * Outputs: Model responses for the specialised task, text when streaming is enabled,
+ *   usage records and the specialised task's return value
+ * Next: The application resumes the workflow using the task result
+ */
 
 // cspell:words UND
 

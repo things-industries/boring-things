@@ -1,4 +1,18 @@
-/** Thing resolution task, proposes candidates and identifier matches from saved sources. */
+/**
+ * Identifies Things described by the submitted Attachments and checks whether
+ * they match records the owner already has.
+ *
+ * Runs after: Submitted Attachments finish processing
+ * As part of: Import
+ * Inputs: Attachment summaries, terms, identifier observations and searchable
+ *   transcriptions, category and identifier field definitions, existing Things
+ *   with their identifiers, and the target Thing ID when supplied
+ * Outputs: Thing candidates with names, categories, terms, evidence scores and
+ *   contributing Attachment IDs. Each has identifier values mapped to registry
+ *   fields with source references, and an existing Thing ID if it matches one.
+ *   The result also flags evidence that conflicts with the target Thing.
+ * Next: Thing selection and identity persistence, followed by Research
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type {

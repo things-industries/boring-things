@@ -1,4 +1,12 @@
-/** Selects Task dates from saved evidence and local calendar context. */
+/**
+ * Chooses dates for a suggested Task when the owner accepts it.
+ *
+ * Runs after: The suggestion, Thing and Task history have been loaded
+ * As part of: Task acceptance
+ * Inputs: Suggested Task, Thing, Task history and today's date in the owner's time zone
+ * Outputs: Timeline start date and hard deadline, each nullable
+ * Next: Task activation, with recurrence removed if there is a deadline
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { Schema } from '../../../../../shared/model.js';

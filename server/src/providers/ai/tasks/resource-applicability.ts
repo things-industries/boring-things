@@ -1,4 +1,15 @@
-/** Resource applicability task, checks public document coverage for a Thing class and variant. */
+/**
+ * Checks whether a given public document applies to a given Thing.
+ *
+ * Runs after: The public document is linked and its transcription is available
+ * As part of: Import and Refresh recommendations
+ * Inputs: Thing category and public fields, registry identifier field definitions,
+ *   and the document's summary, terms, identifier observations and transcription
+ * Outputs: An applicability decision for the Thing and group or class identifiers
+ *   covered by the document, with source references
+ * Next: Document coverage storage, then fieldset selection or recommendation
+ *   generation
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type {

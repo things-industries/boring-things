@@ -1,4 +1,12 @@
-/** Answers assistant questions using public fields and observed citations. */
+/**
+ * Answers a question about a product or service using public web sources.
+ *
+ * Runs after: The assistant asks its research tool about a Thing it has read
+ * As part of: Assistant chat
+ * Inputs: Research question and the Thing's public product or service fields
+ * Outputs: Answer text and citation URLs observed during research
+ * Next: Assistant reply generation resumes with the research result
+ */
 
 import type { ResearchAnswer } from '../../../application/conversations/types.js';
 import type { AiContext } from '../types.js';

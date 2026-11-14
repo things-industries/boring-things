@@ -1,4 +1,13 @@
-/** Answers assistant requests with streamed text and task-owned tool definitions and argument adapters. */
+/**
+ * Generates a streamed chat reply and invokes application tools.
+ *
+ * Runs after: The conversation job loads message history and context
+ * As part of: Assistant chat
+ * Inputs: Message history, any active Thing or activity context, receipts for
+ *   completed writes and tools for reading, research, cards and writes
+ * Outputs: Streamed text and the complete reply
+ * Next: Conversation message storage with the cards and citations from the turn
+ */
 
 import { getEnv } from '../../../config.js';
 import { search_field_sets, search_fields } from '../tools/registry.js';

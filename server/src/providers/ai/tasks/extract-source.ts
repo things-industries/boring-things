@@ -1,4 +1,13 @@
-/** Extracts source-wide metadata and candidate Things for extraction evaluations. */
+/**
+ * Extracts candidate Things and their facts from a single source.
+ *
+ * Runs after: The source and allowed categories have been prepared
+ * As part of: Source extraction evaluations and provider checks
+ * Inputs: Source file, extracted text when available and allowed categories
+ * Outputs: Transcription text, readability status, source metadata, summary,
+ *   terms and candidate Things with cited facts
+ * Next: Evaluation or test assertions on the extraction result
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { Extraction, Source } from '../../../application/import/types.js';

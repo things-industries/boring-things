@@ -1,4 +1,14 @@
-/** Summarizes Attachment text and optional images, extracting identifiers and source metadata. */
+/**
+ * Summarises an Attachment and extracts possible identifiers.
+ *
+ * Runs after: Source text extraction and storage
+ * As part of: Attachment processing
+ * Inputs: Attachment source text and, for an uploaded image with little OCR text,
+ *   the original image
+ * Outputs: Title, document type, publisher, date, summary, terms, identifier
+ *   observations and readability status
+ * Next: Attachment metadata validation and completion of Attachment processing
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { AttachmentSummary, Source } from '../../../application/import/types.js';

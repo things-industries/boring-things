@@ -1,4 +1,14 @@
-/** Field population task, proposes cited values and pins from saved Attachment evidence. */
+/**
+ * Proposes values and pins for fields the Import selects for automatic population.
+ *
+ * Runs after: Fieldset selection
+ * As part of: Import
+ * Inputs: Thing identity, a batch of eligible fields with their definitions and
+ *   current values, and applicable Attachment summaries and searchable transcriptions
+ * Outputs: Proposed field values with source references when available, and
+ *   suggested fields to pin
+ * Next: Field value validation and storage, followed by the additional information pass
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type {

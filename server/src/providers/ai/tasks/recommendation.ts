@@ -1,4 +1,14 @@
-/** Recommendation execution, shares attachment retrieval, bounded web search and citation conversion. */
+/**
+ * Provides transcription search, web research and citation conversion for
+ * Task and purchasable recommendations.
+ *
+ * Runs after: Linked evidence and existing suggestions have been gathered
+ * As part of: Import and Refresh recommendations
+ * Inputs: Shared recommendation input with Thing fields, public research fields
+ *   and linked Attachment summaries and URLs, plus the task context and model citations
+ * Outputs: Evidence for the model and application source references for suggestions
+ * Next: Task or purchasable suggestion assembly
+ */
 
 import type { Response } from 'openai/resources/responses/responses';
 import type {

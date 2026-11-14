@@ -1,4 +1,14 @@
-/** Researches and converts cited findPurchasables results. */
+/**
+ * Suggests compatible consumables, accessories and upgrades for a Thing.
+ *
+ * Runs after: Applicable evidence and existing purchasables have been gathered
+ * As part of: Import and Refresh recommendations
+ * Inputs: Saved Thing fields, linked Attachment evidence, fieldset suggestions,
+ *   existing purchasables and public research when needed
+ * Outputs: Proposed purchasables with kind, name, description, merchant URL
+ *   and source references when available
+ * Next: Purchasable suggestion validation and storage
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type {

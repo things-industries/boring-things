@@ -1,4 +1,15 @@
-/** Finds public documents and images and suggests a display name for an existing Thing. */
+/**
+ * Finds public documents and product photos for a Thing.
+ *
+ * Runs after: Thing identification and any applicable specialist lookups
+ * As part of: Import
+ * Inputs: Thing category, public fields and the name from submitted sources
+ *   when available
+ * Outputs: Proposed PDF and product photo links with source URLs, document
+ *   metadata when available and an optional display name with its source URL
+ * Next: Resource download and linking, then document transcription and
+ *   applicability assessment
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { Discovery, ResearchThing } from '../../../application/import/types.js';

@@ -1,4 +1,14 @@
-/** Researches and converts cited suggestTasks results. */
+/**
+ * Suggests maintenance and administrative work worth tracking for a Thing.
+ *
+ * Runs after: Applicable evidence and existing Tasks have been gathered
+ * As part of: Import and Refresh recommendations
+ * Inputs: Saved Thing fields, linked Attachment evidence, fieldset suggestions,
+ *   existing Tasks and public research when needed
+ * Outputs: Proposed Tasks with titles, descriptions, importance, optional
+ *   recurrence and source references when available
+ * Next: Task suggestion validation and storage
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { TaskSuggestions, ImportTaskContext } from '../../../application/import/types.js';

@@ -1,4 +1,14 @@
-/** Additional information task, identifies source facts beyond the selected Thing fields. */
+/**
+ * Finds significant facts outside the Thing's existing fields.
+ *
+ * Runs after: Field population
+ * As part of: Import
+ * Inputs: Thing identity, existing field labels, a batch of text from a private
+ *   uploaded Attachment and registry fields retrieved during the task
+ * Outputs: Findings with a proposed registry field or custom field label,
+ *   typed value, sensitivity flag, reason and source reference
+ * Next: Finding validation and storage, followed by recommendation generation
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type {

@@ -1,4 +1,13 @@
-/** Selects category fieldsets through registry retrieval. */
+/**
+ * Finds registry fieldsets that apply to the Thing.
+ *
+ * Runs after: Linked source gathering and public document applicability assessment
+ * As part of: Import
+ * Inputs: Thing name, category, search terms and public fields, applicable
+ *   Attachment summaries and terms, and fieldsets from the category registry
+ * Outputs: Eligible registry fieldset IDs
+ * Next: Fieldset validation and addition, followed by field population
+ */
 
 import type { FromSchema } from 'json-schema-to-ts';
 import type { RegistryResources } from '../types.js';
