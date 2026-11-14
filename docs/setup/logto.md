@@ -9,7 +9,7 @@ Use the existing Boring Things Logto Cloud tenant as the identity source for loc
    - Redirect URI: `http://localhost:4200/callback`
    - Post sign-out redirect URI: `http://localhost:4200/`
    - Allowed origin, if shown: `http://localhost:4200`
-3. In **API resources**, create **Boring Things API**, with identifier `https://api.boring-things.local`. This is an audience identifier, not an address that needs DNS or a running website. No custom scopes or roles are required for the owner-only scaffold.
+3. In **API resources**, create **Boring Things API**, with identifier `https://api.boring-things.local`. This is an audience identifier, not an address that needs DNS or a running website. No custom scopes or roles are required for the private API.
 4. In the tenant sidebar, open **Sign-in & account → Sign-up and sign-in**. Choose the sign-up identifier and sign-in method there. For a first smoke check, use **Username** with **Password**. Under **Advanced options**, leave **Enable user registration** on (the default). These are tenant settings. Email verification methods need their associated email setup.
 5. Copy the **Logto endpoint** and **App ID** from the application settings into the repository's ignored `.env`:
 

@@ -1,4 +1,4 @@
-/** Read-only import report, joins Langfuse calls to owner-scoped import and attachment relationships. */
+/** Read-only import report, joins Langfuse calls to user-scoped import and attachment relationships. */
 
 import { getEnv } from '../server/src/config.js';
 import { LangfuseClient } from '@langfuse/client';
@@ -7,8 +7,8 @@ import * as importsDb from '../server/src/db/entities/imports.js';
 import { getJobTraceId } from '../server/src/metrics.js';
 import { summarizeProviderCalls, type RecordedObservation } from '../server/src/metrics-report.js';
 
-const [importId, ownerId] = process.argv.slice(2);
-if (!importId || !ownerId) throw new Error('Usage: pnpm metrics:import <import-id> <owner-id>');
+const [importId, userId] = process.argv.slice(2);
+if (!importId || !userId) throw new Error('Usage: pnpm metrics:import <import-id> <user-id>');
 const client = new LangfuseClient({
   publicKey: getEnv('LANGFUSE_PUBLIC_KEY'),
   secretKey: getEnv('LANGFUSE_SECRET_KEY'),
@@ -16,7 +16,7 @@ const client = new LangfuseClient({
 });
 const pool = database.createPool();
 try {
-  const job = await importsDb.getOwnedImportOrThrow(pool, ownerId, importId);
+  const job = await importsDb.getImportForUserOrThrow(pool, userId, importId);
   const traceIds = [getJobTraceId(job.id), ...new Set(job.attachmentIds.map(getJobTraceId))];
   const observations: RecordedObservation[] = [];
   const traces = [];

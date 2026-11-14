@@ -39,7 +39,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
     );
     const accepted = await importsDb.createImport(
       pool,
-      req.ownerId,
+      req.userId,
       req.body.attachmentIds,
       req.body.thingId,
     );
@@ -56,7 +56,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       },
       'Import submitted',
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     runner.wake();
     return reply.code(202).send(accepted);
   });
@@ -65,7 +65,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
     ensure(enabled, 'Recommendation is not configured', 'UNAVAILABLE');
     const accepted = await importsDb.createImport(
       pool,
-      req.ownerId,
+      req.userId,
       [],
       req.params.thingId,
       'RECOMMENDATION',
@@ -82,29 +82,29 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       },
       'Recommendation submitted',
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     runner.wake();
     return reply.code(202).send(accepted);
   });
 
   route(app, 'GET', '/api/imports/{id}', async (req) =>
     importsDb.projectImport(
-      await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id),
+      await importsDb.getImportForUserOrThrow(pool, req.userId, req.params.id),
     ),
   );
 
   route(app, 'GET', '/api/imports/{id}/stream', async (req, reply) => {
-    await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id);
+    await importsDb.getImportForUserOrThrow(pool, req.userId, req.params.id);
     return reply
       .headers(sseHeaders)
       .code(200)
       .send(
-        sse.stream(events.subscribe({ ownerId: req.ownerId }), {
+        sse.stream(events.subscribe({ userId: req.userId }), {
           event: 'import.snapshot',
           diagnostics: { request: req, importId: req.params.id },
           snapshot: async () =>
             importsDb.projectImport(
-              await importsDb.getOwnedImportOrThrow(pool, req.ownerId, req.params.id),
+              await importsDb.getImportForUserOrThrow(pool, req.userId, req.params.id),
             ),
           revision: (snapshot) => snapshot.revision,
         }),
@@ -113,7 +113,7 @@ const importRoutes: FastifyPluginAsync<Options> = async (
 
   route(app, 'POST', '/api/imports/{id}:retry', async (req) => {
     ensure(enabled, 'Import is not configured', 'UNAVAILABLE');
-    const result = await retryImport(pool, req.ownerId, req.params.id);
+    const result = await retryImport(pool, req.userId, req.params.id);
     req.log.info(
       {
         event: 'job_retried',
@@ -126,23 +126,23 @@ const importRoutes: FastifyPluginAsync<Options> = async (
       },
       'Import queued for retry',
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     runner.wake();
     return result;
   });
   route(app, 'GET', '/api/things/{thingId}/stream', async (req, reply) => {
-    await thingsDb.getOwnedThingOrThrow(pool, req.ownerId, req.params.thingId);
+    await thingsDb.getThingForUserOrThrow(pool, req.userId, req.params.thingId);
     return reply
       .headers(sseHeaders)
       .code(200)
       .send(
-        sse.stream(events.subscribe({ ownerId: req.ownerId }), {
+        sse.stream(events.subscribe({ userId: req.userId }), {
           event: 'thing.snapshot',
           diagnostics: { request: req, thingId: req.params.thingId },
           snapshot: () =>
             database.transaction(
               pool,
-              (db) => detail(db, req.ownerId, req.params.thingId, registry),
+              (db) => detail(db, req.userId, req.params.thingId, registry),
               'repeatable read',
             ),
           revision: (snapshot) => snapshot.revision,

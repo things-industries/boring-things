@@ -1,4 +1,4 @@
-/** Checks vehicle lookup persistence, owner permissions and saved-field handoff to public research. */
+/** Checks vehicle lookup persistence, automatic-population permissions and saved-field handoff to public research. */
 
 import { setEnvValue } from '../../src/config.js';
 import assert from 'node:assert/strict';

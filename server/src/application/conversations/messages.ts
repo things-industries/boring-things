@@ -1,4 +1,4 @@
-/** Owner-requested Task, Event and Issue creation with transactional retry receipts. */
+/** User-requested Task, Event and Issue creation with transactional retry receipts. */
 
 import type pg from 'pg';
 import type { Schema } from '../../../../shared/model.js';
@@ -37,10 +37,10 @@ export async function createChatActivity(
 
     const activity =
       name === 'create_task'
-        ? await writeTask(db, job.ownerId, { ...input, status: 'ACTIVE' })
+        ? await writeTask(db, job.userId, { ...input, status: 'ACTIVE' })
         : name === 'create_event'
-          ? await writeEvent(db, job.ownerId, input)
-          : (await writeIssue(db, job.ownerId, input)).issue;
+          ? await writeEvent(db, job.userId, input)
+          : (await writeIssue(db, job.userId, input)).issue;
     const item = { id: activity.id, thingId: activity.thingId };
 
     const card: Schema['ResourceCard'] =

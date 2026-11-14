@@ -23,7 +23,7 @@ const signal = new AbortController().signal;
 function createThing(country: string | null = 'GB', registration = 'xy12 zzz'): ThingRow {
   return {
     id: 'fixture',
-    ownerId: 'owner',
+    userId: 'owner',
     name: 'Test vehicle',
     categoryId: 'vehicles',
     description: '',
@@ -113,7 +113,7 @@ test('Zyfy accepts UK plate patterns without a country and skips conflicting cou
   assert.equal(calls, 0);
 });
 
-test('Zyfy maps source values with units, currency and provenance before applying owner permissions', async () => {
+test('Zyfy maps source values with units, currency and provenance before applying automatic-population permissions', async () => {
   const thing = createThing();
   thing.data = patchData(
     thing.data,

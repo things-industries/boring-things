@@ -1,6 +1,6 @@
 # Architecture
 
-Boring Things runs an Angular client and a Fastify API in one TypeScript repository. The client calls relative `/api` routes. Logto verifies identity, and Fastify maps that identity to a local user and enforces owner access. Render serves the compiled client and API from one service to keep fixed costs low. Supabase PostgreSQL stores structured records. The same blob interface uses the local filesystem in development and a private Supabase Storage bucket in production. See the [deployment guide](../setup/deployment.md) and [Logto setup](../setup/logto.md).
+Boring Things runs an Angular client and a Fastify API in one TypeScript repository. The client calls relative `/api` routes. Logto verifies identity, and Fastify maps that identity to a local user and enforces user access. Render serves the compiled client and API from one service to keep fixed costs low. Supabase PostgreSQL stores structured records. The same blob interface uses the local filesystem in development and a private Supabase Storage bucket in production. See the [deployment guide](../setup/deployment.md) and [Logto setup](../setup/logto.md).
 
 ## Sources of truth
 
@@ -10,7 +10,7 @@ Boring Things runs an Angular client and a Fastify API in one TypeScript reposit
 
 ## Domain decisions
 
-- A Thing has one category, which can be corrected. Tags organise an owner's Things. Shared collections require their own access model.
+- A Thing has one category, which can be corrected. Tags organise a user's Things. Shared collections require their own access model.
 - Fieldsets belong to a category. Reusable definitions describe values, while each Thing Field stores its value in its own fieldset context. Buildings and contents can therefore use the same sum-insured definition and still have independent values. Standalone and custom fields have their own addresses. Section grouping in the UI keeps the original address for editing, pins and citations.
 - `includes` declares mandatory dependencies. `considerAlongside` suggests sets whose eligibility is checked separately. One occurrence of each set is allowed per Thing. Use the most specific eligible set and keep distinct field definitions independent even when labels match.
 - Field scope determines what a value describes and whether it can inform public research. Identifier status determines whether it can help identify a Thing. Sensitivity independently controls visual masking and redaction from chat and task scheduling inputs.

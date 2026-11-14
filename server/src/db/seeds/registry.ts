@@ -48,7 +48,7 @@ export const categories = names.map(
     }) satisfies Schema['Category'],
 );
 
-// Identifier scopes distinguish manufacturer/provider, model and owned-instance identity.
+// Identifier scopes distinguish manufacturer/provider, model and instance identity.
 const identifierScopes: Record<string, FieldDefinition['scope']> = {
   'common.manufacturer': 'GROUP',
   'common.serviceProvider': 'GROUP',

@@ -35,7 +35,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
   { db, blobs, events, runner, importEnabled },
 ) => {
   route(app, 'GET', '/api/attachments', (req) =>
-    attachmentsDb.listAttachments(db, req.ownerId, req.query),
+    attachmentsDb.listAttachments(db, req.userId, req.query),
   );
   route(app, 'POST', '/api/attachments', async (req, reply) => {
     const parts = req.parts({
@@ -77,7 +77,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
     }
 
     ensure(file, 'Choose a file');
-    const result = await uploadAttachment(db, blobs, req.ownerId, file, req.query.thingId);
+    const result = await uploadAttachment(db, blobs, req.userId, file, req.query.thingId);
     req.log.info(
       {
         event: 'job_queued',
@@ -91,38 +91,38 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
       },
       'Attachment uploaded',
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     runner.wake();
     return reply.code(201).send(result);
   });
   route(app, 'GET', '/api/attachments/{id}', async (req) =>
     attachmentsDb.publicAttachment(
-      await attachmentsDb.getOwnedAttachmentOrThrow(db, req.ownerId, req.params.id),
+      await attachmentsDb.getAttachmentForUserOrThrow(db, req.userId, req.params.id),
     ),
   );
   route(app, 'PATCH', '/api/attachments/{id}', async (req) => {
     const result = await database.transaction(db, (tx) =>
-      updateAttachmentMetadata(tx, req.ownerId, req.params.id, req.body, {
+      updateAttachmentMetadata(tx, req.userId, req.params.id, req.body, {
         origin: 'USER',
         sourceRefs: [],
       }),
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return result;
   });
   route(app, 'GET', '/api/attachments/{id}/content', async (req, reply) => {
-    const file = await attachmentsDb.getOwnedAttachmentOrThrow(db, req.ownerId, req.params.id);
+    const file = await attachmentsDb.getAttachmentForUserOrThrow(db, req.userId, req.params.id);
     const started = performance.now();
     const content = await blobs.read(file.storageKey).catch((error: unknown) => {
       recordDependencyFailure('storage', 'read', error, {
-        ownerId: req.ownerId,
+        userId: req.userId,
         attachmentId: file.id,
       });
       throw error;
     });
     content.once('error', (error: unknown) => {
       recordDependencyFailure('storage', 'read_body', error, {
-        ownerId: req.ownerId,
+        userId: req.userId,
         attachmentId: file.id,
       });
     });
@@ -143,15 +143,15 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
       .send(content);
   });
   route(app, 'DELETE', '/api/attachments/{id}', async (req, reply) => {
-    await removeAttachment(db, blobs, req.ownerId, req.params.id);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    await removeAttachment(db, blobs, req.userId, req.params.id);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(204).send();
   });
   for (const method of ['PUT', 'DELETE'] as const)
     route(app, method, '/api/attachments/{id}/things/{thingId}', async (req, reply) => {
       const queued = await setAttachmentLink(
         db,
-        req.ownerId,
+        req.userId,
         req.params.id,
         req.params.thingId,
         method === 'PUT',
@@ -171,7 +171,7 @@ const attachmentRoutes: FastifyPluginAsync<Options> = async (
           },
           'Linked attachment import submitted',
         );
-      events.publish({ type: 'data.changed', ownerId: req.ownerId });
+      events.publish({ type: 'data.changed', userId: req.userId });
       if (method === 'PUT' && importEnabled) runner.wake();
       return reply.code(204).send();
     });

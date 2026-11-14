@@ -1,4 +1,4 @@
-// Registers owner-scoped routes for purchasable opportunities associated with Things.
+// Registers user-scoped routes for purchasable opportunities associated with Things.
 
 import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
@@ -11,10 +11,10 @@ interface Options {
 
 const purchasableRoutes: FastifyPluginAsync<Options> = async (app, { db }) => {
   route(app, 'GET', '/api/purchasables', (req) =>
-    purchasablesDb.listPurchasables(db, req.ownerId, req.query),
+    purchasablesDb.listPurchasables(db, req.userId, req.query),
   );
   route(app, 'GET', '/api/purchasables/{id}', (req) =>
-    purchasablesDb.getOwnedPurchasableOrThrow(db, req.ownerId, req.params.id),
+    purchasablesDb.getPurchasableForUserOrThrow(db, req.userId, req.params.id),
   );
 };
 

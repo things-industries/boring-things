@@ -21,7 +21,7 @@ export function loadAgenda() {
   );
 }
 
-/** Combines the owner's work and dates, optionally for one Thing. */
+/** Combines the user's work and dates, optionally for one Thing. */
 export function agendaView(
   now: Signal<Date>,
   thingId: Signal<string | null> = signal(null),

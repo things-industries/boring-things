@@ -3,7 +3,7 @@
   "info": {
     "title": "Boring Things foundation",
     "version": "0.1.0",
-    "description": "Owner-scoped manual Things. Import, discovery and assistant execution follow later."
+    "description": "User-scoped manual Things. Import, discovery and assistant execution follow later."
   },
   "paths": {
     "/api/config": {
@@ -470,7 +470,7 @@
       "get": {
         "operationId": "getThing",
         "summary": "Get thing",
-        "description": "Returns a Thing with its fields, linked resources and current import status. Includes saved sensitive values for the owner.",
+        "description": "Returns a Thing with its fields, linked resources and current import status. Includes saved sensitive values for the signed-in user.",
         "tags": ["Things"],
         "parameters": [
           {
@@ -1204,7 +1204,7 @@
       "delete": {
         "operationId": "unlinkAttachment",
         "summary": "Unlink attachment",
-        "description": "Removes the owner-scoped link and records that automatic work must not restore it.",
+        "description": "Removes the user-scoped link and records that automatic work must not restore it.",
         "tags": ["Attachments"],
         "parameters": [
           {
@@ -1456,7 +1456,7 @@
       "get": {
         "operationId": "listEvents",
         "summary": "List events",
-        "description": "Lists owner-scoped Events by schedule and ID, with optional status, Thing and inclusive date bounds. Ended Events with pending followups are included before the lower bound. Date-only schedules use timeZone.",
+        "description": "Lists user-scoped Events by schedule and ID, with optional status, Thing and inclusive date bounds. Ended Events with pending followups are included before the lower bound. Date-only schedules use timeZone.",
         "tags": ["Activity"],
         "parameters": [
           {
@@ -1591,7 +1591,7 @@
       "get": {
         "operationId": "getEvent",
         "summary": "Get event",
-        "description": "Returns owner-scoped appointments, visits and deliveries.",
+        "description": "Returns user-scoped appointments, visits and deliveries.",
         "tags": ["Activity"],
         "parameters": [
           {
@@ -1948,7 +1948,7 @@
       "post": {
         "operationId": "createImport",
         "summary": "Start an Import",
-        "description": "References one to ten owned Attachments. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.",
+        "description": "References one to ten Attachments accessible to the signed-in user. Processing waits for their transcription outcomes and then handles the group together. Optional Thing context restricts processing to that Thing.",
         "tags": ["Imports"],
         "requestBody": {
           "required": true,
@@ -2046,7 +2046,7 @@
       "get": {
         "operationId": "streamImport",
         "summary": "Stream Import progress",
-        "description": "Streams owner-scoped revisioned Import snapshots, including progress before any Thing exists.",
+        "description": "Streams user-scoped revisioned Import snapshots, including progress before any Thing exists.",
         "tags": ["Imports"],
         "parameters": [
           {
@@ -2148,7 +2148,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Full owner-scoped Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state.",
+            "description": "Full user-scoped Thing snapshots; event: thing.snapshot; id: revision. Reconnect sends current persisted state.",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -2373,7 +2373,7 @@
       "get": {
         "operationId": "listTasks",
         "summary": "List tasks",
-        "description": "Lists owner-scoped Tasks by schedule and ID. Date bounds include active carryover, undated Tasks and completed followups. Status and Thing filters apply before pagination.",
+        "description": "Lists user-scoped Tasks by schedule and ID. Date bounds include active carryover, undated Tasks and completed followups. Status and Thing filters apply before pagination.",
         "tags": ["Activity"],
         "responses": {
           "200": {
@@ -3685,7 +3685,7 @@
       },
       "Thing": {
         "type": "object",
-        "description": "Thing details with fields, linked resource IDs and import status. Includes saved sensitive values for the owner.",
+        "description": "Thing details with fields, linked resource IDs and import status. Includes saved sensitive values for the signed-in user.",
         "required": [
           "id",
           "name",
@@ -4404,7 +4404,7 @@
             "format": "date-time"
           },
           "completedFollowup": {
-            "description": "Recorded chat followup, or null until the owner sends the first followup message.",
+            "description": "Recorded chat followup, or null until the user sends the first followup message.",
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CompletedActivityFollowup"
@@ -4739,7 +4739,7 @@
           },
           "followup": {
             "type": "boolean",
-            "description": "Follow up on a completed Task or ended Event. The first owner message records the followup and closes the item."
+            "description": "Follow up on a completed Task or ended Event. The first user message records the followup and closes the item."
           }
         },
         "additionalProperties": false
@@ -5091,7 +5091,7 @@
         "properties": {
           "attachmentIds": {
             "type": "array",
-            "description": "One to ten distinct owned Attachment IDs in source order.",
+            "description": "One to ten distinct Attachment IDs accessible to the signed-in user, in source order.",
             "minItems": 0,
             "maxItems": 10,
             "uniqueItems": true,
@@ -5103,7 +5103,7 @@
           "thingId": {
             "type": "string",
             "format": "uuid",
-            "description": "Owned Thing receiving relevant evidence; omitted for open identification."
+            "description": "Thing in the signed-in user's records that receives relevant evidence; omitted for open identification."
           }
         }
       },
@@ -5697,7 +5697,7 @@
             "type": "boolean"
           },
           "completedFollowup": {
-            "description": "Recorded chat followup, or null until the owner sends the first followup message.",
+            "description": "Recorded chat followup, or null until the user sends the first followup message.",
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CompletedActivityFollowup"
@@ -5712,7 +5712,7 @@
       },
       "TaskList": {
         "type": "object",
-        "description": "Page of tasks accessible to the owner.",
+        "description": "Page of tasks accessible to the user.",
         "required": ["items", "nextCursor"],
         "properties": {
           "items": {
@@ -5846,7 +5846,7 @@
       },
       "CompletedActivityFollowup": {
         "type": "object",
-        "description": "Chat followup conversation and the time the owner first sent a message. Historical followups without a linked chat have a null conversationId.",
+        "description": "Chat followup conversation and the time the user first sent a message. Historical followups without a linked chat have a null conversationId.",
         "required": ["conversationId", "completedAt"],
         "properties": {
           "completedAt": {
@@ -5990,7 +5990,7 @@
       },
       "FieldScopeEnum": {
         "type": "string",
-        "description": "Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the owned item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.",
+        "description": "Level at which an attribute applies: GROUP for a manufacturer or provider, CLASS for a product model or service plan, INSTANCE for the specific item, account or agreement. Public research uses GROUP and CLASS fields. Unclassified fields default to INSTANCE.",
         "enum": ["GROUP", "CLASS", "INSTANCE"]
       },
       "TaskStatusEnum": {
@@ -6174,7 +6174,7 @@
           "type": "string",
           "format": "uuid"
         },
-        "description": "Owned Thing that receives this Attachment. Processing is restricted to this Thing."
+        "description": "Thing in the signed-in user's records that receives this Attachment. Processing is restricted to this Thing."
       },
       "thingIdPath": {
         "name": "thingId",
@@ -6199,7 +6199,7 @@
     },
     {
       "name": "Tags",
-      "description": "Owner-defined Thing labels."
+      "description": "User-defined Thing labels."
     },
     {
       "name": "Attachments",
@@ -6223,7 +6223,7 @@
     },
     {
       "name": "Profile",
-      "description": "Owner profile and opt-in demonstration data."
+      "description": "User profile and opt-in demonstration data."
     },
     {
       "name": "Configuration",

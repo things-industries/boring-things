@@ -491,7 +491,7 @@ for (const capability of ['tasks', 'purchasables'] as const) {
         } else {
           assert.match(
             body.instructions,
-            /Describe why the item is useful and when the owner should buy it/,
+            /Describe why the item is useful and when the user should buy it/,
           );
         }
         assert.deepEqual(

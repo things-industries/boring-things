@@ -45,7 +45,7 @@ const registryRoutes: FastifyPluginAsync<Options> = async (app, { db, registry }
     return item;
   }
   route(app, 'GET', '/api/categories', (req) =>
-    registryDb.listCategories(db, req.ownerId, req.query),
+    registryDb.listCategories(db, req.userId, req.query),
   );
   route(app, 'GET', '/api/fields', (req) => list('fields', registry.fields, req.query));
   route(app, 'GET', '/api/field-sets', (req) => list('field-sets', registry.sets, req.query));

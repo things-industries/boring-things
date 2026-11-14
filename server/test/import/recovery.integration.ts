@@ -196,12 +196,12 @@ test('additional-information retry resumes the unfinished range of a large trans
     const source = randomUUID();
     const transcript = 'A'.repeat(66_650) + 'B'.repeat(40_000);
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
-       select $1,owner_id,'large.txt','text/plain',1,'large-fixture',$3,'COMPLETE' from bt.things where id=$2`,
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
+       select $1,user_id,'large.txt','text/plain',1,'large-fixture',$3,'COMPLETE' from bt.things where id=$2`,
       [source, thing.id, transcript],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      'insert into bt.thing_attachments(attachment_id,thing_id,user_id) select $1,id,user_id from bt.things where id=$2',
       [source, thing.id],
     );
     const batches: string[] = [];
@@ -251,14 +251,14 @@ test('additional-information warnings permit recommendations and retry, while wr
     const thingId = created.json<Schema['Thing']>().id,
       source = randomUUID();
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
-       select $1,owner_id,'plate.txt','text/plain',1,'fixture-plate',
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
+       select $1,user_id,'plate.txt','text/plain',1,'fixture-plate',
          'Finish: black. Inspection: 28 February 2090. Service: 30 February 2090.',
          'COMPLETE' from bt.things where id=$2`,
       [source, thingId],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      'insert into bt.thing_attachments(attachment_id,thing_id,user_id) select $1,id,user_id from bt.things where id=$2',
       [source, thingId],
     );
     let label = '',

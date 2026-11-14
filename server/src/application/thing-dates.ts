@@ -15,7 +15,7 @@ import { page, pageResult } from './pagination.js';
 /** Reads upcoming date fields using the stored field occurrences and masking rules. */
 export async function listThingDates(
   db: Database,
-  owner: string,
+  userId: string,
   registry: Registry,
   query: RouteTypes<'/api/thing-dates', 'get'>['Querystring'],
 ) {
@@ -23,12 +23,15 @@ export async function listThingDates(
   const from = query.from && query.from > today ? query.from : today;
   const things = await database.rows<{ id: string; data: ThingData }>(
     db,
-    'select id,data from bt.things where owner_id=$1 and ($2::uuid is null or id=$2) order by id',
-    [owner, query.thingId ?? null],
+    'select id,data from bt.things where user_id=$1 and ($2::uuid is null or id=$2) order by id',
+    [userId, query.thingId ?? null],
   );
   const items: Schema['ThingDate'][] = [];
   for (const thing of things) {
-    const detail = projectData(await thingFieldsDb.load(db, owner, thing.id, thing.data), registry);
+    const detail = projectData(
+      await thingFieldsDb.load(db, userId, thing.id, thing.data),
+      registry,
+    );
     const add = (
       label: string,
       value: Schema['NullableValue'],

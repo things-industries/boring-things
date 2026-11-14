@@ -1,6 +1,6 @@
 /**
  * Identifies Things described by the submitted Attachments and checks whether
- * they match records the owner already has.
+ * they match records the user already has.
  *
  * Runs after: Submitted Attachments finish processing
  * As part of: Import
@@ -101,7 +101,7 @@ export const outputSchema = createObjectSchema(
             maximum: 1,
           },
           matchedThingId: {
-            description: 'Owned Thing ID from the supplied matching candidates, or null.',
+            description: 'Thing ID from the supplied matching candidates, or null.',
             type: ['string', 'null'],
           },
         },
@@ -140,7 +140,7 @@ export class ResolveThingTask extends AiTask<Output, ResolutionResult> {
       await this.execute([
         {
           role: 'user',
-          content: `Identify candidate Things and give each a relative evidence strength. Associate printed identifiers with supplied category-valid identifier fields. Match only supplied owned Thing IDs using a semantic judgement. Thing context supplies the sole target and attributes ambiguous scraps to it; report contradiction only when source identifiers conflict. A manual's applicable-model list does not establish separate owned Things. Use search_transcription for evidence beyond summaries. Copy verbatim quotes and source IDs. Input: ${JSON.stringify(this.input)}`,
+          content: `Identify candidate Things and give each a relative evidence strength. Associate printed identifiers with supplied category-valid identifier fields. Match only supplied IDs from the user’s Things using a semantic judgement. Thing context supplies the sole target and attributes ambiguous scraps to it; report contradiction only when source identifiers conflict. A manual's applicable-model list does not establish that the user has separate Things. Use search_transcription for evidence beyond summaries. Copy verbatim quotes and source IDs. Input: ${JSON.stringify(this.input)}`,
         },
       ]),
     );

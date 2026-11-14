@@ -57,12 +57,12 @@ export class AttachmentTranscriptionProcessor {
       attachmentsDb.claimPendingTranscription(db),
     );
     if (!claimed) return false;
-    const { file, ownerId, queuedAt } = claimed;
+    const { file, userId, queuedAt } = claimed;
     const { id, mediaType, byteSize } = file;
-    await metrics.withJob('attachment', { id, ownerId, queuedAt }, async () => {
-      if (ownerId === null && file.mediaType.startsWith('image/')) {
+    await metrics.withJob('attachment', { id, userId, queuedAt }, async () => {
+      if (userId === null && file.mediaType.startsWith('image/')) {
         metrics.setJobStage('save_outcome');
-        await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'SKIPPED');
+        await attachmentsDb.setTranscriptionStatus(this.pool, userId, file.id, 'SKIPPED');
         return { status: 'SKIPPED', reason: 'display_image', mediaType, byteSize };
       }
       const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('IMPORT_TIMEOUT_MS'))]);
@@ -134,7 +134,7 @@ export class AttachmentTranscriptionProcessor {
         // Commit extracted text before optional model analysis and metadata updates.
         stage = 'save_text';
         await database.transaction(this.pool, async (db) => {
-          await attachmentsDb.saveTranscription(db, ownerId, file.id, {
+          await attachmentsDb.saveTranscription(db, userId, file.id, {
             text,
             summary: null,
             terms: [],
@@ -191,23 +191,23 @@ export class AttachmentTranscriptionProcessor {
               ? 'COMPLETE'
               : 'PARTIAL';
         await database.transaction(this.pool, async (db) => {
-          await attachmentsDb.saveTranscription(db, ownerId, file.id, {
+          await attachmentsDb.saveTranscription(db, userId, file.id, {
             text,
             summary: result.summary?.slice(0, 2000) ?? null,
             terms: result.terms.slice(0, 20).map((term) => term.slice(0, 200)),
             status,
             identifiers,
           });
-          if (ownerId !== null && (Object.keys(metadata).length || pageCount !== null))
+          if (userId !== null && (Object.keys(metadata).length || pageCount !== null))
             await updateAttachmentMetadata(
               db,
-              ownerId,
+              userId,
               file.id,
               Object.keys(metadata).length ? metadata : { title: null },
               { origin: 'IMPORT', sourceRefs: [{ attachmentId: file.id }] },
               pageCount,
             );
-          if (ownerId === null) {
+          if (userId === null) {
             if (Object.keys(metadata).length) {
               for (const key of ['title', 'documentType', 'publisher', 'documentDate'] as const)
                 if (metadata[key] != null) {
@@ -237,14 +237,14 @@ export class AttachmentTranscriptionProcessor {
           : getTranscriptionFailureReason(error);
         metrics.setJobStage('save_outcome');
         if (extractedText !== undefined)
-          await attachmentsDb.saveTranscription(this.pool, ownerId, file.id, {
+          await attachmentsDb.saveTranscription(this.pool, userId, file.id, {
             text: extractedText,
             summary: null,
             terms: [],
             identifiers: [],
             status,
           });
-        else await attachmentsDb.setTranscriptionStatus(this.pool, ownerId, file.id, 'FAILED');
+        else await attachmentsDb.setTranscriptionStatus(this.pool, userId, file.id, 'FAILED');
         outcome = {
           status: extractedText === undefined ? 'FAILED' : status,
           stage,
@@ -262,8 +262,8 @@ export class AttachmentTranscriptionProcessor {
          and i.status='WAITING_FOR_TRANSCRIPTION'`,
         [file.id],
       );
-      for (const recipient of await attachmentsDb.affectedOwners(this.pool, file))
-        this.events.publish({ type: 'data.changed', ownerId: recipient });
+      for (const recipient of await attachmentsDb.getAffectedUserIds(this.pool, file))
+        this.events.publish({ type: 'data.changed', userId: recipient });
       return {
         ...outcome,
         mediaType,

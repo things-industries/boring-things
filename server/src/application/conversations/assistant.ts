@@ -1,5 +1,5 @@
 /**
- * Runs queued assistant messages with bounded tools, owner-scoped resource access, transactional
+ * Runs queued assistant messages with bounded tools, user-scoped resource access, transactional
  * writes and streamed progress.
  */
 
@@ -41,9 +41,9 @@ export class Assistant {
     private events: ApplicationEvents,
   ) {}
 
-  async snapshot(owner: string, id: string) {
-    const result = await conversationsDb.getOwnedConversationSnapshot(this.pool, owner, id);
-    const live = this.live.get(owner + ':' + id);
+  async snapshot(userId: string, id: string) {
+    const result = await conversationsDb.getConversationSnapshotForUser(this.pool, userId, id);
+    const live = this.live.get(userId + ':' + id);
 
     if (live) {
       const message = result.messages.find(
@@ -68,7 +68,7 @@ export class Assistant {
   }
 
   private async run(job: ChatJob, shutdown: AbortSignal) {
-    const key = job.ownerId + ':' + job.conversationId;
+    const key = job.userId + ':' + job.conversationId;
     const live = { messageId: job.id, text: '' };
     this.live.set(key, live);
     const signal = AbortSignal.any([shutdown, AbortSignal.timeout(getEnv('CHAT_TIMEOUT_MS'))]);
@@ -110,13 +110,13 @@ export class Assistant {
     };
 
     const readThing = async (id: string) => {
-      const thing = await detail(this.pool, job.ownerId, id, this.registry, {
+      const thing = await detail(this.pool, job.userId, id, this.registry, {
         redactSensitive: true,
       });
       if (id === job.thingId) metrics.setJobEntity({ type: 'thing', id, name: thing.name });
       allowedThings.set(id, thing);
       allowedResources.add('thing:' + id);
-      const resources = await conversationsDb.getOwnedChatResources(this.pool, job.ownerId, id);
+      const resources = await conversationsDb.getChatResourcesForUser(this.pool, job.userId, id);
       for (const a of resources.attachments) allowedResources.add('attachment:' + a.id);
 
       for (const [kind, table] of [
@@ -136,7 +136,7 @@ export class Assistant {
       let output: unknown;
 
       if (name === 'search_things') {
-        const items = await conversationsDb.searchChatThings(this.pool, job.ownerId, args.query);
+        const items = await conversationsDb.searchChatThings(this.pool, job.userId, args.query);
         items.slice(0, 20).forEach((i) => allowedResources.add('thing:' + i.id));
         output = { items: items.slice(0, 20), truncated: items.length > 20 };
       } else if (name === 'read_thing')
@@ -170,9 +170,9 @@ export class Assistant {
           return { output: { attachmentId: args.attachmentId, alreadyRead: true } };
         }
         ensure(files < 3, 'Attachment tool limit');
-        const file = await conversationsDb.getOwnedChatAttachmentOrThrow(
+        const file = await conversationsDb.getChatAttachmentForUserOrThrow(
           this.pool,
-          job.ownerId,
+          job.userId,
           args.attachmentId,
         );
         ensure(file && file.byteSize <= getEnv('MAX_UPLOAD_BYTES'), 'Attachment unavailable');
@@ -208,7 +208,7 @@ export class Assistant {
         ensure(!researched && this.ai, 'Research unavailable or budget used');
         const thing = allowedThings.get(args.thingId);
         ensure(thing, 'Read the Thing first');
-        const stored = await thingsDb.getOwnedThingOrThrow(this.pool, job.ownerId, thing.id);
+        const stored = await thingsDb.getThingForUserOrThrow(this.pool, job.userId, thing.id);
         const fields = publicFields(stored.data, this.registry);
         const question = args.question.trim();
         ensure(question, 'Research question cannot be blank');
@@ -283,7 +283,7 @@ export class Assistant {
         if (!job.toolResults.some((receipt) => receipt.key === name)) job.toolResults.push(saved);
         addCards(...(saved.cards ?? []));
         output = saved.result;
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        this.events.publish({ type: 'data.changed', userId: job.userId });
         await readThing(args.thingId);
       } else if (name === 'create_task' || name === 'create_event' || name === 'create_issue') {
         ensure(allowedThings.has(args.thingId), 'Read the Thing first');
@@ -302,7 +302,7 @@ export class Assistant {
         const item = saved.result as { id: string };
         allowedResources.add(kind + ':' + item.id);
         output = saved.result;
-        this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+        this.events.publish({ type: 'data.changed', userId: job.userId });
       } else if (name === 'show_cards') {
         const selected = args.cards;
         const selectedCards: Schema['ResourceCard'][] = [];
@@ -383,10 +383,10 @@ export class Assistant {
     try {
       metrics.setJobStage('load_context');
       await conversationsDb.saveMessage(this.pool, job, { status: 'PROCESSING' });
-      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
-      const history = await conversationsDb.getOwnedConversationSnapshot(
+      this.events.publish({ type: 'data.changed', userId: job.userId });
+      const history = await conversationsDb.getConversationSnapshotForUser(
         this.pool,
-        job.ownerId,
+        job.userId,
         job.conversationId,
       );
       const messages = history.messages
@@ -399,9 +399,9 @@ export class Assistant {
         if (receipt.card) addCards(receipt.card);
         addCards(...(receipt.cards ?? []));
       }
-      const { activityContext } = await conversationsDb.getOwnedConversationOrThrow(
+      const { activityContext } = await conversationsDb.getConversationForUserOrThrow(
         this.pool,
-        job.ownerId,
+        job.userId,
         job.conversationId,
       );
       metrics.setJobStage('respond');
@@ -433,7 +433,7 @@ export class Assistant {
               live.text += text;
               this.events.publish({
                 type: 'conversation.delta',
-                ownerId: job.ownerId,
+                userId: job.userId,
                 conversationId: job.conversationId,
                 delta: { messageId: job.id, offset, text },
               });
@@ -498,7 +498,7 @@ export class Assistant {
       } as const;
     } finally {
       this.live.delete(key);
-      this.events.publish({ type: 'data.changed', ownerId: job.ownerId });
+      this.events.publish({ type: 'data.changed', userId: job.userId });
     }
   }
 }

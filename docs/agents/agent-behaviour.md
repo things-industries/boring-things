@@ -13,7 +13,7 @@ Standard all agent work in this repo must comply with, referenced from root [`AG
 
 ## Metered AI validation
 
-Obtain explicit owner approval before each invocation of a test, smoke check, evaluation, replay or browser interaction that can send requests to metered OpenAI endpoints. Describe the command, models, input data and expected request count or cost when known. Approval covers only the specified invocation; obtain fresh approval for every rerun. General permission to implement changes or run tests does not authorise metered calls.
+Obtain explicit project maintainer approval before each invocation of a test, smoke check, evaluation, replay or browser interaction that can send requests to metered OpenAI endpoints. Describe the command, models, input data and expected request count or cost when known. Approval covers only the specified invocation; obtain fresh approval for every rerun. General permission to implement changes or run tests does not authorise metered calls.
 
 Paid checks must remain opt-in and outside default CI/test commands. The current paid scripts are:
 
@@ -37,7 +37,7 @@ Default CI runs `pnpm test:migrations`, `pnpm check`, `pnpm test:integration` an
 
 ## Record preferences
 
-When the owner gives a preference in the form "do this instead of that", write it down so it is followed and repeated in future work:
+When Andrew gives a preference in the form "do this instead of that", write it down so it is followed and repeated in future work:
 
 - Frontend code style: `src/AGENTS.md`
 - Backend code style: `server/AGENTS.md`

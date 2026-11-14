@@ -270,7 +270,7 @@ export class ChatPage {
     if (id && this.introPhase() === from) this.intro.set({ id, phase: to });
   }
 
-  /** Adds a suggested task from a card to the schedule; the day is chosen for the owner. */
+  /** Adds a suggested task from a card to the schedule; the day is chosen for the user. */
   addTask(id: string) {
     void this.tasks.schedule(id);
   }

@@ -52,7 +52,7 @@ Follow [agent-behaviour.md](agent-behaviour.md#writing-documents-prs-issues): de
 ```markdown
 ## Problem
 
-What the owner or developer sees today, and where. Name files, components, endpoints or types in backticks.
+What the user or developer sees today, and where. Name files, components, endpoints or types in backticks.
 
 ## Expected
 

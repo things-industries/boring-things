@@ -19,13 +19,13 @@ import type { Registry } from '../../application/registry/registry.js';
 import * as database from '../../db/connection.js';
 
 // Temporary developer/debugging routes may keep their workflow and SQL together in one scaffold.
-async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
+async function seedSamples(pool: pg.Pool, userId: string, registry: Registry) {
   return database.transaction(pool, async (db) => {
-    // Lock the owner row so repeated or concurrent requests cannot create multiple sample collections.
+    // Lock the user row so repeated or concurrent requests cannot create multiple sample collections.
     const [user] = await database.rows<Schema['Profile']>(
       db,
       'select id,display_name,samples_added from bt.users where id=$1 for update',
-      [owner],
+      [userId],
     );
     if (user.samplesAdded) return user;
 
@@ -37,17 +37,16 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     ) => {
       const patch: ThingPatch = { addFieldSetIds, values };
       const data = patchData(emptyData(), patch, categoryId, registry);
-      const item = await thingsDb.insertThing(db, owner, {
+      const item = await thingsDb.insertThing(db, userId, {
         categoryId,
         name,
         description: 'Sample data for exploring the interface.',
         data,
       });
-      await database.execute(
-        db,
-        'update bt.things set is_sample=true where id=$1 and owner_id=$2',
-        [item.id, owner],
-      );
+      await database.execute(db, 'update bt.things set is_sample=true where id=$1 and user_id=$2', [
+        item.id,
+        userId,
+      ]);
 
       return item.id;
     };
@@ -106,28 +105,28 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
     );
     const [tag] = await database.rows<{ id: string }>(
       db,
-      "insert into bt.tags(owner_id,name) values($1,'Home') on conflict(owner_id,name) do update set name=excluded.name returning id",
-      [owner],
+      "insert into bt.tags(user_id,name) values($1,'Home') on conflict(user_id,name) do update set name=excluded.name returning id",
+      [userId],
     );
 
     for (const id of [hob, insurance])
-      await db.query('insert into bt.thing_tags(thing_id,tag_id,owner_id) values($1,$2,$3)', [
+      await db.query('insert into bt.thing_tags(thing_id,tag_id,user_id) values($1,$2,$3)', [
         id,
         tag.id,
-        owner,
+        userId,
       ]);
 
     const [issue] = await database.rows<{ id: string }>(
       db,
-      "insert into bt.issues(owner_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true) returning id",
-      [owner, hob],
+      "insert into bt.issues(user_id,thing_id,title,description,is_sample) values($1,$2,'One ring heats unevenly','Example issue for the dashboard. No fault has been diagnosed.',true) returning id",
+      [userId, hob],
     );
     const addTask = async (
       thingId: string,
       title: string,
       properties: Partial<Schema['Task']> = {},
     ) =>
-      tasksDb.saveTask(db, owner, {
+      tasksDb.saveTask(db, userId, {
         id: randomUUID(),
         thingId,
         title,
@@ -178,12 +177,12 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       completedAt: new Date().toISOString(),
     });
     await db.query(
-      "insert into bt.events(owner_id,thing_id,issue_id,title,description,status,starts_at,ends_at,is_sample) values($1,$2,$3,'Engineer visit','Sample appointment.','SCHEDULED',now()-interval '2 hours',now()-interval '1 hour',true)",
-      [owner, hob, issue.id],
+      "insert into bt.events(user_id,thing_id,issue_id,title,description,status,starts_at,ends_at,is_sample) values($1,$2,$3,'Engineer visit','Sample appointment.','SCHEDULED',now()-interval '2 hours',now()-interval '1 hour',true)",
+      [userId, hob, issue.id],
     );
     await db.query(
-      "insert into bt.events(owner_id,thing_id,title,status,starts_at,ends_at,is_sample) values($1,$2,'Annual service at the mechanic','SCHEDULED',now()-interval '2 days',now()-interval '47 hours',true)",
-      [owner, van],
+      "insert into bt.events(user_id,thing_id,title,status,starts_at,ends_at,is_sample) values($1,$2,'Annual service at the mechanic','SCHEDULED',now()-interval '2 days',now()-interval '47 hours',true)",
+      [userId, van],
     );
 
     for (const [kind, name] of [
@@ -192,9 +191,9 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
       ['UPGRADE', 'Replacement hob'],
     ])
       await db.query(
-        'insert into bt.purchasables(owner_id,thing_id,kind,name,description,merchant_url,is_sample) values($1,$2,$3,$4,$5,$6,true)',
+        'insert into bt.purchasables(user_id,thing_id,kind,name,description,merchant_url,is_sample) values($1,$2,$3,$4,$5,$6,true)',
         [
-          owner,
+          userId,
           hob,
           kind,
           name,
@@ -203,8 +202,8 @@ async function seedSamples(pool: pg.Pool, owner: string, registry: Registry) {
         ],
       );
 
-    await db.query('update bt.users set samples_added=true where id=$1', [owner]);
-    return usersDb.getOwnerProfile(db, owner);
+    await db.query('update bt.users set samples_added=true where id=$1', [userId]);
+    return usersDb.getUserProfile(db, userId);
   });
 }
 
@@ -217,8 +216,8 @@ interface Options {
 const sampleRoutes: FastifyPluginAsync<Options> = async (app, { pool, registry, events }) => {
   route(app, 'POST', '/api/profile:seed-samples', async (req) => {
     ensure(getEnv('ENABLE_SAMPLE_DATA'), 'Sample data is disabled', 'NOT_FOUND');
-    const result = await seedSamples(pool, req.ownerId, registry);
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const result = await seedSamples(pool, req.userId, registry);
+    events.publish({ type: 'data.changed', userId: req.userId });
     return result;
   });
 };

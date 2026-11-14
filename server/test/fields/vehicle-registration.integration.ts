@@ -1,4 +1,4 @@
-/** Checks registration-month migration keeps provenance, field addresses and owner decisions. */
+/** Checks registration-month migration keeps provenance, field addresses and user decisions. */
 
 import { getEnv } from '../../src/config.js';
 import assert from 'node:assert/strict';

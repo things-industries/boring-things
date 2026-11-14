@@ -1,4 +1,4 @@
-/** Owner-scoped Task lifecycle and derived Thing date endpoints. */
+/** User-scoped Task lifecycle and derived Thing date endpoints. */
 
 import type { FastifyPluginAsync } from 'fastify';
 import type pg from 'pg';
@@ -22,66 +22,66 @@ const taskRoutes: FastifyPluginAsync<Options> = async (
   app,
   { db, registry, events, taskScheduler },
 ) => {
-  route(app, 'GET', '/api/tasks', (req) => tasksDb.listTasks(db, req.ownerId, req.query));
+  route(app, 'GET', '/api/tasks', (req) => tasksDb.listTasks(db, req.userId, req.query));
   route(app, 'GET', '/api/tasks/{id}', (req) =>
-    tasksDb.getOwnedTaskOrThrow(db, req.ownerId, req.params.id),
+    tasksDb.getTaskForUserOrThrow(db, req.userId, req.params.id),
   );
   route(app, 'GET', '/api/thing-dates', (req) =>
-    listThingDates(db, req.ownerId, registry, req.query),
+    listThingDates(db, req.userId, registry, req.query),
   );
   route(app, 'POST', '/api/tasks', async (req, reply) => {
-    const task = await database.transaction(db, (tx) => writeTask(tx, req.ownerId, req.body));
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    const task = await database.transaction(db, (tx) => writeTask(tx, req.userId, req.body));
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(201).send(task);
   });
   route(app, 'PATCH', '/api/tasks/{id}', async (req) => {
     const task = await database.transaction(db, (tx) =>
-      writeTask(tx, req.ownerId, req.body, req.params.id),
+      writeTask(tx, req.userId, req.body, req.params.id),
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return task;
   });
   route(app, 'DELETE', '/api/tasks/{id}', async (req, reply) => {
     await database.transaction(db, async (tx) => {
-      const task = await tasksDb.getOwnedTaskOrThrow(tx, req.ownerId, req.params.id);
-      await thingsDb.getOwnedThingOrThrow(tx, req.ownerId, task.thingId, { lock: true });
-      await tasksDb.deleteTask(tx, req.ownerId, task.id);
-      await thingsDb.bumpThing(tx, req.ownerId, task.thingId);
+      const task = await tasksDb.getTaskForUserOrThrow(tx, req.userId, req.params.id);
+      await thingsDb.getThingForUserOrThrow(tx, req.userId, task.thingId, { lock: true });
+      await tasksDb.deleteTask(tx, req.userId, task.id);
+      await thingsDb.bumpThing(tx, req.userId, task.thingId);
     });
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return reply.code(204).send();
   });
   route(app, 'POST', '/api/tasks/{id}:accept', async (req) => {
     const change = await acceptTask(
       db,
-      req.ownerId,
+      req.userId,
       req.params.id,
       req.body.timeZone ?? 'UTC',
       registry,
       taskScheduler,
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return change;
   });
   route(app, 'POST', '/api/tasks/{id}:complete', async (req) => {
     const change = await database.transaction(db, (tx) =>
-      changeTask(tx, req.ownerId, req.params.id, 'complete', req.body.timeZone ?? 'UTC'),
+      changeTask(tx, req.userId, req.params.id, 'complete', req.body.timeZone ?? 'UTC'),
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return change;
   });
   route(app, 'POST', '/api/tasks/{id}:reopen', async (req) => {
     const change = await database.transaction(db, (tx) =>
-      reopenTask(tx, req.ownerId, req.params.id),
+      reopenTask(tx, req.userId, req.params.id),
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return change;
   });
   route(app, 'POST', '/api/tasks/{id}:close', async (req) => {
     const change = await database.transaction(db, (tx) =>
-      changeTask(tx, req.ownerId, req.params.id, 'close', req.body.timeZone ?? 'UTC'),
+      changeTask(tx, req.userId, req.params.id, 'close', req.body.timeZone ?? 'UTC'),
     );
-    events.publish({ type: 'data.changed', ownerId: req.ownerId });
+    events.publish({ type: 'data.changed', userId: req.userId });
     return change;
   });
 };

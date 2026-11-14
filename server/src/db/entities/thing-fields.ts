@@ -17,11 +17,11 @@ export function metadata(data: ThingData) {
 }
 
 // Loads all occurrences in one query and groups them for the application field interface.
-export async function load(db: Database, owner: string, thingId: string, data: ThingData) {
+export async function load(db: Database, userId: string, thingId: string, data: ThingData) {
   const fields = await database.rows<FieldRow>(
     db,
-    'select field_key,field_id,field_set_id,value,auto_populate,origin,source_refs,custom_definition from bt.thing_fields where thing_id=$1 and owner_id=$2 order by field_key',
-    [thingId, owner],
+    'select field_key,field_id,field_set_id,value,auto_populate,origin,source_refs,custom_definition from bt.thing_fields where thing_id=$1 and user_id=$2 order by field_key',
+    [thingId, userId],
   );
   const result: ThingData = {
     ...data,
@@ -48,7 +48,7 @@ export async function load(db: Database, owner: string, thingId: string, data: T
 }
 
 // Saves the validated field snapshot within the caller's Thing transaction.
-export async function save(db: Database, owner: string, thingId: string, data: ThingData) {
+export async function save(db: Database, userId: string, thingId: string, data: ThingData) {
   const fields: FieldRow[] = [];
   for (const [setId, entries] of Object.entries(data.values))
     for (const [fieldId, value] of Object.entries(entries))
@@ -82,19 +82,19 @@ export async function save(db: Database, owner: string, thingId: string, data: T
   }
   await database.execute(
     db,
-    'delete from bt.thing_fields where thing_id=$1 and owner_id=$2 and not(field_key=any($3::text[]))',
-    [thingId, owner, fields.map((field) => field.fieldKey)],
+    'delete from bt.thing_fields where thing_id=$1 and user_id=$2 and not(field_key=any($3::text[]))',
+    [thingId, userId, fields.map((field) => field.fieldKey)],
   );
   await database.execute(
     db,
-    `insert into bt.thing_fields(thing_id,owner_id,field_key,field_id,field_set_id,value,auto_populate,origin,source_refs,custom_definition)
+    `insert into bt.thing_fields(thing_id,user_id,field_key,field_id,field_set_id,value,auto_populate,origin,source_refs,custom_definition)
      select $1,$2,f."fieldKey",f."fieldId",f."fieldSetId",nullif(f.value,'null'::jsonb),f."autoPopulate",f.origin,f."sourceRefs",f."customDefinition"
      from jsonb_to_recordset($3::jsonb) as f("fieldKey" text,"fieldId" text,"fieldSetId" text,value jsonb,"autoPopulate" boolean,origin text,"sourceRefs" jsonb,"customDefinition" jsonb)
      on conflict(thing_id,field_key) do update set value=excluded.value,auto_populate=excluded.auto_populate,
        origin=excluded.origin,source_refs=excluded.source_refs,custom_definition=excluded.custom_definition`,
     [
       thingId,
-      owner,
+      userId,
       JSON.stringify(
         fields.map((field) => ({
           ...field,
@@ -105,13 +105,13 @@ export async function save(db: Database, owner: string, thingId: string, data: T
   );
 }
 
-// Retrieves the owner's category-valid identifiers for candidate matching.
-export async function identifiers(db: Database, owner: string, categoryId: string) {
+// Retrieves the user's category-valid identifiers for candidate matching.
+export async function identifiers(db: Database, userId: string, categoryId: string) {
   return database.rows<{ thingId: string; fieldId: string; value: Schema['Value'] }>(
     db,
     `select f.thing_id,f.field_id,f.value from bt.thing_fields f
      join bt.things t on t.id=f.thing_id join bt.field_definitions d on d.id=f.field_id
-     where f.owner_id=$1 and t.category_id=$2 and d.is_identifier and f.value is not null`,
-    [owner, categoryId],
+     where f.user_id=$1 and t.category_id=$2 and d.is_identifier and f.value is not null`,
+    [userId, categoryId],
   );
 }

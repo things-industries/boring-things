@@ -41,14 +41,14 @@ test('imports save valid proposals and optional citations while enforcing public
     const privateId = randomUUID(),
       publicId = randomUUID();
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status,source_url)
-      select $1,owner_id,'label.txt','text/plain',1,'fixture-private','Model AX1','COMPLETE',null from bt.things where id=$3
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,transcription,transcription_status,source_url)
+      select $1,user_id,'label.txt','text/plain',1,'fixture-private','Model AX1','COMPLETE',null from bt.things where id=$3
       union all select $2::uuid,null,'manual.txt','text/plain',1,'fixture-public','Manual AX1','COMPLETE','https://maker.example/manual'`,
       [privateId, publicId, thingId],
     );
     for (const id of [privateId, publicId])
       await env.pool.query(
-        'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) select id,$1,owner_id from bt.things where id=$2',
+        'insert into bt.thing_attachments(thing_id,attachment_id,user_id) select id,$1,user_id from bt.things where id=$2',
         [id, thingId],
       );
     const ai: ImportAi = env.importAi;
@@ -191,12 +191,12 @@ test('source changes skip affected suggestions and save independent recommendati
     const thingId = created.json<Schema['Thing']>().id,
       source = randomUUID();
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
-      select $1,owner_id,'policy.txt','text/plain',1,'fixture-policy','Renewal terms','COMPLETE' from bt.things where id=$2`,
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
+      select $1,user_id,'policy.txt','text/plain',1,'fixture-policy','Renewal terms','COMPLETE' from bt.things where id=$2`,
       [source, thingId],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) select id,$1,owner_id from bt.things where id=$2',
+      'insert into bt.thing_attachments(thing_id,attachment_id,user_id) select id,$1,user_id from bt.things where id=$2',
       [source, thingId],
     );
     env.importAi.suggestTasks = async () => {

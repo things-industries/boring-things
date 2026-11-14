@@ -28,18 +28,18 @@ export interface TaskScheduler {
 /** Chooses dates outside the transaction, then rechecks the suggestion before acceptance. */
 export async function acceptTask(
   pool: pg.Pool,
-  owner: string,
+  userId: string,
   id: string,
   timeZone: string,
   registry: Registry,
   scheduler?: TaskScheduler,
 ): Promise<Schema['TaskChange']> {
   const today = getLocalDate(new Date(), timeZone);
-  const task = await tasksDb.getOwnedTaskOrThrow(pool, owner, id);
+  const task = await tasksDb.getTaskForUserOrThrow(pool, userId, id);
   if (task.status !== 'SUGGESTED') return { task, nextTask: null };
   ensure(scheduler, 'Task scheduling is not configured', 'UNAVAILABLE');
-  const thing = await detail(pool, owner, task.thingId, registry, { redactSensitive: true });
-  const history = (await tasksDb.listTasks(pool, owner, { thingId: task.thingId, limit: 200 }))
+  const thing = await detail(pool, userId, task.thingId, registry, { redactSensitive: true });
+  const history = (await tasksDb.listTasks(pool, userId, { thingId: task.thingId, limit: 200 }))
     .items;
   let dates: TaskSchedule;
   try {
@@ -49,10 +49,10 @@ export async function acceptTask(
   }
   return database.transaction(pool, async (db) => {
     // The Thing lock serialises acceptance with issue resolution and occurrence edits.
-    const latestThing = await thingsDb.getOwnedThingOrThrow(db, owner, task.thingId, {
+    const latestThing = await thingsDb.getThingForUserOrThrow(db, userId, task.thingId, {
       lock: true,
     });
-    const current = await tasksDb.getOwnedTaskOrThrow(db, owner, id, true);
+    const current = await tasksDb.getTaskForUserOrThrow(db, userId, id, true);
     if (current.status !== 'SUGGESTED') return { task: current, nextTask: null };
     ensure(
       latestThing.revision === thing.revision,
@@ -66,7 +66,7 @@ export async function acceptTask(
     );
     const active = await saveTask(
       db,
-      owner,
+      userId,
       {
         ...current,
         ...dates,

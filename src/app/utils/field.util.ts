@@ -52,7 +52,7 @@ export function fieldInput(field: Schema['Field']): FieldInput {
   if (schema.format === 'country-code') {
     const value = field.value;
 
-    // Show legacy text in the editor until the owner chooses a country.
+    // Show legacy text in the editor until the user chooses a country.
     const options =
       typeof value === 'string' && value && !countryLabels.has(value)
         ? [...countryOptions, { value, label: value }]

@@ -24,7 +24,7 @@ export interface WorkflowCheckpoint {
 }
 export interface ImportRow {
   id: string;
-  ownerId: string;
+  userId: string;
   queuedAt: string | null;
   sourceWaitStartedAt: string | null;
   attachmentId: string | null;
@@ -60,19 +60,19 @@ function decode(job: ImportRow): ImportRow {
   };
 }
 
-// Reads only a request belonging to the authenticated owner.
-export async function getOwnedImportOrThrow(
+// Reads only a request belonging to the authenticated user.
+export async function getImportForUserOrThrow(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   options: { lock?: boolean } = {},
 ) {
   const [job] = await database.rows<ImportRow>(
     db,
     `select ${projection}, exists(select 1 from bt.things t where t.id=i.target_thing_id
-     and t.owner_id=i.owner_id and coalesce((t.data->>'categoryVersion')::integer,0)<>${importCategoryVersion}) as previous_category
-     from bt.imports i where i.id=$1 and i.owner_id=$2 ${options.lock ? 'for update of i' : ''}`,
-    [id, owner],
+     and t.user_id=i.user_id and coalesce((t.data->>'categoryVersion')::integer,0)<>${importCategoryVersion}) as previous_category
+     from bt.imports i where i.id=$1 and i.user_id=$2 ${options.lock ? 'for update of i' : ''}`,
+    [id, userId],
   );
   ensure(job, 'Import not found', 'NOT_FOUND');
   return decode(job);
@@ -119,7 +119,7 @@ export function projectImport(job: ImportRow): Schema['Import'] {
 // Creates one persisted request after validating every cited source and optional Thing.
 export async function createImportInTransaction(
   db: Database,
-  owner: string,
+  userId: string,
   attachmentIds: string[],
   thingId?: string,
   operation: 'IMPORT' | 'RECOMMENDATION' = 'IMPORT',
@@ -129,12 +129,12 @@ export async function createImportInTransaction(
     'Choose up to ten distinct Attachments',
   );
   for (const id of [...attachmentIds].sort())
-    await attachmentsDb.getOwnedAttachmentOrThrow(db, owner, id, { lock: true });
+    await attachmentsDb.getAttachmentForUserOrThrow(db, userId, id, { lock: true });
   let categoryVersion = 0;
   if (thingId) {
-    const thing = await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+    const thing = await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
     categoryVersion = thing.data.categoryVersion ?? 0;
-    await assertThingEditable(db, owner, thingId);
+    await assertThingEditable(db, userId, thingId);
   }
   ensure(operation !== 'RECOMMENDATION' || !!thingId, 'Recommendation requires a Thing');
   const status =
@@ -145,11 +145,11 @@ export async function createImportInTransaction(
         : 'QUEUED';
   const [job] = await database.rows<{ id: string }>(
     db,
-    `insert into bt.imports(owner_id,attachment_id,target_thing_id,status,operation,queued_at,source_wait_started_at,workflow)
+    `insert into bt.imports(user_id,attachment_id,target_thing_id,status,operation,queued_at,source_wait_started_at,workflow)
      values($1,$2,$3,$4,$5,case when $4='QUEUED' then now() end,
        case when $4='WAITING_FOR_TRANSCRIPTION' then now() end,$6) returning id`,
     [
-      owner,
+      userId,
       attachmentIds[0] ?? null,
       thingId ?? null,
       status,
@@ -160,23 +160,23 @@ export async function createImportInTransaction(
   for (const [position, id] of attachmentIds.entries())
     await database.execute(
       db,
-      'insert into bt.import_sources(import_id,attachment_id,owner_id,position) values($1,$2,$3,$4)',
-      [job.id, id, owner, position],
+      'insert into bt.import_sources(import_id,attachment_id,user_id,position) values($1,$2,$3,$4)',
+      [job.id, id, userId, position],
     );
-  if (thingId) await thingsDb.bumpThing(db, owner, thingId);
+  if (thingId) await thingsDb.bumpThing(db, userId, thingId);
   return { importId: job.id, thingId: thingId ?? null, status };
 }
 
-// Starts a request and all its owner checks in one transaction.
+// Starts a request and all its access checks in one transaction.
 export async function createImport(
   pool: pg.Pool,
-  owner: string,
+  userId: string,
   ids: string[],
   thingId?: string,
   operation: 'IMPORT' | 'RECOMMENDATION' = 'IMPORT',
 ) {
   return database.transaction(pool, (db) =>
-    createImportInTransaction(db, owner, ids, thingId, operation),
+    createImportInTransaction(db, userId, ids, thingId, operation),
   );
 }
 
@@ -184,23 +184,23 @@ export async function createImport(
 export async function listImportSources(db: Database, job: ImportRow) {
   const sources = await database.rows<{ attachmentId: string }>(
     db,
-    'select attachment_id from bt.import_sources where import_id=$1 and owner_id=$2 order by position',
-    [job.id, job.ownerId],
+    'select attachment_id from bt.import_sources where import_id=$1 and user_id=$2 order by position',
+    [job.id, job.userId],
   );
   return Promise.all(
     sources.map((source) =>
-      attachmentsDb.getOwnedAttachmentOrThrow(db, job.ownerId, source.attachmentId),
+      attachmentsDb.getAttachmentForUserOrThrow(db, job.userId, source.attachmentId),
     ),
   );
 }
 
 // Adds research evidence to the same request after its Thing link has been authorised.
 export async function addSource(db: Database, job: ImportRow, id: string) {
-  await attachmentsDb.getOwnedAttachmentOrThrow(db, job.ownerId, id);
+  await attachmentsDb.getAttachmentForUserOrThrow(db, job.userId, id);
   await database.execute(
     db,
-    'insert into bt.import_sources(import_id,attachment_id,owner_id,position) select $1,$2,$3,coalesce(max(position)+1,0) from bt.import_sources where import_id=$1 on conflict(import_id,attachment_id) do nothing',
-    [job.id, id, job.ownerId],
+    'insert into bt.import_sources(import_id,attachment_id,user_id,position) select $1,$2,$3,coalesce(max(position)+1,0) from bt.import_sources where import_id=$1 on conflict(import_id,attachment_id) do nothing',
+    [job.id, id, job.userId],
   );
 }
 
@@ -213,24 +213,24 @@ export async function saveWorkflow(
 ) {
   await database.execute(
     db,
-    'update bt.imports set workflow=$1,target_thing_id=$2,result_thing_ids=$3 where id=$4 and owner_id=$5',
-    [JSON.stringify(workflow), thingId, thingId ? [thingId] : [], job.id, job.ownerId],
+    'update bt.imports set workflow=$1,target_thing_id=$2,result_thing_ids=$3 where id=$4 and user_id=$5',
+    [JSON.stringify(workflow), thingId, thingId ? [thingId] : [], job.id, job.userId],
   );
-  if (thingId) await thingsDb.bumpThing(db, job.ownerId, thingId);
+  if (thingId) await thingsDb.bumpThing(db, job.userId, thingId);
 }
 
-// Finds an available display name without changing an owner's existing name.
+// Finds an available display name without changing a user's existing name.
 export async function findAvailableImportName(
   db: Database,
-  owner: string,
+  userId: string,
   id: string | null,
   name: string,
   model?: string,
 ) {
   const names = await database.rows<{ name: string }>(
     db,
-    'select name from bt.things where owner_id=$1 and ($2::uuid is null or id<>$2)',
-    [owner, id],
+    'select name from bt.things where user_id=$1 and ($2::uuid is null or id<>$2)',
+    [userId, id],
   );
   return importedName(
     name,
@@ -242,16 +242,16 @@ export async function findAvailableImportName(
 // Projects the latest associated request, preferring active work.
 export async function findThingImport(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   categoryVersion?: number,
 ) {
   const [job] = await database.rows<ImportRow>(
     db,
-    `select ${projection} from bt.imports i where i.owner_id=$1 and i.target_thing_id=$2
+    `select ${projection} from bt.imports i where i.user_id=$1 and i.target_thing_id=$2
      and ($4::integer is null or ${importCategoryVersion}=$4)
      order by (i.status=any($3::text[])) desc,i.created_at desc limit 1`,
-    [owner, id, activeStatuses, categoryVersion ?? null],
+    [userId, id, activeStatuses, categoryVersion ?? null],
   );
   return job ? projectImport(decode(job)) : null;
 }
@@ -259,11 +259,11 @@ export async function findThingImport(
 // Protects a target from competing requests while allowing queued manual edits.
 export async function assertThingEditable(
   db: Database,
-  owner: string,
+  userId: string,
   id: string,
   options: { allowQueued?: boolean } = {},
 ) {
-  const job = await findThingImport(db, owner, id);
+  const job = await findThingImport(db, userId, id);
   ensure(
     !job ||
       !activeStatuses.includes(job.status) ||
@@ -273,12 +273,12 @@ export async function assertThingEditable(
   );
 }
 
-// Removes work that has not started when the owner deletes its target.
-export async function removeQueuedThingImports(db: Database, owner: string, id: string) {
+// Removes work that has not started when the user deletes its target.
+export async function removeQueuedThingImports(db: Database, userId: string, id: string) {
   await database.execute(
     db,
-    "delete from bt.imports where owner_id=$1 and target_thing_id=$2 and started_at is null and status in ('QUEUED','WAITING_FOR_TRANSCRIPTION')",
-    [owner, id],
+    "delete from bt.imports where user_id=$1 and target_thing_id=$2 and started_at is null and status in ('QUEUED','WAITING_FOR_TRANSCRIPTION')",
+    [userId, id],
   );
 }
 
@@ -310,8 +310,8 @@ export async function markImportStarted(db: Database, job: ImportRow) {
   return !!(
     await database.execute(
       db,
-      "update bt.imports set status='EXTRACTING',started_at=coalesce(started_at,now()),finished_at=null,error=null where id=$1 and owner_id=$2 and status='QUEUED'",
-      [job.id, job.ownerId],
+      "update bt.imports set status='EXTRACTING',started_at=coalesce(started_at,now()),finished_at=null,error=null where id=$1 and user_id=$2 and status='QUEUED'",
+      [job.id, job.userId],
     )
   ).rowCount;
 }
@@ -319,28 +319,28 @@ export async function markImportStarted(db: Database, job: ImportRow) {
 // Records status transitions without marking failed saves as completed work.
 export async function setImportStatus(
   pool: pg.Pool,
-  owner: string,
+  userId: string,
   id: string,
   status: ImportRow['status'],
   error: string | null = null,
 ) {
   await database.transaction(pool, async (db) => {
-    const job = await getOwnedImportOrThrow(db, owner, id, { lock: true });
+    const job = await getImportForUserOrThrow(db, userId, id, { lock: true });
     await database.execute(
       db,
-      'update bt.imports set status=$1,error=$2,finished_at=case when $3 then now() else null end where id=$4 and owner_id=$5',
-      [status, error, ['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(status), id, owner],
+      'update bt.imports set status=$1,error=$2,finished_at=case when $3 then now() else null end where id=$4 and user_id=$5',
+      [status, error, ['COMPLETE', 'INCOMPLETE', 'FAILED'].includes(status), id, userId],
     );
-    if (job.targetThingId) await thingsDb.bumpThing(db, owner, job.targetThingId);
+    if (job.targetThingId) await thingsDb.bumpThing(db, userId, job.targetThingId);
   });
 }
 
 // Persists model and tool usage independently of a batch's application outcome.
 export async function recordImportUsage(db: Database, job: ImportRow, usage: Usage) {
-  await database.execute(db, 'update bt.imports set usage=$1 where id=$2 and owner_id=$3', [
+  await database.execute(db, 'update bt.imports set usage=$1 where id=$2 and user_id=$3', [
     JSON.stringify(usage),
     job.id,
-    job.ownerId,
+    job.userId,
   ]);
 }
 
@@ -369,7 +369,7 @@ export async function requeueImport(db: Database, job: ImportRow) {
   });
   await database.execute(
     db,
-    "update bt.imports set status='WAITING_FOR_TRANSCRIPTION',error=null,finished_at=null,queued_at=null,source_wait_started_at=now() where id=$1 and owner_id=$2",
-    [job.id, job.ownerId],
+    "update bt.imports set status='WAITING_FOR_TRANSCRIPTION',error=null,finished_at=null,queued_at=null,source_wait_started_at=now() where id=$1 and user_id=$2",
+    [job.id, job.userId],
   );
 }

@@ -1,6 +1,6 @@
 # Boring Things agent guide
 
-Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, owner-scoped records, manual editing, private attachments, progressive AI imports, cited discovery and active assistant chat.
+Boring Things helps people manage life administration around appliances, memberships, subscriptions, utilities and other Things. The current POC supports authenticated, user-scoped records, manual editing, private attachments, progressive AI imports, cited discovery and active assistant chat.
 
 ## Read when relevant
 
@@ -76,14 +76,14 @@ pnpm db:stop             # Stop local Supabase, preserving data
 - Prefix Angular CLI commands and wrappers with `CI=true` on the first attempt inside Codex's macOS sandbox. If CI mode changes the behaviour under test, request approval for an unsandboxed run.
 - Run `pnpm format` after editing, then `CI=true pnpm check` before handing off code changes. Formatting follows `.prettierrc.json` and `.prettierignore`; preserve unrelated working-tree changes. Add relevant integration/browser checks for persistence, authentication or user-journey changes. Documentation-only changes need formatting, path, command and diff checks.
 - Integration tests create and remove isolated temporary databases. They do not replace a live Logto redirect/login/logout check.
-- Tests or checks that can call metered OpenAI endpoints require explicit owner approval for each invocation and rerun. See [metered AI validation](docs/agents/agent-behaviour.md#metered-ai-validation) for the paid scripts and approval scope.
+- Tests or checks that can call metered OpenAI endpoints require explicit project maintainer approval for each invocation and rerun. See [metered AI validation](docs/agents/agent-behaviour.md#metered-ai-validation) for the paid scripts and approval scope.
 - Database reset deletes local data. Use it only when deletion is authorised. Ordinary startup and migration do not require a reset.
-- Registry seeds update definitions; incompatible changes need a migration for existing values. Sample Things are a separate, opt-in, owner-scoped action.
+- Registry seeds update definitions; incompatible changes need a migration for existing values. Sample Things are a separate, opt-in, user-scoped action.
 
 ## Product boundaries
 
 - A Thing has one category, selected field sets, set-scoped values, standalone/custom fields, pins, tags and linked attachments.
 - Preserve unknown values, provenance and user edits. Identifiers are strings; absence is distinct from `false`, `0` and empty text.
-- Tags currently organise an owner's Things. Household sharing is future work and requires an explicit access model.
+- Tags currently organise a user's Things. Household sharing is future work and requires an explicit access model.
 - Activity and purchasable samples must stay labelled; sample merchant actions stay disabled.
-- Imports, transcription and assistant messages run concurrently through independent serial processors under one persisted runner per database, protected by a session lock during deploy overlap, with authenticated Thing/conversation SSE. Chat infers requested actions from user messages and context; writes require owner-scoped validation and atomic retry receipts, with one Task, Event or Issue creation and one field-update batch per message. Chat-created Tasks start active. Conversation history has a list API; frontend integration remains pending. Do not describe distributed queues, checkout or repair booking as available. Verify hosted rollout separately from deployment configuration.
+- Imports, transcription and assistant messages run concurrently through independent serial processors under one persisted runner per database, protected by a session lock during deploy overlap, with authenticated Thing/conversation SSE. Chat infers requested actions from user messages and context; writes require user-scoped validation and atomic retry receipts, with one Task, Event or Issue creation and one field-update batch per message. Chat-created Tasks start active. Conversation history has a list API; frontend integration remains pending. Do not describe distributed queues, checkout or repair booking as available. Verify hosted rollout separately from deployment configuration.

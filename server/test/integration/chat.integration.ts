@@ -44,13 +44,13 @@ const request = (
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   path: string,
   body?: object,
-  owner = 'alice',
+  userSubject = 'alice',
 ) =>
   app.inject({
     method,
     url: '/api' + path,
     payload: body,
-    headers: { authorization: 'Bearer ' + owner },
+    headers: { authorization: 'Bearer ' + userSubject },
   });
 before(async () => {
   directory = await mkdtemp(tmpdir() + '/boring-chat-');
@@ -75,7 +75,7 @@ after(async () => {
   await admin.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
-async function setup(owner = 'alice') {
+async function setup(userSubject = 'alice') {
   const thing = (
     await request(
       'POST',
@@ -85,11 +85,11 @@ async function setup(owner = 'alice') {
         categoryId: 'appliances',
         addFieldSetIds: ['appliances.appliance'],
       },
-      owner,
+      userSubject,
     )
   ).json<Schema['Thing']>();
   assert.ok(thing.id);
-  const chat = (await request('POST', '/conversations', { thingId: thing.id }, owner)).json<
+  const chat = (await request('POST', '/conversations', { thingId: thing.id }, userSubject)).json<
     Schema['Conversation']
   >();
   return { thing, chat };
@@ -105,12 +105,12 @@ async function wait(id: string, statuses = ['COMPLETE', 'FAILED']) {
   throw new Error('Assistant timed out');
 }
 test('conversation summaries filter, paginate and omit message payloads', async () => {
-  const owner = 'history-' + randomUUID();
-  const { thing } = await setup(owner);
+  const userSubject = 'history-' + randomUUID();
+  const { thing } = await setup(userSubject);
   const createdAt = '2026-01-01T00:00:00.000Z';
   const latestAt = '2026-01-03T00:00:00.000Z';
   const make = async (thingId: string | null) => {
-    const response = await request('POST', '/conversations', { thingId }, owner);
+    const response = await request('POST', '/conversations', { thingId }, userSubject);
     assert.equal(response.statusCode, 201, response.body);
     return response.json<Schema['Conversation']>();
   };
@@ -134,8 +134,8 @@ test('conversation summaries filter, paginate and omit message payloads', async 
     );
   };
   await pool.query(
-    'update bt.conversations set created_at=$1 where owner_id=(select id from bt.users where auth_subject=$2)',
-    [createdAt, owner],
+    'update bt.conversations set created_at=$1 where user_id=(select id from bt.users where auth_subject=$2)',
+    [createdAt, userSubject],
   );
   await message(active.id, 'ASSISTANT', 'Earlier assistant text', 'COMPLETE', createdAt);
   await message(
@@ -158,8 +158,8 @@ test('conversation summaries filter, paginate and omit message payloads', async 
   await message(tied.id, 'USER', '  Short title  ', 'COMPLETE', createdAt);
   await message(tied.id, 'ASSISTANT', 'Failed reply', 'FAILED', latestAt);
   await message(global.id, 'ASSISTANT', 'No user message', 'COMPLETE', '2026-01-02T00:00:00.000Z');
-  const list = async (query = '', asOwner = owner) => {
-    const response = await request('GET', '/conversations?' + query, undefined, asOwner);
+  const list = async (query = '', asUser = userSubject) => {
+    const response = await request('GET', '/conversations?' + query, undefined, asUser);
     assert.equal(response.statusCode, 200, response.body);
     assert.equal(response.headers['cache-control'], 'private, no-store');
     return response.json<Schema['ConversationSummaryList']>();
@@ -235,13 +235,13 @@ test('conversation summaries filter, paginate and omit message payloads', async 
     'cursor=invalid',
   ])
     assert.equal(
-      (await request('GET', '/conversations?' + invalid, undefined, owner)).statusCode,
+      (await request('GET', '/conversations?' + invalid, undefined, userSubject)).statusCode,
       422,
       invalid,
     );
 });
 
-test('chat writes, retry receipts, multiple messages, owner isolation and deleted cards', async (t) => {
+test('chat writes, retry receipts, multiple messages, user isolation and deleted cards', async (t) => {
   const failures: unknown[] = [];
   t.mock.method(app.log, 'error', (failure: unknown) => {
     failures.push(failure);
@@ -410,7 +410,7 @@ test('single in-flight response, SSE snapshots and reconnect without duplicate t
   assert.match(snapshot, /The saved details are ready\./);
   assert.doesNotMatch(snapshot, /ready\.The/);
 });
-test('tool owner checks reject guessed Thing IDs', async () => {
+test('tool access checks reject guessed Thing IDs', async () => {
   const foreign = await setup('bob');
   const { chat } = await setup();
   ai.foreignThing = foreign.thing.id;
@@ -582,7 +582,7 @@ test('text-only questions return messages without intent or new activity', async
     assert.equal((await request('GET', `/${resource}?thingId=${thing.id}`)).json().items.length, 0);
 });
 // Moving tool schemas into tasks left application activity length checks unenforced.
-test('writes require a retrieved owned Thing and valid arguments', async () => {
+test('writes require a retrieved Thing accessible to the user and valid arguments', async () => {
   const { thing } = await setup();
   const foreign = await setup('bob');
   for (const input of [
@@ -945,7 +945,7 @@ test('chat creates active dated and recurring Tasks and reports invalid schedule
   assert.equal(tasks.find((task) => task.recurrence)?.recurrence?.unit, 'MONTH');
 });
 
-test('chat field batches add sets, update custom fields, clear values and reuse receipts after owner edits', async (t) => {
+test('chat field batches add sets, update custom fields, clear values and reuse receipts after user edits', async (t) => {
   const { thing, chat } = await setup();
   const controller = new AbortController();
   t.after(() => controller.abort());
@@ -1159,12 +1159,12 @@ test('chat field validation rejects unread Things, unknown fields, invalid value
         'error' in ((await execute('update_thing_fields', { ...patch, values })).output as object),
       );
     }
-    const owner = (await pool.query('select owner_id from bt.things where id=$1', [thing.id]))
-      .rows[0].owner_id;
+    const userSubject = (await pool.query('select user_id from bt.things where id=$1', [thing.id]))
+      .rows[0].user_id;
     const id = randomUUID();
     await pool.query(
-      "insert into bt.imports(id,owner_id,target_thing_id,status) values($1,$2,$3,'MAPPING')",
-      [id, owner, thing.id],
+      "insert into bt.imports(id,user_id,target_thing_id,status) values($1,$2,$3,'MAPPING')",
+      [id, userSubject, thing.id],
     );
     try {
       assert.deepEqual((await execute('update_thing_fields', patch)).output, {
@@ -1217,7 +1217,7 @@ test('chat field values keep retrieved attachment pages and research URLs while 
   ]);
   // Link the source without queuing an Import, which would block the requested field edit.
   await pool.query(
-    'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) select id,$2,owner_id from bt.things where id=$1',
+    'insert into bt.thing_attachments(thing_id,attachment_id,user_id) select id,$2,user_id from bt.things where id=$1',
     [thing.id, file.id],
   );
   const sourceUrl = 'https://manufacturer.example/specification';

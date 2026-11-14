@@ -218,12 +218,12 @@ test('recommendations read attachments, overlap, save successful work and retry 
     });
     const thingId = created.json<Schema['Thing']>().id;
     await env.pool.query(
-      `insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
-       select $1,owner_id,'manual.txt','text/plain',1,'fixture-manual','Wash the tray. Model X1 tray.','COMPLETE' from bt.things where id=$2`,
+      `insert into bt.attachments(id,user_id,filename,media_type,byte_size,storage_key,transcription,transcription_status)
+       select $1,user_id,'manual.txt','text/plain',1,'fixture-manual','Wash the tray. Model X1 tray.','COMPLETE' from bt.things where id=$2`,
       [source, thingId],
     );
     await env.pool.query(
-      'insert into bt.thing_attachments(attachment_id,thing_id,owner_id) select $1,id,owner_id from bt.things where id=$2',
+      'insert into bt.thing_attachments(attachment_id,thing_id,user_id) select $1,id,user_id from bt.things where id=$2',
       [source, thingId],
     );
     const submitted = await request(`/api/things/${thingId}:recommend`);

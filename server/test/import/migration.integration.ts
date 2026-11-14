@@ -1,5 +1,7 @@
 /** Checks the demo Import upgrade with unfinished jobs and existing Things and Attachments. */
 
+// cspell:words fkey
+
 import { getEnv } from '../../src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,11 +25,13 @@ test('Import migrations replace unfinished demo jobs and retain Things and Attac
     for (const file of files.filter((file) => file < sourceMigration))
       await pool.query(await readFile(new URL(file, directory), 'utf8'));
 
-    const owner = randomUUID();
+    const userId = randomUUID();
     const thing = randomUUID();
+    const otherUserId = randomUUID();
+    const sharedAttachment = randomUUID();
     const attachment = randomUUID();
     await pool.query('insert into bt.users(id,auth_subject) values($1,$2)', [
-      owner,
+      userId,
       'demo-upgrade',
     ]);
     await pool.query(
@@ -37,27 +41,27 @@ test('Import migrations replace unfinished demo jobs and retain Things and Attac
       "insert into bt.things(id,owner_id,category_id,name,data) values($1,$2,'test-category','Test item',$3)",
       [
         thing,
-        owner,
+        userId,
         JSON.stringify({ setIds: [], standalone: { test: { value: 'old value' } }, pins: [] }),
       ],
     );
     await pool.query(
       "insert into bt.attachments(id,owner_id,filename,media_type,byte_size,storage_key,transcription,transcription_status) values($1,$2,'test.txt','text/plain',4,'test','Source text','COMPLETE')",
-      [attachment, owner],
+      [attachment, userId],
     );
     await pool.query(
       'insert into bt.thing_attachments(thing_id,attachment_id,owner_id) values($1,$2,$3)',
-      [thing, attachment, owner],
+      [thing, attachment, userId],
     );
     for (const status of ['QUEUED', 'MAPPING', 'INCOMPLETE', 'FAILED', 'COMPLETE']) {
       const importId = randomUUID();
       await pool.query(
         'insert into bt.imports(id,owner_id,attachment_id,target_thing_id,status) values($1,$2,$3,$4,$5)',
-        [importId, owner, attachment, thing, status],
+        [importId, userId, attachment, thing, status],
       );
       await pool.query(
         "insert into bt.import_targets(import_id,candidate_id,thing_id,owner_id,is_new) values($1,'candidate',$2,$3,false)",
-        [importId, thing, owner],
+        [importId, thing, userId],
       );
     }
 
@@ -74,15 +78,42 @@ test('Import migrations replace unfinished demo jobs and retain Things and Attac
       { id: thing, name: 'Test item', data: { setIds: [], pins: [] } },
     ]);
     assert.deepEqual(
-      (await pool.query('select id,owner_id,transcription from bt.attachments')).rows,
-      [{ id: attachment, owner_id: owner, transcription: 'Source text' }],
+      (await pool.query('select id,user_id,transcription from bt.attachments')).rows,
+      [{ id: attachment, user_id: userId, transcription: 'Source text' }],
     );
     assert.deepEqual((await pool.query('select * from bt.thing_attachments')).rows, [
-      { thing_id: thing, attachment_id: attachment, owner_id: owner },
+      { thing_id: thing, attachment_id: attachment, user_id: userId },
+    ]);
+    const {
+      rows: [job],
+    } = await pool.query<{ id: string }>(
+      "insert into bt.imports(user_id,target_thing_id,status) values($1,$2,'QUEUED') returning id",
+      [userId, thing],
+    );
+    await pool.query("insert into bt.users(id,auth_subject) values($1,'other-user')", [
+      otherUserId,
     ]);
     await pool.query(
-      "insert into bt.imports(owner_id,target_thing_id,status) values($1,$2,'QUEUED')",
-      [owner, thing],
+      "insert into bt.attachments(id,filename,media_type,byte_size,storage_key,source_url) values($1,'shared.txt','text/plain',4,'shared','https://example.test/manual')",
+      [sharedAttachment],
+    );
+    await pool.query(
+      'insert into bt.import_sources(import_id,attachment_id,user_id,position) values($1,$2,$3,0)',
+      [job.id, sharedAttachment, userId],
+    );
+    await assert.rejects(
+      pool.query("insert into bt.imports(user_id,attachment_id,status) values($1,$2,'QUEUED')", [
+        otherUserId,
+        attachment,
+      ]),
+      { code: '23514', message: 'Attachment belongs to another user' },
+    );
+    await assert.rejects(
+      pool.query("insert into bt.imports(user_id,target_thing_id,status) values($1,$2,'QUEUED')", [
+        otherUserId,
+        thing,
+      ]),
+      { code: '23503', constraint: 'imports_target_thing_id_user_id_fkey' },
     );
   } finally {
     await pool.end();

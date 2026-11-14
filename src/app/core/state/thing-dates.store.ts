@@ -1,4 +1,4 @@
-/** Upcoming Thing date fields loaded through the owner-scoped date API. */
+/** Upcoming Thing date fields loaded through the user-scoped date API. */
 
 import { inject } from '@angular/core';
 import { patchState, signalStore, withFeature, withProps, withState } from '@ngrx/signals';

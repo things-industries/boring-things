@@ -11,24 +11,24 @@ import { ensure } from './errors.js';
 /** Writes an Issue and closes its linked work when resolved. */
 export async function writeIssue(
   db: Database,
-  owner: string,
+  userId: string,
   input: Schema['IssueInput'] | Schema['IssuePatch'],
   id?: string,
 ): Promise<Schema['IssueChange']> {
   let existing = id
-    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: false })
+    ? await activityDb.getActivityForUserOrThrow(db, userId, 'issues', id, { lock: false })
     : undefined;
   const thingId = existing?.thingId ?? ('thingId' in input ? input.thingId : undefined);
   ensure(thingId, 'Thing is required');
-  await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+  await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
   if (id)
-    existing = await activityDb.getOwnedActivityOrThrow(db, owner, 'issues', id, { lock: true });
+    existing = await activityDb.getActivityForUserOrThrow(db, userId, 'issues', id, { lock: true });
   const title = (input.title ?? existing?.title ?? '').trim();
   ensure(title, 'Title cannot be blank');
   const status = input.status ?? existing?.status ?? 'OPEN';
   const item = await activityDb.saveIssue(
     db,
-    owner,
+    userId,
     {
       id: 'id' in input ? input.id : undefined,
       thingId,
@@ -42,26 +42,26 @@ export async function writeIssue(
     },
     id,
   );
-  const tasks = status === 'RESOLVED' ? await tasksDb.closeTasksForIssue(db, owner, item.id) : [];
+  const tasks = status === 'RESOLVED' ? await tasksDb.closeTasksForIssue(db, userId, item.id) : [];
   const events =
-    status === 'RESOLVED' ? await activityDb.closeEventsForIssue(db, owner, item.id) : [];
-  await thingsDb.bumpThing(db, owner, thingId);
+    status === 'RESOLVED' ? await activityDb.closeEventsForIssue(db, userId, item.id) : [];
+  await thingsDb.bumpThing(db, userId, thingId);
   return { issue: item, tasks, events };
 }
 export async function writeEvent(
   db: Database,
-  owner: string,
+  userId: string,
   input: Schema['EventInput'] | Schema['EventPatch'],
   id?: string,
 ): Promise<Schema['Event']> {
   let existing = id
-    ? await activityDb.getOwnedActivityOrThrow(db, owner, 'events', id, { lock: false })
+    ? await activityDb.getActivityForUserOrThrow(db, userId, 'events', id, { lock: false })
     : undefined;
   const thingId = existing?.thingId ?? ('thingId' in input ? input.thingId : undefined);
   ensure(thingId, 'Thing is required');
-  await thingsDb.getOwnedThingOrThrow(db, owner, thingId, { lock: true });
+  await thingsDb.getThingForUserOrThrow(db, userId, thingId, { lock: true });
   if (id)
-    existing = await activityDb.getOwnedActivityOrThrow(db, owner, 'events', id, { lock: true });
+    existing = await activityDb.getActivityForUserOrThrow(db, userId, 'events', id, { lock: true });
   const title = (input.title ?? existing?.title ?? '').trim();
   ensure(title, 'Title cannot be blank');
   const status = existing?.status ?? ('status' in input ? input.status : undefined) ?? 'SCHEDULED';
@@ -75,10 +75,10 @@ export async function writeEvent(
     !endsAt || (startsAt && Date.parse(endsAt) >= Date.parse(startsAt)),
     'End time must follow the timed start',
   );
-  await validateIssueLink(db, owner, thingId, issueId, status === 'CLOSED');
+  await validateIssueLink(db, userId, thingId, issueId, status === 'CLOSED');
   const item = await activityDb.saveEvent(
     db,
-    owner,
+    userId,
     {
       id: 'id' in input ? input.id : undefined,
       thingId,
@@ -94,6 +94,6 @@ export async function writeEvent(
     },
     id,
   );
-  await thingsDb.bumpThing(db, owner, thingId);
+  await thingsDb.bumpThing(db, userId, thingId);
   return item;
 }
