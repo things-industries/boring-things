@@ -83,10 +83,4 @@ The runner uses a dedicated PostgreSQL connection and a session advisory lock. I
 
 Supabase database backups contain Storage metadata, not object bytes. Establish a separate object backup/export and test restoration of the database and matching files before relying on this deployment for irreplaceable attachments. Monitor database connections, storage usage, egress, job failures and `/health`. Proxied downloads also consume Render outbound bandwidth.
 
-### Deploying the user ID migration
-
-Before merging the release containing `20261114113128_user_ids.sql`, turn off auto-deploy for the service and schedule downtime. During that window, manually deploy the passing `main` commit with the migration. The old process may return errors once the migration commits, until Render switches traffic to the new release.
-
-Before restoring auto-deploy, sign in and verify an existing Thing, its attachments and chat history. The previous build requires the old column names. If the migration commits and startup fails, fix and redeploy a build that uses `user_id`. Reverting the application alone requires reversing the schema rename first.
-
 References: [Render deploys](https://render.com/docs/deploys), [Blueprint specification](https://render.com/docs/blueprint-spec), [Supabase migrations](https://supabase.com/docs/guides/deployment/database-migrations), [S3 authentication](https://supabase.com/docs/guides/storage/s3/authentication), [database connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [backups](https://supabase.com/docs/guides/platform/backups).

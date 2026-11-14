@@ -37,7 +37,7 @@ Default CI runs `pnpm test:migrations`, `pnpm check`, `pnpm test:integration` an
 
 ## Record preferences
 
-When Andrew gives a preference in the form "do this instead of that", write it down so it is followed and repeated in future work:
+When project maintainers give a preference in the form "do this instead of that", write it down so it is followed and repeated in future work:
 
 - Frontend code style: `src/AGENTS.md`
 - Backend code style: `server/AGENTS.md`
